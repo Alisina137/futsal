@@ -25,6 +25,8 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Server owns roles, authorization, password hashing, session state, and future subscription/booking authority.
 - Phase 1 registration supports Player and Venue Owner identities only; owner venue/trial setup remains Phase 2.
 - Temporary offline state preserves cached/local state and never pretends a server write succeeded.
+- pnpm dependency build scripts are explicitly allowlisted only for required packages (`argon2`, `esbuild`).
+- TypeScript 6 path mapping avoids deprecated `baseUrl`.
 
 ## Current implementation phase
 Phase 1 — Product Foundation and Localization.
@@ -38,10 +40,20 @@ Phase 1 — Product Foundation and Localization.
 - Base users/roles/sessions/audit schema exists.
 
 ## Verification status
-- Static repository checks completed: JSON manifests parse, required Phase 1 files are present, localization resources include Dari/Pashto/English, and a basic secret-marker scan is clean.
-- TypeScript parser-only verification reported no syntax diagnostics.
-- Full dependency installation, workspace typecheck, tests, Expo export, and API build are pending because the implementation environment cannot resolve the npm registry.
-- Database migration and live mobile/API integration additionally require a configured `DATABASE_URL`, strong token secret, and reachable API environment.
+### Passed on user environment — 2026-10-03
+- `pnpm install` succeeded with pnpm 12.5.1.
+- Workspace TypeScript verification passed for config, contracts, database, design tokens, localization, mobile, and API.
+- Localization tests passed: 3/3.
+- Shared contract tests passed: 2/2.
+- API authentication tests passed: 3/3.
+- API production build passed with tsup.
+- Android Expo export passed.
+
+### Still requires environment integration
+- Apply the Phase 1 Drizzle migration to the configured PostgreSQL/Neon database.
+- Start the real API with a strong `ACCESS_TOKEN_SECRET`.
+- Run the mobile application against the reachable API URL.
+- Smoke-test real registration, login, refresh, protected-route access, logout, language persistence, and offline/reconnect behavior on device.
 
 ## Known external requirements
 - PostgreSQL/Neon `DATABASE_URL`.
@@ -49,7 +61,9 @@ Phase 1 — Product Foundation and Localization.
 - Reachable `EXPO_PUBLIC_API_URL` for a physical Expo Go device.
 
 ## Latest source baseline
-GitHub repository `Alisina137/futsal` was empty before Phase 1. Phase 1 is delivered on branch `phase-01-foundation-localization`.
+Phase 1 is implemented on branch `phase-01-foundation-localization`. Automated typecheck/test/build verification passes on the user's Windows environment.
 
 ## Next phase
 Phase 2 — Venue Owner Onboarding, Trial and Venue Model.
+
+Do not begin Phase 2 until Phase 1 database migration and live API/mobile smoke verification are complete.
