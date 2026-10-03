@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "LeagueKick",
+    "slug": "leaguekick",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "leaguekick",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.leaguekick.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#087A5B"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.leaguekick.app",
+      "supportsTablet": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
