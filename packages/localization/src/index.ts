@@ -1,10 +1,10 @@
 export type LanguageCode = "fa-AF" | "ps-AF" | "en";
 
-export const languages: ReadonlyArray<{ code: LanguageCode; nativeName: string; rtl: boolean }> = [
+export const languages = [
   { code: "fa-AF", nativeName: "دری", rtl: true },
   { code: "ps-AF", nativeName: "پښتو", rtl: true },
   { code: "en", nativeName: "English", rtl: false },
-];
+] as const satisfies ReadonlyArray<{ code: LanguageCode; nativeName: string; rtl: boolean }>;
 
 export const defaultLanguage: LanguageCode = "fa-AF";
 
