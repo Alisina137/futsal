@@ -9,12 +9,11 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
-      "@leaguekick/contracts": ["packages/contracts/src/index.ts"],
-      "@leaguekick/database": ["packages/database/src/index.ts"],
-      "@leaguekick/localization": ["packages/localization/src/index.ts"],
-      "@leaguekick/design-tokens": ["packages/design-tokens/src/index.ts"]
+      "@leaguekick/contracts": ["./packages/contracts/src/index.ts"],
+      "@leaguekick/database": ["./packages/database/src/index.ts"],
+      "@leaguekick/localization": ["./packages/localization/src/index.ts"],
+      "@leaguekick/design-tokens": ["./packages/design-tokens/src/index.ts"]
     }
   }
 }
