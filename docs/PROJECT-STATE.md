@@ -22,56 +22,135 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Structured monolith; no microservices.
 - Mobile product is the primary customer interface.
 - Runtime API connections use `DATABASE_URL` (Neon pooled recommended); Drizzle migrations prefer `DATABASE_DIRECT_URL`.
-- Server owns roles, owner authorization, venue ownership, trial state, and subscription entitlement.
-- One Venue Owner account maps to at most one venue by database constraint and server workflow.
-- Venue identity is locked after trial/subscription activation so an account cannot repurpose one trial for another physical venue.
-- Physical trial eligibility is keyed from normalized venue name + province + city + address and enforced with a unique server-side claim.
-- Trial duration is exactly 72 hours from the server-issued start timestamp.
-- Temporary network failure preserves cached/local session and language state and never grants server-owned entitlement.
+- Server owns roles, venue ownership, trial/subscription entitlement, availability authority, booking price, booking status, and cancellation authority.
+- One Venue Owner account maps to at most one venue.
+- Venue identity is locked after trial/subscription activation so one trial cannot be repurposed to another physical venue.
+- Premium trial duration is exactly 72 hours from the server-issued start timestamp.
+- Venue availability is derived from opening hours and active playing areas minus active bookings and owner blocks.
+- Online and manual bookings share the same occupancy source and conflict path.
+- Real PostgreSQL writes serialize per playing area using `pg_advisory_xact_lock(hashtext(area_id))`, then re-check overlap in the same transaction.
+- PENDING and CONFIRMED bookings consume capacity; CANCELLED bookings do not.
+- Booking idempotency is scoped to the actor plus client idempotency key.
+- Confirmed booking price/currency and cancellation policy are snapshotted at creation.
+- Cached availability is orientation-only. The client disables booking unless a live server response is available and the device is online.
+- Afghanistan launch venue timezone defaults to `Asia/Kabul`; timestamps are persisted as UTC instants.
 
 ## Current implementation phase
-Phase 2 — Venue Owner Onboarding, Trial and Venue Model.
+Phase 3 — Availability, Schedule and Booking.
 
-## Phase 2 delivered
-1. Venue/domain schema: venues, playing areas, seven-day opening hours, subscriptions, and physical-venue trial claims.
-2. Shared Zod contracts for owner onboarding and subscription state.
-3. Owner-only API routes for onboarding status, save/update, preview, and explicit trial activation.
-4. Database and server enforcement for one owner account → one venue.
-5. Exact 72-hour Premium trial with server-side expiry and idempotent start behavior.
-6. Duplicate physical-venue trial prevention and post-trial venue-identity locking.
-7. Eight-step Android-first owner onboarding flow: account → identity/contact → location → playing area → hours → duration/price → preview/save → start trial.
-8. Venue-owner dashboard with setup/subscription/trial states.
-9. Dari, Pashto, and English localization for the complete Phase 2 experience.
-10. Focused contract, localization, and API tests added for Phase 2 rules.
+## Phase 1 status
+Automated verification previously passed:
+- workspace TypeScript checks,
+- localization/contracts/auth tests,
+- API build,
+- Android Expo export,
+- canonical Drizzle Phase 1 migration.
 
-## Verification status
-### Previously verified Phase 1
-- Workspace TypeScript checks passed.
-- Phase 1 localization/contracts/auth tests passed.
-- API build passed.
-- Android Expo export passed.
-- Canonical Drizzle Phase 1 migration was generated and committed.
+## Phase 2 status
+Status: **Implemented; final local verification still pending.**
 
-### Phase 2
-Status: **Implemented; local verification and migration generation pending.**
+The canonical Phase 2 migration is committed:
+- `0001_clean_retro_girl`.
+
+Phase 2 delivered:
+- one-owner-account → one-venue model,
+- eight-step owner onboarding,
+- playing areas and opening hours,
+- explicit 72-hour Premium trial,
+- duplicate physical-venue trial prevention,
+- server-side trial expiry,
+- owner dashboard,
+- trilingual RTL owner UX.
+
+## Phase 3 delivered
+1. Booking/domain model:
+   - booking mode, status and source,
+   - venue blocks,
+   - online/manual bookings,
+   - actor-scoped idempotency,
+   - persisted AFN confirmation price,
+   - cancellation-policy snapshot.
+2. Live availability:
+   - public venue list/detail,
+   - operating-hours slot generation,
+   - active playing-area pricing,
+   - bookings/blocks subtracted from inventory,
+   - server freshness timestamp.
+3. Atomic conflict protection:
+   - transaction-scoped PostgreSQL advisory lock per playing area,
+   - overlap revalidation after lock,
+   - one winner for concurrent attempts,
+   - same conflict path for online, manual and blocked occupancy.
+4. Player booking:
+   - venue discovery,
+   - date availability,
+   - live booking confirmation,
+   - My Bookings,
+   - player cancellation,
+   - friendly slot-conflict recovery.
+5. Offline resilience:
+   - availability cache in AsyncStorage,
+   - cached/stale labeling,
+   - cached slots cannot confirm offline,
+   - reconnect triggers fresh availability reload.
+6. Owner operations:
+   - daily schedule,
+   - online/manual booking visibility,
+   - manual phone/walk-in booking,
+   - block/unblock time,
+   - owner booking cancellation.
+7. Subscription/suspension behavior:
+   - only Trial/Active ACTIVE venues expose live public inventory,
+   - expired/cancelled/suspended venues cannot accept new bookings,
+   - owner schedule reads remain available for continuity.
+8. Security/reliability:
+   - player and owner role checks,
+   - owner tenant isolation,
+   - write rate limits,
+   - real-date validation,
+   - direct area→venue lookup,
+   - retry-safe booking replay.
+9. Localization:
+   - player discovery/booking flow localized in Dari, Pashto and English,
+   - owner schedule/manual/block flow localized in Dari, Pashto and English.
+10. Verification coverage added:
+   - exactly-one-winner booking race,
+   - manual-vs-online conflict,
+   - block removes inventory,
+   - cancellation releases inventory,
+   - expired trial hides inventory,
+   - same-actor idempotent retry,
+   - owner tenant isolation,
+   - invalid date rejection,
+   - static Phase 3 resilience verifier.
+
+## Phase 3 verification status
+Status: **Implemented; migration generation, local verification, and live smoke testing pending.**
 
 Run on the user environment:
-- `pnpm db:generate` to generate the Phase 2 migration from the updated Drizzle schema.
-- Review and commit the generated `0001_*.sql` and `drizzle/meta/0001_snapshot.json`.
-- `pnpm db:migrate` against Neon direct connection.
-- `pnpm verify`.
-- Live smoke test: owner registration → eight-step setup → save → explicit trial start → dashboard trial state → reload/session persistence.
+1. `pnpm db:generate`
+   - expected next migration: `0002_*.sql`,
+   - review and commit the generated migration and `drizzle/meta/0002_snapshot.json`.
+2. `pnpm verify`
+   - now begins with `pnpm verify:phase3`,
+   - then workspace typecheck, tests, API build, Android Expo export.
+3. `pnpm db:migrate` against `DATABASE_DIRECT_URL`.
+4. Run API + mobile and complete `docs/PHASE-03-TEST-PLAN.md`.
+
+Do not call Phase 3 fully verified until these steps pass.
 
 ## Known external requirements
 - Neon pooled `DATABASE_URL` for API runtime.
-- Neon direct `DATABASE_DIRECT_URL` for migrations.
+- Neon direct `DATABASE_DIRECT_URL` for Drizzle migration work.
 - Strong `ACCESS_TOKEN_SECRET`.
 - Reachable `EXPO_PUBLIC_API_URL` for the physical Android device.
 
 ## Latest source baseline
-Phase 2 implementation is on branch `phase-02-venue-owner-onboarding`. Task PRs are merged into that branch; `main` remains untouched.
+Phase 3 implementation branch: `phase-03-availability-booking`.
+
+Task PRs are merged into the phase branch. `main` remains untouched.
 
 ## Next phase
-Phase 3 — Venue Availability and Player Booking Foundation.
+Phase 4 — Promotions, Feed and Notifications.
 
-Do not mark Phase 2 fully verified until the generated migration, `pnpm verify`, and live owner onboarding/trial smoke test pass on the configured Neon + Expo environment.
+Phase 4 should not be marked complete until the Phase 3 migration and verification baseline are green.
