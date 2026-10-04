@@ -303,6 +303,14 @@ export class DrizzleBookingRepository implements BookingRepository {
     catch { return null; }
   }
 
+  async getBookingByIdempotency(createdByUserId: string, idempotencyKey: string) {
+    const [row] = await this.db.select({ id: bookings.id }).from(bookings).where(and(
+      eq(bookings.createdByUserId, createdByUserId),
+      eq(bookings.idempotencyKey, idempotencyKey),
+    )).limit(1);
+    return row ? this.projectBooking(row.id) : null;
+  }
+
   private bookingProjectionQuery() {
     return this.db.select({
       id: bookings.id,
