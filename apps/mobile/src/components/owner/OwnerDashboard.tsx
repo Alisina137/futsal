@@ -86,6 +86,13 @@ export function OwnerDashboard() {
     </Card> : null}
 
     {status?.venue ? <Card>
+      <AppText variant="bodyLarge" weight="bold">{t("competition.ownerTitle")}</AppText>
+      <AppText muted>{t("competition.ownerQuickAccessBody")}</AppText>
+      <Button label={t("competition.ownerTitle")} onPress={() => router.push("/owner/competitions")} />
+      <Button label={t("competition.create")} onPress={() => router.push("/owner/competitions/create")} variant="secondary" />
+    </Card> : null}
+
+    {status?.venue ? <Card>
       <AppText variant="bodyLarge" weight="bold">{t("ownerMarketing.marketingTitle")}</AppText>
       <AppText muted>{t("ownerMarketing.marketingBody")}</AppText>
       <Button label={t("ownerMarketing.promotionsTitle")} onPress={() => router.push("/owner/promotions")} />
