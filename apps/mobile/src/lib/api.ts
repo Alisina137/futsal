@@ -19,7 +19,9 @@ import type {
   NotificationDto,
   NotificationPreferences,
   NotificationPreferencesUpdate,
+  PromotionCreateRequest,
   PromotionDto,
+  VenuePostCreateRequest,
   VenuePostDto,
 } from "@leaguekick/contracts";
 
@@ -92,6 +94,20 @@ export const ownerApi = {
     request<void>(`/api/v1/owner/blocks/${blockId}`, { method: "DELETE" }, accessToken),
   cancelBooking: (accessToken: string, bookingId: string, reason?: string) =>
     request<{ booking: BookingDto }>(`/api/v1/owner/bookings/${bookingId}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason ?? "" }) }, accessToken),
+  promotions: (accessToken: string) =>
+    request<{ promotions: PromotionDto[]; generatedAt: string }>("/api/v1/owner/promotions", {}, accessToken),
+  createPromotion: (accessToken: string, input: PromotionCreateRequest) =>
+    request<{ promotion: PromotionDto }>("/api/v1/owner/promotions", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  closePromotion: (accessToken: string, promotionId: string) =>
+    request<{ promotion: PromotionDto }>(`/api/v1/owner/promotions/${promotionId}/close`, { method: "POST" }, accessToken),
+  posts: (accessToken: string) =>
+    request<{ posts: VenuePostDto[]; generatedAt: string }>("/api/v1/owner/posts", {}, accessToken),
+  createPost: (accessToken: string, input: VenuePostCreateRequest) =>
+    request<{ post: VenuePostDto }>("/api/v1/owner/posts", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  publishPost: (accessToken: string, postId: string) =>
+    request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}/publish`, { method: "POST" }, accessToken),
+  unpublishPost: (accessToken: string, postId: string) =>
+    request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}/unpublish`, { method: "POST" }, accessToken),
 };
 
 
