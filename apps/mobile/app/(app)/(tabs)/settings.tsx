@@ -1,5 +1,8 @@
-import { colors, spacing } from "@leaguekick/design-tokens";
-import { View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { colors, radius, spacing } from "@leaguekick/design-tokens";
+import { router } from "expo-router";
+import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 import { LanguagePicker } from "../../../src/components/LanguagePicker";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -7,6 +10,317 @@ import { Card } from "../../../src/components/ui/Card";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
+import { useNetwork } from "../../../src/providers/NetworkProvider";
 
-export default function SettingsScreen(){const {session,signOut}=useAuth();const {t,isRTL}=useLocale();const user=session?.user;return <Screen><AppText variant="title" weight="bold">{t("settings.title")}</AppText><Card><AppText weight="semibold">{t("settings.language")}</AppText><LanguagePicker/></Card><Card><AppText weight="semibold">{t("settings.account")}</AppText><View style={{gap:spacing.sm}}><Row label={t("auth.displayName")} value={user?.displayName??""} rtl={isRTL}/><Row label={t("auth.phone")} value={user?.phone??""} rtl={isRTL} ltr/><Row label={t("home.accountRole")} value={user?.roles.map((r)=>t(`role.${r}` as never)).join(", ")??""} rtl={isRTL}/></View></Card><Card><AppText weight="semibold">{t("settings.security")}</AppText><AppText muted>{t("settings.sessionProtected")}</AppText></Card><Button variant="secondary" label={t("common.signOut")} onPress={()=>void signOut()} style={{borderColor:colors.danger}}/></Screen>}
-function Row({label,value,rtl,ltr=false}:{label:string;value:string;rtl:boolean;ltr?:boolean}){return <View style={{flexDirection:rtl?"row-reverse":"row",justifyContent:"space-between",gap:spacing.md}}><AppText muted>{label}</AppText><AppText weight="medium" forceLtr={ltr}>{value}</AppText></View>}
+type IconName = keyof typeof Ionicons.glyphMap;
+
+export default function SettingsScreen(){
+  const {session,signOut,revalidate}=useAuth();
+  const {t,isRTL,language}=useLocale();
+  const {isOnline,hasResolved}=useNetwork();
+  const [refreshing,setRefreshing]=useState(false);
+  const user=session?.user;
+  const owner=user?.roles.includes("VENUE_OWNER")??false;
+
+  const initials=useMemo(()=>{
+    const words=(user?.displayName??"LK").trim().split(/\s+/).filter(Boolean);
+    return words.slice(0,2).map((word)=>word[0]?.toUpperCase()??"").join("")||"LK";
+  },[user?.displayName]);
+
+  const roles=user?.roles.map((role)=>t(`role.${role}` as never)).join(", ")??"";
+  const networkLabel=!hasResolved
+    ?t("settings.connectionChecking")
+    :isOnline
+      ?t("settings.connectionOnline")
+      :t("settings.connectionOffline");
+
+  async function refreshSession(){
+    setRefreshing(true);
+    try{await revalidate();}
+    finally{setRefreshing(false);}
+  }
+
+  const direction={flexDirection:isRTL?"row-reverse":"row"} as const;
+
+  return <Screen>
+    <View style={{gap:spacing.xs}}>
+      <AppText variant="title" weight="bold">{t("settings.title")}</AppText>
+      <AppText muted>{t("settings.subtitle")}</AppText>
+    </View>
+
+    <View style={styles.hero}>
+      <View style={[styles.heroTop,direction]}>
+        <View style={styles.avatar}>
+          <AppText variant="bodyLarge" weight="bold" style={{color:colors.primary}}>{initials}</AppText>
+        </View>
+        <View style={styles.heroIdentity}>
+          <AppText variant="bodyLarge" weight="bold" style={{color:"#FFFFFF"}}>{user?.displayName??""}</AppText>
+          <AppText style={{color:"#DCE8FF"}} forceLtr>{user?.phone??""}</AppText>
+          {user?.username?<AppText variant="caption" style={{color:"#DCE8FF"}} forceLtr>@{user.username}</AppText>:null}
+        </View>
+      </View>
+
+      <View style={[styles.heroBadges,direction]}>
+        <StatusBadge
+          icon={isOnline?"wifi":"cloud-offline-outline"}
+          label={networkLabel}
+          positive={isOnline}
+        />
+        <StatusBadge
+          icon="shield-checkmark-outline"
+          label={t("settings.secureSession")}
+          positive
+        />
+      </View>
+    </View>
+
+    <SectionHeader icon="person-circle-outline" title={t("settings.account")} subtitle={t("settings.accountSubtitle")} rtl={isRTL}/>
+    <Card style={styles.sectionCard}>
+      <InfoRow icon="person-outline" label={t("auth.displayName")} value={user?.displayName??""} rtl={isRTL}/>
+      <Divider/>
+      <InfoRow icon="call-outline" label={t("auth.phone")} value={user?.phone??""} rtl={isRTL} ltr/>
+      {user?.username?<><Divider/><InfoRow icon="at-outline" label={t("settings.username")} value={`@${user.username}`} rtl={isRTL} ltr/></>:null}
+      <Divider/>
+      <InfoRow icon="id-card-outline" label={t("home.accountRole")} value={roles} rtl={isRTL}/>
+    </Card>
+
+    <SectionHeader icon="options-outline" title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")} rtl={isRTL}/>
+    <Card style={styles.sectionCard}>
+      <View style={{gap:spacing.md}}>
+        <View style={[styles.settingLabelRow,direction]}>
+          <IconBox name="language-outline"/>
+          <View style={{flex:1,gap:2}}>
+            <AppText weight="semibold">{t("settings.language")}</AppText>
+            <AppText variant="caption" muted>{t("settings.languageBody")}</AppText>
+          </View>
+          <AppText variant="caption" weight="semibold" style={{color:colors.primary}} forceLtr>{language}</AppText>
+        </View>
+        <LanguagePicker/>
+      </View>
+      <Divider/>
+      <ActionRow
+        icon="notifications-outline"
+        title={t("settings.notifications")}
+        subtitle={t("settings.notificationsBody")}
+        rtl={isRTL}
+        onPress={()=>router.push("/notifications")}
+      />
+    </Card>
+
+    <SectionHeader icon="shield-checkmark-outline" title={t("settings.security")} subtitle={t("settings.securitySubtitle")} rtl={isRTL}/>
+    <Card style={styles.sectionCard}>
+      <View style={[styles.securityBanner,direction]}>
+        <IconBox name="lock-closed-outline" positive/>
+        <View style={{flex:1,gap:2}}>
+          <AppText weight="semibold">{t("settings.sessionProtectedTitle")}</AppText>
+          <AppText variant="caption" muted>{t("settings.sessionProtected")}</AppText>
+        </View>
+      </View>
+      <Button
+        label={t("settings.refreshSession")}
+        onPress={()=>void refreshSession()}
+        loading={refreshing}
+        variant="secondary"
+        icon={<Ionicons name="refresh-outline" size={19} color={colors.primary}/>}
+      />
+    </Card>
+
+    <SectionHeader icon="flash-outline" title={t("settings.quickAccess")} subtitle={t("settings.quickAccessSubtitle")} rtl={isRTL}/>
+    <Card style={styles.sectionCard}>
+      {owner?<>
+        <ActionRow icon="time-outline" title={t("schedule.title")} subtitle={t("settings.ownerScheduleBody")} rtl={isRTL} onPress={()=>router.push("/schedule")}/>
+        <Divider/>
+        <ActionRow icon="pricetag-outline" title={t("ownerMarketing.promotionsTitle")} subtitle={t("settings.ownerPromotionsBody")} rtl={isRTL} onPress={()=>router.push("/owner/promotions")}/>
+        <Divider/>
+        <ActionRow icon="megaphone-outline" title={t("ownerMarketing.postsTitle")} subtitle={t("settings.ownerPostsBody")} rtl={isRTL} onPress={()=>router.push("/owner/posts")}/>
+      </>:<>
+        <ActionRow icon="business-outline" title={t("booking.venuesTitle")} subtitle={t("settings.playerVenuesBody")} rtl={isRTL} onPress={()=>router.push("/venues")}/>
+        <Divider/>
+        <ActionRow icon="calendar-outline" title={t("booking.myBookings")} subtitle={t("settings.playerBookingsBody")} rtl={isRTL} onPress={()=>router.push("/bookings")}/>
+        <Divider/>
+        <ActionRow icon="newspaper-outline" title={t("feed.title")} subtitle={t("settings.playerFeedBody")} rtl={isRTL} onPress={()=>router.push("/feed")}/>
+      </>}
+    </Card>
+
+    <SectionHeader icon="information-circle-outline" title={t("settings.app")} subtitle={t("settings.appSubtitle")} rtl={isRTL}/>
+    <Card style={styles.sectionCard}>
+      <InfoRow icon="football-outline" label={t("settings.product")} value={t("common.appName")} rtl={isRTL}/>
+      <Divider/>
+      <InfoRow icon="globe-outline" label={t("settings.region")} value={t("settings.regionValue")} rtl={isRTL}/>
+      <Divider/>
+      <InfoRow icon="cloud-outline" label={t("home.connection")} value={networkLabel} rtl={isRTL}/>
+    </Card>
+
+    <Card style={styles.signOutCard}>
+      <View style={{gap:spacing.xs}}>
+        <AppText weight="semibold">{t("settings.signOutTitle")}</AppText>
+        <AppText variant="caption" muted>{t("settings.signOutBody")}</AppText>
+      </View>
+      <Button
+        variant="danger"
+        label={t("common.signOut")}
+        onPress={()=>void signOut()}
+        icon={<Ionicons name="log-out-outline" size={19} color="#FFFFFF"/>}
+      />
+    </Card>
+  </Screen>;
+}
+
+function SectionHeader({icon,title,subtitle,rtl}:{icon:IconName;title:string;subtitle:string;rtl:boolean}){
+  return <View style={[styles.sectionHeader,{flexDirection:rtl?"row-reverse":"row"}]}>
+    <IconBox name={icon}/>
+    <View style={{flex:1,gap:2}}>
+      <AppText variant="bodyLarge" weight="bold">{title}</AppText>
+      <AppText variant="caption" muted>{subtitle}</AppText>
+    </View>
+  </View>;
+}
+
+function ActionRow({icon,title,subtitle,rtl,onPress}:{icon:IconName;title:string;subtitle:string;rtl:boolean;onPress:()=>void}){
+  return <Pressable
+    accessibilityRole="button"
+    onPress={onPress}
+    style={({pressed})=>[
+      styles.actionRow,
+      {flexDirection:rtl?"row-reverse":"row"},
+      pressed&&styles.actionPressed,
+    ]}
+  >
+    <IconBox name={icon}/>
+    <View style={{flex:1,gap:2}}>
+      <AppText weight="semibold">{title}</AppText>
+      <AppText variant="caption" muted>{subtitle}</AppText>
+    </View>
+    <Ionicons name={rtl?"chevron-back":"chevron-forward"} size={20} color={colors.textMuted}/>
+  </Pressable>;
+}
+
+function InfoRow({icon,label,value,rtl,ltr=false}:{icon:IconName;label:string;value:string;rtl:boolean;ltr?:boolean}){
+  return <View style={[styles.infoRow,{flexDirection:rtl?"row-reverse":"row"}]}>
+    <IconBox name={icon}/>
+    <View style={{flex:1,gap:2}}>
+      <AppText variant="caption" muted>{label}</AppText>
+      <AppText weight="semibold" forceLtr={ltr}>{value}</AppText>
+    </View>
+  </View>;
+}
+
+function IconBox({name,positive=false}:{name:IconName;positive?:boolean}){
+  return <View style={[styles.iconBox,positive&&styles.iconBoxPositive]}>
+    <Ionicons name={name} size={20} color={positive?colors.success:colors.primary}/>
+  </View>;
+}
+
+function StatusBadge({icon,label,positive}:{icon:IconName;label:string;positive:boolean}){
+  return <View style={styles.statusBadge}>
+    <Ionicons name={icon} size={15} color={positive?"#CFF8DD":"#FFFFFF"}/>
+    <AppText variant="caption" weight="semibold" style={{color:"#FFFFFF"}}>{label}</AppText>
+  </View>;
+}
+
+function Divider(){
+  return <View style={styles.divider}/>;
+}
+
+const styles=StyleSheet.create({
+  hero:{
+    backgroundColor:colors.primary,
+    borderRadius:radius.lg,
+    padding:spacing.lg,
+    gap:spacing.lg,
+    shadowColor:colors.primary,
+    shadowOpacity:0.2,
+    shadowRadius:16,
+    shadowOffset:{width:0,height:7},
+    elevation:5,
+  },
+  heroTop:{
+    alignItems:"center",
+    gap:spacing.md,
+  },
+  avatar:{
+    width:64,
+    height:64,
+    borderRadius:32,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:"#FFFFFF",
+    borderWidth:3,
+    borderColor:"#BDD3FF",
+  },
+  heroIdentity:{
+    flex:1,
+    gap:2,
+  },
+  heroBadges:{
+    flexWrap:"wrap",
+    gap:spacing.sm,
+  },
+  statusBadge:{
+    minHeight:32,
+    borderRadius:radius.pill,
+    paddingHorizontal:spacing.md,
+    flexDirection:"row",
+    gap:spacing.xs,
+    alignItems:"center",
+    backgroundColor:"rgba(255,255,255,0.14)",
+    borderWidth:1,
+    borderColor:"rgba(255,255,255,0.18)",
+  },
+  sectionHeader:{
+    alignItems:"center",
+    gap:spacing.sm,
+    marginTop:spacing.sm,
+  },
+  sectionCard:{
+    gap:0,
+    padding:spacing.md,
+  },
+  settingLabelRow:{
+    alignItems:"center",
+    gap:spacing.sm,
+  },
+  infoRow:{
+    minHeight:58,
+    alignItems:"center",
+    gap:spacing.sm,
+    paddingVertical:spacing.xs,
+  },
+  actionRow:{
+    minHeight:66,
+    alignItems:"center",
+    gap:spacing.sm,
+    paddingVertical:spacing.sm,
+    borderRadius:radius.md,
+  },
+  actionPressed:{
+    backgroundColor:colors.surfaceMuted,
+  },
+  iconBox:{
+    width:40,
+    height:40,
+    borderRadius:radius.md,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:colors.primarySoft,
+  },
+  iconBoxPositive:{
+    backgroundColor:"#E9F8EF",
+  },
+  divider:{
+    height:1,
+    backgroundColor:colors.border,
+    marginVertical:spacing.xs,
+    marginStart:52,
+  },
+  securityBanner:{
+    alignItems:"center",
+    gap:spacing.sm,
+    paddingBottom:spacing.md,
+  },
+  signOutCard:{
+    borderColor:"#F5C5C1",
+    backgroundColor:"#FFF9F8",
+    gap:spacing.md,
+  },
+});
