@@ -8,7 +8,7 @@ type Props = {
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost" | "danger";
   icon?: ReactNode;
   style?: ViewStyle;
 };
@@ -31,17 +31,29 @@ export function Button({
     onPress={onPress}
     style={({ pressed }) => [
       styles.base,
-      variant === "primary" ? styles.primary : variant === "secondary" ? styles.secondary : styles.ghost,
-      pressed && !blocked && (variant === "primary" ? styles.primaryPressed : styles.pressed),
+      variant === "primary"
+        ? styles.primary
+        : variant === "secondary"
+          ? styles.secondary
+          : variant === "danger"
+            ? styles.danger
+            : styles.ghost,
+      pressed && !blocked && (
+        variant === "primary"
+          ? styles.primaryPressed
+          : variant === "danger"
+            ? styles.dangerPressed
+            : styles.pressed
+      ),
       blocked && styles.disabled,
       style,
     ]}
   >
     {loading
-      ? <ActivityIndicator color={variant === "primary" ? "#FFFFFF" : colors.primary} />
+      ? <ActivityIndicator color={variant === "primary" || variant === "danger" ? "#FFFFFF" : colors.primary} />
       : <>
         {icon}
-        <AppText weight="semibold" style={{ color: variant === "primary" ? "#FFFFFF" : colors.primary }}>
+        <AppText weight="semibold" style={{ color: variant === "primary" || variant === "danger" ? "#FFFFFF" : colors.primary }}>
           {label}
         </AppText>
       </>}
@@ -74,6 +86,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: "#B9CEF8",
+  },
+  danger: {
+    backgroundColor: colors.danger,
+    shadowColor: colors.danger,
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  dangerPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
   },
   ghost: {
     backgroundColor: "transparent",
