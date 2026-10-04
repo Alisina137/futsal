@@ -1,3 +1,4 @@
+import type { CompetitionCreateRequest } from "@leaguekick/contracts";
 import { describe, expect, it } from "vitest";
 import { CompetitionService } from "../src/modules/competition/competition.service.js";
 import { FakeCompetitionRepository } from "./fake-competition-repository.js";
@@ -15,7 +16,7 @@ function setup(options?:{subscriptionStatus?:"TRIAL"|"ACTIVE"|"EXPIRED"|"CANCELL
   return {repository,service,ownerId,venue};
 }
 
-function input(overrides:Partial<Parameters<CompetitionService["create"]>[1]>={}){
+function input(overrides:Partial<CompetitionCreateRequest>={}):CompetitionCreateRequest{
   return {
     name:"Kabul League",
     description:"City futsal league",
@@ -25,7 +26,7 @@ function input(overrides:Partial<Parameters<CompetitionService["create"]>[1]>={}
     winPoints:3,
     drawPoints:1,
     lossPoints:0,
-    tieBreakOrder:["POINTS","GOAL_DIFFERENCE","GOALS_FOR"] as const,
+    tieBreakOrder:["POINTS","GOAL_DIFFERENCE","GOALS_FOR"],
     groupCount:null,
     qualifiersPerGroup:null,
     startsAt:null,

@@ -569,7 +569,7 @@ export type CompetitionMatchStatus = z.infer<typeof competitionMatchStatusSchema
 export const competitionTieBreakSchema = z.enum(["POINTS", "GOAL_DIFFERENCE", "GOALS_FOR", "HEAD_TO_HEAD", "ADMIN"]);
 export type CompetitionTieBreak = z.infer<typeof competitionTieBreakSchema>;
 
-export const competitionCreateRequestSchema = z.object({
+const competitionConfigSchema = z.object({
   name: z.string().trim().min(2).max(140),
   description: z.string().trim().max(2_000).optional().or(z.literal("")),
   format: competitionFormatSchema,
@@ -583,7 +583,12 @@ export const competitionCreateRequestSchema = z.object({
   qualifiersPerGroup: z.number().int().min(1).max(8).nullable().optional(),
   startsAt: isoDateTimeSchema.nullable().optional(),
   endsAt: isoDateTimeSchema.nullable().optional(),
-}).superRefine((value, ctx) => {
+});
+
+function validateCompetitionConfig(
+  value: Partial<z.infer<typeof competitionConfigSchema>>,
+  ctx: z.RefinementCtx,
+) {
   if (value.startsAt && value.endsAt && Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
     ctx.addIssue({ code: "custom", path: ["endsAt"], message: "Competition end must be after start." });
   }
@@ -591,10 +596,12 @@ export const competitionCreateRequestSchema = z.object({
     if (!value.groupCount) ctx.addIssue({ code: "custom", path: ["groupCount"], message: "Group count is required." });
     if (!value.qualifiersPerGroup) ctx.addIssue({ code: "custom", path: ["qualifiersPerGroup"], message: "Qualifiers per group is required." });
   }
-});
+}
+
+export const competitionCreateRequestSchema = competitionConfigSchema.superRefine(validateCompetitionConfig);
 export type CompetitionCreateRequest = z.infer<typeof competitionCreateRequestSchema>;
 
-export const competitionUpdateRequestSchema = competitionCreateRequestSchema.partial();
+export const competitionUpdateRequestSchema = competitionConfigSchema.partial().superRefine(validateCompetitionConfig);
 export type CompetitionUpdateRequest = z.infer<typeof competitionUpdateRequestSchema>;
 
 export const competitionStateRequestSchema = z.object({

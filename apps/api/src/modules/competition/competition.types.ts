@@ -2,7 +2,9 @@ import type {
   CompetitionDto,
   CompetitionFormat,
   CompetitionListItemDto,
+  CompetitionMatchDto,
   CompetitionRegistrationStatus,
+  PlayerMatchStatInput,
   CompetitionTieBreak,
   TeamPrivacy,
 } from "@leaguekick/contracts";
@@ -99,6 +101,9 @@ export interface CompetitionRepository {
     status?: CompetitionRecord["status"];
     published?: boolean;
     publishedAt?: Date | null;
+    materialPlayStartedAt?: Date | null;
+    completedAt?: Date | null;
+    archivedAt?: Date | null;
     updatedAt: Date;
   }): Promise<CompetitionDto | null>;
   getTeam(teamId: string): Promise<{ id: string; name: string; managerUserId: string; status: "ACTIVE" | "ARCHIVED" } | null>;
@@ -124,6 +129,25 @@ export interface CompetitionRepository {
   withdrawTeam(input: { competitionId: string; teamId: string; managerUserId: string; now: Date }): Promise<void>;
   countAcceptedTeams(competitionId: string): Promise<number>;
   hasCompletedMatch(competitionId: string): Promise<boolean>;
+  replaceLeagueFixtures(competitionId: string, fixtures: Array<{
+    roundNumber: number;
+    slotNumber: number;
+    homeTeamId: string;
+    awayTeamId: string;
+  }>, now: Date): Promise<void>;
+  getMatch(matchId: string): Promise<CompetitionMatchDto | null>;
+  saveMatchResult(input: {
+    competitionId: string;
+    matchId: string;
+    actorUserId: string;
+    homeScore: number;
+    awayScore: number;
+    winnerTeamId: string | null;
+    correctionReason: string | null;
+    playerStats: PlayerMatchStatInput[];
+    now: Date;
+  }): Promise<CompetitionMatchDto>;
+  allRequiredMatchesCompleted(competitionId: string): Promise<boolean>;
   scheduleMatchAtomic(input: {
     competitionId: string;
     matchId: string;

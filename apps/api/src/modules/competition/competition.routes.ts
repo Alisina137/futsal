@@ -4,6 +4,8 @@ import { z } from "zod";
 import {
   competitionCreateRequestSchema,
   competitionInviteTeamRequestSchema,
+  competitionMatchResultRequestSchema,
+  competitionMatchScheduleRequestSchema,
   competitionRegistrationDecisionRequestSchema,
   competitionRegistrationResponseRequestSchema,
   competitionStateRequestSchema,
@@ -108,6 +110,24 @@ export function createOwnerCompetitionRouter(service: CompetitionService, tokens
       const competitionId = idSchema.parse(request.params.competitionId);
       const input = competitionStateRequestSchema.parse(request.body);
       response.json({ competition: await service.changeState(request.auth!.userId, competitionId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.put("/competitions/:competitionId/matches/:matchId/schedule", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      const matchId = idSchema.parse(request.params.matchId);
+      const input = competitionMatchScheduleRequestSchema.parse(request.body);
+      response.json({ competition: await service.scheduleMatch(request.auth!.userId, competitionId, matchId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.put("/competitions/:competitionId/matches/:matchId/result", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      const matchId = idSchema.parse(request.params.matchId);
+      const input = competitionMatchResultRequestSchema.parse(request.body);
+      response.json(await service.enterResult(request.auth!.userId, competitionId, matchId, input));
     } catch (error) { next(error); }
   });
 

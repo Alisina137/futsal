@@ -121,6 +121,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
     const next={...row};
     if(input.status!==undefined)next.status=input.status;
     if(input.published!==undefined)next.published=input.published;
+    if(input.materialPlayStartedAt!==undefined)next.materialPlayStartedAt=input.materialPlayStartedAt;
     this.competitions.set(competitionId,next);
     return this.dto(competitionId);
   }
@@ -162,6 +163,64 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   async hasCompletedMatch(competitionId:string){
     return [...this.matches.values()].some((item)=>item.competitionId===competitionId&&["COMPLETED","CORRECTED"].includes(item.status));
   }
+  async replaceLeagueFixtures(
+    competitionId:string,
+    fixtures:Array<{roundNumber:number;slotNumber:number;homeTeamId:string;awayTeamId:string}>,
+    _now:Date,
+  ){
+    for(const [id,match] of this.matches){
+      if(match.competitionId===competitionId)this.matches.delete(id);
+    }
+    for(const fixture of fixtures){
+      const id=randomUUID();
+      this.matches.set(id,{
+        id,
+        competitionId,
+        groupId:null,
+        groupName:null,
+        stage:"LEAGUE",
+        roundNumber:fixture.roundNumber,
+        slotNumber:fixture.slotNumber,
+        homeTeamId:fixture.homeTeamId,
+        homeTeamName:this.teams.get(fixture.homeTeamId)?.name??null,
+        awayTeamId:fixture.awayTeamId,
+        awayTeamName:this.teams.get(fixture.awayTeamId)?.name??null,
+        areaId:null,
+        areaName:null,
+        startsAt:null,
+        endsAt:null,
+        status:"UNSCHEDULED",
+        homeScore:null,
+        awayScore:null,
+        winnerTeamId:null,
+        nextMatchId:null,
+        nextMatchSide:null,
+      });
+    }
+  }
+
+  async getMatch(matchId:string){return this.matches.get(matchId)??null;}
+
+  async saveMatchResult(input:Parameters<CompetitionRepository["saveMatchResult"]>[0]){
+    const match=this.matches.get(input.matchId);
+    if(!match)throw new Error("MATCH_NOT_FOUND");
+    const corrected=match.status==="COMPLETED"||match.status==="CORRECTED";
+    const next:CompetitionMatchDto={
+      ...match,
+      status:corrected?"CORRECTED":"COMPLETED",
+      homeScore:input.homeScore,
+      awayScore:input.awayScore,
+      winnerTeamId:input.winnerTeamId,
+    };
+    this.matches.set(input.matchId,next);
+    return next;
+  }
+
+  async allRequiredMatchesCompleted(competitionId:string){
+    const matches=[...this.matches.values()].filter((item)=>item.competitionId===competitionId);
+    return matches.length>0&&matches.every((item)=>item.status==="COMPLETED"||item.status==="CORRECTED");
+  }
+
   async scheduleMatchAtomic(input:Parameters<CompetitionRepository["scheduleMatchAtomic"]>[0]){
     const match=this.matches.get(input.matchId);
     if(!match||match.competitionId!==input.competitionId)throw new Error("MATCH_NOT_FOUND");
