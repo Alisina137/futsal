@@ -111,7 +111,7 @@ export class NotificationService implements NotificationPublisher {
     title: string;
     followerUserIds: string[];
   }) {
-    await Promise.all(input.followerUserIds.map((userId) => this.publish({
+    await Promise.allSettled(input.followerUserIds.map((userId) => this.publish({
       userId,
       type: "SLOT_PROMOTION",
       title: input.title,
@@ -129,7 +129,7 @@ export class NotificationService implements NotificationPublisher {
     venueName: string;
     followerUserIds: string[];
   }) {
-    await Promise.all(input.followerUserIds.map((userId) => this.publish({
+    await Promise.allSettled(input.followerUserIds.map((userId) => this.publish({
       userId,
       type: "VENUE_POST",
       title: input.venueName,

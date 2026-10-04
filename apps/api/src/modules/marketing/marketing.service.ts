@@ -88,13 +88,17 @@ export class MarketingService {
       createdAt: this.now(),
     });
     if (input.notifyFollowers) {
-      await this.notifications?.promotionPublished({
-        venueId: venue.id,
-        promotionId: promotion.id,
-        venueName: venue.name,
-        title: promotion.title,
-        followerUserIds: await this.repository.listFollowerUserIds(venue.id),
-      });
+      try {
+        await this.notifications?.promotionPublished({
+          venueId: venue.id,
+          promotionId: promotion.id,
+          venueName: venue.name,
+          title: promotion.title,
+          followerUserIds: await this.repository.listFollowerUserIds(venue.id),
+        });
+      } catch {
+        // Publishing the promotion succeeds even if follower notification fan-out fails.
+      }
     }
     return promotion;
   }
@@ -149,12 +153,16 @@ export class MarketingService {
       publishedAt: this.now(),
     });
     if (input.notifyFollowers) {
-      await this.notifications?.venuePostPublished({
-        venueId: venue.id,
-        postId: post.id,
-        venueName: venue.name,
-        followerUserIds: await this.repository.listFollowerUserIds(venue.id),
-      });
+      try {
+        await this.notifications?.venuePostPublished({
+          venueId: venue.id,
+          postId: post.id,
+          venueName: venue.name,
+          followerUserIds: await this.repository.listFollowerUserIds(venue.id),
+        });
+      } catch {
+        // Publishing the post succeeds even if follower notification fan-out fails.
+      }
     }
     return post;
   }
@@ -165,8 +173,20 @@ export class MarketingService {
   }
 
   async setPostPublished(ownerUserId: string, postId: string, published: boolean) {
-    if (published) await this.ownerVenue(ownerUserId, true);
-    else await this.ownerVenue(ownerUserId, false);
+    const venue = await this.ownerVenue(ownerUserId, published);
+    if (published) {
+      await this.repository.refreshPromotionStates(this.now());
+      const current = await this.repository.getPost(postId);
+      if (!current || current.venueId !== venue.id) {
+        throw errors.forbidden("POST_ACCESS_DENIED", "You cannot manage this post.");
+      }
+      if (current.ctaType === "PROMOTION" && current.ctaTargetId) {
+        const promotion = await this.repository.getPromotion(current.ctaTargetId);
+        if (!promotion || promotion.venueId !== venue.id || promotion.status !== "ACTIVE") {
+          throw errors.badRequest("INVALID_POST_CTA", "This post links to a promotion that is no longer active.");
+        }
+      }
+    }
 
     const post = await this.repository.setPostStatus(
       ownerUserId,
