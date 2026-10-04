@@ -334,8 +334,8 @@ export class DrizzleMarketingRepository implements MarketingRepository {
   async listPublishedPosts(venueIds?: string[]) {
     if (venueIds && venueIds.length === 0) return [];
     const condition = venueIds
-      ? and(eq(venuePosts.status, "PUBLISHED"), inArray(venuePosts.venueId, venueIds))
-      : eq(venuePosts.status, "PUBLISHED");
+      ? and(eq(venuePosts.status, "PUBLISHED"), eq(venues.status, "ACTIVE"), inArray(venuePosts.venueId, venueIds))
+      : and(eq(venuePosts.status, "PUBLISHED"), eq(venues.status, "ACTIVE"));
     const rows = await this.postProjection().where(condition).orderBy(desc(venuePosts.publishedAt));
     return rows.map(postDto);
   }
@@ -351,12 +351,20 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       .where(and(eq(venuePosts.id, postId), eq(venues.ownerUserId, ownerUserId)))
       .limit(1);
     if (!owned) return null;
-    await this.db.update(venuePosts).set({
-      status,
-      unpublishedAt: status === "UNPUBLISHED" ? changedAt : null,
-      publishedAt: status === "PUBLISHED" ? changedAt : undefined,
-      updatedAt: changedAt,
-    }).where(eq(venuePosts.id, postId));
+    if (status === "PUBLISHED") {
+      await this.db.update(venuePosts).set({
+        status,
+        unpublishedAt: null,
+        publishedAt: changedAt,
+        updatedAt: changedAt,
+      }).where(eq(venuePosts.id, postId));
+    } else {
+      await this.db.update(venuePosts).set({
+        status,
+        unpublishedAt: changedAt,
+        updatedAt: changedAt,
+      }).where(eq(venuePosts.id, postId));
+    }
     return this.getPost(postId);
   }
 
