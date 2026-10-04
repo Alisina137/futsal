@@ -106,7 +106,7 @@ Do not retroactively label Phase 3 fully verified until the full command is conf
 - Owner immediate publish/unpublish.
 - Text + optional HTTPS image URL.
 - Structured CTA: none, venue or active promotion.
-- Competition CTA intentionally remains unavailable until the competition phase.
+- Competition CTA was deferred in Phase 4 and is now enabled by the Phase 6 public competition routes.
 - Re-publishing rejects stale promotion CTA.
 - Public feed/post reads exclude suspended venue content.
 
@@ -154,29 +154,7 @@ Do not retroactively label Phase 3 fully verified until the full command is conf
 - `docs/PHASE-04-TEST-PLAN.md`.
 
 ## Phase 4 verification status
-Status: **Implemented; migration generation, local verification and live device testing pending.**
-
-Run on the user environment:
-
-1. Pull `phase-04-promotions-feed-notifications`.
-2. Generate migration:
-   ```powershell
-   pnpm db:generate
-   ```
-   Expected: `0003_*.sql` and `meta/0003_snapshot.json`.
-3. Run:
-   ```powershell
-   pnpm verify
-   ```
-   This now runs Phase 4 verifier, Phase 3 verifier, workspace typechecks, tests and builds.
-4. Apply:
-   ```powershell
-   pnpm db:migrate
-   ```
-5. Complete `docs/PHASE-04-TEST-PLAN.md`.
-6. Commit/push the generated Phase 4 Drizzle migration.
-
-Do not call Phase 4 fully verified until those steps pass.
+Status: **Implemented with canonical `0003_numerous_darwin` migration committed.** Later stacked-phase verification continues to exercise the Phase 4 invariant gate; a separate final live-device-only Phase 4 retest was not recorded.
 
 ## Known runtime requirement
 For a physical Android phone:
@@ -247,28 +225,7 @@ For a physical Android phone:
 - `docs/PHASE-05-TEST-PLAN.md`.
 
 ## Phase 5 verification status
-Status: **Implemented; migration generation, full local verification, database migration and live Android testing pending.**
-
-Run on the user environment:
-
-1. Pull `phase-05-teams-player-identity`.
-2. Generate migration:
-   ```powershell
-   pnpm db:generate
-   ```
-   Expected: `0004_*.sql` and `meta/0004_snapshot.json`.
-3. Run:
-   ```powershell
-   pnpm verify
-   ```
-4. Apply:
-   ```powershell
-   pnpm db:migrate
-   ```
-5. Complete `docs/PHASE-05-TEST-PLAN.md`.
-6. Commit/push the generated Phase 5 Drizzle migration.
-
-Do not call Phase 5 fully verified until those steps pass.
+Status: **Implemented with canonical `0004_past_goliath` migration committed.** The Phase 5 invariant gate passes in the user's Phase 6 verification run; a separate complete live Android Phase 5 test-plan signoff was not recorded before Phase 6 began.
 
 ## Phase 6 delivered
 
