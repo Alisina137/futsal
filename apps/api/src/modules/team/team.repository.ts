@@ -48,12 +48,17 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
-    const conditions = [
-      input.usernameNormalized ? eq(users.usernameNormalized, input.usernameNormalized) : null,
-      input.phoneE164 ? eq(users.phoneE164, input.phoneE164) : null,
-    ].filter((value): value is NonNullable<typeof value> => value !== null);
+    if (!input.usernameNormalized && !input.phoneE164) return null;
 
-    if (conditions.length === 0) return null;
+    const identifierCondition =
+      input.usernameNormalized && input.phoneE164
+        ? or(
+          eq(users.usernameNormalized, input.usernameNormalized),
+          eq(users.phoneE164, input.phoneE164),
+        )
+        : input.usernameNormalized
+          ? eq(users.usernameNormalized, input.usernameNormalized)
+          : eq(users.phoneE164, input.phoneE164!);
 
     const [row] = await this.db.select({
       id: users.id,
@@ -61,7 +66,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       username: users.username,
     }).from(users).where(and(
       eq(users.status, "ACTIVE"),
-      conditions.length === 1 ? conditions[0]! : or(...conditions),
+      identifierCondition,
     )).limit(1);
     return row ?? null;
   }
