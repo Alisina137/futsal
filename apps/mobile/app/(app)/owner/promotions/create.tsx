@@ -1,4 +1,4 @@
-import { colors, radius, spacing } from "@leaguekick/design-tokens";
+import { colors, spacing } from "@leaguekick/design-tokens";
 import type { AvailabilitySlotDto } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -100,7 +100,7 @@ export default function CreatePromotionScreen(){
     </Card>:null}
 
     <TextField label={t("ownerMarketing.promotionTitle")} value={title} onChangeText={setTitle}/>
-    <TextField label={t("ownerMarketing.discountedPrice")} value={price} onChangeText={setPrice} keyboardType="number-pad" forceLtr hint={selected?`< ${selected.priceAfn} AFN`:undefined}/>
+    <TextField label={t("ownerMarketing.discountedPrice")} value={price} onChangeText={setPrice} keyboardType="number-pad" forceLtr hint={selected?`< ${selected.priceAfn} AFN`:""}/>
     {selected&&price.trim()&&!validPrice?<AppText style={{color:colors.danger}}>{t("ownerMarketing.discountValidation")}</AppText>:null}
     <TextField label={t("booking.noteOptional")} value={note} onChangeText={setNote} multiline/>
 
