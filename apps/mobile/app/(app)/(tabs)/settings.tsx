@@ -14,7 +14,7 @@ import { useNetwork } from "../../../src/providers/NetworkProvider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-export default function SettingsScreen(){
+export default function ProfileScreen(){
   const {session,signOut,revalidate}=useAuth();
   const {t,isRTL,language}=useLocale();
   const {isOnline,hasResolved}=useNetwork();
@@ -42,10 +42,10 @@ export default function SettingsScreen(){
 
   const direction={flexDirection:isRTL?"row-reverse":"row"} as const;
 
-  return <Screen>
+  return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
-      <AppText variant="title" weight="bold">{t("settings.title")}</AppText>
-      <AppText muted>{t("settings.subtitle")}</AppText>
+      <AppText variant="title" weight="bold">{t("profile.title")}</AppText>
+      <AppText muted>{t("profile.subtitle")}</AppText>
     </View>
 
     <View style={styles.hero}>
