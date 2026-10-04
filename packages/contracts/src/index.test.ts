@@ -9,6 +9,9 @@ import {
   promotionCreateRequestSchema,
   venuePostCreateRequestSchema,
   pushDeviceRegisterRequestSchema,
+  playerProfileUpdateRequestSchema,
+  teamCreateRequestSchema,
+  teamInviteRequestSchema,
 } from "./index";
 
 describe("shared auth contracts", () => {
@@ -153,5 +156,40 @@ describe("Phase 4 marketing contracts", () => {
       expoPushToken: "ExponentPushToken[abcdefghijklmnopqrstuvwxyz]",
       platform: "ANDROID",
     }).success).toBe(true);
+  });
+});
+
+
+describe("Phase 5 team and player identity contracts", () => {
+  it("accepts a public player profile update", () => {
+    expect(playerProfileUpdateRequestSchema.safeParse({
+      publicDisplayName: "Ahmad Rahimi",
+      imageUrl: "https://cdn.example.com/player.jpg",
+      position: "ALA",
+      visibility: "PUBLIC",
+    }).success).toBe(true);
+  });
+
+  it("accepts team creation without private contact data", () => {
+    expect(teamCreateRequestSchema.safeParse({
+      name: "Kabul Stars",
+      city: "Kabul",
+      logoUrl: "https://cdn.example.com/team.png",
+      privacy: "PUBLIC",
+    }).success).toBe(true);
+  });
+
+  it("validates invitation shirt numbers and roles", () => {
+    expect(teamInviteRequestSchema.safeParse({
+      identifier: "ahmad_7",
+      role: "CAPTAIN",
+      shirtNumber: 10,
+    }).success).toBe(true);
+
+    expect(teamInviteRequestSchema.safeParse({
+      identifier: "ahmad_7",
+      role: "MANAGER",
+      shirtNumber: 101,
+    }).success).toBe(false);
   });
 });
