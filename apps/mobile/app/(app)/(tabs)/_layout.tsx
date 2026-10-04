@@ -8,7 +8,27 @@ export default function TabsLayout(){
   const {t,isRTL}=useLocale();
   const {session}=useAuth();
   const owner=session?.user.roles.includes("VENUE_OWNER")??false;
-  return <Tabs screenOptions={{headerShown:false,tabBarActiveTintColor:colors.primary,tabBarInactiveTintColor:colors.textMuted,tabBarStyle:{height:64,paddingTop:6,paddingBottom:8,borderTopColor:colors.border,backgroundColor:colors.surface,flexDirection:isRTL?"row-reverse":"row"}}}>
+
+  return <Tabs screenOptions={{
+    headerShown:false,
+    tabBarActiveTintColor:colors.primary,
+    tabBarInactiveTintColor:colors.textMuted,
+    tabBarLabelStyle:{fontSize:11,fontWeight:"600",marginTop:2},
+    tabBarItemStyle:{paddingVertical:4},
+    tabBarStyle:{
+      height:70,
+      paddingTop:6,
+      paddingBottom:8,
+      borderTopWidth:0,
+      backgroundColor:colors.surface,
+      flexDirection:isRTL?"row-reverse":"row",
+      shadowColor:"#0F172A",
+      shadowOpacity:0.08,
+      shadowRadius:12,
+      shadowOffset:{width:0,height:-3},
+      elevation:10,
+    },
+  }}>
     <Tabs.Screen name="home" options={{title:owner?t("owner.dashboardTitle"):t("home.title"),tabBarIcon:({color,size})=><Ionicons name={owner?"speedometer-outline":"home-outline"} color={color} size={size}/>}}/>
     <Tabs.Screen name="venues" options={{...(owner?{href:null}:{}),title:t("booking.venuesTitle"),tabBarIcon:({color,size})=><Ionicons name="business-outline" color={color} size={size}/>}}/>
     <Tabs.Screen name="bookings" options={{...(owner?{href:null}:{}),title:t("booking.myBookings"),tabBarIcon:({color,size})=><Ionicons name="calendar-outline" color={color} size={size}/>}}/>
