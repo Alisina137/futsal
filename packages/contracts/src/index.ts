@@ -72,6 +72,94 @@ export const authResponseSchema = z.object({
 });
 export type AuthResponse = z.infer<typeof authResponseSchema>;
 
+const hhmmSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm time.");
+
+export const venueAreaInputSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  defaultSessionDurationMinutes: z.number().int().min(30).max(240),
+  basePriceAfn: z.number().int().min(0).max(1_000_000),
+});
+export type VenueAreaInput = z.infer<typeof venueAreaInputSchema>;
+
+export const venueOpeningHourInputSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  isClosed: z.boolean(),
+  opensAt: hhmmSchema.nullable(),
+  closesAt: hhmmSchema.nullable(),
+}).superRefine((value, ctx) => {
+  if (!value.isClosed && (!value.opensAt || !value.closesAt)) {
+    ctx.addIssue({ code: "custom", message: "Open days require opening and closing times." });
+  }
+  if (!value.isClosed && value.opensAt && value.closesAt && value.opensAt >= value.closesAt) {
+    ctx.addIssue({ code: "custom", message: "Closing time must be after opening time." });
+  }
+});
+export type VenueOpeningHourInput = z.infer<typeof venueOpeningHourInputSchema>;
+
+const openingHoursSchema = z.array(venueOpeningHourInputSchema).length(7).superRefine((hours, ctx) => {
+  const days = new Set(hours.map((item) => item.dayOfWeek));
+  if (days.size !== 7) ctx.addIssue({ code: "custom", message: "Opening hours must contain each weekday exactly once." });
+});
+
+export const ownerVenueSetupRequestSchema = z.object({
+  venue: z.object({
+    name: z.string().trim().min(2).max(120),
+    publicPhone: phoneInputSchema,
+    whatsappPhone: phoneInputSchema.optional().or(z.literal("")),
+    province: z.string().trim().min(2).max(80),
+    city: z.string().trim().min(2).max(80),
+    address: z.string().trim().min(5).max(240),
+    latitude: z.number().min(-90).max(90).nullable().optional(),
+    longitude: z.number().min(-180).max(180).nullable().optional(),
+  }),
+  areas: z.array(venueAreaInputSchema).min(1).max(20),
+  openingHours: openingHoursSchema,
+});
+export type OwnerVenueSetupRequest = z.infer<typeof ownerVenueSetupRequestSchema>;
+
+export const venueAreaDtoSchema = venueAreaInputSchema.extend({
+  id: z.string().uuid(),
+});
+export type VenueAreaDto = z.infer<typeof venueAreaDtoSchema>;
+
+export const venueOpeningHourDtoSchema = venueOpeningHourInputSchema;
+
+export const ownerVenueDtoSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  publicPhone: z.string(),
+  whatsappPhone: z.string().nullable(),
+  province: z.string(),
+  city: z.string(),
+  address: z.string(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  status: z.enum(["DRAFT", "READY", "ACTIVE", "SUSPENDED"]),
+  setupCompletedAt: z.string().nullable(),
+  areas: z.array(venueAreaDtoSchema),
+  openingHours: z.array(venueOpeningHourDtoSchema),
+});
+export type OwnerVenueDto = z.infer<typeof ownerVenueDtoSchema>;
+
+export const venueSubscriptionStateSchema = z.enum(["NOT_STARTED", "TRIAL", "ACTIVE", "EXPIRED", "CANCELLED"]);
+export type VenueSubscriptionState = z.infer<typeof venueSubscriptionStateSchema>;
+
+export const venueSubscriptionDtoSchema = z.object({
+  state: venueSubscriptionStateSchema,
+  trialStartedAt: z.string().nullable(),
+  trialEndsAt: z.string().nullable(),
+  activeUntil: z.string().nullable(),
+  remainingSeconds: z.number().int().min(0).nullable(),
+});
+export type VenueSubscriptionDto = z.infer<typeof venueSubscriptionDtoSchema>;
+
+export const ownerOnboardingStatusSchema = z.object({
+  setupComplete: z.boolean(),
+  venue: ownerVenueDtoSchema.nullable(),
+  subscription: venueSubscriptionDtoSchema,
+});
+export type OwnerOnboardingStatus = z.infer<typeof ownerOnboardingStatusSchema>;
+
 export type ApiErrorBody = {
   error: { code: string; message: string; details?: unknown };
 };
