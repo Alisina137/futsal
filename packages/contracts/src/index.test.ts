@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAfghanistanPhone, ownerVenueSetupRequestSchema, registerRequestSchema } from "./index";
+import {
+  manualBookingRequestSchema,
+  normalizeAfghanistanPhone,
+  onlineBookingRequestSchema,
+  ownerVenueSetupRequestSchema,
+  registerRequestSchema,
+  venueBlockRequestSchema,
+} from "./index";
 
 describe("shared auth contracts", () => {
   it("normalizes common Afghanistan mobile forms", () => {
@@ -55,5 +62,34 @@ describe("Phase 2 owner onboarding contracts", () => {
       openingHours: setup.openingHours.map((hour, index) => index === 0 ? { ...hour, opensAt: "20:00", closesAt: "09:00" } : hour),
     };
     expect(ownerVenueSetupRequestSchema.safeParse(invalid).success).toBe(false);
+  });
+});
+
+
+describe("Phase 3 booking contracts", () => {
+  it("accepts a timezone-qualified online booking request", () => {
+    expect(onlineBookingRequestSchema.safeParse({
+      areaId: "11111111-1111-4111-8111-111111111111",
+      startsAt: "2026-10-05T14:00:00+04:30",
+      idempotencyKey: "booking-abc-123",
+      note: "",
+    }).success).toBe(true);
+  });
+
+  it("rejects manual bookings and blocks with reversed time ranges", () => {
+    expect(manualBookingRequestSchema.safeParse({
+      areaId: "11111111-1111-4111-8111-111111111111",
+      startsAt: "2026-10-05T15:30:00+04:30",
+      endsAt: "2026-10-05T14:00:00+04:30",
+      customerName: "Walk-in customer",
+      customerPhone: "",
+    }).success).toBe(false);
+
+    expect(venueBlockRequestSchema.safeParse({
+      areaId: "11111111-1111-4111-8111-111111111111",
+      startsAt: "2026-10-05T15:30:00+04:30",
+      endsAt: "2026-10-05T14:00:00+04:30",
+      reason: "Maintenance",
+    }).success).toBe(false);
   });
 });

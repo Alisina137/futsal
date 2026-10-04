@@ -20,3 +20,19 @@ This document records implementation-level domain rules that are authoritative i
 16. Access tokens contain server-issued roles and are short lived. Refresh sessions can be revoked.
 17. Private and owner routes require server-side authentication and role checks. Hidden UI is never an authorization boundary.
 18. Audit capability applies to privileged lifecycle changes and expands in later phases.
+
+
+## Phase 3 booking and occupancy rules
+
+19. All persisted booking/block timestamps are UTC instants; venue-facing local dates/times are interpreted using the venue timezone (Afghanistan default: Asia/Kabul).
+20. Live availability is derived from weekly opening hours and active playing areas minus active bookings and owner blocks.
+21. Cached availability may be displayed for orientation but is never authoritative for booking confirmation.
+22. Online booking confirmation revalidates the slot server-side and persists the server price, duration, and cancellation-policy snapshot.
+23. Manual and online bookings use the same occupancy conflict path.
+24. PENDING and CONFIRMED bookings occupy capacity; CANCELLED bookings do not.
+25. Owner blocks occupy capacity and cannot overlap active bookings or other blocks.
+26. Booking writes are idempotent by client-provided idempotency key.
+27. Real database booking/block writes serialize by playing area with a PostgreSQL transaction-scoped advisory lock before overlap validation.
+28. Trial/Active venues may expose live availability and accept new bookings; expired/cancelled/suspended venues cannot accept new bookings.
+29. A player may cancel only their own future active booking; an owner may cancel only bookings belonging to their venue.
+30. Price/currency and cancellation policy are snapshotted onto the booking and are not recomputed retroactively.

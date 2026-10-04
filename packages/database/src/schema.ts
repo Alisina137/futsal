@@ -28,6 +28,9 @@ export const userRoleEnum = pgEnum("user_role", [
 ]);
 export const venueStatusEnum = pgEnum("venue_status", ["DRAFT", "READY", "ACTIVE", "SUSPENDED"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", ["TRIAL", "ACTIVE", "EXPIRED", "CANCELLED"]);
+export const bookingModeEnum = pgEnum("booking_mode", ["INSTANT", "APPROVAL"]);
+export const bookingStatusEnum = pgEnum("booking_status", ["PENDING", "CONFIRMED", "CANCELLED"]);
+export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
 
 export const users = pgTable(
   "users",
@@ -110,6 +113,9 @@ export const venues = pgTable(
     address: varchar("address", { length: 240 }).notNull(),
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
+    timezone: varchar("timezone", { length: 64 }).notNull().default("Asia/Kabul"),
+    bookingMode: bookingModeEnum("booking_mode").notNull().default("INSTANT"),
+    cancellationPolicy: text("cancellation_policy").notNull().default("Cancellation is allowed before the booking start time."),
     status: venueStatusEnum("status").notNull().default("DRAFT"),
     setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -187,9 +193,64 @@ export const venueTrialClaims = pgTable(
   ],
 );
 
+
+export const venueBlocks = pgTable(
+  "venue_blocks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id").notNull().references(() => venueAreas.id, { onDelete: "cascade" }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    reason: varchar("reason", { length: 240 }),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("venue_blocks_area_time_idx").on(table.areaId, table.startsAt, table.endsAt),
+    index("venue_blocks_venue_time_idx").on(table.venueId, table.startsAt),
+  ],
+);
+
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "restrict" }),
+    areaId: uuid("area_id").notNull().references(() => venueAreas.id, { onDelete: "restrict" }),
+    playerUserId: uuid("player_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    source: bookingSourceEnum("source").notNull(),
+    status: bookingStatusEnum("status").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    priceAfn: integer("price_afn").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull().default("AFN"),
+    customerName: varchar("customer_name", { length: 120 }),
+    customerPhone: varchar("customer_phone", { length: 20 }),
+    note: varchar("note", { length: 500 }),
+    cancellationPolicySnapshot: text("cancellation_policy_snapshot").notNull(),
+    idempotencyKey: varchar("idempotency_key", { length: 80 }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledByUserId: uuid("cancelled_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    cancellationReason: varchar("cancellation_reason", { length: 240 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("bookings_idempotency_key_uq").on(table.idempotencyKey),
+    index("bookings_area_time_idx").on(table.areaId, table.startsAt, table.endsAt),
+    index("bookings_venue_time_idx").on(table.venueId, table.startsAt),
+    index("bookings_player_time_idx").on(table.playerUserId, table.startsAt),
+    index("bookings_status_idx").on(table.status),
+  ],
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
 export type VenueRow = typeof venues.$inferSelect;
 export type VenueAreaRow = typeof venueAreas.$inferSelect;
 export type VenueOpeningHourRow = typeof venueOpeningHours.$inferSelect;
 export type VenueSubscriptionRow = typeof venueSubscriptions.$inferSelect;
+export type VenueBlockRow = typeof venueBlocks.$inferSelect;
+export type BookingRow = typeof bookings.$inferSelect;
