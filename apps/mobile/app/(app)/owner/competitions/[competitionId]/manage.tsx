@@ -217,7 +217,7 @@ export default function ManageCompetitionScreen(){
         return <Card key={match.id}>
           <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",gap:spacing.sm}}>
             <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>{match.groupName?t("competition.group",{name:match.groupName}):t("competition.round",{number:match.roundNumber})}</AppText>
-            <AppText variant="caption" muted>{match.status}</AppText>
+            <AppText variant="caption" muted>{t(`competition.matchStatus.${match.status}` as never)}</AppText>
           </View>
           <View style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"center",gap:spacing.sm}}>
             <AppText weight="bold" style={{flex:1}}>{match.homeTeamName??t("competition.tbd")}</AppText>
