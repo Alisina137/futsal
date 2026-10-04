@@ -79,6 +79,13 @@ export function OwnerDashboard() {
       />
     </Card> : null}
 
+    {status?.venue ? <Card>
+      <AppText variant="bodyLarge" weight="bold">{t("ownerMarketing.marketingTitle")}</AppText>
+      <AppText muted>{t("ownerMarketing.marketingBody")}</AppText>
+      <Button label={t("ownerMarketing.promotionsTitle")} onPress={() => router.push("/owner/promotions")} />
+      <Button label={t("ownerMarketing.postsTitle")} onPress={() => router.push("/owner/posts")} variant="secondary" />
+    </Card> : null}
+
     {status?.subscription.state === "EXPIRED" ? <Card style={{ backgroundColor: colors.surfaceMuted }}>
       <AppText weight="semibold" style={{ color: colors.warning }}>{t("owner.trialExpiredTitle")}</AppText>
       <AppText>{t("owner.trialExpiredBody")}</AppText>
