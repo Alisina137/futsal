@@ -27,7 +27,7 @@ export default function VenuesScreen(){
 
   useEffect(()=>{void load();},[]);
 
-  return <Screen>
+  return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("booking.venuesTitle")}</AppText>
       <AppText muted>{t("booking.venuesSubtitle")}</AppText>
