@@ -88,13 +88,17 @@ export class MarketingService {
       createdAt: this.now(),
     });
     if (input.notifyFollowers) {
-      await this.notifications?.promotionPublished({
-        venueId: venue.id,
-        promotionId: promotion.id,
-        venueName: venue.name,
-        title: promotion.title,
-        followerUserIds: await this.repository.listFollowerUserIds(venue.id),
-      });
+      try {
+        await this.notifications?.promotionPublished({
+          venueId: venue.id,
+          promotionId: promotion.id,
+          venueName: venue.name,
+          title: promotion.title,
+          followerUserIds: await this.repository.listFollowerUserIds(venue.id),
+        });
+      } catch {
+        // Publishing the promotion succeeds even if follower notification fan-out fails.
+      }
     }
     return promotion;
   }
@@ -149,12 +153,16 @@ export class MarketingService {
       publishedAt: this.now(),
     });
     if (input.notifyFollowers) {
-      await this.notifications?.venuePostPublished({
-        venueId: venue.id,
-        postId: post.id,
-        venueName: venue.name,
-        followerUserIds: await this.repository.listFollowerUserIds(venue.id),
-      });
+      try {
+        await this.notifications?.venuePostPublished({
+          venueId: venue.id,
+          postId: post.id,
+          venueName: venue.name,
+          followerUserIds: await this.repository.listFollowerUserIds(venue.id),
+        });
+      } catch {
+        // Publishing the post succeeds even if follower notification fan-out fails.
+      }
     }
     return post;
   }
