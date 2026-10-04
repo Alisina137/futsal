@@ -551,6 +551,233 @@ export const teamManagerTransferRequestSchema = z.object({
 });
 export type TeamManagerTransferRequest = z.infer<typeof teamManagerTransferRequestSchema>;
 
+export const competitionFormatSchema = z.enum(["LEAGUE", "KNOCKOUT", "GROUP_KNOCKOUT"]);
+export type CompetitionFormat = z.infer<typeof competitionFormatSchema>;
+
+export const competitionStatusSchema = z.enum(["DRAFT", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "ARCHIVED", "CANCELLED"]);
+export type CompetitionStatus = z.infer<typeof competitionStatusSchema>;
+
+export const competitionRegistrationStatusSchema = z.enum(["INVITED", "APPLIED", "PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN"]);
+export type CompetitionRegistrationStatus = z.infer<typeof competitionRegistrationStatusSchema>;
+
+export const competitionMatchStageSchema = z.enum(["LEAGUE", "GROUP", "KNOCKOUT"]);
+export type CompetitionMatchStage = z.infer<typeof competitionMatchStageSchema>;
+
+export const competitionMatchStatusSchema = z.enum(["UNSCHEDULED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "POSTPONED", "CANCELLED", "CORRECTED"]);
+export type CompetitionMatchStatus = z.infer<typeof competitionMatchStatusSchema>;
+
+export const competitionTieBreakSchema = z.enum(["POINTS", "GOAL_DIFFERENCE", "GOALS_FOR", "HEAD_TO_HEAD", "ADMIN"]);
+export type CompetitionTieBreak = z.infer<typeof competitionTieBreakSchema>;
+
+const competitionConfigSchema = z.object({
+  name: z.string().trim().min(2).max(140),
+  description: z.string().trim().max(2_000).optional().or(z.literal("")),
+  format: competitionFormatSchema,
+  maxTeams: z.number().int().min(2).max(64),
+  registrationFeeAfn: z.number().int().min(0).max(10_000_000).default(0),
+  winPoints: z.number().int().min(0).max(20).default(3),
+  drawPoints: z.number().int().min(0).max(20).default(1),
+  lossPoints: z.number().int().min(0).max(20).default(0),
+  tieBreakOrder: z.array(competitionTieBreakSchema).min(1).max(5).default(["POINTS", "GOAL_DIFFERENCE", "GOALS_FOR"]),
+  groupCount: z.number().int().min(2).max(16).nullable().optional(),
+  qualifiersPerGroup: z.number().int().min(1).max(8).nullable().optional(),
+  startsAt: isoDateTimeSchema.nullable().optional(),
+  endsAt: isoDateTimeSchema.nullable().optional(),
+});
+
+type CompetitionConfigRefinementInput = {
+  startsAt?: string | null;
+  endsAt?: string | null;
+  format?: CompetitionFormat;
+  groupCount?: number | null;
+  qualifiersPerGroup?: number | null;
+};
+
+function validateCompetitionConfig(
+  value: CompetitionConfigRefinementInput,
+  ctx: z.RefinementCtx,
+) {
+  if (value.startsAt && value.endsAt && Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
+    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "Competition end must be after start." });
+  }
+  if (value.format === "GROUP_KNOCKOUT") {
+    if (!value.groupCount) ctx.addIssue({ code: "custom", path: ["groupCount"], message: "Group count is required." });
+    if (!value.qualifiersPerGroup) ctx.addIssue({ code: "custom", path: ["qualifiersPerGroup"], message: "Qualifiers per group is required." });
+  }
+}
+
+export const competitionCreateRequestSchema = competitionConfigSchema.superRefine(validateCompetitionConfig);
+export type CompetitionCreateRequest = z.infer<typeof competitionCreateRequestSchema>;
+
+export const competitionUpdateRequestSchema = competitionConfigSchema.partial().superRefine(validateCompetitionConfig);
+export type CompetitionUpdateRequest = z.infer<typeof competitionUpdateRequestSchema>;
+
+export const competitionStateRequestSchema = z.object({
+  action: z.enum(["OPEN_REGISTRATION", "CLOSE_REGISTRATION", "PUBLISH", "UNPUBLISH", "GENERATE_FIXTURES", "GENERATE_KNOCKOUT", "COMPLETE", "ARCHIVE", "CANCEL"]),
+});
+export type CompetitionStateRequest = z.infer<typeof competitionStateRequestSchema>;
+
+export const competitionTeamRegisterRequestSchema = z.object({
+  teamId: z.string().uuid(),
+});
+export type CompetitionTeamRegisterRequest = z.infer<typeof competitionTeamRegisterRequestSchema>;
+
+export const competitionRegistrationDecisionRequestSchema = z.object({
+  status: z.enum(["ACCEPTED", "REJECTED"]),
+  seed: z.number().int().min(1).max(128).nullable().optional(),
+});
+export type CompetitionRegistrationDecisionRequest = z.infer<typeof competitionRegistrationDecisionRequestSchema>;
+
+export const competitionInviteTeamRequestSchema = z.object({
+  teamId: z.string().uuid(),
+  seed: z.number().int().min(1).max(128).nullable().optional(),
+});
+export type CompetitionInviteTeamRequest = z.infer<typeof competitionInviteTeamRequestSchema>;
+
+export const competitionRegistrationResponseRequestSchema = z.object({
+  status: z.enum(["ACCEPTED", "REJECTED"]),
+});
+export type CompetitionRegistrationResponseRequest = z.infer<typeof competitionRegistrationResponseRequestSchema>;
+
+export const competitionMatchScheduleRequestSchema = z.object({
+  areaId: z.string().uuid(),
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+}).superRefine((value, ctx) => {
+  if (Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
+    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "Match end must be after start." });
+  }
+});
+export type CompetitionMatchScheduleRequest = z.infer<typeof competitionMatchScheduleRequestSchema>;
+
+export const playerMatchStatInputSchema = z.object({
+  playerUserId: z.string().uuid(),
+  teamId: z.string().uuid(),
+  appeared: z.boolean().default(true),
+  goals: z.number().int().min(0).max(50).default(0),
+  assists: z.number().int().min(0).max(50).default(0),
+  yellowCards: z.number().int().min(0).max(10).default(0),
+  redCards: z.number().int().min(0).max(3).default(0),
+  cleanSheet: z.boolean().default(false),
+  playerOfMatch: z.boolean().default(false),
+});
+export type PlayerMatchStatInput = z.infer<typeof playerMatchStatInputSchema>;
+
+export const competitionMatchResultRequestSchema = z.object({
+  homeScore: z.number().int().min(0).max(99),
+  awayScore: z.number().int().min(0).max(99),
+  correctionReason: z.string().trim().min(3).max(500).optional(),
+  confirmImpact: z.boolean().default(false),
+  playerStats: z.array(playerMatchStatInputSchema).max(80).default([]),
+});
+export type CompetitionMatchResultRequest = z.infer<typeof competitionMatchResultRequestSchema>;
+
+export const competitionTeamDtoSchema = z.object({
+  teamId: z.string().uuid(),
+  teamName: z.string(),
+  logoUrl: z.string().nullable(),
+  status: competitionRegistrationStatusSchema,
+  seed: z.number().int().nullable(),
+  groupId: z.string().uuid().nullable(),
+  groupName: z.string().nullable(),
+});
+export type CompetitionTeamDto = z.infer<typeof competitionTeamDtoSchema>;
+
+export const competitionMatchDtoSchema = z.object({
+  id: z.string().uuid(),
+  competitionId: z.string().uuid(),
+  groupId: z.string().uuid().nullable(),
+  groupName: z.string().nullable(),
+  stage: competitionMatchStageSchema,
+  roundNumber: z.number().int().min(1),
+  slotNumber: z.number().int().min(1),
+  homeTeamId: z.string().uuid().nullable(),
+  homeTeamName: z.string().nullable(),
+  awayTeamId: z.string().uuid().nullable(),
+  awayTeamName: z.string().nullable(),
+  areaId: z.string().uuid().nullable(),
+  areaName: z.string().nullable(),
+  startsAt: isoDateTimeSchema.nullable(),
+  endsAt: isoDateTimeSchema.nullable(),
+  status: competitionMatchStatusSchema,
+  homeScore: z.number().int().nullable(),
+  awayScore: z.number().int().nullable(),
+  winnerTeamId: z.string().uuid().nullable(),
+  nextMatchId: z.string().uuid().nullable(),
+  nextMatchSide: z.enum(["HOME", "AWAY"]).nullable(),
+});
+export type CompetitionMatchDto = z.infer<typeof competitionMatchDtoSchema>;
+
+export const competitionStandingRowDtoSchema = z.object({
+  position: z.number().int().min(1),
+  groupId: z.string().uuid().nullable().optional(),
+  groupName: z.string().nullable().optional(),
+  teamId: z.string().uuid(),
+  teamName: z.string(),
+  played: z.number().int().min(0),
+  wins: z.number().int().min(0),
+  draws: z.number().int().min(0),
+  losses: z.number().int().min(0),
+  goalsFor: z.number().int().min(0),
+  goalsAgainst: z.number().int().min(0),
+  goalDifference: z.number().int(),
+  points: z.number().int(),
+});
+export type CompetitionStandingRowDto = z.infer<typeof competitionStandingRowDtoSchema>;
+
+export const playerCompetitionStatDtoSchema = z.object({
+  playerUserId: z.string().uuid(),
+  publicDisplayName: z.string(),
+  teamId: z.string().uuid(),
+  teamName: z.string(),
+  appearances: z.number().int().min(0),
+  goals: z.number().int().min(0),
+  assists: z.number().int().min(0),
+  yellowCards: z.number().int().min(0),
+  redCards: z.number().int().min(0),
+  cleanSheets: z.number().int().min(0),
+  playerOfMatchAwards: z.number().int().min(0),
+});
+export type PlayerCompetitionStatDto = z.infer<typeof playerCompetitionStatDtoSchema>;
+
+export const competitionDtoSchema = z.object({
+  id: z.string().uuid(),
+  venueId: z.string().uuid(),
+  venueName: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  format: competitionFormatSchema,
+  status: competitionStatusSchema,
+  published: z.boolean(),
+  maxTeams: z.number().int(),
+  registrationFeeAfn: z.number().int(),
+  winPoints: z.number().int(),
+  drawPoints: z.number().int(),
+  lossPoints: z.number().int(),
+  tieBreakOrder: z.array(competitionTieBreakSchema),
+  groupCount: z.number().int().nullable(),
+  qualifiersPerGroup: z.number().int().nullable(),
+  startsAt: isoDateTimeSchema.nullable(),
+  endsAt: isoDateTimeSchema.nullable(),
+  teams: z.array(competitionTeamDtoSchema),
+  matches: z.array(competitionMatchDtoSchema),
+  standings: z.array(competitionStandingRowDtoSchema),
+  playerStats: z.array(playerCompetitionStatDtoSchema),
+  championTeamId: z.string().uuid().nullable(),
+});
+export type CompetitionDto = z.infer<typeof competitionDtoSchema>;
+
+export const competitionListItemDtoSchema = competitionDtoSchema.omit({
+  teams: true,
+  matches: true,
+  standings: true,
+  playerStats: true,
+  championTeamId: true,
+}).extend({
+  acceptedTeams: z.number().int().min(0),
+});
+export type CompetitionListItemDto = z.infer<typeof competitionListItemDtoSchema>;
+
 export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION"]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 

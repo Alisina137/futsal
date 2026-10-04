@@ -40,10 +40,15 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Team-manager authority is object-scoped to the team's current `managerUserId`; UI visibility is never an authorization boundary.
 - Team invitations expire after 7 days, are single-use, and are deduplicated while pending per team/player.
 - Venue-owner-only accounts cannot participate in player/team flows unless they also have the PLAYER role.
+- Competition standings/brackets are derived from persisted match results, not editable totals.
+- Scheduled/in-progress competition matches occupy the same venue-area calendar used by bookings and blocks.
+- Competition scheduling and booking/block writes share the same playing-area advisory-lock conflict boundary.
+- Group→Knockout qualification is derived from completed group standings; knockout progression is deterministic and snapshot-safe.
+- Result corrections require a reason and apply downstream-impact safeguards.
 - Afghanistan launch venue timezone defaults to `Asia/Kabul`; persisted timestamps are UTC instants.
 
 ## Current implementation phase
-Phase 5 — Teams and Player Identity.
+Phase 6 — Competition Engine.
 
 ## Migration baseline
 Committed canonical migrations:
@@ -51,8 +56,9 @@ Committed canonical migrations:
 - `0001_clean_retro_girl` — Phase 2.
 - `0002_careless_jack_power` — Phase 3.
 - `0003_numerous_darwin` — Phase 4.
+- `0004_past_goliath` — Phase 5.
 
-Phase 5 schema changes require generation of `0004_*.sql`.
+Phase 6 migration was generated locally as `0005_robust_smiling_tiger.sql` with `meta/0005_snapshot.json`, and the user reported `pnpm db:migrate` applied it successfully. Those generated Phase 6 migration files still need to be committed/pushed after full verification is green.
 
 ## Phase 1 status
 Foundation implemented and previously verified.
@@ -100,7 +106,7 @@ Do not retroactively label Phase 3 fully verified until the full command is conf
 - Owner immediate publish/unpublish.
 - Text + optional HTTPS image URL.
 - Structured CTA: none, venue or active promotion.
-- Competition CTA intentionally remains unavailable until the competition phase.
+- Competition CTA was deferred in Phase 4 and is now enabled by the Phase 6 public competition routes.
 - Re-publishing rejects stale promotion CTA.
 - Public feed/post reads exclude suspended venue content.
 
@@ -148,29 +154,7 @@ Do not retroactively label Phase 3 fully verified until the full command is conf
 - `docs/PHASE-04-TEST-PLAN.md`.
 
 ## Phase 4 verification status
-Status: **Implemented; migration generation, local verification and live device testing pending.**
-
-Run on the user environment:
-
-1. Pull `phase-04-promotions-feed-notifications`.
-2. Generate migration:
-   ```powershell
-   pnpm db:generate
-   ```
-   Expected: `0003_*.sql` and `meta/0003_snapshot.json`.
-3. Run:
-   ```powershell
-   pnpm verify
-   ```
-   This now runs Phase 4 verifier, Phase 3 verifier, workspace typechecks, tests and builds.
-4. Apply:
-   ```powershell
-   pnpm db:migrate
-   ```
-5. Complete `docs/PHASE-04-TEST-PLAN.md`.
-6. Commit/push the generated Phase 4 Drizzle migration.
-
-Do not call Phase 4 fully verified until those steps pass.
+Status: **Implemented with canonical `0003_numerous_darwin` migration committed.** Later stacked-phase verification continues to exercise the Phase 4 invariant gate; a separate final live-device-only Phase 4 retest was not recorded.
 
 ## Known runtime requirement
 For a physical Android phone:
@@ -241,30 +225,111 @@ For a physical Android phone:
 - `docs/PHASE-05-TEST-PLAN.md`.
 
 ## Phase 5 verification status
-Status: **Implemented; migration generation, full local verification, database migration and live Android testing pending.**
+Status: **Implemented with canonical `0004_past_goliath` migration committed.** The Phase 5 invariant gate passes in the user's Phase 6 verification run; a separate complete live Android Phase 5 test-plan signoff was not recorded before Phase 6 began.
 
-Run on the user environment:
+## Phase 6 delivered
 
-1. Pull `phase-05-teams-player-identity`.
-2. Generate migration:
-   ```powershell
-   pnpm db:generate
-   ```
-   Expected: `0004_*.sql` and `meta/0004_snapshot.json`.
-3. Run:
-   ```powershell
-   pnpm verify
-   ```
-4. Apply:
-   ```powershell
-   pnpm db:migrate
-   ```
-5. Complete `docs/PHASE-05-TEST-PLAN.md`.
-6. Commit/push the generated Phase 5 Drizzle migration.
+### Competition domain and formats
+- Persistent competitions scoped to one venue.
+- Formats: LEAGUE, KNOCKOUT and GROUP_KNOCKOUT.
+- Draft/public lifecycle with registration open/close, scheduled/in-progress, completed, archived and cancelled states.
+- Team registration/application/invitation records with seed/group metadata.
+- Competition groups, matches and player-match statistics.
+- Premium entitlement and venue tenancy enforced for owner competition writes.
 
-Do not call Phase 5 fully verified until those steps pass.
+### Registration
+- Team managers can apply their own active teams.
+- Venue owners can invite active teams.
+- Team-manager response remains object-scoped.
+- Server-authoritative accepted-team capacity.
+- Registration mutation closes once competition execution begins.
+
+### League engine
+- Deterministic round-robin generation for odd/even team counts.
+- Server-configurable win/draw/loss points.
+- Standings recomputed from completed/corrected results.
+- Tie-break support: points, goal difference, goals for, head-to-head and admin seed.
+- Completion blocked until required fixtures have results.
+
+### Knockout engine
+- Seeded bracket generation.
+- Balanced non-power-of-two bye distribution with no fake playable bye fixtures.
+- Winner progression through stored next-match links.
+- Knockout draws rejected.
+- Downstream correction safeguards.
+- Final winner exposed as champion.
+
+### Group → Knockout
+- Deterministic group assignment.
+- Per-group round-robin fixtures.
+- Per-group derived standings.
+- Qualification only after all group matches complete.
+- Knockout snapshot generated from configured qualifiers per group.
+- Completion blocked until knockout exists and finishes.
+- Group-result correction can rebuild the bracket only while safe.
+
+### Venue-calendar occupancy
+- Scheduled/in-progress competition matches are first-class occupancy.
+- Public availability subtracts competition matches.
+- Booking/manual booking/block writes treat competition matches as conflicts.
+- Competition scheduling acquires the same per-area PostgreSQL advisory lock and checks active bookings, blocks and other competition matches.
+
+### Results and stats
+- Result entry for scheduled/in-progress matches.
+- Corrections require reason and are written to audit logs.
+- Player-match stats are validated against active roster/team participation.
+- Public player-stat aggregation.
+
+### Public/mobile UX
+- Public competition discovery.
+- Competition hub with fixtures/results.
+- League/group standings.
+- Knockout bracket.
+- Accepted teams.
+- Player stats.
+- Team-manager registration.
+- Competition post CTA deep links.
+- Owner competition list/create/manager.
+- Registration decisions/invites.
+- Fixture generation, scheduling, result entry/correction, knockout generation, completion/archive.
+- Home/Profile/Owner Dashboard competition entry points.
+- Dari/Pashto/English localization and RTL-aware layouts.
+
+### Verification coverage
+- Pure engine tests for round robin, standings, groups, qualification and byes.
+- Setup/registration/Premium/capacity tests.
+- Full league lifecycle regression.
+- Knockout progression/draw/correction tests.
+- Group→Knockout qualification/completion regression.
+- Five-team bye regression.
+- `verify:phase6` invariant gate.
+- `docs/PHASE-06-TEST-PLAN.md`.
+
+## Phase 6 verification status
+Status: **Implemented; full local verification and live Android competition testing pending.**
+
+The user already generated and applied:
+
+```text
+packages/database/drizzle/0005_robust_smiling_tiger.sql
+packages/database/drizzle/meta/0005_snapshot.json
+packages/database/drizzle/meta/_journal.json
+```
+
+The database migration application succeeded. Do not regenerate the migration unless the database schema changes again.
+
+Next local gate:
+
+```powershell
+git pull origin phase-06-competition-engine
+pnpm verify
+```
+
+After `pnpm verify` is fully green, commit/push only the generated Phase 6 migration files and complete `docs/PHASE-06-TEST-PLAN.md`.
+
+Do not mark Phase 6 fully verified until automated verification and the live competition/calendar conflict journeys pass.
 
 ## Next phase
-Phase 6 — Competition Engine.
+Phase 7 — Subscription Enforcement, Analytics and Admin.
 
-Phase 6 should begin only after the Phase 5 migration/verification baseline is reviewed.
+Phase 7 should begin only after the Phase 6 verification baseline is confirmed.

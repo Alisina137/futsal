@@ -49,6 +49,7 @@ function PlayerHome({user}:{user:UserDto|undefined}){
       <AppText>{t("booking.quickStartBody")}</AppText>
       <Button label={t("booking.findVenue")} onPress={()=>router.push("/venues")} />
       <Button label={t("booking.myBookings")} onPress={()=>router.push("/bookings")} variant="secondary" />
+      <Button label={t("competition.title")} onPress={()=>router.push("/competitions")} variant="secondary" />
     </Card>
   </Screen>;
 }

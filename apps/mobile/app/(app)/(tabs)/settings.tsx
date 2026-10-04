@@ -130,11 +130,15 @@ export default function ProfileScreen(){
       {owner?<>
         <ActionRow icon="time-outline" title={t("schedule.title")} subtitle={t("settings.ownerScheduleBody")} rtl={isRTL} onPress={()=>router.push("/schedule")}/>
         <Divider/>
+        <ActionRow icon="trophy-outline" title={t("competition.ownerTitle")} subtitle={t("competition.ownerQuickAccessBody")} rtl={isRTL} onPress={()=>router.push("/owner/competitions")}/>
+        <Divider/>
         <ActionRow icon="pricetag-outline" title={t("ownerMarketing.promotionsTitle")} subtitle={t("settings.ownerPromotionsBody")} rtl={isRTL} onPress={()=>router.push("/owner/promotions")}/>
         <Divider/>
         <ActionRow icon="megaphone-outline" title={t("ownerMarketing.postsTitle")} subtitle={t("settings.ownerPostsBody")} rtl={isRTL} onPress={()=>router.push("/owner/posts")}/>
       </>:<>
         <ActionRow icon="people-outline" title={t("teams.title")} subtitle={t("teams.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/teams")}/>
+        <Divider/>
+        <ActionRow icon="trophy-outline" title={t("competition.title")} subtitle={t("competition.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/competitions")}/>
         <Divider/>
         <ActionRow icon="football-outline" title={t("teams.profileTitle")} subtitle={t("teams.profileSubtitle")} rtl={isRTL} onPress={()=>router.push("/profile/player")}/>
         <Divider/>

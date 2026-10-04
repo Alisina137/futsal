@@ -12,6 +12,8 @@ import {
   playerProfileUpdateRequestSchema,
   teamCreateRequestSchema,
   teamInviteRequestSchema,
+  competitionCreateRequestSchema,
+  competitionUpdateRequestSchema,
 } from "./index";
 
 describe("shared auth contracts", () => {
@@ -190,6 +192,21 @@ describe("Phase 5 team and player identity contracts", () => {
       identifier: "ahmad_7",
       role: "MANAGER",
       shirtNumber: 101,
+    }).success).toBe(false);
+  });
+});
+
+
+describe("Phase 6 competition contracts", () => {
+  it("accepts a partial competition update without requiring create-only fields", () => {
+    expect(competitionUpdateRequestSchema.safeParse({
+      maxTeams: 12,
+    }).success).toBe(true);
+  });
+
+  it("still requires the full competition configuration on create", () => {
+    expect(competitionCreateRequestSchema.safeParse({
+      maxTeams: 12,
     }).success).toBe(false);
   });
 });

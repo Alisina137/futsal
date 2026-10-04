@@ -40,6 +40,10 @@ export default function PostDetailScreen(){
           startsAt:promotion.startsAt,
         }});
       }).catch(()=>setError(t("feed.promotionUnavailable")));
+      return;
+    }
+    if(post.ctaType==="COMPETITION"&&post.ctaTargetId){
+      router.push({pathname:"/competitions/[competitionId]",params:{competitionId:post.ctaTargetId}});
     }
   }
 

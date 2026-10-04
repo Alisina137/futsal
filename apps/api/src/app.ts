@@ -17,6 +17,8 @@ import { createNotificationRouter } from "./modules/notifications/notification.r
 import type { NotificationService } from "./modules/notifications/notification.service.js";
 import { createAuthenticatedTeamRouter, createPublicTeamRouter } from "./modules/team/team.routes.js";
 import type { TeamService } from "./modules/team/team.service.js";
+import { createCompetitionRouter, createOwnerCompetitionRouter } from "./modules/competition/competition.routes.js";
+import type { CompetitionService } from "./modules/competition/competition.service.js";
 
 export type AppDependencies = {
   authService: AuthService;
@@ -26,6 +28,7 @@ export type AppDependencies = {
   marketingService?: MarketingService;
   notificationService?: NotificationService;
   teamService?: TeamService;
+  competitionService?: CompetitionService;
   corsOrigin?: string;
 };
 
@@ -54,6 +57,10 @@ export function createApp(deps: AppDependencies) {
   if (deps.teamService) {
     app.use("/api/v1", createAuthenticatedTeamRouter(deps.teamService, deps.tokenService));
     app.use("/api/v1", createPublicTeamRouter(deps.teamService));
+  }
+  if (deps.competitionService) {
+    app.use("/api/v1", createCompetitionRouter(deps.competitionService, deps.tokenService));
+    app.use("/api/v1/owner", createOwnerCompetitionRouter(deps.competitionService, deps.tokenService));
   }
 
   app.get("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {

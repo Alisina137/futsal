@@ -33,6 +33,17 @@ import type {
   TeamUpdateRequest,
   PlayerProfileUpdateRequest,
   TeamMemberUpdateRequest,
+  CompetitionCreateRequest,
+  CompetitionDto,
+  CompetitionListItemDto,
+  CompetitionMatchResultRequest,
+  CompetitionMatchScheduleRequest,
+  CompetitionRegistrationDecisionRequest,
+  CompetitionRegistrationResponseRequest,
+  CompetitionStateRequest,
+  CompetitionTeamDto,
+  CompetitionUpdateRequest,
+  CompetitionInviteTeamRequest,
 } from "@leaguekick/contracts";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
@@ -206,4 +217,101 @@ export const teamApi = {
     request<{ invitation: TeamInvitationDto }>(`/api/v1/teams/invitations/${invitationId}/decline`, { method: "POST" }, accessToken),
   revokeInvitation: (accessToken: string, teamId: string, invitationId: string) =>
     request<{ invitation: TeamInvitationDto }>(`/api/v1/teams/${teamId}/invitations/${invitationId}`, { method: "DELETE" }, accessToken),
+};
+
+
+export const competitionApi = {
+  list: () =>
+    request<{ generatedAt: string; competitions: CompetitionListItemDto[] }>("/api/v1/competitions"),
+  get: (competitionId: string) =>
+    request<{ competition: CompetitionDto }>(`/api/v1/competitions/${competitionId}`),
+  register: (accessToken: string, competitionId: string, teamId: string) =>
+    request<{ registration: CompetitionTeamDto | null }>(
+      `/api/v1/competitions/${competitionId}/register`,
+      { method: "POST", body: JSON.stringify({ teamId }) },
+      accessToken,
+    ),
+  respondInvitation: (
+    accessToken: string,
+    competitionId: string,
+    teamId: string,
+    input: CompetitionRegistrationResponseRequest,
+  ) =>
+    request<{ registration: CompetitionTeamDto | null }>(
+      `/api/v1/competitions/${competitionId}/invitations/${teamId}/respond`,
+      { method: "POST", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  withdraw: (accessToken: string, competitionId: string, teamId: string) =>
+    request<{ registration: CompetitionTeamDto | null }>(
+      `/api/v1/competitions/${competitionId}/teams/${teamId}/withdraw`,
+      { method: "POST" },
+      accessToken,
+    ),
+
+  ownerList: (accessToken: string) =>
+    request<{ competitions: CompetitionListItemDto[] }>("/api/v1/owner/competitions", {}, accessToken),
+  ownerGet: (accessToken: string, competitionId: string) =>
+    request<{ competition: CompetitionDto }>(`/api/v1/owner/competitions/${competitionId}`, {}, accessToken),
+  create: (accessToken: string, input: CompetitionCreateRequest) =>
+    request<{ competition: CompetitionDto }>(
+      "/api/v1/owner/competitions",
+      { method: "POST", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  update: (accessToken: string, competitionId: string, input: CompetitionUpdateRequest) =>
+    request<{ competition: CompetitionDto }>(
+      `/api/v1/owner/competitions/${competitionId}`,
+      { method: "PATCH", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  changeState: (accessToken: string, competitionId: string, input: CompetitionStateRequest) =>
+    request<{ competition: CompetitionDto }>(
+      `/api/v1/owner/competitions/${competitionId}/state`,
+      { method: "POST", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  scheduleMatch: (
+    accessToken: string,
+    competitionId: string,
+    matchId: string,
+    input: CompetitionMatchScheduleRequest,
+  ) =>
+    request<{ competition: CompetitionDto }>(
+      `/api/v1/owner/competitions/${competitionId}/matches/${matchId}/schedule`,
+      { method: "PUT", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  enterResult: (
+    accessToken: string,
+    competitionId: string,
+    matchId: string,
+    input: CompetitionMatchResultRequest,
+  ) =>
+    request<{ competition: CompetitionDto }>(
+      `/api/v1/owner/competitions/${competitionId}/matches/${matchId}/result`,
+      { method: "PUT", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  inviteTeam: (
+    accessToken: string,
+    competitionId: string,
+    input: CompetitionInviteTeamRequest,
+  ) =>
+    request<{ registration: CompetitionTeamDto | null }>(
+      `/api/v1/owner/competitions/${competitionId}/invitations`,
+      { method: "POST", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  decideRegistration: (
+    accessToken: string,
+    competitionId: string,
+    teamId: string,
+    input: CompetitionRegistrationDecisionRequest,
+  ) =>
+    request<{ registration: CompetitionTeamDto | null }>(
+      `/api/v1/owner/competitions/${competitionId}/registrations/${teamId}`,
+      { method: "PATCH", body: JSON.stringify(input) },
+      accessToken,
+    ),
 };
