@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import {
   bookingCancelRequestSchema,
   dateOnlySchema,
@@ -12,6 +13,7 @@ import type { BookingService } from "./booking.service.js";
 
 export function createPublicVenueRouter(booking: BookingService) {
   const router = Router();
+  router.use(rateLimit({ windowMs: 60_000, limit: 180, standardHeaders: "draft-8", legacyHeaders: false }));
 
   router.get("/", async (request, response, next) => {
     try {
@@ -39,20 +41,21 @@ export function createPublicVenueRouter(booking: BookingService) {
 export function createPlayerBookingRouter(booking: BookingService, tokens: TokenService) {
   const router = Router();
   router.use(requireAuth(tokens), requireRole("PLAYER"));
+  const writeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
 
   router.get("/me", async (request, response, next) => {
     try { response.json(await booking.listPlayerBookings(request.auth!.userId)); }
     catch (error) { next(error); }
   });
 
-  router.post("/", async (request, response, next) => {
+  router.post("/", writeLimiter, async (request, response, next) => {
     try {
       const input = onlineBookingRequestSchema.parse(request.body);
       response.status(201).json({ booking: await booking.createOnlineBooking(request.auth!.userId, input) });
     } catch (error) { next(error); }
   });
 
-  router.post("/:bookingId/cancel", async (request, response, next) => {
+  router.post("/:bookingId/cancel", writeLimiter, async (request, response, next) => {
     try {
       const input = bookingCancelRequestSchema.parse(request.body ?? {});
       response.json({ booking: await booking.cancelPlayerBooking(request.auth!.userId, request.params.bookingId!, input.reason) });
@@ -65,6 +68,7 @@ export function createPlayerBookingRouter(booking: BookingService, tokens: Token
 export function createOwnerScheduleRouter(booking: BookingService, tokens: TokenService) {
   const router = Router();
   router.use(requireAuth(tokens), requireRole("VENUE_OWNER"));
+  const writeLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 
   router.get("/schedule", async (request, response, next) => {
     try {
@@ -73,28 +77,28 @@ export function createOwnerScheduleRouter(booking: BookingService, tokens: Token
     } catch (error) { next(error); }
   });
 
-  router.post("/bookings/manual", async (request, response, next) => {
+  router.post("/bookings/manual", writeLimiter, async (request, response, next) => {
     try {
       const input = manualBookingRequestSchema.parse(request.body);
       response.status(201).json({ booking: await booking.createManualBooking(request.auth!.userId, input) });
     } catch (error) { next(error); }
   });
 
-  router.post("/blocks", async (request, response, next) => {
+  router.post("/blocks", writeLimiter, async (request, response, next) => {
     try {
       const input = venueBlockRequestSchema.parse(request.body);
       response.status(201).json({ block: await booking.createBlock(request.auth!.userId, input) });
     } catch (error) { next(error); }
   });
 
-  router.delete("/blocks/:blockId", async (request, response, next) => {
+  router.delete("/blocks/:blockId", writeLimiter, async (request, response, next) => {
     try {
       await booking.deleteBlock(request.auth!.userId, request.params.blockId!);
       response.status(204).send();
     } catch (error) { next(error); }
   });
 
-  router.post("/bookings/:bookingId/cancel", async (request, response, next) => {
+  router.post("/bookings/:bookingId/cancel", writeLimiter, async (request, response, next) => {
     try {
       const input = bookingCancelRequestSchema.parse(request.body ?? {});
       response.json({ booking: await booking.cancelOwnerBooking(request.auth!.userId, request.params.bookingId!, input.reason) });
