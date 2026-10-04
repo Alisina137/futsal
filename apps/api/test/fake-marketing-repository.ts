@@ -7,6 +7,7 @@ export class FakeMarketingRepository implements MarketingRepository {
   promotions = new Map<string, PromotionDto>();
   posts = new Map<string, VenuePostDto>();
   follows = new Set<string>();
+  onPromotionCreated?: (promotion: PromotionDto) => void;
 
   seedVenue(venue: MarketingVenueRecord) {
     this.venues.set(venue.id, venue);
@@ -55,6 +56,7 @@ export class FakeMarketingRepository implements MarketingRepository {
       closeReason: null,
     };
     this.promotions.set(promotion.id,promotion);
+    this.onPromotionCreated?.(promotion);
     return promotion;
   }
 
