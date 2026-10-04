@@ -36,3 +36,20 @@ This document records implementation-level domain rules that are authoritative i
 28. Trial/Active venues may expose live availability and accept new bookings; expired/cancelled/suspended venues cannot accept new bookings.
 29. A player may cancel only their own future active booking; an owner may cancel only bookings belonging to their venue.
 30. Price/currency and cancellation policy are snapshotted onto the booking and are not recomputed retroactively.
+
+
+## Phase 4 promotions, feed and notifications rules
+
+31. A promotion references one exact future playing-area interval and can be created only when that interval is live and available.
+32. Promotion discounted price must be lower than the current live slot price and is snapshotted with the offer.
+33. A promotion is public only while its effective state is ACTIVE; occupancy, venue entitlement loss, suspension, manual close, or interval expiry makes it non-bookable.
+34. Booking a promoted slot persists the discounted server-authoritative price that was active at confirmation time.
+35. Venue posts are immediate-publish/unpublish in MVP; draft/scheduled publishing remains outside Phase 4.
+36. Post CTAs are structured and deep-link only to platform-owned destinations (venue, promotion, later competition).
+37. Following is user-to-venue and never grants access to private venue/customer data.
+38. In-app notifications are persisted server-side and are the source of truth for notification history.
+39. Push registration stores only Expo push tokens and platform metadata; push delivery is best-effort and never replaces in-app notification state.
+40. Notification deduplication is enforced per user + dedupe key so retries cannot create duplicate notifications.
+41. Promotion/post follower fan-out respects per-user notification preferences and server-side frequency limits.
+42. Notification deep links must target a real LeagueKick route and must never be treated as an authorization boundary.
+43. Owners can create promotions/posts only while venue Premium entitlement permits marketing writes; expired/cancelled/suspended venues retain history but cannot publish new marketing inventory.
