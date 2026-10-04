@@ -82,6 +82,7 @@ export interface BookingRepository {
   }): Promise<VenueBlockDto>;
   deleteBlock(ownerUserId: string, blockId: string): Promise<boolean>;
   getBooking(bookingId: string): Promise<BookingDto | null>;
+  getBookingByIdempotency(createdByUserId: string, idempotencyKey: string): Promise<BookingDto | null>;
   listPlayerBookings(playerUserId: string): Promise<BookingDto[]>;
   listVenueBookings(venueId: string, startsAt: Date, endsAt: Date): Promise<BookingDto[]>;
   listVenueBlocks(venueId: string, startsAt: Date, endsAt: Date): Promise<VenueBlockDto[]>;
