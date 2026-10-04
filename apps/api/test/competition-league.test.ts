@@ -1,10 +1,11 @@
+import type { CompetitionCreateRequest } from "@leaguekick/contracts";
 import { describe, expect, it } from "vitest";
 import { CompetitionService } from "../src/modules/competition/competition.service.js";
 import { FakeCompetitionRepository } from "./fake-competition-repository.js";
 
 const NOW=new Date("2026-10-04T00:00:00.000Z");
 
-function createInput(){
+function createInput():CompetitionCreateRequest{
   return {
     name:"Kabul League",
     description:"",
@@ -14,7 +15,7 @@ function createInput(){
     winPoints:3,
     drawPoints:1,
     lossPoints:0,
-    tieBreakOrder:["POINTS","GOAL_DIFFERENCE","GOALS_FOR","HEAD_TO_HEAD","ADMIN"] as const,
+    tieBreakOrder:["POINTS","GOAL_DIFFERENCE","GOALS_FOR","HEAD_TO_HEAD","ADMIN"],
     groupCount:null,
     qualifiersPerGroup:null,
     startsAt:null,
