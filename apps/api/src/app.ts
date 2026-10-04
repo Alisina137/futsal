@@ -15,6 +15,8 @@ import { createOwnerMarketingRouter, createPublicMarketingRouter } from "./modul
 import type { MarketingService } from "./modules/marketing/marketing.service.js";
 import { createNotificationRouter } from "./modules/notifications/notification.routes.js";
 import type { NotificationService } from "./modules/notifications/notification.service.js";
+import { createAuthenticatedTeamRouter, createPublicTeamRouter } from "./modules/team/team.routes.js";
+import type { TeamService } from "./modules/team/team.service.js";
 
 export type AppDependencies = {
   authService: AuthService;
@@ -23,6 +25,7 @@ export type AppDependencies = {
   bookingService?: BookingService;
   marketingService?: MarketingService;
   notificationService?: NotificationService;
+  teamService?: TeamService;
   corsOrigin?: string;
 };
 
@@ -47,6 +50,10 @@ export function createApp(deps: AppDependencies) {
   }
   if (deps.notificationService) {
     app.use("/api/v1/notifications", createNotificationRouter(deps.notificationService, deps.tokenService));
+  }
+  if (deps.teamService) {
+    app.use("/api/v1", createAuthenticatedTeamRouter(deps.teamService, deps.tokenService));
+    app.use("/api/v1", createPublicTeamRouter(deps.teamService));
   }
 
   app.get("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {

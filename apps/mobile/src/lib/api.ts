@@ -23,6 +23,16 @@ import type {
   PromotionDto,
   VenuePostCreateRequest,
   VenuePostDto,
+  OwnPlayerProfileDto,
+  PublicPlayerProfileDto,
+  TeamCreateRequest,
+  TeamDto,
+  TeamInvitationDto,
+  TeamInviteRequest,
+  TeamListItemDto,
+  TeamUpdateRequest,
+  PlayerProfileUpdateRequest,
+  TeamMemberUpdateRequest,
 } from "@leaguekick/contracts";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
@@ -156,4 +166,44 @@ export const notificationApi = {
     request<{ preferences: NotificationPreferences }>("/api/v1/notifications/preferences", {}, accessToken),
   updatePreferences: (accessToken: string, input: NotificationPreferencesUpdate) =>
     request<{ preferences: NotificationPreferences }>("/api/v1/notifications/preferences", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+};
+
+
+export const teamApi = {
+  myProfile: (accessToken: string) =>
+    request<{ player: OwnPlayerProfileDto }>("/api/v1/players/me", {}, accessToken),
+  updateMyProfile: (accessToken: string, input: PlayerProfileUpdateRequest) =>
+    request<{ player: OwnPlayerProfileDto }>("/api/v1/players/me", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+  publicPlayer: (playerId: string) =>
+    request<{ player: PublicPlayerProfileDto }>(`/api/v1/players/${playerId}`),
+  mine: (accessToken: string) =>
+    request<{ teams: TeamListItemDto[] }>("/api/v1/teams/mine", {}, accessToken),
+  create: (accessToken: string, input: TeamCreateRequest) =>
+    request<{ team: TeamDto }>("/api/v1/teams", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  publicTeam: (teamId: string) =>
+    request<{ team: TeamDto }>(`/api/v1/teams/${teamId}`),
+  roster: (accessToken: string, teamId: string) =>
+    request<{ team: TeamDto }>(`/api/v1/teams/${teamId}/roster`, {}, accessToken),
+  update: (accessToken: string, teamId: string, input: TeamUpdateRequest) =>
+    request<{ team: TeamDto }>(`/api/v1/teams/${teamId}`, { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+  updateMember: (accessToken: string, teamId: string, userId: string, input: TeamMemberUpdateRequest) =>
+    request<{ team: TeamDto }>(`/api/v1/teams/${teamId}/members/${userId}`, { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+  removeMember: (accessToken: string, teamId: string, userId: string) =>
+    request<{ team: TeamDto }>(`/api/v1/teams/${teamId}/members/${userId}`, { method: "DELETE" }, accessToken),
+  setCaptain: (accessToken: string, teamId: string, userId: string | null) =>
+    request<{ team: TeamDto }>(`/api/v1/teams/${teamId}/captain`, { method: "POST", body: JSON.stringify({ userId }) }, accessToken),
+  transferManager: (accessToken: string, teamId: string, userId: string) =>
+    request<{ team: TeamDto }>(`/api/v1/teams/${teamId}/manager`, { method: "POST", body: JSON.stringify({ userId }) }, accessToken),
+  invitations: (accessToken: string) =>
+    request<{ invitations: TeamInvitationDto[] }>("/api/v1/teams/invitations", {}, accessToken),
+  teamInvitations: (accessToken: string, teamId: string) =>
+    request<{ invitations: TeamInvitationDto[] }>(`/api/v1/teams/${teamId}/invitations`, {}, accessToken),
+  invite: (accessToken: string, teamId: string, input: TeamInviteRequest) =>
+    request<{ invitation: TeamInvitationDto }>(`/api/v1/teams/${teamId}/invitations`, { method: "POST", body: JSON.stringify(input) }, accessToken),
+  acceptInvitation: (accessToken: string, invitationId: string) =>
+    request<{ invitation: TeamInvitationDto }>(`/api/v1/teams/invitations/${invitationId}/accept`, { method: "POST" }, accessToken),
+  declineInvitation: (accessToken: string, invitationId: string) =>
+    request<{ invitation: TeamInvitationDto }>(`/api/v1/teams/invitations/${invitationId}/decline`, { method: "POST" }, accessToken),
+  revokeInvitation: (accessToken: string, teamId: string, invitationId: string) =>
+    request<{ invitation: TeamInvitationDto }>(`/api/v1/teams/${teamId}/invitations/${invitationId}`, { method: "DELETE" }, accessToken),
 };

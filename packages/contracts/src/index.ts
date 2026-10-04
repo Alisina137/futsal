@@ -418,7 +418,140 @@ export const feedResponseSchema = z.object({
 });
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
 
-export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST"]);
+export const playerPositionSchema = z.enum(["UNSPECIFIED", "GOALKEEPER", "FIXO", "ALA", "PIVO", "UNIVERSAL"]);
+export type PlayerPosition = z.infer<typeof playerPositionSchema>;
+
+export const profileVisibilitySchema = z.enum(["PUBLIC", "PRIVATE"]);
+export type ProfileVisibility = z.infer<typeof profileVisibilitySchema>;
+
+export const teamPrivacySchema = z.enum(["PUBLIC", "PRIVATE"]);
+export type TeamPrivacy = z.infer<typeof teamPrivacySchema>;
+
+export const teamStatusSchema = z.enum(["ACTIVE", "ARCHIVED"]);
+export type TeamStatus = z.infer<typeof teamStatusSchema>;
+
+export const teamMemberRoleSchema = z.enum(["MANAGER", "CAPTAIN", "PLAYER"]);
+export type TeamMemberRole = z.infer<typeof teamMemberRoleSchema>;
+
+export const teamMembershipStatusSchema = z.enum(["ACTIVE", "REMOVED"]);
+export type TeamMembershipStatus = z.infer<typeof teamMembershipStatusSchema>;
+
+export const teamInvitationStatusSchema = z.enum(["PENDING", "ACCEPTED", "DECLINED", "REVOKED", "EXPIRED"]);
+export type TeamInvitationStatus = z.infer<typeof teamInvitationStatusSchema>;
+
+export const playerProfileUpdateRequestSchema = z.object({
+  publicDisplayName: z.string().trim().min(2).max(80).optional(),
+  imageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  position: playerPositionSchema.optional(),
+  visibility: profileVisibilitySchema.optional(),
+});
+export type PlayerProfileUpdateRequest = z.infer<typeof playerProfileUpdateRequestSchema>;
+
+export const playerTeamSummaryDtoSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  logoUrl: z.string().nullable(),
+  city: z.string(),
+  role: teamMemberRoleSchema,
+});
+export type PlayerTeamSummaryDto = z.infer<typeof playerTeamSummaryDtoSchema>;
+
+export const publicPlayerProfileDtoSchema = z.object({
+  userId: z.string().uuid(),
+  publicDisplayName: z.string(),
+  imageUrl: z.string().nullable(),
+  position: playerPositionSchema,
+  teams: z.array(playerTeamSummaryDtoSchema),
+});
+export type PublicPlayerProfileDto = z.infer<typeof publicPlayerProfileDtoSchema>;
+
+export const ownPlayerProfileDtoSchema = publicPlayerProfileDtoSchema.extend({
+  visibility: profileVisibilitySchema,
+});
+export type OwnPlayerProfileDto = z.infer<typeof ownPlayerProfileDtoSchema>;
+
+export const teamCreateRequestSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  city: z.string().trim().min(2).max(80),
+  logoUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  privacy: teamPrivacySchema.default("PUBLIC"),
+});
+export type TeamCreateRequest = z.infer<typeof teamCreateRequestSchema>;
+
+export const teamUpdateRequestSchema = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
+  city: z.string().trim().min(2).max(80).optional(),
+  logoUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  privacy: teamPrivacySchema.optional(),
+});
+export type TeamUpdateRequest = z.infer<typeof teamUpdateRequestSchema>;
+
+export const teamMemberDtoSchema = z.object({
+  userId: z.string().uuid(),
+  publicDisplayName: z.string(),
+  imageUrl: z.string().nullable(),
+  position: playerPositionSchema,
+  role: teamMemberRoleSchema,
+  shirtNumber: z.number().int().min(1).max(99).nullable(),
+  joinedAt: isoDateTimeSchema,
+});
+export type TeamMemberDto = z.infer<typeof teamMemberDtoSchema>;
+
+export const teamDtoSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  logoUrl: z.string().nullable(),
+  city: z.string(),
+  status: teamStatusSchema,
+  privacy: teamPrivacySchema,
+  managerUserId: z.string().uuid(),
+  captainUserId: z.string().uuid().nullable(),
+  rosterCount: z.number().int().min(0),
+  members: z.array(teamMemberDtoSchema),
+  createdAt: isoDateTimeSchema,
+});
+export type TeamDto = z.infer<typeof teamDtoSchema>;
+
+export const teamListItemDtoSchema = teamDtoSchema.omit({ members: true });
+export type TeamListItemDto = z.infer<typeof teamListItemDtoSchema>;
+
+export const teamInviteRequestSchema = z.object({
+  identifier: z.string().trim().min(3).max(80),
+  role: z.enum(["CAPTAIN", "PLAYER"]).default("PLAYER"),
+  shirtNumber: z.number().int().min(1).max(99).nullable().optional(),
+});
+export type TeamInviteRequest = z.infer<typeof teamInviteRequestSchema>;
+
+export const teamInvitationDtoSchema = z.object({
+  id: z.string().uuid(),
+  teamId: z.string().uuid(),
+  teamName: z.string(),
+  invitedUserId: z.string().uuid(),
+  invitedPublicDisplayName: z.string(),
+  role: z.enum(["CAPTAIN", "PLAYER"]),
+  shirtNumber: z.number().int().min(1).max(99).nullable(),
+  status: teamInvitationStatusSchema,
+  expiresAt: isoDateTimeSchema,
+  createdAt: isoDateTimeSchema,
+});
+export type TeamInvitationDto = z.infer<typeof teamInvitationDtoSchema>;
+
+export const teamMemberUpdateRequestSchema = z.object({
+  shirtNumber: z.number().int().min(1).max(99).nullable().optional(),
+});
+export type TeamMemberUpdateRequest = z.infer<typeof teamMemberUpdateRequestSchema>;
+
+export const teamCaptainRequestSchema = z.object({
+  userId: z.string().uuid().nullable(),
+});
+export type TeamCaptainRequest = z.infer<typeof teamCaptainRequestSchema>;
+
+export const teamManagerTransferRequestSchema = z.object({
+  userId: z.string().uuid(),
+});
+export type TeamManagerTransferRequest = z.infer<typeof teamManagerTransferRequestSchema>;
+
+export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION"]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
 export const notificationDtoSchema = z.object({
@@ -438,6 +571,7 @@ export const notificationPreferencesSchema = z.object({
   pushEnabled: z.boolean(),
   promotionsEnabled: z.boolean(),
   venuePostsEnabled: z.boolean(),
+  teamInvitesEnabled: z.boolean(),
 });
 export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
 

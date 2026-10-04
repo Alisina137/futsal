@@ -25,8 +25,9 @@ const checks = [
   [dashboard.includes("formatted.date") && dashboard.includes("formatted.time"), "dashboard renders date and time on separate lines"],
   [onboarding.includes("formatLocalDateTimeParts(status.subscription.trialEndsAt, language)"), "onboarding splits trial end into date/time parts"],
   [onboarding.includes("trialEnd.date") && onboarding.includes("trialEnd.time"), "onboarding renders date and time on separate lines"],
-  [!dashboard.includes("value={status.subscription.trialEndsAt}"), "dashboard does not render raw trial timestamp"],
-  [!onboarding.includes("<AppText forceLtr>{status.subscription.trialEndsAt}</AppText>"), "onboarding does not render raw trial timestamp"],
+  [dashboard.includes("value={status.subscription.trialEndsAt}") && dashboard.includes("formatLocalDateTimeParts(value, language)"), "dashboard passes raw value only into the formatter-backed TrialEndBlock"],
+  [!dashboard.includes("<AppText>{status.subscription.trialEndsAt}</AppText>") && !dashboard.includes("<AppText forceLtr>{status.subscription.trialEndsAt}</AppText>"), "dashboard does not render raw trial timestamp directly"],
+  [!onboarding.includes("<AppText>{status.subscription.trialEndsAt}</AppText>") && !onboarding.includes("<AppText forceLtr>{status.subscription.trialEndsAt}</AppText>"), "onboarding does not render raw trial timestamp directly"],
 ];
 
 const failed = checks.filter(([ok]) => !ok);

@@ -16,6 +16,7 @@ const defaultPreferences:NotificationPreferences={
   pushEnabled:true,
   promotionsEnabled:true,
   venuePostsEnabled:true,
+  teamInvitesEnabled:true,
 };
 
 export default function NotificationsScreen(){
@@ -79,6 +80,10 @@ export default function NotificationsScreen(){
       if(postId)router.push({pathname:"/posts/[postId]",params:{postId}});
       return;
     }
+    if(item.type==="TEAM_INVITATION"){
+      router.push("/teams/invitations");
+      return;
+    }
     router.push("/bookings");
   }
 
@@ -103,6 +108,7 @@ export default function NotificationsScreen(){
         ["pushEnabled","notifications.push"],
         ["promotionsEnabled","notifications.promotions"],
         ["venuePostsEnabled","notifications.venuePosts"],
+        ["teamInvitesEnabled","notifications.teamInvites"],
       ] as const).map(([key,label])=><View key={key} style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md}}>
         <AppText style={{flex:1}}>{t(label)}</AppText>
         <Switch value={preferences[key]} onValueChange={(value)=>void updatePreference(key,value)}/>

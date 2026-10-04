@@ -53,3 +53,21 @@ This document records implementation-level domain rules that are authoritative i
 41. Promotion/post follower fan-out respects per-user notification preferences and server-side frequency limits.
 42. Notification deep links must target a real Futsal route and must never be treated as an authorization boundary.
 43. Owners can create promotions/posts only while venue Premium entitlement permits marketing writes; expired/cancelled/suspended venues retain history but cannot publish new marketing inventory.
+
+
+## Phase 5 teams and player identity rules
+
+44. Every registered player may maintain at most one PlayerProfile; the profile is separate from private authentication/contact fields.
+45. Public player endpoints expose only approved profile identity fields and active public team relationships. Phone, email, password/session data and private account metadata are never public.
+46. A player may belong to multiple teams simultaneously; duplicate active membership is prevented only within the same team.
+47. Creating a team makes the creator its initial manager and an ACTIVE team member.
+48. Team-manager authority is object-scoped. A manager may manage only teams where they are the current manager; UI visibility is never an authorization boundary.
+49. A team has at most one current captain. The captain must be an ACTIVE member of that same team.
+50. Manager transfer is allowed only to another ACTIVE team member and removes manager authority from the previous manager after the transfer succeeds.
+51. Team invitations target an existing registered user, expire, and are single-use. Repeated pending invitations to the same team/user are rejected or replay-safe rather than duplicated.
+52. Accepting an invitation creates/reactivates membership atomically and resolves the invitation. Declining/revoking does not create membership.
+53. Shirt numbers, when present, are integers 1–99. They are roster metadata rather than global player identity.
+54. Team privacy controls public roster visibility. Private teams remain visible to their members but do not expose their roster through public endpoints.
+55. Team/player profile media is HTTPS URL metadata in Phase 5; binary upload/storage integration remains a separate infrastructure concern.
+56. Team invitation notifications respect user notification preferences and are deduplicated by user + invitation event.
+57. Matchmaking/challenges are explicitly outside Phase 5.

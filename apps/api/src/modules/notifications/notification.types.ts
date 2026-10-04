@@ -56,4 +56,10 @@ export interface NotificationPublisher {
     venueName: string;
     followerUserIds: string[];
   }): Promise<void>;
+  teamInvitation(input: {
+    userId: string;
+    invitationId: string;
+    teamId: string;
+    teamName: string;
+  }): Promise<void>;
 }
