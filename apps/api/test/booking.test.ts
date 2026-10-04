@@ -122,6 +122,54 @@ describe("Phase 3 availability and booking API", () => {
     expect(availability.body.slots.some((slot: { startsAt: string }) => slot.startsAt === bookableSlot.startsAt)).toBe(true);
   });
 
+  it("retries the same player's idempotency key without creating a duplicate booking", async () => {
+    const { app, bookingRepository } = setup();
+    const owner = await register(app, "VENUE_OWNER", "0702223390");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    const player = await register(app, "PLAYER", "0702223391");
+    const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    const slot = availability.body.slots[0];
+    const body = { areaId: slot.areaId, startsAt: slot.startsAt, idempotencyKey: "stable-retry-key" };
+
+    const first = await request(app).post("/api/v1/bookings").set("Authorization", `Bearer ${player.body.accessToken}`).send(body);
+    const retry = await request(app).post("/api/v1/bookings").set("Authorization", `Bearer ${player.body.accessToken}`).send(body);
+
+    expect(first.status).toBe(201);
+    expect(retry.status).toBe(201);
+    expect(retry.body.booking.id).toBe(first.body.booking.id);
+    expect([...bookingRepository.bookings.values()]).toHaveLength(1);
+  });
+
+  it("keeps owner booking controls tenant-scoped", async () => {
+    const { app, bookingRepository } = setup();
+    const ownerA = await register(app, "VENUE_OWNER", "0702223392");
+    const ownerB = await register(app, "VENUE_OWNER", "0702223393");
+    const { venue } = bookingRepository.seedVenue(ownerA.body.user.id);
+    bookingRepository.seedVenue(ownerB.body.user.id);
+    const player = await register(app, "PLAYER", "0702223394");
+    const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    const slot = availability.body.slots[0];
+    const booked = await request(app).post("/api/v1/bookings")
+      .set("Authorization", `Bearer ${player.body.accessToken}`)
+      .send({ areaId: slot.areaId, startsAt: slot.startsAt, idempotencyKey: "tenant-scope-booking" });
+
+    const denied = await request(app).post(`/api/v1/owner/bookings/${booked.body.booking.id}/cancel`)
+      .set("Authorization", `Bearer ${ownerB.body.accessToken}`)
+      .send({ reason: "Not my venue" });
+
+    expect(denied.status).toBe(403);
+    expect(denied.body.error.code).toBe("BOOKING_ACCESS_DENIED");
+  });
+
+  it("rejects impossible calendar dates", async () => {
+    const { app, bookingRepository } = setup();
+    const owner = await register(app, "VENUE_OWNER", "0702223395");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    const response = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-02-31`);
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("does not expose bookable inventory after the trial expires", async () => {
     const { app, bookingRepository, clock } = setup();
     const owner = await register(app, "VENUE_OWNER", "0702223388");
