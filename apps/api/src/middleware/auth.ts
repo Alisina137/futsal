@@ -1,3 +1,4 @@
+import type { UserRole } from "@leaguekick/contracts";
 import type { NextFunction, Request, Response } from "express";
 import { errors } from "../lib/errors.js";
 import type { TokenService } from "../modules/auth/token.service.js";
@@ -12,5 +13,15 @@ export function requireAuth(tokens: TokenService) {
     } catch (error) {
       next(error);
     }
+  };
+}
+
+export function requireRole(role: UserRole) {
+  return (request: Request, _response: Response, next: NextFunction) => {
+    if (!request.auth?.roles.includes(role)) {
+      next(errors.forbidden("ROLE_REQUIRED", `The ${role} role is required.`));
+      return;
+    }
+    next();
   };
 }

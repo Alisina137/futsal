@@ -7,10 +7,13 @@ import { requireAuth } from "./middleware/auth.js";
 import { createAuthRouter } from "./modules/auth/auth.routes.js";
 import type { AuthService } from "./modules/auth/auth.service.js";
 import type { TokenService } from "./modules/auth/token.service.js";
+import { createOwnerRouter } from "./modules/owner/owner.routes.js";
+import type { OwnerOnboardingService } from "./modules/owner/owner.service.js";
 
 export type AppDependencies = {
   authService: AuthService;
   tokenService: TokenService;
+  ownerService?: OwnerOnboardingService;
   corsOrigin?: string;
 };
 
@@ -23,6 +26,7 @@ export function createApp(deps: AppDependencies) {
 
   app.get("/health", (_request, response) => response.json({ status: "ok", service: "leaguekick-api" }));
   app.use("/api/v1/auth", createAuthRouter(deps.authService));
+  if (deps.ownerService) app.use("/api/v1/owner", createOwnerRouter(deps.ownerService, deps.tokenService));
 
   app.get("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {
     try {
