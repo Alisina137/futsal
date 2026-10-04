@@ -42,7 +42,7 @@ export default function PublicPlayerProfileScreen(){
 
       <View style={{gap:spacing.xs}}>
         <AppText variant="bodyLarge" weight="bold">{t("teams.currentTeams")}</AppText>
-        <AppText muted>{t("teams.noPublicTeams")}</AppText>
+        {player.teams.length===0?<AppText muted>{t("teams.noPublicTeams")}</AppText>:null}
       </View>
 
       {player.teams.map((team)=><Pressable
