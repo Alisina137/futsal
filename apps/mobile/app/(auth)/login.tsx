@@ -7,7 +7,6 @@ import { Button } from "../../src/components/ui/Button";
 import { AppText } from "../../src/components/ui/AppText";
 import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
-import { LanguagePicker } from "../../src/components/LanguagePicker";
 import { useAuth } from "../../src/providers/AuthProvider";
 import { useLocale } from "../../src/providers/LocaleProvider";
 
