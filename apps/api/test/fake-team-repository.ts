@@ -8,6 +8,7 @@ import type {
   TeamMemberRole,
 } from "@leaguekick/contracts";
 import { errors } from "../src/lib/errors.js";
+import type { UserRole } from "@leaguekick/contracts";
 import type {
   TeamIdentityUser,
   TeamMembershipRecord,
@@ -22,13 +23,20 @@ export class FakeTeamRepository implements TeamRepository {
   memberships = new Map<string, TeamMembershipRecord>();
   invitations = new Map<string, TeamInvitationDto>();
 
-  seedUser(input: { id: string; displayName: string; username?: string | null; phoneE164: string }) {
+  seedUser(input: {
+    id: string;
+    displayName: string;
+    username?: string | null;
+    phoneE164: string;
+    roles?: UserRole[];
+  }) {
     this.users.set(input.id, {
       id: input.id,
       displayName: input.displayName,
       username: input.username ?? null,
       usernameNormalized: input.username?.toLowerCase() ?? null,
       phoneE164: input.phoneE164,
+      roles: input.roles ?? ["PLAYER"],
     });
   }
 
@@ -38,7 +46,7 @@ export class FakeTeamRepository implements TeamRepository {
 
   async getUserIdentity(userId: string) {
     const user = this.users.get(userId);
-    return user ? { id: user.id, displayName: user.displayName, username: user.username } : null;
+    return user ? { id: user.id, displayName: user.displayName, username: user.username, roles: user.roles } : null;
   }
 
   async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
@@ -46,7 +54,7 @@ export class FakeTeamRepository implements TeamRepository {
       (input.usernameNormalized && item.usernameNormalized === input.usernameNormalized) ||
       (input.phoneE164 && item.phoneE164 === input.phoneE164)
     );
-    return user ? { id: user.id, displayName: user.displayName, username: user.username } : null;
+    return user ? { id: user.id, displayName: user.displayName, username: user.username, roles: user.roles } : null;
   }
 
   private playerTeams(userId: string, publicOnly: boolean) {
@@ -120,13 +128,13 @@ export class FakeTeamRepository implements TeamRepository {
   }
 
   async getPublicPlayerProfile(userId: string): Promise<PublicPlayerProfileDto | null> {
-    const own = await this.getOwnPlayerProfile(userId);
-    if (!own || own.visibility !== "PUBLIC") return null;
+    const profile = this.profiles.get(userId);
+    if (!profile || profile.visibility !== "PUBLIC") return null;
     return {
       userId,
-      publicDisplayName: own.publicDisplayName,
-      imageUrl: own.imageUrl,
-      position: own.position,
+      publicDisplayName: profile.publicDisplayName,
+      imageUrl: profile.imageUrl,
+      position: profile.position,
       teams: this.playerTeams(userId, true),
     };
   }

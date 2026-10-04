@@ -35,18 +35,24 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - In-app notifications are persisted server-side and deduped by user + event key.
 - Marketing notifications are limited to 3 per user per rolling 24 hours.
 - Push foundation stores Expo push devices and PENDING delivery/outbox rows; no external push dispatch worker/provider is enabled yet.
+- Player identity is separated from private auth/contact data; public player/team DTOs never expose phone/email.
+- Players can belong to multiple teams; membership uniqueness is scoped to one user + one team.
+- Team-manager authority is object-scoped to the team's current `managerUserId`; UI visibility is never an authorization boundary.
+- Team invitations expire after 7 days, are single-use, and are deduplicated while pending per team/player.
+- Venue-owner-only accounts cannot participate in player/team flows unless they also have the PLAYER role.
 - Afghanistan launch venue timezone defaults to `Asia/Kabul`; persisted timestamps are UTC instants.
 
 ## Current implementation phase
-Phase 4 — Promotions, Feed and Notifications.
+Phase 5 — Teams and Player Identity.
 
 ## Migration baseline
 Committed canonical migrations:
 - `0000_dear_mole_man` — Phase 1.
 - `0001_clean_retro_girl` — Phase 2.
 - `0002_careless_jack_power` — Phase 3.
+- `0003_numerous_darwin` — Phase 4.
 
-Phase 4 schema changes still require generation of `0003_*.sql`.
+Phase 5 schema changes require generation of `0004_*.sql`.
 
 ## Phase 1 status
 Foundation implemented and previously verified.
@@ -172,7 +178,93 @@ For a physical Android phone:
 - `EXPO_PUBLIC_API_URL` must point to an API URL the phone can actually open.
 - If LAN access to port 4000 fails, run `ngrok http 4000` and use that HTTPS URL in `apps/mobile/.env.local`, then restart Expo with `--clear`.
 
-## Next phase
-Phase 5 — Teams and Player Identity.
+## Phase 5 delivered
 
-Phase 5 should begin from the Phase 4 branch after the Phase 4 migration/verification baseline is reviewed.
+### Player identity
+- Persistent `player_profiles` separated from private authentication/contact data.
+- Editable public display name, image URL metadata, futsal position and PUBLIC/PRIVATE visibility.
+- Public player API returns approved profile fields and public team relationships only.
+- Private player profiles are unavailable through public player endpoints.
+- Venue-owner-only accounts are rejected from player/team participation.
+
+### Teams and roster
+- Persistent teams with name, city, logo URL metadata, PUBLIC/PRIVATE privacy and ACTIVE/ARCHIVED status foundation.
+- Creator becomes the initial manager and active roster member atomically.
+- A player can belong to multiple teams simultaneously.
+- One membership row per user/team prevents duplicate roster entries.
+- Public teams expose approved roster identity only; private teams hide roster from non-members.
+- Active members can view the private roster.
+
+### Manager/captain authority
+- Team authority is object-scoped to the current manager.
+- Manager can update team identity/privacy.
+- Manager can edit shirt numbers, assign/remove captain, remove members and transfer management.
+- Captain must be an active member of the same team.
+- Manager transfer requires an active member and immediately revokes the old manager's manager authority.
+- Manager cannot remove themselves before transferring management.
+
+### Invitations
+- Manager invites an existing PLAYER by username or Afghanistan phone number.
+- Pending invitation uniqueness per team/player.
+- 7-day expiry.
+- Accept/decline/revoke lifecycle.
+- Acceptance atomically creates/reactivates membership.
+- Captain invitation atomically updates captain state.
+- Team invitation notifications have a separate preference, user/event dedupe and Team Invitations deep-link.
+- Notification delivery failure does not invalidate the authoritative invitation.
+
+### Mobile UX
+- Profile → My Teams entry.
+- Profile → Player Profile entry.
+- Create team.
+- My Teams list.
+- Public/member team detail.
+- Public player profile.
+- Editable player identity/privacy.
+- Team Invitations inbox.
+- Manager team-settings/roster workspace.
+- Invite, revoke, shirt number, captain, member removal and manager-transfer flows.
+- Dari/Pashto/English localization and RTL-aware action order.
+
+### Verification coverage
+- Multi-team membership regression.
+- Public private-contact leakage regression.
+- Private team roster boundary.
+- Private player-profile boundary.
+- Non-manager mutation rejection.
+- Captain/manager must be active members.
+- Invitation duplicate/accept/decline/expiry/revoke.
+- Team-invite notification preference.
+- Old-manager authority revocation after transfer.
+- Venue-owner-only player/team rejection.
+- `verify:phase5` invariant gate.
+- `docs/PHASE-05-TEST-PLAN.md`.
+
+## Phase 5 verification status
+Status: **Implemented; migration generation, full local verification, database migration and live Android testing pending.**
+
+Run on the user environment:
+
+1. Pull `phase-05-teams-player-identity`.
+2. Generate migration:
+   ```powershell
+   pnpm db:generate
+   ```
+   Expected: `0004_*.sql` and `meta/0004_snapshot.json`.
+3. Run:
+   ```powershell
+   pnpm verify
+   ```
+4. Apply:
+   ```powershell
+   pnpm db:migrate
+   ```
+5. Complete `docs/PHASE-05-TEST-PLAN.md`.
+6. Commit/push the generated Phase 5 Drizzle migration.
+
+Do not call Phase 5 fully verified until those steps pass.
+
+## Next phase
+Phase 6 — Competition Engine.
+
+Phase 6 should begin only after the Phase 5 migration/verification baseline is reviewed.

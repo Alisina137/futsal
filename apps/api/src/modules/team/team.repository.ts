@@ -13,6 +13,7 @@ import {
   teamInvitations,
   teamMemberships,
   teams,
+  userRoles,
   users,
 } from "@leaguekick/database";
 import { and, count, desc, eq, lte, or, sql } from "drizzle-orm";
@@ -47,7 +48,9 @@ export class DrizzleTeamRepository implements TeamRepository {
       displayName: users.displayName,
       username: users.username,
     }).from(users).where(and(eq(users.id, userId), eq(users.status, "ACTIVE"))).limit(1);
-    return row ?? null;
+    if (!row) return null;
+    const roles = await this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId));
+    return { ...row, roles: roles.map((item) => item.role) };
   }
 
   async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
@@ -71,7 +74,9 @@ export class DrizzleTeamRepository implements TeamRepository {
       eq(users.status, "ACTIVE"),
       identifierCondition,
     )).limit(1);
-    return row ?? null;
+    if (!row) return null;
+    const roles = await this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, row.id));
+    return { ...row, roles: roles.map((item) => item.role) };
   }
 
   private async listPlayerTeams(userId: string, publicOnly: boolean): Promise<OwnPlayerProfileDto["teams"]> {
@@ -154,13 +159,27 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   async getPublicPlayerProfile(userId: string): Promise<PublicPlayerProfileDto | null> {
-    const own = await this.getOwnPlayerProfile(userId);
-    if (!own || own.visibility !== "PUBLIC") return null;
+    const [row] = await this.db.select({
+      userId: playerProfiles.userId,
+      publicDisplayName: playerProfiles.publicDisplayName,
+      imageUrl: playerProfiles.imageUrl,
+      position: playerProfiles.position,
+      visibility: playerProfiles.visibility,
+    }).from(playerProfiles)
+      .innerJoin(users, eq(playerProfiles.userId, users.id))
+      .where(and(
+        eq(playerProfiles.userId, userId),
+        eq(playerProfiles.visibility, "PUBLIC"),
+        eq(users.status, "ACTIVE"),
+      ))
+      .limit(1);
+
+    if (!row) return null;
     return {
-      userId: own.userId,
-      publicDisplayName: own.publicDisplayName,
-      imageUrl: own.imageUrl,
-      position: own.position,
+      userId: row.userId,
+      publicDisplayName: row.publicDisplayName,
+      imageUrl: row.imageUrl,
+      position: row.position,
       teams: await this.listPlayerTeams(userId, true),
     };
   }
