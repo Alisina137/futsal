@@ -13,10 +13,11 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
-    "verify": "pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
+    "verify": "pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "pnpm --filter @leaguekick/database db:generate",
     "db:migrate": "pnpm --filter @leaguekick/database db:migrate",
-    "verify:phase3": "node scripts/verify-phase3-resilience.mjs"
+    "verify:phase3": "node scripts/verify-phase3-resilience.mjs",
+    "verify:phase4": "node scripts/verify-phase4-marketing.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
