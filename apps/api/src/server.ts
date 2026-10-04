@@ -10,6 +10,8 @@ import { DrizzleOwnerOnboardingRepository } from "./modules/owner/owner.reposito
 import { OwnerOnboardingService } from "./modules/owner/owner.service.js";
 import { DrizzleMarketingRepository } from "./modules/marketing/marketing.repository.js";
 import { MarketingService } from "./modules/marketing/marketing.service.js";
+import { DrizzleNotificationRepository } from "./modules/notifications/notification.repository.js";
+import { NotificationService } from "./modules/notifications/notification.service.js";
 
 const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
@@ -17,11 +19,21 @@ const tokens = new TokenService(env.ACCESS_TOKEN_SECRET, env.ACCESS_TOKEN_ISSUER
 const auth = new AuthService(authRepository, tokens);
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
 const owner = new OwnerOnboardingService(ownerRepository);
+const notificationRepository = new DrizzleNotificationRepository(db);
+const notificationService = new NotificationService(notificationRepository);
 const bookingRepository = new DrizzleBookingRepository(db);
-const booking = new BookingService(bookingRepository);
+const booking = new BookingService(bookingRepository, undefined, notificationService);
 const marketingRepository = new DrizzleMarketingRepository(db);
-const marketing = new MarketingService(marketingRepository, booking);
-const app = createApp({ authService: auth, tokenService: tokens, ownerService: owner, bookingService: booking, marketingService: marketing, corsOrigin: env.CORS_ORIGIN });
+const marketing = new MarketingService(marketingRepository, booking, undefined, notificationService);
+const app = createApp({
+  authService: auth,
+  tokenService: tokens,
+  ownerService: owner,
+  bookingService: booking,
+  marketingService: marketing,
+  notificationService,
+  corsOrigin: env.CORS_ORIGIN,
+});
 
 const server = app.listen(env.API_PORT, "0.0.0.0", () => {
   console.log(`LeagueKick API listening on http://0.0.0.0:${env.API_PORT}`);
