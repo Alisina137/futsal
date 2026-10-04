@@ -48,6 +48,7 @@ export class TeamService {
   }
 
   private async manager(teamId: string, userId: string) {
+    await this.playerIdentity(userId);
     const team = await this.team(teamId);
     if (team.managerUserId !== userId) {
       throw errors.forbidden("TEAM_MANAGER_REQUIRED", "Only this team's manager can perform that action.");
