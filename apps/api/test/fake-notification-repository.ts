@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   NotificationDto,
   NotificationPreferences,
@@ -57,7 +58,7 @@ export class FakeNotificationRepository implements NotificationRepository {
     if(existing)return{notification:existing,created:false};
 
     const notification:NotificationDto={
-      id:crypto.randomUUID(),
+      id:randomUUID(),
       type:input.type,
       title:input.title,
       body:input.body,
