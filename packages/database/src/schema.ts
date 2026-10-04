@@ -39,6 +39,13 @@ export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIR
 export const notificationChannelEnum = pgEnum("notification_channel", ["IN_APP", "PUSH"]);
 export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", ["PENDING", "SENT", "SKIPPED", "FAILED"]);
 export const devicePlatformEnum = pgEnum("device_platform", ["ANDROID", "IOS"]);
+export const playerPositionEnum = pgEnum("player_position", ["UNSPECIFIED", "GOALKEEPER", "FIXO", "ALA", "PIVO", "UNIVERSAL"]);
+export const profileVisibilityEnum = pgEnum("profile_visibility", ["PUBLIC", "PRIVATE"]);
+export const teamStatusEnum = pgEnum("team_status", ["ACTIVE", "ARCHIVED"]);
+export const teamPrivacyEnum = pgEnum("team_privacy", ["PUBLIC", "PRIVATE"]);
+export const teamMemberRoleEnum = pgEnum("team_member_role", ["MANAGER", "CAPTAIN", "PLAYER"]);
+export const teamMembershipStatusEnum = pgEnum("team_membership_status", ["ACTIVE", "REMOVED"]);
+export const teamInvitationStatusEnum = pgEnum("team_invitation_status", ["PENDING", "ACCEPTED", "DECLINED", "REVOKED", "EXPIRED"]);
 
 export const users = pgTable(
   "users",
@@ -319,6 +326,88 @@ export const venueFollows = pgTable(
   ],
 );
 
+
+export const playerProfiles = pgTable(
+  "player_profiles",
+  {
+    userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+    publicDisplayName: varchar("public_display_name", { length: 80 }).notNull(),
+    imageUrl: text("image_url"),
+    position: playerPositionEnum("position").notNull().default("UNSPECIFIED"),
+    visibility: profileVisibilityEnum("visibility").notNull().default("PUBLIC"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("player_profiles_visibility_idx").on(table.visibility),
+  ],
+);
+
+export const teams = pgTable(
+  "teams",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 100 }).notNull(),
+    logoUrl: text("logo_url"),
+    city: varchar("city", { length: 80 }).notNull(),
+    managerUserId: uuid("manager_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    captainUserId: uuid("captain_user_id").references(() => users.id, { onDelete: "set null" }),
+    status: teamStatusEnum("status").notNull().default("ACTIVE"),
+    privacy: teamPrivacyEnum("privacy").notNull().default("PUBLIC"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("teams_manager_idx").on(table.managerUserId),
+    index("teams_city_status_idx").on(table.city, table.status),
+    index("teams_privacy_status_idx").on(table.privacy, table.status),
+  ],
+);
+
+export const teamMemberships = pgTable(
+  "team_memberships",
+  {
+    teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    role: teamMemberRoleEnum("role").notNull().default("PLAYER"),
+    shirtNumber: integer("shirt_number"),
+    status: teamMembershipStatusEnum("status").notNull().default("ACTIVE"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+    leftAt: timestamp("left_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.teamId, table.userId] }),
+    index("team_memberships_user_status_idx").on(table.userId, table.status),
+    index("team_memberships_team_status_idx").on(table.teamId, table.status),
+  ],
+);
+
+export const teamInvitations = pgTable(
+  "team_invitations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    invitedUserId: uuid("invited_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    invitedByUserId: uuid("invited_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    role: teamMemberRoleEnum("role").notNull().default("PLAYER"),
+    shirtNumber: integer("shirt_number"),
+    status: teamInvitationStatusEnum("status").notNull().default("PENDING"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("team_invitations_pending_uq")
+      .on(table.teamId, table.invitedUserId)
+      .where(sql`${table.status} = 'PENDING'`),
+    index("team_invitations_invited_status_idx").on(table.invitedUserId, table.status),
+    index("team_invitations_team_status_idx").on(table.teamId, table.status),
+  ],
+);
+
 export const notificationPreferences = pgTable(
   "notification_preferences",
   {
@@ -395,3 +484,7 @@ export type BookingRow = typeof bookings.$inferSelect;
 export type VenuePromotionRow = typeof venuePromotions.$inferSelect;
 export type VenuePostRow = typeof venuePosts.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
+export type PlayerProfileRow = typeof playerProfiles.$inferSelect;
+export type TeamRow = typeof teams.$inferSelect;
+export type TeamMembershipRow = typeof teamMemberships.$inferSelect;
+export type TeamInvitationRow = typeof teamInvitations.$inferSelect;
