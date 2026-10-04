@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { ownerApi, ApiRequestError } from "../../lib/api";
+import { formatLocalDateTime } from "../../lib/date-time";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
@@ -20,7 +21,7 @@ function remainingLabel(seconds: number | null) {
 
 export function OwnerDashboard() {
   const { session } = useAuth();
-  const { t, isRTL } = useLocale();
+  const { t, isRTL, language } = useLocale();
   const token = session?.accessToken;
   const [status, setStatus] = useState<OwnerOnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +72,11 @@ export function OwnerDashboard() {
       <InfoRow label={t("owner.setupStatus")} value={status.setupComplete ? t("owner.complete") : t("owner.incomplete")} rtl={isRTL} />
       <InfoRow label={t("owner.subscriptionStatus")} value={t(`owner.subscription.${status.subscription.state}` as never)} rtl={isRTL} />
       {status.subscription.state === "TRIAL" ? <InfoRow label={t("owner.trialRemaining")} value={remainingLabel(status.subscription.remainingSeconds)} rtl={isRTL} ltr /> : null}
-      {status.subscription.trialEndsAt ? <InfoRow label={t("owner.trialEnds")} value={status.subscription.trialEndsAt} rtl={isRTL} ltr /> : null}
+      {status.subscription.trialEndsAt ? <InfoRow
+        label={t("owner.trialEnds")}
+        value={formatLocalDateTime(status.subscription.trialEndsAt, language)}
+        rtl={isRTL}
+      /> : null}
       <Button
         label={status.subscription.state === "NOT_STARTED" ? t("owner.reviewSetup") : t("owner.manageSetup")}
         onPress={() => router.push("/owner/onboarding")}
