@@ -12,6 +12,7 @@ export default function TabsLayout(){
     <Tabs.Screen name="home" options={{title:owner?t("owner.dashboardTitle"):t("home.title"),tabBarIcon:({color,size})=><Ionicons name={owner?"speedometer-outline":"home-outline"} color={color} size={size}/>}}/>
     <Tabs.Screen name="venues" options={{href:owner?null:undefined,title:t("booking.venuesTitle"),tabBarIcon:({color,size})=><Ionicons name="business-outline" color={color} size={size}/>}}/>
     <Tabs.Screen name="bookings" options={{href:owner?null:undefined,title:t("booking.myBookings"),tabBarIcon:({color,size})=><Ionicons name="calendar-outline" color={color} size={size}/>}}/>
+    <Tabs.Screen name="schedule" options={{href:owner?undefined:null,title:t("schedule.title"),tabBarIcon:({color,size})=><Ionicons name="time-outline" color={color} size={size}/>}}/>
     <Tabs.Screen name="settings" options={{title:t("settings.title"),tabBarIcon:({color,size})=><Ionicons name="settings-outline" color={color} size={size}/>}}/>
   </Tabs>;
 }
