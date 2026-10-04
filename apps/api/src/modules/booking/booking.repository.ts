@@ -2,6 +2,7 @@ import type { BookingDto, VenueOpeningHourInput } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
 import {
   bookings,
+  competitionMatches,
   users,
   venueAreas,
   venueBlocks,
@@ -158,7 +159,7 @@ export class DrizzleBookingRepository implements BookingRepository {
   }
 
   async listOccupancies(venueId: string, startsAt: Date, endsAt: Date): Promise<OccupancyRecord[]> {
-    const [bookingRows, blockRows] = await Promise.all([
+    const [bookingRows, blockRows, matchRows] = await Promise.all([
       this.db.select({ areaId: bookings.areaId, startsAt: bookings.startsAt, endsAt: bookings.endsAt })
         .from(bookings)
         .where(and(
@@ -170,10 +171,21 @@ export class DrizzleBookingRepository implements BookingRepository {
       this.db.select({ areaId: venueBlocks.areaId, startsAt: venueBlocks.startsAt, endsAt: venueBlocks.endsAt })
         .from(venueBlocks)
         .where(and(eq(venueBlocks.venueId, venueId), lt(venueBlocks.startsAt, endsAt), gt(venueBlocks.endsAt, startsAt))),
+      this.db.select({ areaId: competitionMatches.areaId, startsAt: competitionMatches.startsAt, endsAt: competitionMatches.endsAt })
+        .from(competitionMatches)
+        .where(and(
+          eq(competitionMatches.venueId, venueId),
+          inArray(competitionMatches.status, ["SCHEDULED", "IN_PROGRESS"]),
+          lt(competitionMatches.startsAt, endsAt),
+          gt(competitionMatches.endsAt, startsAt),
+        )),
     ]);
     return [
       ...bookingRows.map((row) => ({ ...row, kind: "BOOKING" as const })),
       ...blockRows.map((row) => ({ ...row, kind: "BLOCK" as const })),
+      ...matchRows
+        .filter((row): row is { areaId: string; startsAt: Date; endsAt: Date } => Boolean(row.areaId && row.startsAt && row.endsAt))
+        .map((row) => ({ ...row, kind: "COMPETITION_MATCH" as const })),
     ];
   }
 
@@ -223,7 +235,15 @@ export class DrizzleBookingRepository implements BookingRepository {
       lt(venueBlocks.startsAt, endsAt),
       gt(venueBlocks.endsAt, startsAt),
     )).limit(1);
-    return Boolean(blockOverlap);
+    if (blockOverlap) return true;
+
+    const [matchOverlap] = await tx.select({ id: competitionMatches.id }).from(competitionMatches).where(and(
+      eq(competitionMatches.areaId, areaId),
+      inArray(competitionMatches.status, ["SCHEDULED", "IN_PROGRESS"]),
+      lt(competitionMatches.startsAt, endsAt),
+      gt(competitionMatches.endsAt, startsAt),
+    )).limit(1);
+    return Boolean(matchOverlap);
   }
 
   async createBookingAtomic(input: CreateBookingRecordInput): Promise<BookingDto> {
