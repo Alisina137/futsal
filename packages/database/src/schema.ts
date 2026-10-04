@@ -35,7 +35,7 @@ export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
 export const promotionStatusEnum = pgEnum("promotion_status", ["ACTIVE", "CLOSED", "EXPIRED"]);
 export const postStatusEnum = pgEnum("post_status", ["PUBLISHED", "UNPUBLISHED"]);
 export const postCtaTypeEnum = pgEnum("post_cta_type", ["NONE", "VENUE", "PROMOTION", "COMPETITION"]);
-export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION"]);
 export const notificationChannelEnum = pgEnum("notification_channel", ["IN_APP", "PUSH"]);
 export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", ["PENDING", "SENT", "SKIPPED", "FAILED"]);
 export const devicePlatformEnum = pgEnum("device_platform", ["ANDROID", "IOS"]);
@@ -416,6 +416,7 @@ export const notificationPreferences = pgTable(
     pushEnabled: boolean("push_enabled").notNull().default(true),
     promotionsEnabled: boolean("promotions_enabled").notNull().default(true),
     venuePostsEnabled: boolean("venue_posts_enabled").notNull().default(true),
+    teamInvitesEnabled: boolean("team_invites_enabled").notNull().default(true),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
 );
