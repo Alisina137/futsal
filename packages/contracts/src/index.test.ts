@@ -27,6 +27,28 @@ describe("shared auth contracts", () => {
       accountType: "PLAYER",
     }).success).toBe(true);
   });
+
+  it("accepts an 8-character new password with a special character", () => {
+    expect(registerRequestSchema.safeParse({
+      displayName: "Ahmad",
+      phone: "0791234567",
+      username: "ahmad_8",
+      password: "Abcdefg!",
+      preferredLanguage: "fa-AF",
+      accountType: "PLAYER",
+    }).success).toBe(true);
+  });
+
+  it("rejects a new password without a special character", () => {
+    expect(registerRequestSchema.safeParse({
+      displayName: "Ahmad",
+      phone: "0791234567",
+      username: "ahmad_9",
+      password: "abcdefgh",
+      preferredLanguage: "fa-AF",
+      accountType: "PLAYER",
+    }).success).toBe(false);
+  });
 });
 
 describe("Phase 2 owner onboarding contracts", () => {
