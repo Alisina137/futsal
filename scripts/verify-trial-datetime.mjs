@@ -21,8 +21,10 @@ const checks = [
   [formatter.includes('AFGHANISTAN_TIME_ZONE = "Asia/Kabul"'), "shared formatter uses Kabul timezone"],
   [formatter.includes('calendar: "gregory"'), "calendar is explicitly Gregorian for current MVP"],
   [formatter.includes('timeZoneName: "short"'), "formatted expiry includes timezone"],
-  [dashboard.includes("formatLocalDateTime(status.subscription.trialEndsAt, language)"), "dashboard formats trial end"],
-  [onboarding.includes("formatLocalDateTime(status.subscription.trialEndsAt, language)"), "onboarding formats trial end"],
+  [dashboard.includes("formatLocalDateTimeParts(value, language)"), "dashboard splits trial end into date/time parts"],
+  [dashboard.includes("formatted.date") && dashboard.includes("formatted.time"), "dashboard renders date and time on separate lines"],
+  [onboarding.includes("formatLocalDateTimeParts(status.subscription.trialEndsAt, language)"), "onboarding splits trial end into date/time parts"],
+  [onboarding.includes("trialEnd.date") && onboarding.includes("trialEnd.time"), "onboarding renders date and time on separate lines"],
   [!dashboard.includes("value={status.subscription.trialEndsAt}"), "dashboard does not render raw trial timestamp"],
   [!onboarding.includes("<AppText forceLtr>{status.subscription.trialEndsAt}</AppText>"), "onboarding does not render raw trial timestamp"],
 ];
@@ -32,4 +34,4 @@ if (failed.length) {
   throw new Error(`Premium trial date/time invariant(s) failed: ${failed.map(([,name]) => name).join(", ")}`);
 }
 
-console.log("Premium trial date/time verified: UTC timestamps display as localized Kabul date/time with timezone, never raw ISO.");
+console.log("Premium trial date/time verified: UTC timestamps display as localized Kabul date and time on separate lines, never raw ISO.");
