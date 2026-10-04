@@ -164,6 +164,45 @@ describe("Phase 5 team invitations", () => {
     expect(inbox.body.invitations[0].status).toBe("EXPIRED");
   });
 
+  it("revokes old-manager authority immediately after a successful transfer", async () => {
+    const { app, teamRepository } = setup();
+    const manager = await register(app, teamRepository, {
+      phone: "0705560041",
+      username: "transfer_manager",
+      displayName: "Transfer Manager",
+    });
+    const player = await register(app, teamRepository, {
+      phone: "0705560042",
+      username: "transfer_player",
+      displayName: "Transfer Player",
+    });
+    const team = await createTeam(app, manager.accessToken);
+
+    const invited = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
+      .set("Authorization", `Bearer ${manager.accessToken}`)
+      .send({ identifier: "transfer_player", role: "PLAYER" });
+    await request(app).post(`/api/v1/teams/invitations/${invited.body.invitation.id}/accept`)
+      .set("Authorization", `Bearer ${player.accessToken}`);
+
+    const transferred = await request(app).post(`/api/v1/teams/${team.id}/manager`)
+      .set("Authorization", `Bearer ${manager.accessToken}`)
+      .send({ userId: player.user.id });
+    expect(transferred.status).toBe(200);
+    expect(transferred.body.team.managerUserId).toBe(player.user.id);
+
+    const oldManagerEdit = await request(app).patch(`/api/v1/teams/${team.id}`)
+      .set("Authorization", `Bearer ${manager.accessToken}`)
+      .send({ name: "Old Manager Cannot Rename" });
+    expect(oldManagerEdit.status).toBe(403);
+    expect(oldManagerEdit.body.error.code).toBe("TEAM_MANAGER_REQUIRED");
+
+    const newManagerEdit = await request(app).patch(`/api/v1/teams/${team.id}`)
+      .set("Authorization", `Bearer ${player.accessToken}`)
+      .send({ name: "New Manager Team" });
+    expect(newManagerEdit.status).toBe(200);
+    expect(newManagerEdit.body.team.name).toBe("New Manager Team");
+  });
+
   it("allows only the current manager to revoke a pending invitation", async () => {
     const { app, teamRepository } = setup();
     const manager = await register(app, teamRepository, {
