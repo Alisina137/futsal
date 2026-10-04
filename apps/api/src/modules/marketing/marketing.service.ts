@@ -110,6 +110,7 @@ export class MarketingService {
   }
 
   async createPost(ownerUserId: string, input: VenuePostCreateRequest): Promise<VenuePostDto> {
+    await this.repository.refreshPromotionStates(this.now());
     const venue = await this.ownerVenue(ownerUserId, true);
     let targetId: string | null = input.ctaTargetId ?? null;
 
