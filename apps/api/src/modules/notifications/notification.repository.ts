@@ -49,9 +49,18 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     } : { ...DEFAULTS };
   }
 
-  async updatePreferences(userId: string, input: NotificationPreferencesUpdate, updatedAt: Date) {
+  async updatePreferences(
+    userId: string,
+    input: NotificationPreferencesUpdate,
+    updatedAt: Date,
+  ): Promise<NotificationPreferences> {
     const current = await this.getPreferences(userId);
-    const next = { ...current, ...input };
+    const next: NotificationPreferences = {
+      inAppEnabled: input.inAppEnabled ?? current.inAppEnabled,
+      pushEnabled: input.pushEnabled ?? current.pushEnabled,
+      promotionsEnabled: input.promotionsEnabled ?? current.promotionsEnabled,
+      venuePostsEnabled: input.venuePostsEnabled ?? current.venuePostsEnabled,
+    };
     await this.db.insert(notificationPreferences).values({
       userId,
       ...next,

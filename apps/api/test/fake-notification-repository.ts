@@ -20,8 +20,18 @@ export class FakeNotificationRepository implements NotificationRepository {
     return this.preferences.get(userId)??{inAppEnabled:true,pushEnabled:true,promotionsEnabled:true,venuePostsEnabled:true};
   }
 
-  async updatePreferences(userId:string,input:NotificationPreferencesUpdate,_updatedAt:Date){
-    const next={...(await this.getPreferences(userId)),...input};
+  async updatePreferences(
+    userId:string,
+    input:NotificationPreferencesUpdate,
+    _updatedAt:Date,
+  ):Promise<NotificationPreferences>{
+    const current=await this.getPreferences(userId);
+    const next:NotificationPreferences={
+      inAppEnabled:input.inAppEnabled??current.inAppEnabled,
+      pushEnabled:input.pushEnabled??current.pushEnabled,
+      promotionsEnabled:input.promotionsEnabled??current.promotionsEnabled,
+      venuePostsEnabled:input.venuePostsEnabled??current.venuePostsEnabled,
+    };
     this.preferences.set(userId,next);
     return next;
   }
