@@ -36,7 +36,7 @@ const app = createApp({
 });
 
 const server = app.listen(env.API_PORT, "0.0.0.0", () => {
-  console.log(`LeagueKick API listening on http://0.0.0.0:${env.API_PORT}`);
+  console.log(`Futsal API listening on http://0.0.0.0:${env.API_PORT}`);
 });
 
 async function shutdown(signal: string) {

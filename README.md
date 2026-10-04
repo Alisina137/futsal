@@ -1,6 +1,6 @@
-# LeagueKick
+# Futsal
 
-LeagueKick is a mobile-first futsal venue booking, operations, competition, and community platform designed initially for Afghanistan.
+Futsal is a mobile-first futsal venue booking, operations, competition, and community platform designed initially for Afghanistan.
 
 ## Current implementation state
 
@@ -138,7 +138,7 @@ Before testing login/signup, open this in the phone browser:
 http://YOUR_PC_IPV4:4000/health
 ```
 
-It must return the LeagueKick API health JSON. If it does not, mobile auth requests cannot work even if the Expo QR code opens successfully.
+It must return the Futsal API health JSON. If it does not, mobile auth requests cannot work even if the Expo QR code opens successfully.
 
 If the phone cannot reach your PC's port 4000, expose the API separately:
 
@@ -160,7 +160,7 @@ EXPO_PUBLIC_API_URL=https://example.ngrok-free.app
 
 Restart Expo with `--clear` after changing the environment URL.
 
-> Expo/Metro tunneling and LeagueKick API reachability are separate connections. A working Expo tunnel does not automatically expose port 4000.
+> Expo/Metro tunneling and Futsal API reachability are separate connections. A working Expo tunnel does not automatically expose port 4000.
 
 ## Signup troubleshooting
 
