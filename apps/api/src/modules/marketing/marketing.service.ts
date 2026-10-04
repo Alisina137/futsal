@@ -165,8 +165,20 @@ export class MarketingService {
   }
 
   async setPostPublished(ownerUserId: string, postId: string, published: boolean) {
-    if (published) await this.ownerVenue(ownerUserId, true);
-    else await this.ownerVenue(ownerUserId, false);
+    const venue = await this.ownerVenue(ownerUserId, published);
+    if (published) {
+      await this.repository.refreshPromotionStates(this.now());
+      const current = await this.repository.getPost(postId);
+      if (!current || current.venueId !== venue.id) {
+        throw errors.forbidden("POST_ACCESS_DENIED", "You cannot manage this post.");
+      }
+      if (current.ctaType === "PROMOTION" && current.ctaTargetId) {
+        const promotion = await this.repository.getPromotion(current.ctaTargetId);
+        if (!promotion || promotion.venueId !== venue.id || promotion.status !== "ACTIVE") {
+          throw errors.badRequest("INVALID_POST_CTA", "This post links to a promotion that is no longer active.");
+        }
+      }
+    }
 
     const post = await this.repository.setPostStatus(
       ownerUserId,
