@@ -128,13 +128,13 @@ export class FakeTeamRepository implements TeamRepository {
   }
 
   async getPublicPlayerProfile(userId: string): Promise<PublicPlayerProfileDto | null> {
-    const own = await this.getOwnPlayerProfile(userId);
-    if (!own || own.visibility !== "PUBLIC") return null;
+    const profile = this.profiles.get(userId);
+    if (!profile || profile.visibility !== "PUBLIC") return null;
     return {
       userId,
-      publicDisplayName: own.publicDisplayName,
-      imageUrl: own.imageUrl,
-      position: own.position,
+      publicDisplayName: profile.publicDisplayName,
+      imageUrl: profile.imageUrl,
+      position: profile.position,
       teams: this.playerTeams(userId, true),
     };
   }
