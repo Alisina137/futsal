@@ -45,7 +45,7 @@ export type OccupancyRecord = {
   areaId: string;
   startsAt: Date;
   endsAt: Date;
-  kind: "BOOKING" | "BLOCK";
+  kind: "BOOKING" | "BLOCK" | "COMPETITION_MATCH";
 };
 
 export type PromotionPriceRecord = {
