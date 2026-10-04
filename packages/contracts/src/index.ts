@@ -207,6 +207,8 @@ export const availabilitySlotDtoSchema = z.object({
   startsAt: isoDateTimeSchema,
   endsAt: isoDateTimeSchema,
   priceAfn: z.number().int().min(0),
+  originalPriceAfn: z.number().int().min(0).nullable(),
+  promotionId: z.string().uuid().nullable(),
   currency: z.literal("AFN"),
   status: z.literal("AVAILABLE"),
 });
