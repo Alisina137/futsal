@@ -17,7 +17,7 @@ export default function MyBookingsScreen(){
 
   async function cancel(id:string){if(!session)return;try{await bookingApi.cancel(session.accessToken,id);await load();}catch{setError(t("booking.cancelError"));}}
 
-  return <Screen>
+  return <Screen showHeader>
     <AppText variant="title" weight="bold">{t("booking.myBookings")}</AppText>
     <Button label={t("common.retry")} onPress={()=>void load()} loading={loading} variant="secondary"/>
     {error?<AppText style={{color:colors.danger}}>{error}</AppText>:null}
