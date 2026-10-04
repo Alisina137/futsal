@@ -4,9 +4,9 @@ Futsal is a mobile-first futsal venue booking, operations, competition, and comm
 
 ## Current implementation state
 
-Phase 5 — Teams and Player Identity.
+Phase 6 — Competition Engine.
 
-Implemented through Phase 5:
+Implemented through Phase 6:
 
 - Dari, Pashto and English mobile experience with RTL-aware layouts.
 - Player and Venue Owner auth/session foundation.
@@ -33,8 +33,15 @@ Implemented through Phase 5:
 - Team-invitation notification preference and dedupe.
 - Public/private team roster boundaries.
 - My Teams, Player Profile, invitation inbox, and manager roster workspace.
+- League, Knockout and Group → Knockout competition formats.
+- Team applications/invitations and accepted-team capacity enforcement.
+- Deterministic fixtures, standings, qualification and knockout progression.
+- Competition matches integrated into the venue booking/block occupancy calendar.
+- Match results, correction audit trail and basic player statistics.
+- Public competition discovery/detail/standings/bracket/teams/stats.
+- Mobile venue-owner competition creation and operations.
 
-Actual external push dispatch is not enabled yet; the provider-neutral persistence/outbox foundation remains in place. Matchmaking is intentionally excluded from Phase 5.
+Actual external push dispatch is not enabled yet; the provider-neutral persistence/outbox foundation remains in place. Advanced live scoring and matchmaking are intentionally excluded from Phase 6.
 
 ## Environment
 
@@ -59,18 +66,19 @@ EXPO_PUBLIC_API_URL=http://YOUR_PC_IPV4:4000
 
 Never use `localhost` for a physical Android phone.
 
-## Pull Phase 5
+## Pull Phase 6
 
 ```powershell
 cd C:\projects\futsal
 
 git fetch origin
-git checkout -B phase-05-teams-player-identity origin/phase-05-teams-player-identity
+git checkout phase-06-competition-engine
+git pull origin phase-06-competition-engine
 
 pnpm install
 ```
 
-## Generate and verify the Phase 5 migration
+## Verify the Phase 6 migration and implementation
 
 Committed migration baseline:
 
@@ -78,36 +86,37 @@ Committed migration baseline:
 - `0001_clean_retro_girl`
 - `0002_careless_jack_power`
 - `0003_numerous_darwin`
+- `0004_past_goliath`
 
-Generate Phase 5:
-
-```powershell
-pnpm db:generate
-```
-
-Expected output includes:
+The user already generated:
 
 ```text
-packages/database/drizzle/0004_<generated-name>.sql
-packages/database/drizzle/meta/0004_snapshot.json
+packages/database/drizzle/0005_robust_smiling_tiger.sql
+packages/database/drizzle/meta/0005_snapshot.json
+packages/database/drizzle/meta/_journal.json
 ```
 
-Then run:
+and reported that `pnpm db:migrate` applied it successfully.
+
+Do **not** run `pnpm db:generate` again unless the Phase 6 database schema changes.
+
+Run:
 
 ```powershell
 pnpm verify
-pnpm db:migrate
 ```
 
-`pnpm verify` now runs the Phase 5 teams/player-identity invariant gate, earlier phase gates, workspace TypeScript checks, automated tests, and builds.
+`pnpm verify` now runs the Phase 6 competition invariant gate, earlier phase gates, workspace TypeScript checks, automated tests, and builds.
 
-After successful verification/migration:
+After verification is green, commit only the generated Phase 6 migration files:
 
 ```powershell
-git status
-git add packages/database/drizzle
-git commit -m "chore: generate Phase 5 database migration"
-git push origin phase-05-teams-player-identity
+git add packages/database/drizzle/0005_robust_smiling_tiger.sql
+git add packages/database/drizzle/meta/0005_snapshot.json
+git add packages/database/drizzle/meta/_journal.json
+
+git commit -m "chore: generate Phase 6 database migration"
+git push origin phase-06-competition-engine
 ```
 
 ## Run the API
@@ -175,28 +184,26 @@ If mobile signup shows a generic request failure:
 5. If `/health` works but signup fails, the server log identifies the database/validation error.
 6. If `/health` does not work, fix API reachability or use `ngrok http 4000`.
 
-## Phase 5 live testing
+## Phase 6 live testing
 
 Use:
 
 ```text
-docs/PHASE-05-TEST-PLAN.md
+docs/PHASE-06-TEST-PLAN.md
 ```
 
 Critical acceptance paths:
 
-- one player can belong to multiple teams;
-- duplicate membership inside one team is prevented;
-- manager-only actions are server-authorized per team;
-- old manager loses authority immediately after transfer;
-- invitation duplicate/accept/decline/revoke/expiry rules work;
-- private team roster stays private to non-members;
-- private player profile is not publicly readable;
-- public team/player responses never expose phone/email/private account data;
-- venue-owner-only account cannot enter player/team participation;
-- Dari/Pashto/English and RTL flows remain usable.
+- deterministic league standings;
+- correct seeded knockout progression and 5-team bye handling;
+- Group → Knockout qualification and completion guards;
+- competition match vs booking/block conflict in both directions;
+- result correction reason/audit/downstream-impact safeguards;
+- public competition discovery, fixtures/results, standings, bracket, teams and stats;
+- owner create/register/schedule/result/complete workflows;
+- Dari/Pashto/English and RTL/LTR competition UX.
 
-Next phase after Phase 5 verification: Phase 6 — Competition Engine.
+Next phase after Phase 6 verification: Phase 7 — Subscription Enforcement, Analytics and Admin.
 
 ## Source of truth
 
