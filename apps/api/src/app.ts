@@ -13,6 +13,8 @@ import { createOwnerRouter } from "./modules/owner/owner.routes.js";
 import type { OwnerOnboardingService } from "./modules/owner/owner.service.js";
 import { createOwnerMarketingRouter, createPublicMarketingRouter } from "./modules/marketing/marketing.routes.js";
 import type { MarketingService } from "./modules/marketing/marketing.service.js";
+import { createNotificationRouter } from "./modules/notifications/notification.routes.js";
+import type { NotificationService } from "./modules/notifications/notification.service.js";
 
 export type AppDependencies = {
   authService: AuthService;
@@ -20,6 +22,7 @@ export type AppDependencies = {
   ownerService?: OwnerOnboardingService;
   bookingService?: BookingService;
   marketingService?: MarketingService;
+  notificationService?: NotificationService;
   corsOrigin?: string;
 };
 
@@ -41,6 +44,9 @@ export function createApp(deps: AppDependencies) {
   if (deps.marketingService) {
     app.use("/api/v1", createPublicMarketingRouter(deps.marketingService, deps.tokenService));
     app.use("/api/v1/owner", createOwnerMarketingRouter(deps.marketingService, deps.tokenService));
+  }
+  if (deps.notificationService) {
+    app.use("/api/v1/notifications", createNotificationRouter(deps.notificationService, deps.tokenService));
   }
 
   app.get("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {
