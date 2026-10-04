@@ -175,6 +175,13 @@ export class FakeBookingRepository implements BookingRepository {
 
   async getBooking(bookingId: string) { return this.bookings.get(bookingId) ?? null; }
 
+  async getBookingByIdempotency(createdByUserId: string, idempotencyKey: string) {
+    return [...this.bookings.values()].find((booking) => {
+      const value = booking as BookingDto & { idempotencyKey?: string; createdByUserId?: string };
+      return value.createdByUserId === createdByUserId && value.idempotencyKey === idempotencyKey;
+    }) ?? null;
+  }
+
   async listPlayerBookings(playerUserId: string) {
     return [...this.bookings.values()].filter((booking) => booking.playerUserId === playerUserId);
   }
