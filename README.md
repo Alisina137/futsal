@@ -4,22 +4,28 @@ LeagueKick is a mobile-first futsal venue booking, operations, competition, and 
 
 ## Current implementation state
 
-Phase 2 — Venue Owner Onboarding, Trial and Venue Model.
+Phase 3 — Availability, Schedule and Booking.
 
-Implemented so far:
+Implemented through Phase 3:
 
-- Expo SDK 57 + React Native mobile shell.
-- Dari, Pashto, and English localization with RTL-aware layout primitives.
-- Player and venue-owner registration/login/session foundation.
-- PostgreSQL + Drizzle users, roles, sessions, audit, venue, playing-area, opening-hours, subscription, and trial-claim models.
-- One Venue Owner account → one venue enforcement.
-- Eight-step venue-owner onboarding.
-- Explicit 72-hour Premium trial; account creation alone never starts it.
-- Server-side trial expiry, duplicate physical-venue trial protection, and venue-identity locking after activation.
-- Owner dashboard with setup and trial/subscription state.
-- Offline/connectivity behavior that preserves local session/screen state through temporary network loss.
+- Expo SDK 57 + React Native mobile application.
+- Dari, Pashto, and English localization with RTL-aware layouts.
+- Player and venue-owner authentication/session foundation.
+- One owner account → one venue enforcement.
+- Eight-step venue-owner onboarding and explicit 72-hour Premium trial.
+- PostgreSQL/Drizzle venue, playing-area, opening-hours, subscription, booking, and block models.
+- Public venue discovery and live availability.
+- Server-authoritative online booking.
+- Manual phone/walk-in booking.
+- Owner block/unblock workflow.
+- Shared owner schedule for online/manual bookings and blocked time.
+- Player My Bookings + cancellation.
+- PostgreSQL transaction-scoped advisory locking for booking conflict protection.
+- Actor-scoped booking idempotency.
+- Cached availability fallback that is visibly stale and never bookable offline.
+- Trial/subscription gating for new inventory and bookings.
 
-Venue discovery, live availability, and player booking are the next product milestone.
+Promotions, Feed, and Notifications begin in Phase 4.
 
 ## Environment
 
@@ -37,39 +43,83 @@ Use Neon's pooled URL for API runtime:
 DATABASE_URL=postgresql://...-pooler.../neondb?sslmode=require
 ```
 
-Use Neon's direct URL for Drizzle migrations:
+Use Neon's direct URL for Drizzle migration work:
 
 ```env
 DATABASE_DIRECT_URL=postgresql://.../neondb?sslmode=require
 ```
 
-Also configure a strong `ACCESS_TOKEN_SECRET` and set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env.local` to an address your phone can reach.
+Also configure:
 
-## Phase 2 apply and verify
+```env
+API_PORT=4000
+CORS_ORIGIN=*
+ACCESS_TOKEN_SECRET=<long-random-secret>
+ACCESS_TOKEN_ISSUER=leaguekick-api
+ACCESS_TOKEN_AUDIENCE=leaguekick-mobile
+```
 
-After pulling the Phase 2 branch:
+In `apps/mobile/.env.local`:
+
+```env
+EXPO_PUBLIC_API_URL=http://YOUR_PC_LAN_IP:4000
+```
+
+For a physical Android phone, do not use `localhost`.
+
+## Apply and verify Phase 3
+
+Pull the Phase 3 branch:
 
 ```powershell
 cd C:\projects\futsal
+git fetch origin
+git checkout -B phase-03-availability-booking origin/phase-03-availability-booking
 pnpm install
-pnpm db:generate
-pnpm db:migrate
-pnpm verify
 ```
 
-The first `pnpm db:generate` after pulling Phase 2 should create the `0001_*.sql` migration and `drizzle/meta/0001_snapshot.json`. Review and commit those generated files before continuing development.
-
-Run development servers in separate terminals:
+Generate the Phase 3 migration:
 
 ```powershell
+pnpm db:generate
+```
+
+Phase 1 and Phase 2 already use `0000` and `0001`, so Phase 3 should generate a new `0002_*.sql` plus `drizzle/meta/0002_snapshot.json`.
+
+Review the generated migration, then run:
+
+```powershell
+pnpm verify
+pnpm db:migrate
+```
+
+`pnpm verify` includes the Phase 3 resilience invariant check, workspace typechecks, automated tests, API build, and Android Expo export.
+
+After successful migration/verification, commit the generated Drizzle files:
+
+```powershell
+git add packages/database/drizzle
+git commit -m "chore: generate Phase 3 database migration"
+git push origin phase-03-availability-booking
+```
+
+## Run development servers
+
+Terminal 1:
+
+```powershell
+cd C:\projects\futsal
 pnpm dev:api
 ```
 
+Terminal 2:
+
 ```powershell
+cd C:\projects\futsal
 pnpm dev:mobile
 ```
 
-For a physical Android phone using Expo Go, `EXPO_PUBLIC_API_URL` must not use `localhost`; use the PC LAN IP or a secure tunnel.
+Use `docs/PHASE-03-TEST-PLAN.md` for the Phase 3 live smoke test.
 
 ## Source of truth
 

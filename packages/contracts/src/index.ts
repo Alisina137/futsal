@@ -160,6 +160,148 @@ export const ownerOnboardingStatusSchema = z.object({
 });
 export type OwnerOnboardingStatus = z.infer<typeof ownerOnboardingStatusSchema>;
 
+
+export const dateOnlySchema = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, "Use a real calendar date.");
+export const isoDateTimeSchema = z.string()
+  .refine((value) => /(Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)), "Use an ISO datetime with timezone.");
+
+export const bookingModeSchema = z.enum(["INSTANT", "APPROVAL"]);
+export type BookingMode = z.infer<typeof bookingModeSchema>;
+
+export const bookingStatusSchema = z.enum(["PENDING", "CONFIRMED", "CANCELLED"]);
+export type BookingStatus = z.infer<typeof bookingStatusSchema>;
+
+export const bookingSourceSchema = z.enum(["ONLINE", "MANUAL"]);
+export type BookingSource = z.infer<typeof bookingSourceSchema>;
+
+export const publicVenueDtoSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  province: z.string(),
+  city: z.string(),
+  address: z.string(),
+  publicPhone: z.string(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  timezone: z.string(),
+  bookingMode: bookingModeSchema,
+  areas: z.array(venueAreaDtoSchema),
+});
+export type PublicVenueDto = z.infer<typeof publicVenueDtoSchema>;
+
+export const publicVenueListResponseSchema = z.object({
+  generatedAt: isoDateTimeSchema,
+  venues: z.array(publicVenueDtoSchema),
+});
+export type PublicVenueListResponse = z.infer<typeof publicVenueListResponseSchema>;
+
+export const availabilitySlotDtoSchema = z.object({
+  venueId: z.string().uuid(),
+  areaId: z.string().uuid(),
+  areaName: z.string(),
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+  priceAfn: z.number().int().min(0),
+  currency: z.literal("AFN"),
+  status: z.literal("AVAILABLE"),
+});
+export type AvailabilitySlotDto = z.infer<typeof availabilitySlotDtoSchema>;
+
+export const venueAvailabilityResponseSchema = z.object({
+  venue: publicVenueDtoSchema,
+  date: dateOnlySchema,
+  generatedAt: isoDateTimeSchema,
+  live: z.literal(true),
+  slots: z.array(availabilitySlotDtoSchema),
+});
+export type VenueAvailabilityResponse = z.infer<typeof venueAvailabilityResponseSchema>;
+
+export const onlineBookingRequestSchema = z.object({
+  areaId: z.string().uuid(),
+  startsAt: isoDateTimeSchema,
+  idempotencyKey: z.string().trim().min(8).max(80),
+  note: z.string().trim().max(500).optional().or(z.literal("")),
+});
+export type OnlineBookingRequest = z.infer<typeof onlineBookingRequestSchema>;
+
+export const manualBookingRequestSchema = z.object({
+  areaId: z.string().uuid(),
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+  customerName: z.string().trim().min(2).max(120),
+  customerPhone: phoneInputSchema.optional().or(z.literal("")),
+  priceAfn: z.number().int().min(0).max(1_000_000).optional(),
+  note: z.string().trim().max(500).optional().or(z.literal("")),
+}).superRefine((value, ctx) => {
+  if (Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
+    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End time must be after start time." });
+  }
+});
+export type ManualBookingRequest = z.infer<typeof manualBookingRequestSchema>;
+
+export const venueBlockRequestSchema = z.object({
+  areaId: z.string().uuid(),
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+  reason: z.string().trim().max(240).optional().or(z.literal("")),
+}).superRefine((value, ctx) => {
+  if (Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
+    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End time must be after start time." });
+  }
+});
+export type VenueBlockRequest = z.infer<typeof venueBlockRequestSchema>;
+
+export const bookingCancelRequestSchema = z.object({
+  reason: z.string().trim().max(240).optional().or(z.literal("")),
+});
+export type BookingCancelRequest = z.infer<typeof bookingCancelRequestSchema>;
+
+export const bookingDtoSchema = z.object({
+  id: z.string().uuid(),
+  venueId: z.string().uuid(),
+  venueName: z.string(),
+  areaId: z.string().uuid(),
+  areaName: z.string(),
+  playerUserId: z.string().uuid().nullable(),
+  source: bookingSourceSchema,
+  status: bookingStatusSchema,
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+  priceAfn: z.number().int().min(0),
+  currency: z.literal("AFN"),
+  customerName: z.string().nullable(),
+  customerPhone: z.string().nullable(),
+  note: z.string().nullable(),
+  cancellationPolicySnapshot: z.string(),
+  cancelledAt: isoDateTimeSchema.nullable(),
+  cancellationReason: z.string().nullable(),
+});
+export type BookingDto = z.infer<typeof bookingDtoSchema>;
+
+export const venueBlockDtoSchema = z.object({
+  id: z.string().uuid(),
+  venueId: z.string().uuid(),
+  areaId: z.string().uuid(),
+  areaName: z.string(),
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+  reason: z.string().nullable(),
+});
+export type VenueBlockDto = z.infer<typeof venueBlockDtoSchema>;
+
+export const ownerScheduleResponseSchema = z.object({
+  date: dateOnlySchema,
+  generatedAt: isoDateTimeSchema,
+  bookings: z.array(bookingDtoSchema),
+  blocks: z.array(venueBlockDtoSchema),
+});
+export type OwnerScheduleResponse = z.infer<typeof ownerScheduleResponseSchema>;
+
 export type ApiErrorBody = {
   error: { code: string; message: string; details?: unknown };
 };

@@ -1,9 +1,11 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
 import type { UserDto } from "@leaguekick/contracts";
 import { View } from "react-native";
+import { router } from "expo-router";
 import { OwnerDashboard } from "../../../src/components/owner/OwnerDashboard";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Card } from "../../../src/components/ui/Card";
+import { Button } from "../../../src/components/ui/Button";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -33,8 +35,10 @@ function PlayerHome({user}:{user:UserDto|undefined}){
       </View>
     </Card>
     <Card style={{backgroundColor:colors.primarySoft}}>
-      <AppText weight="semibold">{t("home.nextTitle")}</AppText>
-      <AppText>{t("home.nextBody")}</AppText>
+      <AppText weight="semibold">{t("booking.quickStart")}</AppText>
+      <AppText>{t("booking.quickStartBody")}</AppText>
+      <Button label={t("booking.findVenue")} onPress={()=>router.push("/venues")} />
+      <Button label={t("booking.myBookings")} onPress={()=>router.push("/bookings")} variant="secondary" />
     </Card>
   </Screen>;
 }
