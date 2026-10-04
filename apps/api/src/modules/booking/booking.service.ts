@@ -177,7 +177,10 @@ export class BookingService {
 
     const open = localDateTimeToUtc(date, day.opensAt, venue.timezone);
     const close = localDateTimeToUtc(date, day.closesAt, venue.timezone);
-    const occupancies = await this.repository.listOccupancies(venue.id, open, close);
+    const [occupancies, promotionPrices] = await Promise.all([
+      this.repository.listOccupancies(venue.id, open, close),
+      this.repository.listActivePromotionPrices(venue.id, open, close, now),
+    ]);
     const slots: VenueAvailabilityResponse["slots"] = [];
 
     for (const area of venue.areas.filter((item) => item.active)) {
@@ -187,13 +190,20 @@ export class BookingService {
         const endsAt = new Date(cursor + durationMs);
         if (startsAt.getTime() <= now.getTime()) continue;
         if (occupancies.some((item) => item.areaId === area.id && intervalsOverlap(startsAt, endsAt, item.startsAt, item.endsAt))) continue;
+        const promotion = promotionPrices.find((item) =>
+          item.areaId === area.id &&
+          item.startsAt.getTime() === startsAt.getTime() &&
+          item.endsAt.getTime() === endsAt.getTime()
+        );
         slots.push({
           venueId: venue.id,
           areaId: area.id,
           areaName: area.name,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
-          priceAfn: area.basePriceAfn,
+          priceAfn: promotion?.discountedPriceAfn ?? area.basePriceAfn,
+          originalPriceAfn: promotion ? area.basePriceAfn : null,
+          promotionId: promotion?.id ?? null,
           currency: "AFN",
           status: "AVAILABLE",
         });
