@@ -143,6 +143,33 @@ describe("Phase 5 teams and player identity API", () => {
     expect(publicProfile.body.error.code).toBe("PLAYER_PROFILE_NOT_PUBLIC");
   });
 
+  it("does not allow a manager to invite a venue-owner-only account as a player", async () => {
+    const { app, teamRepository } = setup();
+    const manager = await register(app, teamRepository, {
+      phone: "0705550014",
+      username: "player_manager14",
+      displayName: "Player Manager",
+    });
+    await register(app, teamRepository, {
+      phone: "0705550015",
+      username: "owner_target15",
+      displayName: "Owner Target",
+      accountType: "VENUE_OWNER",
+    });
+
+    const created = await request(app).post("/api/v1/teams")
+      .set("Authorization", `Bearer ${manager.accessToken}`)
+      .send({ name: "Player Only Five", city: "Kabul", privacy: "PUBLIC" });
+    expect(created.status).toBe(201);
+
+    const invited = await request(app).post(`/api/v1/teams/${created.body.team.id}/invitations`)
+      .set("Authorization", `Bearer ${manager.accessToken}`)
+      .send({ identifier: "owner_target15", role: "PLAYER" });
+
+    expect(invited.status).toBe(400);
+    expect(invited.body.error.code).toBe("INVITEE_NOT_FOUND");
+  });
+
   it("blocks a non-manager from mutating another team's roster or identity", async () => {
     const { app, teamRepository } = setup();
     const manager = await register(app, teamRepository, {
