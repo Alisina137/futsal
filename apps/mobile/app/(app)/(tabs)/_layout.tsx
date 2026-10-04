@@ -16,7 +16,6 @@ export default function TabsLayout(){
     tabBarLabelStyle:{fontSize:11,fontWeight:"600",marginTop:2},
     tabBarItemStyle:{
       paddingVertical:4,
-      transform:[{scaleX:isRTL?-1:1}],
     },
     tabBarStyle:{
       height:70,
@@ -24,7 +23,7 @@ export default function TabsLayout(){
       paddingBottom:8,
       borderTopWidth:0,
       backgroundColor:colors.surface,
-      transform:[{scaleX:isRTL?-1:1}],
+      direction:isRTL?"rtl":"ltr",
       shadowColor:"#0F172A",
       shadowOpacity:0.08,
       shadowRadius:12,
