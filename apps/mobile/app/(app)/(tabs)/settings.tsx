@@ -134,6 +134,10 @@ export default function ProfileScreen(){
         <Divider/>
         <ActionRow icon="megaphone-outline" title={t("ownerMarketing.postsTitle")} subtitle={t("settings.ownerPostsBody")} rtl={isRTL} onPress={()=>router.push("/owner/posts")}/>
       </>:<>
+        <ActionRow icon="people-outline" title={t("teams.title")} subtitle={t("teams.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/teams")}/>
+        <Divider/>
+        <ActionRow icon="football-outline" title={t("teams.profileTitle")} subtitle={t("teams.profileSubtitle")} rtl={isRTL} onPress={()=>router.push("/profile/player")}/>
+        <Divider/>
         <ActionRow icon="business-outline" title={t("booking.venuesTitle")} subtitle={t("settings.playerVenuesBody")} rtl={isRTL} onPress={()=>router.push("/venues")}/>
         <Divider/>
         <ActionRow icon="calendar-outline" title={t("booking.myBookings")} subtitle={t("settings.playerBookingsBody")} rtl={isRTL} onPress={()=>router.push("/bookings")}/>
