@@ -18,6 +18,7 @@ describe("Phase 4 notification policy", () => {
       pushEnabled: true,
       promotionsEnabled: false,
       venuePostsEnabled: true,
+      teamInvitesEnabled: true,
     });
   });
 
