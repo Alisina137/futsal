@@ -483,6 +483,167 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     return Boolean(row);
   }
 
+
+  async replaceGroupStage(
+    competitionId: string,
+    groups: Array<{
+      name: string;
+      sortOrder: number;
+      teamIds: string[];
+      fixtures: Array<{ roundNumber: number; slotNumber: number; homeTeamId: string; awayTeamId: string }>;
+    }>,
+    now: Date,
+  ) {
+    await this.db.transaction(async (tx) => {
+      const [played] = await tx.select({ id: competitionMatches.id }).from(competitionMatches).where(and(
+        eq(competitionMatches.competitionId, competitionId),
+        inArray(competitionMatches.status, ["IN_PROGRESS", "COMPLETED", "CORRECTED"]),
+      )).limit(1);
+      if (played) throw errors.conflict("FIXTURES_LOCKED", "Group fixtures cannot be regenerated after play begins.");
+
+      await tx.delete(competitionMatches).where(eq(competitionMatches.competitionId, competitionId));
+      await tx.update(competitionTeams).set({ groupId: null, qualifiedAt: null, updatedAt: now })
+        .where(eq(competitionTeams.competitionId, competitionId));
+      await tx.delete(competitionGroups).where(eq(competitionGroups.competitionId, competitionId));
+
+      for (const group of groups) {
+        const [created] = await tx.insert(competitionGroups).values({
+          competitionId,
+          name: group.name,
+          sortOrder: group.sortOrder,
+          createdAt: now,
+        }).returning({ id: competitionGroups.id });
+        if (!created) throw new Error("Competition group could not be created.");
+
+        for (const teamId of group.teamIds) {
+          await tx.update(competitionTeams).set({ groupId: created.id, updatedAt: now }).where(and(
+            eq(competitionTeams.competitionId, competitionId),
+            eq(competitionTeams.teamId, teamId),
+            eq(competitionTeams.status, "ACCEPTED"),
+          ));
+        }
+
+        if (group.fixtures.length > 0) {
+          await tx.insert(competitionMatches).values(group.fixtures.map((fixture) => ({
+            competitionId,
+            groupId: created.id,
+            stage: "GROUP" as const,
+            roundNumber: fixture.roundNumber,
+            slotNumber: fixture.slotNumber,
+            homeTeamId: fixture.homeTeamId,
+            awayTeamId: fixture.awayTeamId,
+            status: "UNSCHEDULED" as const,
+            createdAt: now,
+            updatedAt: now,
+          })));
+        }
+      }
+    });
+  }
+
+  async replaceKnockoutStage(
+    competitionId: string,
+    matches: Array<{
+      key: string;
+      roundNumber: number;
+      slotNumber: number;
+      homeTeamId: string | null;
+      awayTeamId: string | null;
+      nextKey: string | null;
+      nextSide: "HOME" | "AWAY" | null;
+    }>,
+    qualifiedTeamIds: string[],
+    now: Date,
+  ) {
+    await this.db.transaction(async (tx) => {
+      const [started] = await tx.select({ id: competitionMatches.id }).from(competitionMatches).where(and(
+        eq(competitionMatches.competitionId, competitionId),
+        eq(competitionMatches.stage, "KNOCKOUT"),
+        inArray(competitionMatches.status, ["IN_PROGRESS", "COMPLETED", "CORRECTED"]),
+      )).limit(1);
+      if (started) throw errors.conflict("KNOCKOUT_LOCKED", "Knockout bracket cannot be rebuilt after knockout play begins.");
+
+      await tx.delete(competitionMatches).where(and(
+        eq(competitionMatches.competitionId, competitionId),
+        eq(competitionMatches.stage, "KNOCKOUT"),
+      ));
+      await tx.update(competitionTeams).set({ qualifiedAt: null, updatedAt: now })
+        .where(eq(competitionTeams.competitionId, competitionId));
+      for (const teamId of qualifiedTeamIds) {
+        await tx.update(competitionTeams).set({ qualifiedAt: now, updatedAt: now }).where(and(
+          eq(competitionTeams.competitionId, competitionId),
+          eq(competitionTeams.teamId, teamId),
+        ));
+      }
+
+      const ids = new Map<string,string>();
+      for (const match of matches) {
+        const [created] = await tx.insert(competitionMatches).values({
+          competitionId,
+          stage: "KNOCKOUT",
+          roundNumber: match.roundNumber,
+          slotNumber: match.slotNumber,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          status: "UNSCHEDULED",
+          nextMatchSide: match.nextSide,
+          createdAt: now,
+          updatedAt: now,
+        }).returning({ id: competitionMatches.id });
+        if (!created) throw new Error("Knockout match could not be created.");
+        ids.set(match.key, created.id);
+      }
+
+      for (const match of matches) {
+        const id = ids.get(match.key)!;
+        await tx.update(competitionMatches).set({
+          nextMatchId: match.nextKey ? ids.get(match.nextKey) ?? null : null,
+          updatedAt: now,
+        }).where(eq(competitionMatches.id, id));
+      }
+    });
+  }
+
+  async groupStageCompleted(competitionId: string) {
+    const rows = await this.db.select({ status: competitionMatches.status }).from(competitionMatches).where(and(
+      eq(competitionMatches.competitionId, competitionId),
+      eq(competitionMatches.stage, "GROUP"),
+    ));
+    return rows.length > 0 && rows.every((row) => row.status === "COMPLETED" || row.status === "CORRECTED");
+  }
+
+  async knockoutStarted(competitionId: string) {
+    const [row] = await this.db.select({ id: competitionMatches.id }).from(competitionMatches).where(and(
+      eq(competitionMatches.competitionId, competitionId),
+      eq(competitionMatches.stage, "KNOCKOUT"),
+      inArray(competitionMatches.status, ["IN_PROGRESS", "COMPLETED", "CORRECTED"]),
+    )).limit(1);
+    return Boolean(row);
+  }
+
+  async knockoutCompleted(competitionId: string) {
+    const rows = await this.db.select({ status: competitionMatches.status }).from(competitionMatches).where(and(
+      eq(competitionMatches.competitionId, competitionId),
+      eq(competitionMatches.stage, "KNOCKOUT"),
+    ));
+    return rows.length > 0 && rows.every((row) => row.status === "COMPLETED" || row.status === "CORRECTED");
+  }
+
+  async advanceKnockoutWinner(matchId: string, winnerTeamId: string, now: Date) {
+    await this.db.transaction(async (tx) => {
+      const [match] = await tx.select().from(competitionMatches).where(eq(competitionMatches.id, matchId)).limit(1);
+      if (!match || !match.nextMatchId || !match.nextMatchSide) return;
+      const patch = match.nextMatchSide === "HOME"
+        ? { homeTeamId: winnerTeamId, updatedAt: now }
+        : { awayTeamId: winnerTeamId, updatedAt: now };
+      await tx.update(competitionMatches).set(patch).where(eq(competitionMatches.id, match.nextMatchId));
+    });
+  }
+
+  async replaceKnockoutParticipant(matchId: string, winnerTeamId: string, now: Date) {
+    return this.advanceKnockoutWinner(matchId, winnerTeamId, now);
+  }
+
   async replaceLeagueFixtures(
     competitionId: string,
     fixtures: Array<{ roundNumber: number; slotNumber: number; homeTeamId: string; awayTeamId: string }>,

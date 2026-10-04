@@ -135,6 +135,31 @@ export interface CompetitionRepository {
     homeTeamId: string;
     awayTeamId: string;
   }>, now: Date): Promise<void>;
+  replaceGroupStage(competitionId: string, groups: Array<{
+    name: string;
+    sortOrder: number;
+    teamIds: string[];
+    fixtures: Array<{
+      roundNumber: number;
+      slotNumber: number;
+      homeTeamId: string;
+      awayTeamId: string;
+    }>;
+  }>, now: Date): Promise<void>;
+  replaceKnockoutStage(competitionId: string, matches: Array<{
+    key: string;
+    roundNumber: number;
+    slotNumber: number;
+    homeTeamId: string | null;
+    awayTeamId: string | null;
+    nextKey: string | null;
+    nextSide: "HOME" | "AWAY" | null;
+  }>, qualifiedTeamIds: string[], now: Date): Promise<void>;
+  groupStageCompleted(competitionId: string): Promise<boolean>;
+  knockoutStarted(competitionId: string): Promise<boolean>;
+  knockoutCompleted(competitionId: string): Promise<boolean>;
+  advanceKnockoutWinner(matchId: string, winnerTeamId: string, now: Date): Promise<void>;
+  replaceKnockoutParticipant(matchId: string, winnerTeamId: string, now: Date): Promise<void>;
   getMatch(matchId: string): Promise<CompetitionMatchDto | null>;
   saveMatchResult(input: {
     competitionId: string;
