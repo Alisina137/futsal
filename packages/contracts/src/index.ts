@@ -34,7 +34,7 @@ export const phoneInputSchema = z
 export const passwordSchema = z.string().min(8).max(128);
 
 export const newPasswordSchema = passwordSchema.regex(
-  /[^A-Za-z0-9\s]/,
+  /[^\p{L}\p{N}\s]/u,
   "Password must include at least one special character.",
 );
 
