@@ -5,12 +5,14 @@ import type {
   TeamInvitationDto,
   TeamListItemDto,
   TeamMemberRole,
+  UserRole,
 } from "@leaguekick/contracts";
 
 export type TeamIdentityUser = {
   id: string;
   displayName: string;
   username: string | null;
+  roles: UserRole[];
 };
 
 export type TeamRecord = {
