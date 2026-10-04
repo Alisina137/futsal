@@ -52,8 +52,8 @@ export function createApp(deps: AppDependencies) {
     app.use("/api/v1/notifications", createNotificationRouter(deps.notificationService, deps.tokenService));
   }
   if (deps.teamService) {
-    app.use("/api/v1", createPublicTeamRouter(deps.teamService));
     app.use("/api/v1", createAuthenticatedTeamRouter(deps.teamService, deps.tokenService));
+    app.use("/api/v1", createPublicTeamRouter(deps.teamService));
   }
 
   app.get("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {
