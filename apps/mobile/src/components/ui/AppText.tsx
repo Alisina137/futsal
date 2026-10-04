@@ -2,12 +2,13 @@ import { typography, colors } from "@leaguekick/design-tokens";
 import { Text, type TextProps, type TextStyle } from "react-native";
 import { useLocale } from "../../providers/LocaleProvider";
 
-type Variant = "display" | "title" | "body" | "caption";
+type Variant = "display" | "title" | "bodyLarge" | "body" | "caption";
 type Props = TextProps & { variant?: Variant; muted?: boolean; weight?: "regular" | "medium" | "semibold" | "bold"; forceLtr?: boolean };
 
 const sizes: Record<Variant, { fontSize: number; lineHeight: number }> = {
   display: { fontSize: typography.size.display, lineHeight: typography.lineHeight.display },
   title: { fontSize: typography.size.title, lineHeight: typography.lineHeight.title },
+  bodyLarge: { fontSize: typography.size.bodyLarge, lineHeight: typography.lineHeight.bodyLarge },
   body: { fontSize: typography.size.body, lineHeight: typography.lineHeight.body },
   caption: { fontSize: typography.size.caption, lineHeight: typography.lineHeight.caption },
 };
