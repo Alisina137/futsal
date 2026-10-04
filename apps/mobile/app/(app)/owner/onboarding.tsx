@@ -127,6 +127,7 @@ export default function OwnerOnboardingScreen() {
       setStep(7);
     } catch (cause) {
       if (cause instanceof ApiRequestError && cause.code === "INVALID_VENUE_PHONE") setError(t("owner.validationPhone"));
+      else if (cause instanceof ApiRequestError && cause.code === "VENUE_IDENTITY_LOCKED") setError(t("owner.identityLocked"));
       else if (cause instanceof ApiRequestError && cause.isNetworkError) setError(t("owner.networkError"));
       else setError(t("owner.saveError"));
     } finally {
@@ -205,8 +206,8 @@ export default function OwnerOnboardingScreen() {
           </Pressable>
         </View>
         {!hour.isClosed ? <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: spacing.sm }}>
-          <TextField label={t("owner.opensAt")} value={hour.opensAt ?? ""} onChangeText={(value) => updateHour(hour.dayOfWeek, { opensAt: value })} forceLtr style={{ flex: 1 }} />
-          <TextField label={t("owner.closesAt")} value={hour.closesAt ?? ""} onChangeText={(value) => updateHour(hour.dayOfWeek, { closesAt: value })} forceLtr style={{ flex: 1 }} />
+          <TextField label={t("owner.opensAt")} value={hour.opensAt ?? ""} onChangeText={(value) => updateHour(hour.dayOfWeek, { opensAt: value })} forceLtr containerStyle={{ flex: 1 }} />
+          <TextField label={t("owner.closesAt")} value={hour.closesAt ?? ""} onChangeText={(value) => updateHour(hour.dayOfWeek, { closesAt: value })} forceLtr containerStyle={{ flex: 1 }} />
         </View> : null}
       </View>)}
     </Card> : null}

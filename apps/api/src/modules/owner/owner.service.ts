@@ -15,15 +15,22 @@ function normalizeIdentityPart(value: string) {
   return value.trim().toLocaleLowerCase("en-US").replace(/\s+/g, " ");
 }
 
-function trialIdentityHash(venue: OwnerVenueRecord): string {
+function identityHash(name: string, province: string, city: string, address: string): string {
   const canonical = [
-    normalizeIdentityPart(venue.name),
-    normalizeIdentityPart(venue.province),
-    normalizeIdentityPart(venue.city),
-    normalizeIdentityPart(venue.address),
-    venue.publicPhone,
+    normalizeIdentityPart(name),
+    normalizeIdentityPart(province),
+    normalizeIdentityPart(city),
+    normalizeIdentityPart(address),
   ].join("|");
   return createHash("sha256").update(canonical).digest("hex");
+}
+
+function trialIdentityHash(venue: OwnerVenueRecord): string {
+  return identityHash(venue.name, venue.province, venue.city, venue.address);
+}
+
+function setupIdentityHash(setup: OwnerVenueSetupRequest): string {
+  return identityHash(setup.venue.name, setup.venue.province, setup.venue.city, setup.venue.address);
 }
 
 function toVenueDto(venue: OwnerVenueRecord): OwnerVenueDto {
@@ -105,6 +112,14 @@ export class OwnerOnboardingService {
   }
 
   async saveSetup(ownerUserId: string, setup: OwnerVenueSetupRequest): Promise<OwnerOnboardingStatus> {
+    const current = await this.normalizeAggregate(await this.repository.getByOwnerId(ownerUserId));
+    if (current?.subscription && setupIdentityHash(setup) !== trialIdentityHash(current.venue)) {
+      throw errors.conflict(
+        "VENUE_IDENTITY_LOCKED",
+        "Venue identity cannot be changed after a trial or subscription has started.",
+      );
+    }
+
     let publicPhone: string;
     let whatsappPhone: string | null = null;
 

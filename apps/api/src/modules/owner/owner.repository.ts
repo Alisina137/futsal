@@ -190,6 +190,9 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
       };
     } catch (error) {
       if (isUniqueViolation(error)) {
+        const [existing] = await this.db.select().from(venueSubscriptions).where(eq(venueSubscriptions.venueId, input.venueId)).limit(1);
+        const current = this.toSubscription(existing);
+        if (current) return current;
         throw errors.conflict("TRIAL_ALREADY_USED", "This physical venue has already used its Premium trial.");
       }
       throw error;
