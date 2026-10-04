@@ -302,6 +302,147 @@ export const ownerScheduleResponseSchema = z.object({
 });
 export type OwnerScheduleResponse = z.infer<typeof ownerScheduleResponseSchema>;
 
+
+export const promotionStatusSchema = z.enum(["ACTIVE", "CLOSED", "EXPIRED"]);
+export type PromotionStatus = z.infer<typeof promotionStatusSchema>;
+
+export const promotionCreateRequestSchema = z.object({
+  areaId: z.string().uuid(),
+  startsAt: isoDateTimeSchema,
+  discountedPriceAfn: z.number().int().min(0).max(1_000_000),
+  title: z.string().trim().min(2).max(120),
+  note: z.string().trim().max(500).optional().or(z.literal("")),
+  notifyFollowers: z.boolean().default(true),
+});
+export type PromotionCreateRequest = z.infer<typeof promotionCreateRequestSchema>;
+
+export const promotionDtoSchema = z.object({
+  id: z.string().uuid(),
+  venueId: z.string().uuid(),
+  venueName: z.string(),
+  areaId: z.string().uuid(),
+  areaName: z.string(),
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+  originalPriceAfn: z.number().int().min(0),
+  discountedPriceAfn: z.number().int().min(0),
+  discountPercent: z.number().int().min(0).max(100),
+  currency: z.literal("AFN"),
+  status: promotionStatusSchema,
+  title: z.string(),
+  note: z.string().nullable(),
+  notifyFollowers: z.boolean(),
+  createdAt: isoDateTimeSchema,
+  closedAt: isoDateTimeSchema.nullable(),
+  closeReason: z.string().nullable(),
+});
+export type PromotionDto = z.infer<typeof promotionDtoSchema>;
+
+export const postStatusSchema = z.enum(["PUBLISHED", "UNPUBLISHED"]);
+export type PostStatus = z.infer<typeof postStatusSchema>;
+
+export const postCtaTypeSchema = z.enum(["NONE", "VENUE", "PROMOTION", "COMPETITION"]);
+export type PostCtaType = z.infer<typeof postCtaTypeSchema>;
+
+const httpsImageUrlSchema = z.string().url().refine((value) => value.startsWith("https://"), "Image URL must use HTTPS.");
+
+export const venuePostCreateRequestSchema = z.object({
+  body: z.string().trim().min(1).max(2_000),
+  imageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  ctaType: postCtaTypeSchema.default("NONE"),
+  ctaTargetId: z.string().uuid().nullable().optional(),
+  notifyFollowers: z.boolean().default(false),
+}).superRefine((value, ctx) => {
+  if (value.ctaType === "NONE" && value.ctaTargetId) {
+    ctx.addIssue({ code: "custom", path: ["ctaTargetId"], message: "A NONE CTA cannot have a target." });
+  }
+  if (value.ctaType !== "NONE" && value.ctaType !== "VENUE" && !value.ctaTargetId) {
+    ctx.addIssue({ code: "custom", path: ["ctaTargetId"], message: "This CTA requires a target." });
+  }
+});
+export type VenuePostCreateRequest = z.infer<typeof venuePostCreateRequestSchema>;
+
+export const venuePostDtoSchema = z.object({
+  id: z.string().uuid(),
+  venueId: z.string().uuid(),
+  venueName: z.string(),
+  body: z.string(),
+  imageUrl: z.string().nullable(),
+  ctaType: postCtaTypeSchema,
+  ctaTargetId: z.string().uuid().nullable(),
+  status: postStatusSchema,
+  publishedAt: isoDateTimeSchema,
+  unpublishedAt: isoDateTimeSchema.nullable(),
+});
+export type VenuePostDto = z.infer<typeof venuePostDtoSchema>;
+
+export const followStateDtoSchema = z.object({
+  venueId: z.string().uuid(),
+  following: z.boolean(),
+  followerCount: z.number().int().min(0),
+});
+export type FollowStateDto = z.infer<typeof followStateDtoSchema>;
+
+export const feedItemDtoSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("PROMOTION"),
+    id: z.string().uuid(),
+    venueId: z.string().uuid(),
+    venueName: z.string(),
+    createdAt: isoDateTimeSchema,
+    deepLink: z.string(),
+    promotion: promotionDtoSchema,
+  }),
+  z.object({
+    type: z.literal("POST"),
+    id: z.string().uuid(),
+    venueId: z.string().uuid(),
+    venueName: z.string(),
+    createdAt: isoDateTimeSchema,
+    deepLink: z.string(),
+    post: venuePostDtoSchema,
+  }),
+]);
+export type FeedItemDto = z.infer<typeof feedItemDtoSchema>;
+
+export const feedResponseSchema = z.object({
+  generatedAt: isoDateTimeSchema,
+  items: z.array(feedItemDtoSchema),
+});
+export type FeedResponse = z.infer<typeof feedResponseSchema>;
+
+export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST"]);
+export type NotificationType = z.infer<typeof notificationTypeSchema>;
+
+export const notificationDtoSchema = z.object({
+  id: z.string().uuid(),
+  type: notificationTypeSchema,
+  title: z.string(),
+  body: z.string(),
+  deepLink: z.string(),
+  data: z.record(z.string(), z.unknown()),
+  readAt: isoDateTimeSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+});
+export type NotificationDto = z.infer<typeof notificationDtoSchema>;
+
+export const notificationPreferencesSchema = z.object({
+  inAppEnabled: z.boolean(),
+  pushEnabled: z.boolean(),
+  promotionsEnabled: z.boolean(),
+  venuePostsEnabled: z.boolean(),
+});
+export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
+
+export const notificationPreferencesUpdateSchema = notificationPreferencesSchema.partial();
+export type NotificationPreferencesUpdate = z.infer<typeof notificationPreferencesUpdateSchema>;
+
+export const pushDeviceRegisterRequestSchema = z.object({
+  expoPushToken: z.string().trim().min(20).max(220),
+  platform: z.enum(["ANDROID", "IOS"]),
+});
+export type PushDeviceRegisterRequest = z.infer<typeof pushDeviceRegisterRequestSchema>;
+
 export type ApiErrorBody = {
   error: { code: string; message: string; details?: unknown };
 };
