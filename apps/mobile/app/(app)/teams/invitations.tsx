@@ -3,6 +3,7 @@ import type { TeamInvitationDto } from "@leaguekick/contracts";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { teamApi } from "../../../src/lib/api";
+import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -12,7 +13,7 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 
 export default function TeamInvitationsScreen(){
   const {session}=useAuth();
-  const {t}=useLocale();
+  const {t,isRTL,language}=useLocale();
   const [items,setItems]=useState<TeamInvitationDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -62,12 +63,17 @@ export default function TeamInvitationsScreen(){
       <AppText>{t("teams.noPendingInvitations")}</AppText>
     </Card>:null}
 
-    {pending.map((item)=><Card key={item.id}>
+    {pending.map((item)=>{
+      const expiry=formatLocalDateTimeParts(item.expiresAt,language);
+      return <Card key={item.id}>
       <AppText variant="bodyLarge" weight="bold">{item.teamName}</AppText>
       <AppText>{t("teams.invitedAs",{role:t(`teams.role.${item.role}` as never)})}</AppText>
       {item.shirtNumber?<AppText>{t("teams.shirtNumberValue",{number:item.shirtNumber})}</AppText>:null}
-      <AppText variant="caption" muted forceLtr>{item.expiresAt}</AppText>
-      <View style={{flexDirection:"row",gap:spacing.sm}}>
+      <View style={{gap:2}}>
+        <AppText variant="caption" muted>{expiry.date}</AppText>
+        <AppText variant="caption" muted>{expiry.time}</AppText>
+      </View>
+      <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
         <Button
           label={t("teams.accept")}
           onPress={()=>void respond(item.id,true)}
@@ -82,6 +88,7 @@ export default function TeamInvitationsScreen(){
           style={{flex:1}}
         />
       </View>
-    </Card>)}
+    </Card>;
+    })}
   </Screen>;
 }
