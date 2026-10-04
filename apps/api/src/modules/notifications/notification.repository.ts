@@ -32,6 +32,7 @@ const DEFAULTS: NotificationPreferences = {
   pushEnabled: true,
   promotionsEnabled: true,
   venuePostsEnabled: true,
+  teamInvitesEnabled: true,
 };
 
 export class DrizzleNotificationRepository implements NotificationRepository {
@@ -46,6 +47,7 @@ export class DrizzleNotificationRepository implements NotificationRepository {
       pushEnabled: row.pushEnabled,
       promotionsEnabled: row.promotionsEnabled,
       venuePostsEnabled: row.venuePostsEnabled,
+      teamInvitesEnabled: row.teamInvitesEnabled,
     } : { ...DEFAULTS };
   }
 
@@ -60,6 +62,7 @@ export class DrizzleNotificationRepository implements NotificationRepository {
       pushEnabled: input.pushEnabled ?? current.pushEnabled,
       promotionsEnabled: input.promotionsEnabled ?? current.promotionsEnabled,
       venuePostsEnabled: input.venuePostsEnabled ?? current.venuePostsEnabled,
+      teamInvitesEnabled: input.teamInvitesEnabled ?? current.teamInvitesEnabled,
     };
     await this.db.insert(notificationPreferences).values({
       userId,
