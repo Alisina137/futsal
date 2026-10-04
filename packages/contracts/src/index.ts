@@ -161,7 +161,12 @@ export const ownerOnboardingStatusSchema = z.object({
 export type OwnerOnboardingStatus = z.infer<typeof ownerOnboardingStatusSchema>;
 
 
-export const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
+export const dateOnlySchema = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, "Use a real calendar date.");
 export const isoDateTimeSchema = z.string()
   .refine((value) => /(Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)), "Use an ISO datetime with timezone.");
 
