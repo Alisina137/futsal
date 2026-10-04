@@ -31,13 +31,18 @@ export const phoneInputSchema = z
   .max(20)
   .regex(/^\+?[0-9\s()-]+$/, "Invalid phone number.");
 
-export const passwordSchema = z.string().min(10).max(128);
+export const passwordSchema = z.string().min(8).max(128);
+
+export const newPasswordSchema = passwordSchema.regex(
+  /[^\p{L}\p{N}\s]/u,
+  "Password must include at least one special character.",
+);
 
 export const registerRequestSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
   phone: phoneInputSchema,
   username: usernameSchema.optional().or(z.literal("")),
-  password: passwordSchema,
+  password: newPasswordSchema,
   preferredLanguage: languageCodeSchema.default("fa-AF"),
   accountType: accountTypeSchema,
 });
