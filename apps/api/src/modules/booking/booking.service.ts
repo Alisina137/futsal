@@ -251,12 +251,16 @@ export class BookingService {
       idempotencyKey: input.idempotencyKey,
     });
     if (created.status === "CONFIRMED") {
-      await this.notifications?.bookingConfirmed({
-        userId: playerUserId,
-        bookingId: created.id,
-        venueName: created.venueName,
-        startsAt: created.startsAt,
-      });
+      try {
+        await this.notifications?.bookingConfirmed({
+          userId: playerUserId,
+          bookingId: created.id,
+          venueName: created.venueName,
+          startsAt: created.startsAt,
+        });
+      } catch {
+        // Notification delivery must never turn a committed booking into an apparent booking failure.
+      }
     }
     return created;
   }
@@ -272,11 +276,15 @@ export class BookingService {
     const now = this.now();
     if (Date.parse(booking.startsAt) <= now.getTime()) throw errors.badRequest("CANCELLATION_CLOSED", "This booking can no longer be cancelled.");
     const cancelled = await this.repository.cancelBooking({ bookingId, cancelledByUserId: playerUserId, reason: reason?.trim() || null, cancelledAt: now });
-    await this.notifications?.bookingCancelled({
-      userId: playerUserId,
-      bookingId: cancelled.id,
-      venueName: cancelled.venueName,
-    });
+    try {
+      await this.notifications?.bookingCancelled({
+        userId: playerUserId,
+        bookingId: cancelled.id,
+        venueName: cancelled.venueName,
+      });
+    } catch {
+      // Cancellation is authoritative even when notification persistence/delivery fails.
+    }
     return cancelled;
   }
 
@@ -369,11 +377,15 @@ export class BookingService {
       cancelledAt: this.now(),
     });
     if (cancelled.playerUserId) {
-      await this.notifications?.bookingCancelled({
-        userId: cancelled.playerUserId,
-        bookingId: cancelled.id,
-        venueName: cancelled.venueName,
-      });
+      try {
+        await this.notifications?.bookingCancelled({
+          userId: cancelled.playerUserId,
+          bookingId: cancelled.id,
+          venueName: cancelled.venueName,
+        });
+      } catch {
+        // Owner cancellation remains successful independently of notification delivery.
+      }
     }
     return cancelled;
   }
