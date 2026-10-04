@@ -27,6 +27,8 @@ const checks = [
   [teamRepository.includes('eq(playerProfiles.visibility, "PUBLIC")') && teamRepository.includes('.innerJoin(users'), "public player requires persisted public profile"],
   [teamRepository.includes('pg_advisory_xact_lock(hashtext') && teamRepository.includes('transferManager'), "serialized manager/captain mutations"],
   [teamService.includes('PLAYER_ACCOUNT_REQUIRED') && teamService.includes('roles.includes("PLAYER")'), "player-only team participation"],
+  [!teamService.includes("TEAM_ELIGIBLE_ROLES") && !teamService.includes("PLAYER_ROLE_REQUIRED"), "single canonical player-role guard"],
+  [teamService.includes('target.roles.includes("PLAYER")'), "team invitations target PLAYER accounts only"],
   [teamService.includes('TEAM_MANAGER_REQUIRED') && teamRoutes.includes('/teams/:teamId/manager'), "object-scoped manager authority"],
   [teamService.includes('7 * 24 * 60 * 60 * 1000') && teamRepository.includes('"EXPIRED"'), "expiring single-use invitations"],
   [notificationService.includes('type: "TEAM_INVITATION"') && notificationService.includes('teamInvitesEnabled'), "team invitation preference/dedupe delivery"],
