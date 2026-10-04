@@ -6,6 +6,7 @@ import type {
 } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
 import {
+  auditLogs,
   bookings,
   competitionGroups,
   competitionMatches,
@@ -356,6 +357,9 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     if (input.status !== undefined) patch.status = input.status;
     if (input.published !== undefined) patch.published = input.published;
     if (input.publishedAt !== undefined) patch.publishedAt = input.publishedAt;
+    if (input.materialPlayStartedAt !== undefined) patch.materialPlayStartedAt = input.materialPlayStartedAt;
+    if (input.completedAt !== undefined) patch.completedAt = input.completedAt;
+    if (input.archivedAt !== undefined) patch.archivedAt = input.archivedAt;
     await this.db.update(competitions).set(patch).where(eq(competitions.id, competitionId));
     return this.getCompetitionDto(competitionId);
   }
@@ -477,6 +481,139 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       inArray(competitionMatches.status, ["COMPLETED", "CORRECTED"]),
     )).limit(1);
     return Boolean(row);
+  }
+
+  async replaceLeagueFixtures(
+    competitionId: string,
+    fixtures: Array<{ roundNumber: number; slotNumber: number; homeTeamId: string; awayTeamId: string }>,
+    now: Date,
+  ) {
+    await this.db.transaction(async (tx) => {
+      const [played] = await tx.select({ id: competitionMatches.id }).from(competitionMatches).where(and(
+        eq(competitionMatches.competitionId, competitionId),
+        inArray(competitionMatches.status, ["COMPLETED", "CORRECTED", "IN_PROGRESS"]),
+      )).limit(1);
+      if (played) throw errors.conflict("FIXTURES_LOCKED", "Fixtures cannot be regenerated after play begins.");
+
+      await tx.delete(competitionMatches).where(eq(competitionMatches.competitionId, competitionId));
+      if (fixtures.length > 0) {
+        await tx.insert(competitionMatches).values(fixtures.map((fixture) => ({
+          competitionId,
+          stage: "LEAGUE" as const,
+          roundNumber: fixture.roundNumber,
+          slotNumber: fixture.slotNumber,
+          homeTeamId: fixture.homeTeamId,
+          awayTeamId: fixture.awayTeamId,
+          status: "UNSCHEDULED" as const,
+          createdAt: now,
+          updatedAt: now,
+        })));
+      }
+    });
+  }
+
+  async getMatch(matchId: string) {
+    const [row] = await this.db.select({ competitionId: competitionMatches.competitionId })
+      .from(competitionMatches)
+      .where(eq(competitionMatches.id, matchId))
+      .limit(1);
+    if (!row) return null;
+    const matches = await this.listMatchDtos(row.competitionId);
+    return matches.find((match) => match.id === matchId) ?? null;
+  }
+
+  async saveMatchResult(input: Parameters<CompetitionRepository["saveMatchResult"]>[0]) {
+    await this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.competitionId}))`);
+
+      const [match] = await tx.select().from(competitionMatches).where(and(
+        eq(competitionMatches.id, input.matchId),
+        eq(competitionMatches.competitionId, input.competitionId),
+      )).limit(1);
+      if (!match || !match.homeTeamId || !match.awayTeamId) {
+        throw errors.badRequest("MATCH_NOT_READY", "This match does not have two teams.");
+      }
+
+      for (const stat of input.playerStats) {
+        if (stat.teamId !== match.homeTeamId && stat.teamId !== match.awayTeamId) {
+          throw errors.badRequest("STAT_TEAM_MISMATCH", "Player statistics must belong to a team in this match.");
+        }
+        const [membership] = await tx.select({ userId: teamMemberships.userId }).from(teamMemberships).where(and(
+          eq(teamMemberships.teamId, stat.teamId),
+          eq(teamMemberships.userId, stat.playerUserId),
+          eq(teamMemberships.status, "ACTIVE"),
+        )).limit(1);
+        if (!membership) {
+          throw errors.badRequest("STAT_PLAYER_NOT_ON_TEAM", "A player statistic references someone outside the active roster.");
+        }
+      }
+
+      const before = {
+        status: match.status,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        winnerTeamId: match.winnerTeamId,
+      };
+      const correction = match.status === "COMPLETED" || match.status === "CORRECTED";
+
+      await tx.delete(playerMatchStats).where(eq(playerMatchStats.matchId, input.matchId));
+      if (input.playerStats.length > 0) {
+        await tx.insert(playerMatchStats).values(input.playerStats.map((stat) => ({
+          matchId: input.matchId,
+          playerUserId: stat.playerUserId,
+          teamId: stat.teamId,
+          appeared: stat.appeared,
+          goals: stat.goals,
+          assists: stat.assists,
+          yellowCards: stat.yellowCards,
+          redCards: stat.redCards,
+          cleanSheet: stat.cleanSheet,
+          playerOfMatch: stat.playerOfMatch,
+          updatedAt: input.now,
+        })));
+      }
+
+      await tx.update(competitionMatches).set({
+        status: correction ? "CORRECTED" : "COMPLETED",
+        homeScore: input.homeScore,
+        awayScore: input.awayScore,
+        winnerTeamId: input.winnerTeamId,
+        resultEnteredByUserId: input.actorUserId,
+        resultEnteredAt: input.now,
+        correctionReason: input.correctionReason,
+        updatedAt: input.now,
+      }).where(eq(competitionMatches.id, input.matchId));
+
+      if (correction) {
+        await tx.insert(auditLogs).values({
+          actorUserId: input.actorUserId,
+          action: "COMPETITION_RESULT_CORRECTED",
+          targetType: "competition_match",
+          targetId: input.matchId,
+          metadata: {
+            competitionId: input.competitionId,
+            before,
+            after: {
+              homeScore: input.homeScore,
+              awayScore: input.awayScore,
+              winnerTeamId: input.winnerTeamId,
+            },
+            reason: input.correctionReason,
+          },
+          createdAt: input.now,
+        });
+      }
+    });
+
+    const match = await this.getMatch(input.matchId);
+    if (!match) throw new Error("Match could not be loaded after result save.");
+    return match;
+  }
+
+  async allRequiredMatchesCompleted(competitionId: string) {
+    const rows = await this.db.select({ status: competitionMatches.status }).from(competitionMatches)
+      .where(eq(competitionMatches.competitionId, competitionId));
+    return rows.length > 0 && rows.every((row) => row.status === "COMPLETED" || row.status === "CORRECTED");
   }
 
   async scheduleMatchAtomic(input: Parameters<CompetitionRepository["scheduleMatchAtomic"]>[0]) {
