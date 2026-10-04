@@ -454,17 +454,21 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   private async expireInvitations(now: Date, scope: { userId?: string; teamId?: string }) {
-    const conditions = [
+    const base = and(
       eq(teamInvitations.status, "PENDING"),
       lte(teamInvitations.expiresAt, now),
-      ...(scope.userId ? [eq(teamInvitations.invitedUserId, scope.userId)] : []),
-      ...(scope.teamId ? [eq(teamInvitations.teamId, scope.teamId)] : []),
-    ];
+    );
+    const where = scope.userId
+      ? and(base, eq(teamInvitations.invitedUserId, scope.userId))
+      : scope.teamId
+        ? and(base, eq(teamInvitations.teamId, scope.teamId))
+        : base;
+
     await this.db.update(teamInvitations).set({
       status: "EXPIRED",
       respondedAt: now,
       updatedAt: now,
-    }).where(and(...conditions));
+    }).where(where);
   }
 
   async createInvitation(input: {
@@ -476,6 +480,7 @@ export class DrizzleTeamRepository implements TeamRepository {
     expiresAt: Date;
     now: Date;
   }) {
+    await this.expireInvitations(input.now, { teamId: input.teamId });
     try {
       const [created] = await this.db.insert(teamInvitations).values({
         teamId: input.teamId,
