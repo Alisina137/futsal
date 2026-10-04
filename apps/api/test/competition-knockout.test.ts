@@ -145,6 +145,9 @@ describe("Phase 6 knockout and group-to-knockout",()=>{
     expect(view.standings).toHaveLength(4);
     expect(new Set(view.standings.map((row)=>row.groupName)).size).toBe(2);
 
+    await expect(service.changeState(ownerId,competition.id,{action:"COMPLETE"}))
+      .rejects.toMatchObject({code:"KNOCKOUT_INCOMPLETE"});
+
     await service.changeState(ownerId,competition.id,{action:"GENERATE_KNOCKOUT"});
     view=await service.getOwner(ownerId,competition.id);
     const knockout=view.matches.filter((match)=>match.stage==="KNOCKOUT");
