@@ -1,9 +1,13 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, type ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppHeader } from "./AppHeader";
 
-export function Screen({ children, style }: ViewProps) {
+type ScreenProps = ViewProps & { showHeader?: boolean };
+
+export function Screen({ children, style, showHeader = false }: ScreenProps) {
   return <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    {showHeader ? <AppHeader/> : null}
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
