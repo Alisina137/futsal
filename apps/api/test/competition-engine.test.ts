@@ -50,6 +50,23 @@ describe("Phase 6 competition engine", () => {
     expect(plan.every((match) => match.homeTeamId !== null || match.awayTeamId !== null || match.roundNumber === 1)).toBe(true);
   });
 
+  it("distributes byes safely for five-team knockout brackets", () => {
+    const plan = generateKnockoutPlan([
+      {id:"a",name:"A",seed:1},{id:"b",name:"B",seed:2},{id:"c",name:"C",seed:3},
+      {id:"d",name:"D",seed:4},{id:"e",name:"E",seed:5},
+    ]);
+
+    const final = plan.find((match) => match.roundNumber === 1);
+    expect(final).toBeTruthy();
+    expect(plan.filter((match) => match.roundNumber === 3)).toHaveLength(1);
+    expect(plan.filter((match) => match.roundNumber === 2)).toHaveLength(2);
+    expect(plan).toHaveLength(4);
+    expect(plan.every((match) => match.homeTeamId !== null || match.awayTeamId !== null || match.roundNumber < 3)).toBe(true);
+
+    const linked = plan.filter((match) => match.nextKey);
+    expect(linked.every((match) => plan.some((candidate) => candidate.key === match.nextKey))).toBe(true);
+  });
+
   it("assigns groups deterministically and qualifies the requested count", () => {
     const groups = assignGroups([
       {id:"a",name:"A",seed:1},{id:"b",name:"B",seed:2},
