@@ -78,6 +78,16 @@ function nextPowerOfTwo(value: number) {
   return result;
 }
 
+function seededBracketOrder(size: number) {
+  if (size < 2) return [1];
+  let order = [1, 2];
+  while (order.length < size) {
+    const nextSize = order.length * 2;
+    order = order.flatMap((seed) => [seed, nextSize + 1 - seed]);
+  }
+  return order;
+}
+
 export function generateKnockoutPlan(teams: EngineTeam[]): KnockoutPlanMatch[] {
   if (teams.length < 2) return [];
 
@@ -88,61 +98,52 @@ export function generateKnockoutPlan(teams: EngineTeam[]): KnockoutPlanMatch[] {
   });
 
   const bracketSize = nextPowerOfTwo(ordered.length);
-  const rounds = Math.log2(bracketSize);
-  const leaves: Array<string | null> = Array.from({ length: bracketSize }, (_, index) => ordered[index]?.id ?? null);
+  const slots = seededBracketOrder(bracketSize)
+    .map((seed) => ordered[seed - 1]?.id ?? null);
   const matches = new Map<string, KnockoutPlanMatch>();
 
-  for (let round = rounds; round >= 2; round -= 1) {
-    const matchCount = 2 ** (round - 1);
-    for (let slot = 1; slot <= matchCount; slot += 1) {
-      const key = `r${round}s${slot}`;
-      const nextKey = round === 2 ? "r1s1" : `r${round - 1}s${Math.ceil(slot / 2)}`;
-      matches.set(key, {
-        key,
-        roundNumber: round,
-        slotNumber: slot,
-        homeTeamId: null,
-        awayTeamId: null,
-        nextKey,
-        nextSide: slot % 2 === 1 ? "HOME" : "AWAY",
-      });
+  type Source = { teamId: string | null; matchKey: string | null };
+
+  function build(entries: Array<string | null>, roundNumber: number, slotNumber: number): Source {
+    if (entries.length === 1) {
+      return { teamId: entries[0] ?? null, matchKey: null };
     }
+
+    const half = entries.length / 2;
+    const left = build(entries.slice(0, half), roundNumber + 1, slotNumber * 2 - 1);
+    const right = build(entries.slice(half), roundNumber + 1, slotNumber * 2);
+
+    const leftExists = Boolean(left.teamId || left.matchKey);
+    const rightExists = Boolean(right.teamId || right.matchKey);
+    if (!leftExists) return right;
+    if (!rightExists) return left;
+
+    const key = `r${roundNumber}s${slotNumber}`;
+    matches.set(key, {
+      key,
+      roundNumber,
+      slotNumber,
+      homeTeamId: left.teamId,
+      awayTeamId: right.teamId,
+      nextKey: null,
+      nextSide: null,
+    });
+
+    if (left.matchKey) {
+      const child = matches.get(left.matchKey)!;
+      child.nextKey = key;
+      child.nextSide = "HOME";
+    }
+    if (right.matchKey) {
+      const child = matches.get(right.matchKey)!;
+      child.nextKey = key;
+      child.nextSide = "AWAY";
+    }
+
+    return { teamId: null, matchKey: key };
   }
 
-  matches.set("r1s1", {
-    key: "r1s1",
-    roundNumber: 1,
-    slotNumber: 1,
-    homeTeamId: null,
-    awayTeamId: null,
-    nextKey: null,
-    nextSide: null,
-  });
-
-  const firstRound = rounds;
-  const firstRoundMatchCount = bracketSize / 2;
-  for (let slot = 1; slot <= firstRoundMatchCount; slot += 1) {
-    const key = `r${firstRound}s${slot}`;
-    const home = leaves[(slot - 1) * 2] ?? null;
-    const away = leaves[(slot - 1) * 2 + 1] ?? null;
-    const match = matches.get(key)!;
-
-    if (home && away) {
-      match.homeTeamId = home;
-      match.awayTeamId = away;
-      continue;
-    }
-
-    const byeWinner = home ?? away;
-    if (byeWinner && match.nextKey && match.nextSide) {
-      const next = matches.get(match.nextKey)!;
-      if (match.nextSide === "HOME") next.homeTeamId = byeWinner;
-      else next.awayTeamId = byeWinner;
-      matches.delete(key);
-    } else {
-      matches.delete(key);
-    }
-  }
+  build(slots, 1, 1);
 
   return [...matches.values()].sort((a, b) =>
     b.roundNumber - a.roundNumber || a.slotNumber - b.slotNumber
