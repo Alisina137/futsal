@@ -5,6 +5,7 @@ import {
   playerProfileUpdateRequestSchema,
   teamCaptainRequestSchema,
   teamCreateRequestSchema,
+  teamInviteRequestSchema,
   teamManagerTransferRequestSchema,
   teamMemberUpdateRequestSchema,
   teamUpdateRequestSchema,
@@ -59,6 +60,25 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     } catch (error) { next(error); }
   });
 
+  router.get("/teams/invitations", auth, async (request, response, next) => {
+    try { response.json(await teams.listMyInvitations(request.auth!.userId)); }
+    catch (error) { next(error); }
+  });
+
+  router.post("/teams/invitations/:invitationId/accept", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const invitationId = routeIdSchema.parse(request.params.invitationId);
+      response.json({ invitation: await teams.acceptInvitation(request.auth!.userId, invitationId) });
+    } catch (error) { next(error); }
+  });
+
+  router.post("/teams/invitations/:invitationId/decline", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const invitationId = routeIdSchema.parse(request.params.invitationId);
+      response.json({ invitation: await teams.declineInvitation(request.auth!.userId, invitationId) });
+    } catch (error) { next(error); }
+  });
+
   router.get("/teams/mine", auth, async (request, response, next) => {
     try { response.json(await teams.listMyTeams(request.auth!.userId)); }
     catch (error) { next(error); }
@@ -68,6 +88,29 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     try {
       const input = teamCreateRequestSchema.parse(request.body);
       response.status(201).json({ team: await teams.createTeam(request.auth!.userId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.get("/teams/:teamId/invitations", auth, async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      response.json(await teams.listTeamInvitations(request.auth!.userId, teamId));
+    } catch (error) { next(error); }
+  });
+
+  router.post("/teams/:teamId/invitations", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      const input = teamInviteRequestSchema.parse(request.body);
+      response.status(201).json({ invitation: await teams.createInvitation(request.auth!.userId, teamId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/teams/:teamId/invitations/:invitationId", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      const invitationId = routeIdSchema.parse(request.params.invitationId);
+      response.json({ invitation: await teams.revokeInvitation(request.auth!.userId, teamId, invitationId) });
     } catch (error) { next(error); }
   });
 

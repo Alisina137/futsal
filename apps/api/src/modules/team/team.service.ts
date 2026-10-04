@@ -5,18 +5,21 @@ import type {
   TeamCaptainRequest,
   TeamCreateRequest,
   TeamDto,
+  TeamInviteRequest,
   TeamManagerTransferRequest,
   TeamMemberUpdateRequest,
   TeamUpdateRequest,
 } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone, normalizeUsername } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
+import type { NotificationPublisher } from "../notifications/notification.types.js";
 import type { TeamRepository } from "./team.types.js";
 
 export class TeamService {
   constructor(
     private readonly repository: TeamRepository,
     private readonly now: () => Date = () => new Date(),
+    private readonly notifications?: NotificationPublisher,
   ) {}
 
   private async identity(userId: string) {
@@ -157,6 +160,84 @@ export class TeamService {
     const team = await this.repository.removeMember(teamId, userId, memberUserId, this.now());
     if (!team) throw errors.badRequest("TEAM_MEMBER_NOT_FOUND", "That active team member was not found.");
     return team;
+  }
+
+  async createInvitation(userId: string, teamId: string, input: TeamInviteRequest) {
+    const team = await this.manager(teamId, userId);
+    const target = await this.resolveInviteTarget(input.identifier);
+    if (!target) {
+      throw errors.badRequest("INVITEE_NOT_FOUND", "No active user matches that username or phone number.");
+    }
+    if (target.id === userId) {
+      throw errors.badRequest("CANNOT_INVITE_SELF", "You are already the manager of this team.");
+    }
+
+    const existingMembership = await this.repository.getMembership(teamId, target.id);
+    if (existingMembership?.status === "ACTIVE") {
+      throw errors.conflict("ALREADY_TEAM_MEMBER", "That player is already an active member of this team.");
+    }
+
+    const now = this.now();
+    const invitation = await this.repository.createInvitation({
+      teamId,
+      invitedUserId: target.id,
+      invitedByUserId: userId,
+      role: input.role,
+      shirtNumber: input.shirtNumber ?? null,
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+      now,
+    });
+
+    try {
+      await this.notifications?.teamInvitation({
+        userId: target.id,
+        invitationId: invitation.id,
+        teamId,
+        teamName: team.name,
+      });
+    } catch {
+      // Invitation remains authoritative even if notification persistence/delivery fails.
+    }
+
+    return invitation;
+  }
+
+  async listMyInvitations(userId: string) {
+    await this.identity(userId);
+    return { invitations: await this.repository.listInvitationsForUser(userId, this.now()) };
+  }
+
+  async listTeamInvitations(userId: string, teamId: string) {
+    await this.manager(teamId, userId);
+    return { invitations: await this.repository.listInvitationsForTeam(teamId, this.now()) };
+  }
+
+  async acceptInvitation(userId: string, invitationId: string) {
+    const user = await this.identity(userId);
+    await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
+    const invitation = await this.repository.acceptInvitation(invitationId, userId, this.now());
+    if (!invitation) {
+      throw errors.conflict("INVITATION_UNAVAILABLE", "This invitation is no longer available.");
+    }
+    return invitation;
+  }
+
+  async declineInvitation(userId: string, invitationId: string) {
+    await this.identity(userId);
+    const invitation = await this.repository.declineInvitation(invitationId, userId, this.now());
+    if (!invitation) {
+      throw errors.conflict("INVITATION_UNAVAILABLE", "This invitation is no longer available.");
+    }
+    return invitation;
+  }
+
+  async revokeInvitation(userId: string, teamId: string, invitationId: string) {
+    await this.manager(teamId, userId);
+    const invitation = await this.repository.revokeInvitation(teamId, userId, invitationId, this.now());
+    if (!invitation) {
+      throw errors.badRequest("INVITATION_NOT_FOUND", "Pending invitation not found.");
+    }
+    return invitation;
   }
 
   async resolveInviteTarget(identifier: string) {

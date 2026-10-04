@@ -80,6 +80,10 @@ export default function NotificationsScreen(){
       if(postId)router.push({pathname:"/posts/[postId]",params:{postId}});
       return;
     }
+    if(item.type==="TEAM_INVITATION"){
+      router.push("/teams/invitations");
+      return;
+    }
     router.push("/bookings");
   }
 

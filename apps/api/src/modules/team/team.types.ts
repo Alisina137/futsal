@@ -2,6 +2,7 @@ import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
   TeamDto,
+  TeamInvitationDto,
   TeamListItemDto,
   TeamMemberRole,
 } from "@leaguekick/contracts";
@@ -78,4 +79,19 @@ export interface TeamRepository {
   transferManager(teamId: string, currentManagerUserId: string, nextManagerUserId: string, now: Date): Promise<TeamDto | null>;
   setCaptain(teamId: string, managerUserId: string, captainUserId: string | null, now: Date): Promise<TeamDto | null>;
   removeMember(teamId: string, managerUserId: string, memberUserId: string, now: Date): Promise<TeamDto | null>;
+
+  createInvitation(input: {
+    teamId: string;
+    invitedUserId: string;
+    invitedByUserId: string;
+    role: "CAPTAIN" | "PLAYER";
+    shirtNumber: number | null;
+    expiresAt: Date;
+    now: Date;
+  }): Promise<TeamInvitationDto>;
+  listInvitationsForUser(userId: string, now: Date): Promise<TeamInvitationDto[]>;
+  listInvitationsForTeam(teamId: string, now: Date): Promise<TeamInvitationDto[]>;
+  acceptInvitation(invitationId: string, invitedUserId: string, now: Date): Promise<TeamInvitationDto | null>;
+  declineInvitation(invitationId: string, invitedUserId: string, now: Date): Promise<TeamInvitationDto | null>;
+  revokeInvitation(teamId: string, managerUserId: string, invitationId: string, now: Date): Promise<TeamInvitationDto | null>;
 }

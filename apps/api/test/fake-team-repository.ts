@@ -3,9 +3,11 @@ import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
   TeamDto,
+  TeamInvitationDto,
   TeamListItemDto,
   TeamMemberRole,
 } from "@leaguekick/contracts";
+import { errors } from "../src/lib/errors.js";
 import type {
   TeamIdentityUser,
   TeamMembershipRecord,
@@ -18,6 +20,7 @@ export class FakeTeamRepository implements TeamRepository {
   profiles = new Map<string, OwnPlayerProfileDto>();
   teams = new Map<string, TeamRecord>();
   memberships = new Map<string, TeamMembershipRecord>();
+  invitations = new Map<string, TeamInvitationDto>();
 
   seedUser(input: { id: string; displayName: string; username?: string | null; phoneE164: string }) {
     this.users.set(input.id, {
@@ -296,4 +299,114 @@ export class FakeTeamRepository implements TeamRepository {
     await this.updateMember(teamId, memberUserId, { status: "REMOVED", leftAt: now, updatedAt: now });
     return this.getTeam(teamId, true);
   }
+
+  async createInvitation(input: {
+    teamId: string;
+    invitedUserId: string;
+    invitedByUserId: string;
+    role: "CAPTAIN" | "PLAYER";
+    shirtNumber: number | null;
+    expiresAt: Date;
+    now: Date;
+  }) {
+    const duplicate = [...this.invitations.values()].find((item) =>
+      item.teamId === input.teamId &&
+      item.invitedUserId === input.invitedUserId &&
+      item.status === "PENDING"
+    );
+    if (duplicate) throw errors.conflict("TEAM_INVITATION_PENDING", "A pending invitation already exists for this player.");
+
+    const team = this.teams.get(input.teamId)!;
+    const user = this.users.get(input.invitedUserId)!;
+    const profile = this.profiles.get(input.invitedUserId);
+    const invitation: TeamInvitationDto = {
+      id: randomUUID(),
+      teamId: input.teamId,
+      teamName: team.name,
+      invitedUserId: input.invitedUserId,
+      invitedPublicDisplayName: profile?.publicDisplayName ?? user.displayName,
+      role: input.role,
+      shirtNumber: input.shirtNumber,
+      status: "PENDING",
+      expiresAt: input.expiresAt.toISOString(),
+      createdAt: input.now.toISOString(),
+    };
+    this.invitations.set(invitation.id, invitation);
+    return invitation;
+  }
+
+  async listInvitationsForUser(userId: string, now: Date) {
+    for (const [id, invite] of this.invitations) {
+      if (invite.status === "PENDING" && Date.parse(invite.expiresAt) <= now.getTime()) {
+        this.invitations.set(id, { ...invite, status: "EXPIRED" });
+      }
+    }
+    return [...this.invitations.values()]
+      .filter((invite) => invite.invitedUserId === userId)
+      .sort((a,b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async listInvitationsForTeam(teamId: string, now: Date) {
+    for (const [id, invite] of this.invitations) {
+      if (invite.status === "PENDING" && Date.parse(invite.expiresAt) <= now.getTime()) {
+        this.invitations.set(id, { ...invite, status: "EXPIRED" });
+      }
+    }
+    return [...this.invitations.values()]
+      .filter((invite) => invite.teamId === teamId)
+      .sort((a,b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async acceptInvitation(invitationId: string, invitedUserId: string, now: Date) {
+    const invite = this.invitations.get(invitationId);
+    if (!invite || invite.invitedUserId !== invitedUserId || invite.status !== "PENDING") return null;
+    if (Date.parse(invite.expiresAt) <= now.getTime()) {
+      const expired = { ...invite, status: "EXPIRED" as const };
+      this.invitations.set(invitationId, expired);
+      return null;
+    }
+
+    const key = this.membershipKey(invite.teamId, invitedUserId);
+    const existing = this.memberships.get(key);
+    this.memberships.set(key, {
+      teamId: invite.teamId,
+      userId: invitedUserId,
+      role: invite.role,
+      shirtNumber: invite.shirtNumber,
+      status: "ACTIVE",
+      joinedAt: existing?.joinedAt ?? now,
+      leftAt: null,
+    });
+
+    if (invite.role === "CAPTAIN") {
+      const team = this.teams.get(invite.teamId)!;
+      if (team.captainUserId && team.captainUserId !== team.managerUserId && team.captainUserId !== invitedUserId) {
+        await this.updateMember(invite.teamId, team.captainUserId, { role: "PLAYER", updatedAt: now });
+      }
+      team.captainUserId = invitedUserId;
+      this.teams.set(invite.teamId, team);
+    }
+
+    const accepted = { ...invite, status: "ACCEPTED" as const };
+    this.invitations.set(invitationId, accepted);
+    return accepted;
+  }
+
+  async declineInvitation(invitationId: string, invitedUserId: string, _now: Date) {
+    const invite = this.invitations.get(invitationId);
+    if (!invite || invite.invitedUserId !== invitedUserId || invite.status !== "PENDING") return null;
+    const declined = { ...invite, status: "DECLINED" as const };
+    this.invitations.set(invitationId, declined);
+    return declined;
+  }
+
+  async revokeInvitation(teamId: string, managerUserId: string, invitationId: string, _now: Date) {
+    const team = this.teams.get(teamId);
+    const invite = this.invitations.get(invitationId);
+    if (!team || team.managerUserId !== managerUserId || !invite || invite.teamId !== teamId || invite.status !== "PENDING") return null;
+    const revoked = { ...invite, status: "REVOKED" as const };
+    this.invitations.set(invitationId, revoked);
+    return revoked;
+  }
+
 }
