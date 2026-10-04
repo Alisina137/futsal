@@ -52,6 +52,7 @@ export class NotificationService implements NotificationPublisher {
 
     if (input.type === "SLOT_PROMOTION" && !preferences.promotionsEnabled) return;
     if (input.type === "VENUE_POST" && !preferences.venuePostsEnabled) return;
+    if (input.type === "TEAM_INVITATION" && !preferences.teamInvitesEnabled) return;
 
     if (input.marketing) {
       const since = new Date(this.now().getTime() - DAY_MS);
@@ -139,6 +140,27 @@ export class NotificationService implements NotificationPublisher {
       dedupeKey: `venue-post:${input.postId}`,
       marketing: true,
     })));
+  }
+
+  async teamInvitation(input: {
+    userId: string;
+    invitationId: string;
+    teamId: string;
+    teamName: string;
+  }) {
+    await this.publish({
+      userId: input.userId,
+      type: "TEAM_INVITATION",
+      title: "Team invitation",
+      body: `You were invited to join ${input.teamName}.`,
+      deepLink: "/teams/invitations",
+      data: {
+        invitationId: input.invitationId,
+        teamId: input.teamId,
+      },
+      dedupeKey: `team-invitation:${input.invitationId}`,
+      marketing: false,
+    });
   }
 }
 
