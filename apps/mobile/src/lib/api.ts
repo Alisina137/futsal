@@ -1,4 +1,12 @@
-import type { ApiErrorBody, AuthResponse, LoginRequest, RegisterRequest, UserDto } from "@leaguekick/contracts";
+import type {
+  ApiErrorBody,
+  AuthResponse,
+  LoginRequest,
+  OwnerOnboardingStatus,
+  OwnerVenueSetupRequest,
+  RegisterRequest,
+  UserDto,
+} from "@leaguekick/contracts";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
 
@@ -50,4 +58,13 @@ export const authApi = {
   refresh: (refreshToken: string) => request<AuthResponse>("/api/v1/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   logout: (refreshToken: string) => request<void>("/api/v1/auth/logout", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   me: (accessToken: string) => request<{ user: UserDto }>("/api/v1/users/me", {}, accessToken),
+};
+
+export const ownerApi = {
+  getStatus: (accessToken: string) => request<OwnerOnboardingStatus>("/api/v1/owner/onboarding", {}, accessToken),
+  saveSetup: (accessToken: string, input: OwnerVenueSetupRequest) =>
+    request<OwnerOnboardingStatus>("/api/v1/owner/onboarding", { method: "PUT", body: JSON.stringify(input) }, accessToken),
+  preview: (accessToken: string) => request<OwnerOnboardingStatus>("/api/v1/owner/venue/preview", {}, accessToken),
+  startTrial: (accessToken: string) =>
+    request<OwnerOnboardingStatus>("/api/v1/owner/trial/start", { method: "POST" }, accessToken),
 };
