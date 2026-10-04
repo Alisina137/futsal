@@ -68,6 +68,7 @@ export type CreateBookingRecordInput = {
 export interface BookingRepository {
   listPublicVenueRecords(filters: { city?: string; province?: string }): Promise<BookingVenueRecord[]>;
   getVenueRecord(venueId: string): Promise<BookingVenueRecord | null>;
+  getVenueRecordByAreaId(areaId: string): Promise<BookingVenueRecord | null>;
   getOwnerVenueRecord(ownerUserId: string): Promise<BookingVenueRecord | null>;
   listOccupancies(venueId: string, startsAt: Date, endsAt: Date): Promise<OccupancyRecord[]>;
   createBookingAtomic(input: CreateBookingRecordInput): Promise<BookingDto>;
@@ -81,6 +82,7 @@ export interface BookingRepository {
   }): Promise<VenueBlockDto>;
   deleteBlock(ownerUserId: string, blockId: string): Promise<boolean>;
   getBooking(bookingId: string): Promise<BookingDto | null>;
+  getBookingByIdempotency(createdByUserId: string, idempotencyKey: string): Promise<BookingDto | null>;
   listPlayerBookings(playerUserId: string): Promise<BookingDto[]>;
   listVenueBookings(venueId: string, startsAt: Date, endsAt: Date): Promise<BookingDto[]>;
   listVenueBlocks(venueId: string, startsAt: Date, endsAt: Date): Promise<VenueBlockDto[]>;

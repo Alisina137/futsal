@@ -75,6 +75,9 @@ export class FakeBookingRepository implements BookingRepository {
   }
 
   async getVenueRecord(venueId: string) { return this.venues.get(venueId) ?? null; }
+  async getVenueRecordByAreaId(areaId: string) {
+    return [...this.venues.values()].find((venue) => venue.areas.some((area) => area.id === areaId)) ?? null;
+  }
   async getOwnerVenueRecord(ownerUserId: string) {
     return [...this.venues.values()].find((venue) => venue.ownerUserId === ownerUserId) ?? null;
   }
@@ -94,7 +97,10 @@ export class FakeBookingRepository implements BookingRepository {
     return this.exclusive(async () => {
       await new Promise((resolve) => setTimeout(resolve, 2));
       if (input.idempotencyKey) {
-        const existing = [...this.bookings.values()].find((booking) => (booking as BookingDto & { idempotencyKey?: string }).idempotencyKey === input.idempotencyKey);
+        const existing = [...this.bookings.values()].find((booking) => {
+          const value = booking as BookingDto & { idempotencyKey?: string; createdByUserId?: string };
+          return value.idempotencyKey === input.idempotencyKey && value.createdByUserId === input.createdByUserId;
+        });
         if (existing) return existing;
       }
       const occupancies = await this.listOccupancies(input.venueId, input.startsAt, input.endsAt);
@@ -123,7 +129,8 @@ export class FakeBookingRepository implements BookingRepository {
         cancelledAt: null,
         cancellationReason: null,
         ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
-      };
+        createdByUserId: input.createdByUserId,
+      } as BookingDto & { idempotencyKey?: string; createdByUserId: string };
       this.bookings.set(booking.id, booking);
       return booking;
     });
@@ -167,6 +174,13 @@ export class FakeBookingRepository implements BookingRepository {
   }
 
   async getBooking(bookingId: string) { return this.bookings.get(bookingId) ?? null; }
+
+  async getBookingByIdempotency(createdByUserId: string, idempotencyKey: string) {
+    return [...this.bookings.values()].find((booking) => {
+      const value = booking as BookingDto & { idempotencyKey?: string; createdByUserId?: string };
+      return value.createdByUserId === createdByUserId && value.idempotencyKey === idempotencyKey;
+    }) ?? null;
+  }
 
   async listPlayerBookings(playerUserId: string) {
     return [...this.bookings.values()].filter((booking) => booking.playerUserId === playerUserId);

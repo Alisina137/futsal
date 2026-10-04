@@ -9,7 +9,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   BookingRepository,
@@ -127,6 +127,14 @@ export class DrizzleBookingRepository implements BookingRepository {
     return row ? this.hydrateVenue(row) : null;
   }
 
+  async getVenueRecordByAreaId(areaId: string) {
+    const [row] = await this.db.select({ venue: venues }).from(venueAreas)
+      .innerJoin(venues, eq(venueAreas.venueId, venues.id))
+      .where(eq(venueAreas.id, areaId))
+      .limit(1);
+    return row ? this.hydrateVenue(row.venue) : null;
+  }
+
   async getOwnerVenueRecord(ownerUserId: string) {
     const [row] = await this.db.select().from(venues).where(eq(venues.ownerUserId, ownerUserId)).limit(1);
     return row ? this.hydrateVenue(row) : null;
@@ -206,7 +214,10 @@ export class DrizzleBookingRepository implements BookingRepository {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.areaId}))`);
 
       if (input.idempotencyKey) {
-        const [existing] = await tx.select({ id: bookings.id }).from(bookings).where(eq(bookings.idempotencyKey, input.idempotencyKey)).limit(1);
+        const [existing] = await tx.select({ id: bookings.id }).from(bookings).where(and(
+          eq(bookings.createdByUserId, input.createdByUserId),
+          eq(bookings.idempotencyKey, input.idempotencyKey),
+        )).limit(1);
         if (existing) return existing.id;
       }
 
@@ -290,6 +301,14 @@ export class DrizzleBookingRepository implements BookingRepository {
   async getBooking(bookingId: string) {
     try { return await this.projectBooking(bookingId); }
     catch { return null; }
+  }
+
+  async getBookingByIdempotency(createdByUserId: string, idempotencyKey: string) {
+    const [row] = await this.db.select({ id: bookings.id }).from(bookings).where(and(
+      eq(bookings.createdByUserId, createdByUserId),
+      eq(bookings.idempotencyKey, idempotencyKey),
+    )).limit(1);
+    return row ? this.projectBooking(row.id) : null;
   }
 
   private bookingProjectionQuery() {

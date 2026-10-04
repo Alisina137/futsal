@@ -238,7 +238,7 @@ export const bookings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("bookings_idempotency_key_uq").on(table.idempotencyKey),
+    uniqueIndex("bookings_actor_idempotency_uq").on(table.createdByUserId, table.idempotencyKey),
     index("bookings_area_time_idx").on(table.areaId, table.startsAt, table.endsAt),
     index("bookings_venue_time_idx").on(table.venueId, table.startsAt),
     index("bookings_player_time_idx").on(table.playerUserId, table.startsAt),
