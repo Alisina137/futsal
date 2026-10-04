@@ -4,7 +4,7 @@
 Increase futsal venue utilization and revenue through reliable availability and mobile booking, with integrated venue operations, competitions, and a futsal-specific public presence.
 
 ## Product source
-`docs/PRODUCT-SPEC.md` — LeagueKick Authoritative Product Specification v1.0.
+`docs/PRODUCT-SPEC.md` — Futsal Authoritative Product Specification v1.0.
 
 ## Implementation workflow
 `docs/SOFTWARE-DEVELOPMENT-WORKFLOW-V4.md`.
@@ -103,7 +103,7 @@ Do not retroactively label Phase 3 fully verified until the full command is conf
 - Public Feed combines promotions and posts.
 - Following Feed scopes content to followed venues.
 - Player venue page shows follow state and follower count.
-- Promotion/post cards deep-link through typed LeagueKick destinations.
+- Promotion/post cards deep-link through typed Futsal destinations.
 
 ### Notifications
 - Persisted in-app notification history.
