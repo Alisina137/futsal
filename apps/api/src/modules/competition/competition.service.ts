@@ -15,7 +15,13 @@ import type {
   CompetitionRepository,
   CompetitionVenueRecord,
 } from "./competition.types.js";
-import { calculateStandings, generateRoundRobin } from "./competition.engine.js";
+import {
+  assignGroups,
+  calculateStandings,
+  generateKnockoutPlan,
+  generateRoundRobin,
+  qualifiedTeams,
+} from "./competition.engine.js";
 
 function entitlement(venue: CompetitionVenueRecord, now: Date) {
   const sub = venue.subscription;
@@ -33,36 +39,80 @@ export class CompetitionService {
 
   private derive(competition: Awaited<ReturnType<CompetitionRepository["getCompetitionDto"]>>) {
     if (!competition) return null;
-    if (competition.format !== "LEAGUE") return competition;
 
     const accepted = competition.teams
       .filter((team) => team.status === "ACCEPTED")
       .map((team) => ({ id: team.teamId, name: team.teamName, seed: team.seed }));
-    const results = competition.matches
-      .filter((match) =>
-        match.stage === "LEAGUE" &&
-        (match.status === "COMPLETED" || match.status === "CORRECTED") &&
-        match.homeTeamId &&
-        match.awayTeamId &&
-        match.homeScore !== null &&
-        match.awayScore !== null
-      )
-      .map((match) => ({
-        homeTeamId: match.homeTeamId!,
-        awayTeamId: match.awayTeamId!,
-        homeScore: match.homeScore!,
-        awayScore: match.awayScore!,
-      }));
 
-    return {
-      ...competition,
-      standings: calculateStandings(
-        accepted,
-        results,
-        { win: competition.winPoints, draw: competition.drawPoints, loss: competition.lossPoints },
-        competition.tieBreakOrder,
-      ),
-    };
+    if (competition.format === "LEAGUE") {
+      const results = competition.matches
+        .filter((match) =>
+          match.stage === "LEAGUE" &&
+          (match.status === "COMPLETED" || match.status === "CORRECTED") &&
+          match.homeTeamId &&
+          match.awayTeamId &&
+          match.homeScore !== null &&
+          match.awayScore !== null
+        )
+        .map((match) => ({
+          homeTeamId: match.homeTeamId!,
+          awayTeamId: match.awayTeamId!,
+          homeScore: match.homeScore!,
+          awayScore: match.awayScore!,
+        }));
+
+      return {
+        ...competition,
+        standings: calculateStandings(
+          accepted,
+          results,
+          { win: competition.winPoints, draw: competition.drawPoints, loss: competition.lossPoints },
+          competition.tieBreakOrder,
+        ),
+      };
+    }
+
+    if (competition.format === "GROUP_KNOCKOUT") {
+      const groupKeys = [...new Set(
+        competition.teams
+          .filter((team) => team.status === "ACCEPTED" && team.groupId && team.groupName)
+          .map((team) => `${team.groupId}|${team.groupName}`)
+      )].sort();
+
+      const standings = groupKeys.flatMap((key) => {
+        const [groupId, groupName] = key.split("|") as [string,string];
+        const groupTeams = competition.teams
+          .filter((team) => team.status === "ACCEPTED" && team.groupId === groupId)
+          .map((team) => ({ id: team.teamId, name: team.teamName, seed: team.seed }));
+        const results = competition.matches
+          .filter((match) =>
+            match.stage === "GROUP" &&
+            match.groupId === groupId &&
+            (match.status === "COMPLETED" || match.status === "CORRECTED") &&
+            match.homeTeamId &&
+            match.awayTeamId &&
+            match.homeScore !== null &&
+            match.awayScore !== null
+          )
+          .map((match) => ({
+            homeTeamId: match.homeTeamId!,
+            awayTeamId: match.awayTeamId!,
+            homeScore: match.homeScore!,
+            awayScore: match.awayScore!,
+          }));
+
+        return calculateStandings(
+          groupTeams,
+          results,
+          { win: competition.winPoints, draw: competition.drawPoints, loss: competition.lossPoints },
+          competition.tieBreakOrder,
+        ).map((row) => ({ ...row, groupId, groupName }));
+      });
+
+      return { ...competition, standings };
+    }
+
+    return { ...competition, standings: [] };
   }
 
   private async ownerVenue(ownerUserId: string) {
@@ -248,26 +298,87 @@ export class CompetitionService {
     }
 
     if (input.action === "GENERATE_FIXTURES") {
-      if (competition.format !== "LEAGUE") {
-        throw errors.badRequest("FORMAT_NOT_SUPPORTED_HERE", "This fixture generator is for league competitions.");
-      }
       if (competition.status !== "REGISTRATION_CLOSED") {
         throw errors.conflict("REGISTRATION_MUST_BE_CLOSED", "Close registration before generating fixtures.");
       }
       const accepted = (await this.repository.listCompetitionTeams(competitionId))
-        .filter((team) => team.status === "ACCEPTED");
+        .filter((team) => team.status === "ACCEPTED")
+        .sort((a,b) => (a.seed ?? Number.MAX_SAFE_INTEGER) - (b.seed ?? Number.MAX_SAFE_INTEGER) || a.teamId.localeCompare(b.teamId));
       if (accepted.length < 2) {
         throw errors.badRequest("NOT_ENOUGH_TEAMS", "At least two accepted teams are required.");
       }
-      await this.repository.replaceLeagueFixtures(
-        competitionId,
-        generateRoundRobin(accepted.map((team) => team.teamId)),
-        now,
-      );
+
+      if (competition.format === "LEAGUE") {
+        await this.repository.replaceLeagueFixtures(
+          competitionId,
+          generateRoundRobin(accepted.map((team) => team.teamId)),
+          now,
+        );
+      } else if (competition.format === "KNOCKOUT") {
+        await this.repository.replaceKnockoutStage(
+          competitionId,
+          generateKnockoutPlan(accepted.map((team) => ({ id:team.teamId,name:team.teamName,seed:team.seed }))),
+          accepted.map((team) => team.teamId),
+          now,
+        );
+      } else {
+        const groupCount = competition.groupCount ?? 0;
+        if (groupCount < 2 || accepted.length < groupCount) {
+          throw errors.badRequest("INVALID_GROUP_CONFIGURATION", "Not enough accepted teams for the configured groups.");
+        }
+        const assignments = assignGroups(
+          accepted.map((team) => ({ id:team.teamId,name:team.teamName,seed:team.seed })),
+          groupCount,
+        );
+        await this.repository.replaceGroupStage(
+          competitionId,
+          [...assignments.entries()].map(([index,groupTeams]) => ({
+            name:String.fromCharCode(65+index),
+            sortOrder:index+1,
+            teamIds:groupTeams.map((team)=>team.id),
+            fixtures:generateRoundRobin(groupTeams.map((team)=>team.id)),
+          })),
+          now,
+        );
+      }
+
       await this.repository.setCompetitionState(competitionId, {
         status: "SCHEDULED",
         updatedAt: now,
       });
+      return this.getOwner(ownerUserId, competitionId);
+    }
+
+    if (input.action === "GENERATE_KNOCKOUT") {
+      if (competition.format !== "GROUP_KNOCKOUT") {
+        throw errors.badRequest("FORMAT_NOT_GROUP_KNOCKOUT", "Only group-to-knockout competitions use this action.");
+      }
+      if (!await this.repository.groupStageCompleted(competitionId)) {
+        throw errors.conflict("GROUP_STAGE_INCOMPLETE", "Complete all group-stage matches first.");
+      }
+      const current = await this.getOwner(ownerUserId, competitionId);
+      const grouped = new Map<string, typeof current.standings>();
+      for (const row of current.standings) {
+        if (!row.groupName) continue;
+        const existing = grouped.get(row.groupName) ?? [];
+        existing.push(row);
+        grouped.set(row.groupName, existing);
+      }
+      const qualifierIds = qualifiedTeams(grouped, competition.qualifiersPerGroup ?? 1);
+      if (qualifierIds.length < 2) {
+        throw errors.badRequest("NOT_ENOUGH_QUALIFIERS", "At least two teams must qualify for knockout.");
+      }
+      const accepted = (await this.repository.listCompetitionTeams(competitionId))
+        .filter((team) => team.status === "ACCEPTED" && qualifierIds.includes(team.teamId));
+      await this.repository.replaceKnockoutStage(
+        competitionId,
+        generateKnockoutPlan(qualifierIds.map((teamId) => {
+          const team = accepted.find((item)=>item.teamId===teamId)!;
+          return { id:team.teamId,name:team.teamName,seed:team.seed };
+        })),
+        qualifierIds,
+        now,
+      );
       return this.getOwner(ownerUserId, competitionId);
     }
 
@@ -470,6 +581,9 @@ export class CompetitionService {
     if (!match.homeTeamId || !match.awayTeamId) {
       throw errors.conflict("MATCH_TEAMS_PENDING", "This match is waiting for its teams.");
     }
+    if (match.stage === "KNOCKOUT" && input.homeScore === input.awayScore) {
+      throw errors.badRequest("KNOCKOUT_DRAW_NOT_ALLOWED", "A knockout match requires a winner.");
+    }
 
     const correction = match.status === "COMPLETED" || match.status === "CORRECTED";
     if (correction && !input.correctionReason?.trim()) {
@@ -486,6 +600,29 @@ export class CompetitionService {
           ? match.homeTeamId
           : match.awayTeamId;
 
+    if (correction && match.stage === "KNOCKOUT" && match.winnerTeamId !== winnerTeamId && match.nextMatchId) {
+      const downstream = await this.repository.getMatch(match.nextMatchId);
+      if (downstream && ["IN_PROGRESS","COMPLETED","CORRECTED"].includes(downstream.status)) {
+        throw errors.conflict("DOWNSTREAM_RESULT_LOCKED", "A later knockout match has already started or finished.");
+      }
+      if (downstream?.status === "SCHEDULED" && !input.confirmImpact) {
+        throw errors.conflict("IMPACT_CONFIRMATION_REQUIRED", "Confirm the impact before changing a winner used by a scheduled next-round match.");
+      }
+    }
+
+    const knockoutAlreadyStarted = match.stage === "GROUP"
+      ? await this.repository.knockoutStarted(competitionId)
+      : false;
+    if (correction && match.stage === "GROUP" && knockoutAlreadyStarted && !input.confirmImpact) {
+      throw errors.conflict(
+        "GROUP_CORRECTION_IMPACT_CONFIRMATION_REQUIRED",
+        "Knockout play has started. Confirm the impact before correcting a group result.",
+      );
+    }
+
+    const before = await this.getOwner(ownerUserId, competitionId);
+    const hadKnockoutSnapshot = before.matches.some((item)=>item.stage==="KNOCKOUT");
+
     const now = this.now();
     const saved = await this.repository.saveMatchResult({
       competitionId,
@@ -498,6 +635,33 @@ export class CompetitionService {
       playerStats: input.playerStats,
       now,
     });
+
+    if (match.stage === "KNOCKOUT" && winnerTeamId) {
+      await this.repository.replaceKnockoutParticipant(matchId, winnerTeamId, now);
+    }
+
+    if (correction && match.stage === "GROUP" && hadKnockoutSnapshot && !knockoutAlreadyStarted) {
+      const recalculated = await this.getOwner(ownerUserId, competitionId);
+      const grouped = new Map<string, typeof recalculated.standings>();
+      for (const row of recalculated.standings) {
+        if (!row.groupName) continue;
+        const list = grouped.get(row.groupName) ?? [];
+        list.push(row);
+        grouped.set(row.groupName,list);
+      }
+      const qualifierIds = qualifiedTeams(grouped, competition.qualifiersPerGroup ?? 1);
+      const accepted = (await this.repository.listCompetitionTeams(competitionId))
+        .filter((team)=>team.status==="ACCEPTED"&&qualifierIds.includes(team.teamId));
+      await this.repository.replaceKnockoutStage(
+        competitionId,
+        generateKnockoutPlan(qualifierIds.map((teamId)=>{
+          const team=accepted.find((item)=>item.teamId===teamId)!;
+          return {id:team.teamId,name:team.teamName,seed:team.seed};
+        })),
+        qualifierIds,
+        now,
+      );
+    }
 
     if (!competition.materialPlayStartedAt || competition.status === "SCHEDULED") {
       await this.repository.setCompetitionState(competitionId, {
