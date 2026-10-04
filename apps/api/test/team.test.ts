@@ -21,7 +21,7 @@ function setup() {
 async function register(
   app: ReturnType<typeof createApp>,
   teamRepository: FakeTeamRepository,
-  input: { phone: string; username: string; displayName: string },
+  input: { phone: string; username: string; displayName: string; accountType?: "PLAYER" | "VENUE_OWNER" },
 ) {
   const response = await request(app).post("/api/v1/auth/register").send({
     displayName: input.displayName,
@@ -29,7 +29,7 @@ async function register(
     username: input.username,
     password: "strong-pass-5!",
     preferredLanguage: "fa-AF",
-    accountType: "PLAYER",
+    accountType: input.accountType ?? "PLAYER",
   });
   expect(response.status).toBe(201);
   teamRepository.seedUser({
@@ -37,6 +37,7 @@ async function register(
     displayName: response.body.user.displayName,
     username: response.body.user.username,
     phoneE164: response.body.user.phone,
+    roles: input.accountType === "VENUE_OWNER" ? ["VENUE_OWNER"] : ["PLAYER"],
   });
   return response.body as { accessToken: string; user: { id: string; phone: string } };
 }
@@ -69,6 +70,77 @@ describe("Phase 5 teams and player identity API", () => {
     expect(publicPlayer.status).toBe(200);
     expect(publicPlayer.body.player).not.toHaveProperty("phone");
     expect(publicPlayer.body.player).not.toHaveProperty("email");
+  });
+
+  it("allows one player to belong to multiple teams without duplicating membership inside a team", async () => {
+    const { app, teamRepository } = setup();
+    const firstManager = await register(app, teamRepository, {
+      phone: "0705550010",
+      username: "manager10",
+      displayName: "Manager Ten",
+    });
+    const secondManager = await register(app, teamRepository, {
+      phone: "0705550011",
+      username: "manager11",
+      displayName: "Manager Eleven",
+    });
+    const player = await register(app, teamRepository, {
+      phone: "0705550012",
+      username: "multiplayer",
+      displayName: "Multi Team Player",
+    });
+
+    const firstTeam = await request(app).post("/api/v1/teams")
+      .set("Authorization", `Bearer ${firstManager.accessToken}`)
+      .send({ name: "First Five", city: "Kabul", privacy: "PUBLIC" });
+    const secondTeam = await request(app).post("/api/v1/teams")
+      .set("Authorization", `Bearer ${secondManager.accessToken}`)
+      .send({ name: "Second Five", city: "Kabul", privacy: "PUBLIC" });
+
+    for (const [teamId, managerToken] of [
+      [firstTeam.body.team.id, firstManager.accessToken],
+      [secondTeam.body.team.id, secondManager.accessToken],
+    ] as const) {
+      const invited = await request(app).post(`/api/v1/teams/${teamId}/invitations`)
+        .set("Authorization", `Bearer ${managerToken}`)
+        .send({ identifier: "multiplayer", role: "PLAYER" });
+      expect(invited.status).toBe(201);
+
+      const accepted = await request(app).post(`/api/v1/teams/invitations/${invited.body.invitation.id}/accept`)
+        .set("Authorization", `Bearer ${player.accessToken}`);
+      expect(accepted.status).toBe(200);
+    }
+
+    const mine = await request(app).get("/api/v1/teams/mine")
+      .set("Authorization", `Bearer ${player.accessToken}`);
+    expect(mine.status).toBe(200);
+    expect(mine.body.teams).toHaveLength(2);
+    expect(new Set(mine.body.teams.map((team: { id: string }) => team.id)).size).toBe(2);
+  });
+
+  it("rejects venue-owner-only accounts from player/team participation", async () => {
+    const { app, teamRepository } = setup();
+    const owner = await register(app, teamRepository, {
+      phone: "0705550013",
+      username: "venueowneronly",
+      displayName: "Venue Owner Only",
+      accountType: "VENUE_OWNER",
+    });
+
+    const profile = await request(app).get("/api/v1/players/me")
+      .set("Authorization", `Bearer ${owner.accessToken}`);
+    expect(profile.status).toBe(403);
+    expect(profile.body.error.code).toBe("PLAYER_ACCOUNT_REQUIRED");
+
+    const create = await request(app).post("/api/v1/teams")
+      .set("Authorization", `Bearer ${owner.accessToken}`)
+      .send({ name: "Owner Team", city: "Kabul", privacy: "PUBLIC" });
+    expect(create.status).toBe(403);
+    expect(create.body.error.code).toBe("PLAYER_ACCOUNT_REQUIRED");
+
+    const publicProfile = await request(app).get(`/api/v1/players/${owner.user.id}`);
+    expect(publicProfile.status).toBe(400);
+    expect(publicProfile.body.error.code).toBe("PLAYER_PROFILE_NOT_PUBLIC");
   });
 
   it("blocks a non-manager from mutating another team's roster or identity", async () => {
