@@ -1,4 +1,5 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
+import type { UserDto } from "@leaguekick/contracts";
 import { View } from "react-native";
 import { OwnerDashboard } from "../../../src/components/owner/OwnerDashboard";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -11,8 +12,10 @@ import { useNetwork } from "../../../src/providers/NetworkProvider";
 export default function HomeScreen(){
   const {session}=useAuth();
   const user=session?.user;
-  if(user?.roles.includes("VENUE_OWNER")) return <OwnerDashboard/>;
+  return user?.roles.includes("VENUE_OWNER") ? <OwnerDashboard/> : <PlayerHome user={user}/>;
+}
 
+function PlayerHome({user}:{user:UserDto|undefined}){
   const {t,language,isRTL}=useLocale();
   const {isOnline}=useNetwork();
   const role=user?.roles[0]??"PLAYER";
@@ -35,4 +38,10 @@ export default function HomeScreen(){
     </Card>
   </Screen>;
 }
-function InfoRow({label,value,rtl,ltrValue=false}:{label:string;value:string;rtl:boolean;ltrValue?:boolean}){return <View style={{flexDirection:rtl?"row-reverse":"row",justifyContent:"space-between",gap:spacing.md}}><AppText muted>{label}</AppText><AppText weight="semibold" forceLtr={ltrValue}>{value}</AppText></View>}
+
+function InfoRow({label,value,rtl,ltrValue=false}:{label:string;value:string;rtl:boolean;ltrValue?:boolean}){
+  return <View style={{flexDirection:rtl?"row-reverse":"row",justifyContent:"space-between",gap:spacing.md}}>
+    <AppText muted>{label}</AppText>
+    <AppText weight="semibold" forceLtr={ltrValue}>{value}</AppText>
+  </View>;
+}

@@ -1,13 +1,13 @@
 import { colors, radius, spacing, touchTarget } from "@leaguekick/design-tokens";
-import { StyleSheet, TextInput, View, type TextInputProps } from "react-native";
+import { StyleSheet, TextInput, View, type TextInputProps, type ViewStyle } from "react-native";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "./AppText";
 
-type Props = TextInputProps & { label: string; hint?: string; error?: string; forceLtr?: boolean };
-export function TextField({ label, hint, error, forceLtr = false, style, ...props }: Props) {
+type Props = TextInputProps & { label: string; hint?: string; error?: string; forceLtr?: boolean; containerStyle?: ViewStyle };
+export function TextField({ label, hint, error, forceLtr = false, containerStyle, style, ...props }: Props) {
   const { isRTL } = useLocale();
   const rtl = forceLtr ? false : isRTL;
-  return <View style={styles.wrapper}>
+  return <View style={[styles.wrapper, containerStyle]}>
     <AppText weight="medium">{label}</AppText>
     <TextInput {...props} style={[styles.input, { textAlign: rtl ? "right" : "left", writingDirection: rtl ? "rtl" : "ltr" }, error && styles.inputError, style]}
       placeholderTextColor={colors.textMuted} accessibilityLabel={label} />
