@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { ownerApi, ApiRequestError } from "../../lib/api";
-import { formatLocalDateTime } from "../../lib/date-time";
+import { formatLocalDateTimeParts } from "../../lib/date-time";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
@@ -72,9 +72,10 @@ export function OwnerDashboard() {
       <InfoRow label={t("owner.setupStatus")} value={status.setupComplete ? t("owner.complete") : t("owner.incomplete")} rtl={isRTL} />
       <InfoRow label={t("owner.subscriptionStatus")} value={t(`owner.subscription.${status.subscription.state}` as never)} rtl={isRTL} />
       {status.subscription.state === "TRIAL" ? <InfoRow label={t("owner.trialRemaining")} value={remainingLabel(status.subscription.remainingSeconds)} rtl={isRTL} ltr /> : null}
-      {status.subscription.trialEndsAt ? <InfoRow
+      {status.subscription.trialEndsAt ? <TrialEndBlock
         label={t("owner.trialEnds")}
-        value={formatLocalDateTime(status.subscription.trialEndsAt, language)}
+        value={status.subscription.trialEndsAt}
+        language={language}
         rtl={isRTL}
       /> : null}
       <Button
@@ -102,5 +103,28 @@ function InfoRow({ label, value, rtl, ltr = false }: { label: string; value: str
   return <View style={{ flexDirection: rtl ? "row-reverse" : "row", justifyContent: "space-between", gap: spacing.md }}>
     <AppText muted>{label}</AppText>
     <AppText weight="semibold" forceLtr={ltr}>{value}</AppText>
+  </View>;
+}
+
+
+function TrialEndBlock({
+  label,
+  value,
+  language,
+  rtl,
+}: {
+  label: string;
+  value: string;
+  language: Parameters<typeof formatLocalDateTimeParts>[1];
+  rtl: boolean;
+}) {
+  const formatted = formatLocalDateTimeParts(value, language);
+
+  return <View style={{ gap: spacing.xs }}>
+    <AppText muted>{label}</AppText>
+    <View style={{ gap: 2, alignItems: rtl ? "flex-end" : "flex-start" }}>
+      <AppText weight="semibold">{formatted.date}</AppText>
+      <AppText variant="caption" muted>{formatted.time}</AppText>
+    </View>
   </View>;
 }
