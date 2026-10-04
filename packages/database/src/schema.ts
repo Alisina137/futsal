@@ -46,6 +46,12 @@ export const teamPrivacyEnum = pgEnum("team_privacy", ["PUBLIC", "PRIVATE"]);
 export const teamMemberRoleEnum = pgEnum("team_member_role", ["MANAGER", "CAPTAIN", "PLAYER"]);
 export const teamMembershipStatusEnum = pgEnum("team_membership_status", ["ACTIVE", "REMOVED"]);
 export const teamInvitationStatusEnum = pgEnum("team_invitation_status", ["PENDING", "ACCEPTED", "DECLINED", "REVOKED", "EXPIRED"]);
+export const competitionFormatEnum = pgEnum("competition_format", ["LEAGUE", "KNOCKOUT", "GROUP_KNOCKOUT"]);
+export const competitionStatusEnum = pgEnum("competition_status", ["DRAFT", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "ARCHIVED", "CANCELLED"]);
+export const competitionRegistrationStatusEnum = pgEnum("competition_registration_status", ["INVITED", "APPLIED", "PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN"]);
+export const competitionFeeStatusEnum = pgEnum("competition_fee_status", ["UNPAID", "PAID", "WAIVED"]);
+export const competitionMatchStageEnum = pgEnum("competition_match_stage", ["LEAGUE", "GROUP", "KNOCKOUT"]);
+export const competitionMatchStatusEnum = pgEnum("competition_match_status", ["UNSCHEDULED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "POSTPONED", "CANCELLED", "CORRECTED"]);
 
 export const users = pgTable(
   "users",
@@ -408,6 +414,136 @@ export const teamInvitations = pgTable(
   ],
 );
 
+
+export const competitions = pgTable(
+  "competitions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 140 }).notNull(),
+    description: text("description"),
+    format: competitionFormatEnum("format").notNull(),
+    status: competitionStatusEnum("status").notNull().default("DRAFT"),
+    published: boolean("published").notNull().default(false),
+    maxTeams: integer("max_teams").notNull(),
+    registrationFeeAfn: integer("registration_fee_afn").notNull().default(0),
+    winPoints: integer("win_points").notNull().default(3),
+    drawPoints: integer("draw_points").notNull().default(1),
+    lossPoints: integer("loss_points").notNull().default(0),
+    tieBreakOrder: jsonb("tie_break_order").$type<string[]>().notNull().default(["POINTS", "GOAL_DIFFERENCE", "GOALS_FOR"]),
+    groupCount: integer("group_count"),
+    qualifiersPerGroup: integer("qualifiers_per_group"),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    materialPlayStartedAt: timestamp("material_play_started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("competitions_venue_status_idx").on(table.venueId, table.status),
+    index("competitions_public_idx").on(table.published, table.status, table.startsAt),
+  ],
+);
+
+export const competitionGroups = pgTable(
+  "competition_groups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id").notNull().references(() => competitions.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 40 }).notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("competition_groups_name_uq").on(table.competitionId, table.name),
+    uniqueIndex("competition_groups_order_uq").on(table.competitionId, table.sortOrder),
+  ],
+);
+
+export const competitionTeams = pgTable(
+  "competition_teams",
+  {
+    competitionId: uuid("competition_id").notNull().references(() => competitions.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "restrict" }),
+    status: competitionRegistrationStatusEnum("status").notNull().default("PENDING"),
+    seed: integer("seed"),
+    groupId: uuid("group_id").references(() => competitionGroups.id, { onDelete: "set null" }),
+    feeStatus: competitionFeeStatusEnum("fee_status").notNull().default("UNPAID"),
+    appliedByUserId: uuid("applied_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    respondedByUserId: uuid("responded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    qualifiedAt: timestamp("qualified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.competitionId, table.teamId] }),
+    index("competition_teams_status_idx").on(table.competitionId, table.status),
+    index("competition_teams_group_idx").on(table.groupId),
+  ],
+);
+
+export const competitionMatches = pgTable(
+  "competition_matches",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id").notNull().references(() => competitions.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references(() => competitionGroups.id, { onDelete: "set null" }),
+    stage: competitionMatchStageEnum("stage").notNull(),
+    roundNumber: integer("round_number").notNull(),
+    slotNumber: integer("slot_number").notNull(),
+    homeTeamId: uuid("home_team_id").references(() => teams.id, { onDelete: "restrict" }),
+    awayTeamId: uuid("away_team_id").references(() => teams.id, { onDelete: "restrict" }),
+    venueId: uuid("venue_id").references(() => venues.id, { onDelete: "restrict" }),
+    areaId: uuid("area_id").references(() => venueAreas.id, { onDelete: "restrict" }),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    status: competitionMatchStatusEnum("status").notNull().default("UNSCHEDULED"),
+    homeScore: integer("home_score"),
+    awayScore: integer("away_score"),
+    winnerTeamId: uuid("winner_team_id").references(() => teams.id, { onDelete: "restrict" }),
+    nextMatchId: uuid("next_match_id"),
+    nextMatchSide: varchar("next_match_side", { length: 4 }),
+    refereeUserId: uuid("referee_user_id").references(() => users.id, { onDelete: "set null" }),
+    resultEnteredByUserId: uuid("result_entered_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    resultEnteredAt: timestamp("result_entered_at", { withTimezone: true }),
+    correctionReason: varchar("correction_reason", { length: 500 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("competition_matches_slot_uq").on(table.competitionId, table.stage, table.roundNumber, table.slotNumber, table.groupId),
+    index("competition_matches_competition_status_idx").on(table.competitionId, table.status),
+    index("competition_matches_area_time_idx").on(table.areaId, table.startsAt, table.endsAt),
+  ],
+);
+
+export const playerMatchStats = pgTable(
+  "player_match_stats",
+  {
+    matchId: uuid("match_id").notNull().references(() => competitionMatches.id, { onDelete: "cascade" }),
+    playerUserId: uuid("player_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "restrict" }),
+    appeared: boolean("appeared").notNull().default(true),
+    goals: integer("goals").notNull().default(0),
+    assists: integer("assists").notNull().default(0),
+    yellowCards: integer("yellow_cards").notNull().default(0),
+    redCards: integer("red_cards").notNull().default(0),
+    cleanSheet: boolean("clean_sheet").notNull().default(false),
+    playerOfMatch: boolean("player_of_match").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.matchId, table.playerUserId] }),
+    index("player_match_stats_team_idx").on(table.teamId),
+    index("player_match_stats_player_idx").on(table.playerUserId),
+  ],
+);
+
 export const notificationPreferences = pgTable(
   "notification_preferences",
   {
@@ -489,3 +625,9 @@ export type PlayerProfileRow = typeof playerProfiles.$inferSelect;
 export type TeamRow = typeof teams.$inferSelect;
 export type TeamMembershipRow = typeof teamMemberships.$inferSelect;
 export type TeamInvitationRow = typeof teamInvitations.$inferSelect;
+
+export type CompetitionRow = typeof competitions.$inferSelect;
+export type CompetitionGroupRow = typeof competitionGroups.$inferSelect;
+export type CompetitionTeamRow = typeof competitionTeams.$inferSelect;
+export type CompetitionMatchRow = typeof competitionMatches.$inferSelect;
+export type PlayerMatchStatRow = typeof playerMatchStats.$inferSelect;
