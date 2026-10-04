@@ -71,3 +71,29 @@ This document records implementation-level domain rules that are authoritative i
 55. Team/player profile media is HTTPS URL metadata in Phase 5; binary upload/storage integration remains a separate infrastructure concern.
 56. Team invitation notifications respect user notification preferences and are deduplicated by user + invitation event.
 57. Matchmaking/challenges are explicitly outside Phase 5.
+
+
+## Phase 6 competition engine rules
+
+58. A competition belongs to exactly one venue. Venue-owner competition writes are tenant-scoped through that venue and require active Premium entitlement.
+59. Competition drafts are private. Opening registration makes the competition public; public reads never expose owner-private operational data.
+60. Supported MVP formats are LEAGUE, KNOCKOUT and GROUP_KNOCKOUT. Advanced live scoring and matchmaking remain outside Phase 6.
+61. A team can enter a competition only through its current team manager. Venue owners may invite teams but cannot impersonate the team manager's response.
+62. Accepted-team count is server-authoritative and may never exceed the competition's configured team capacity.
+63. Registration changes stop once fixture generation materially schedules the competition.
+64. League and group standings are derived from persisted completed/corrected match results. Standings are not manually edited totals.
+65. Default tie-break precedence is configurable and supports points, goal difference, goals for, head-to-head and explicit admin seed ordering.
+66. Knockout matches cannot end in a draw. A persisted winner advances through stored bracket links.
+67. Knockout brackets are deterministic and distribute non-power-of-two byes using seeded bracket positions; no synthetic bye match is exposed as a playable fixture.
+68. Group-to-knockout qualification is derived from completed group standings using the configured qualifiers-per-group rule. The knockout stage cannot be generated before all group matches are complete.
+69. A Group→Knockout competition cannot be completed until its knockout stage exists and every required knockout match is completed/corrected.
+70. Competition match scheduling uses the same playing-area transaction advisory lock as ordinary booking/block writes.
+71. A scheduled/in-progress competition match occupies venue inventory and must conflict with active bookings, owner blocks and other scheduled/in-progress competition matches.
+72. Public availability subtracts scheduled/in-progress competition matches and can never present that interval as bookable inventory.
+73. Match result corrections require an explicit reason and create an audit-log record.
+74. Changing a knockout winner is blocked once a downstream match has started/completed; if the downstream match is merely scheduled, explicit impact confirmation is required.
+75. Correcting a group result after a knockout snapshot requires impact confirmation, and the bracket can be rebuilt only before knockout play begins.
+76. Player match statistics may reference only active roster members of one of the two teams in that match.
+77. Competition public pages derive fixtures/results, standings, bracket, teams and player stats from the competition source of truth.
+78. Competition post CTAs deep-link only to public competition routes and never bypass server authorization.
+79. Competition dates/times persist as UTC instants and display in localized venue/user time; Dari/Pashto layouts remain RTL while technical scores/times remain readable.
