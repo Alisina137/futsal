@@ -10,7 +10,6 @@ import { Button } from "../../src/components/ui/Button";
 import { Card } from "../../src/components/ui/Card";
 import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
-import { LanguagePicker } from "../../src/components/LanguagePicker";
 import { useAuth } from "../../src/providers/AuthProvider";
 import { useLocale } from "../../src/providers/LocaleProvider";
 
@@ -80,8 +79,6 @@ export default function RegisterScreen(){
       <AppText variant="title" weight="bold">{t("auth.registerTitle")}</AppText>
       <AppText muted>{t("auth.registerSubtitle")}</AppText>
     </View>
-
-    <LanguagePicker/>
 
     <TextField
       label={t("auth.displayName")}

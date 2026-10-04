@@ -44,7 +44,7 @@ export default function FeedScreen(){
     router.push({pathname:"/posts/[postId]",params:{postId:item.post.id}});
   }
 
-  return <Screen>
+  return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("feed.title")}</AppText>
       <AppText muted>{t("feed.subtitle")}</AppText>

@@ -43,10 +43,10 @@ export function OwnerDashboard() {
   useEffect(() => { void load(); }, [load]);
 
   if (loading) {
-    return <Screen><AppText>{t("common.loading")}</AppText></Screen>;
+    return <Screen showHeader><AppText>{t("common.loading")}</AppText></Screen>;
   }
 
-  return <Screen>
+  return <Screen showHeader>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{t("owner.dashboardTitle")}</AppText>
       <AppText muted>{t("owner.dashboardSubtitle")}</AppText>
