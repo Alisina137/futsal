@@ -18,4 +18,10 @@ describe("LeagueKick localization", () => {
     expect(translate("en", "home.greeting", { name: "Ali" })).toBe("Hello, Ali");
     expect(translate("fa-AF", "home.greeting", { name: "علی" })).toContain("علی");
   });
+
+  it("localizes Phase 2 owner onboarding in all supported languages", () => {
+    expect(translate("en", "owner.stepOf", { current: 2, total: 8 })).toBe("Step 2 of 8");
+    expect(translate("fa-AF", "owner.dashboardTitle")).toBe("داشبورد سالن");
+    expect(translate("ps-AF", "owner.startTrial")).toContain("Premium");
+  });
 });
