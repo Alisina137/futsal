@@ -6,6 +6,21 @@ import { FakeBookingRepository } from "./fake-booking-repository.js";
 import { FakeNotificationRepository } from "./fake-notification-repository.js";
 
 describe("Phase 4 notification policy", () => {
+  it("merges partial preference updates into a complete preference object", async () => {
+    const repository = new FakeNotificationRepository();
+    const service = new NotificationService(repository, () => new Date("2026-10-04T00:00:00.000Z"));
+    const userId = randomUUID();
+
+    const updated = await service.updatePreferences(userId, { promotionsEnabled: false });
+
+    expect(updated).toEqual({
+      inAppEnabled: true,
+      pushEnabled: true,
+      promotionsEnabled: false,
+      venuePostsEnabled: true,
+    });
+  });
+
   it("deduplicates the same event for the same user", async () => {
     const repository = new FakeNotificationRepository();
     const service = new NotificationService(repository, () => new Date("2026-10-04T00:00:00.000Z"));
