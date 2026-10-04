@@ -4,8 +4,13 @@ import type {
   LoginRequest,
   OwnerOnboardingStatus,
   OwnerVenueSetupRequest,
+  PublicVenueDto,
+  PublicVenueListResponse,
   RegisterRequest,
   UserDto,
+  VenueAvailabilityResponse,
+  BookingDto,
+  OnlineBookingRequest,
 } from "@leaguekick/contracts";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
@@ -67,4 +72,27 @@ export const ownerApi = {
   preview: (accessToken: string) => request<OwnerOnboardingStatus>("/api/v1/owner/venue/preview", {}, accessToken),
   startTrial: (accessToken: string) =>
     request<OwnerOnboardingStatus>("/api/v1/owner/trial/start", { method: "POST" }, accessToken),
+};
+
+
+export const venueApi = {
+  list: (filters?: { city?: string; province?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.city) params.set("city", filters.city);
+    if (filters?.province) params.set("province", filters.province);
+    const query = params.toString();
+    return request<PublicVenueListResponse>(`/api/v1/venues${query ? `?${query}` : ""}`);
+  },
+  get: (venueId: string) => request<{ venue: PublicVenueDto }>(`/api/v1/venues/${venueId}`),
+  availability: (venueId: string, date: string) =>
+    request<VenueAvailabilityResponse>(`/api/v1/venues/${venueId}/availability?date=${encodeURIComponent(date)}`),
+};
+
+export const bookingApi = {
+  create: (accessToken: string, input: OnlineBookingRequest) =>
+    request<{ booking: BookingDto }>("/api/v1/bookings", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  mine: (accessToken: string) =>
+    request<{ bookings: BookingDto[]; generatedAt: string }>("/api/v1/bookings/me", {}, accessToken),
+  cancel: (accessToken: string, bookingId: string, reason?: string) =>
+    request<{ booking: BookingDto }>(`/api/v1/bookings/${bookingId}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason ?? "" }) }, accessToken),
 };
