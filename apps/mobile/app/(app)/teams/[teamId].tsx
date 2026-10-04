@@ -68,6 +68,11 @@ export default function TeamDetailScreen(){
         </View>
       </Card>
 
+      {myRole==="MANAGER"?<Button
+        label={t("teams.manage")}
+        onPress={()=>router.push({pathname:"/teams/[teamId]/manage",params:{teamId}})}
+      />:null}
+
       <View style={{gap:spacing.xs}}>
         <AppText variant="bodyLarge" weight="bold">{t("teams.roster")}</AppText>
         <AppText muted>{team.privacy==="PRIVATE"&&!member?t("teams.privateRoster"):t("teams.members",{count:team.rosterCount})}</AppText>
