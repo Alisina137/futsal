@@ -17,7 +17,7 @@ export class FakeNotificationRepository implements NotificationRepository {
   deliveries: Array<{notificationId:string;channel:"IN_APP"|"PUSH"}> = [];
 
   async getPreferences(userId:string){
-    return this.preferences.get(userId)??{inAppEnabled:true,pushEnabled:true,promotionsEnabled:true,venuePostsEnabled:true};
+    return this.preferences.get(userId)??{inAppEnabled:true,pushEnabled:true,promotionsEnabled:true,venuePostsEnabled:true,teamInvitesEnabled:true};
   }
 
   async updatePreferences(
@@ -31,6 +31,7 @@ export class FakeNotificationRepository implements NotificationRepository {
       pushEnabled:input.pushEnabled??current.pushEnabled,
       promotionsEnabled:input.promotionsEnabled??current.promotionsEnabled,
       venuePostsEnabled:input.venuePostsEnabled??current.venuePostsEnabled,
+      teamInvitesEnabled:input.teamInvitesEnabled??current.teamInvitesEnabled,
     };
     this.preferences.set(userId,next);
     return next;
