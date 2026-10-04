@@ -8,6 +8,8 @@ import { DrizzleBookingRepository } from "./modules/booking/booking.repository.j
 import { BookingService } from "./modules/booking/booking.service.js";
 import { DrizzleOwnerOnboardingRepository } from "./modules/owner/owner.repository.js";
 import { OwnerOnboardingService } from "./modules/owner/owner.service.js";
+import { DrizzleMarketingRepository } from "./modules/marketing/marketing.repository.js";
+import { MarketingService } from "./modules/marketing/marketing.service.js";
 
 const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
@@ -17,7 +19,9 @@ const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
 const owner = new OwnerOnboardingService(ownerRepository);
 const bookingRepository = new DrizzleBookingRepository(db);
 const booking = new BookingService(bookingRepository);
-const app = createApp({ authService: auth, tokenService: tokens, ownerService: owner, bookingService: booking, corsOrigin: env.CORS_ORIGIN });
+const marketingRepository = new DrizzleMarketingRepository(db);
+const marketing = new MarketingService(marketingRepository, booking);
+const app = createApp({ authService: auth, tokenService: tokens, ownerService: owner, bookingService: booking, marketingService: marketing, corsOrigin: env.CORS_ORIGIN });
 
 const server = app.listen(env.API_PORT, "0.0.0.0", () => {
   console.log(`LeagueKick API listening on http://0.0.0.0:${env.API_PORT}`);

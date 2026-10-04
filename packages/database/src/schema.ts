@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   doublePrecision,
@@ -275,7 +276,9 @@ export const venuePromotions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("venue_promotions_slot_uq").on(table.areaId, table.startsAt, table.endsAt),
+    uniqueIndex("venue_promotions_active_slot_uq")
+      .on(table.areaId, table.startsAt, table.endsAt)
+      .where(sql`${table.status} = 'ACTIVE'`),
     index("venue_promotions_venue_status_idx").on(table.venueId, table.status),
     index("venue_promotions_area_time_idx").on(table.areaId, table.startsAt, table.endsAt),
   ],

@@ -6,6 +6,7 @@ import {
   venueAreas,
   venueBlocks,
   venueOpeningHours,
+  venuePromotions,
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
@@ -140,6 +141,22 @@ export class DrizzleBookingRepository implements BookingRepository {
     return row ? this.hydrateVenue(row) : null;
   }
 
+  async listActivePromotionPrices(venueId: string, startsAt: Date, endsAt: Date, now: Date) {
+    return this.db.select({
+      id: venuePromotions.id,
+      areaId: venuePromotions.areaId,
+      startsAt: venuePromotions.startsAt,
+      endsAt: venuePromotions.endsAt,
+      discountedPriceAfn: venuePromotions.discountedPriceAfn,
+    }).from(venuePromotions).where(and(
+      eq(venuePromotions.venueId, venueId),
+      eq(venuePromotions.status, "ACTIVE"),
+      gt(venuePromotions.endsAt, now),
+      lt(venuePromotions.startsAt, endsAt),
+      gt(venuePromotions.endsAt, startsAt),
+    ));
+  }
+
   async listOccupancies(venueId: string, startsAt: Date, endsAt: Date): Promise<OccupancyRecord[]> {
     const [bookingRows, blockRows] = await Promise.all([
       this.db.select({ areaId: bookings.areaId, startsAt: bookings.startsAt, endsAt: bookings.endsAt })
@@ -242,6 +259,20 @@ export class DrizzleBookingRepository implements BookingRepository {
         idempotencyKey: input.idempotencyKey,
       }).returning({ id: bookings.id });
       if (!created) throw new Error("Booking could not be created.");
+
+      const closedAt = new Date();
+      await tx.update(venuePromotions).set({
+        status: "CLOSED",
+        closedAt,
+        closeReason: "BOOKED",
+        updatedAt: closedAt,
+      }).where(and(
+        eq(venuePromotions.areaId, input.areaId),
+        eq(venuePromotions.status, "ACTIVE"),
+        lt(venuePromotions.startsAt, input.endsAt),
+        gt(venuePromotions.endsAt, input.startsAt),
+      ));
+
       return created.id;
     });
     return this.projectBooking(bookingId);
@@ -269,6 +300,20 @@ export class DrizzleBookingRepository implements BookingRepository {
         createdByUserId: input.ownerUserId,
       }).returning({ id: venueBlocks.id });
       if (!created) throw new Error("Block could not be created.");
+
+      const closedAt = new Date();
+      await tx.update(venuePromotions).set({
+        status: "CLOSED",
+        closedAt,
+        closeReason: "BLOCKED",
+        updatedAt: closedAt,
+      }).where(and(
+        eq(venuePromotions.areaId, input.areaId),
+        eq(venuePromotions.status, "ACTIVE"),
+        lt(venuePromotions.startsAt, input.endsAt),
+        gt(venuePromotions.endsAt, input.startsAt),
+      ));
+
       return created.id;
     });
 

@@ -82,6 +82,10 @@ export class FakeBookingRepository implements BookingRepository {
     return [...this.venues.values()].find((venue) => venue.ownerUserId === ownerUserId) ?? null;
   }
 
+  async listActivePromotionPrices(_venueId: string, _startsAt: Date, _endsAt: Date, _now: Date) {
+    return [];
+  }
+
   async listOccupancies(venueId: string, startsAt: Date, endsAt: Date): Promise<OccupancyRecord[]> {
     const bookingRows: OccupancyRecord[] = [...this.bookings.values()]
       .filter((booking) => booking.venueId === venueId && booking.status !== "CANCELLED" &&
