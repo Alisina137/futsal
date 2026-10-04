@@ -605,7 +605,7 @@ export const competitionUpdateRequestSchema = competitionConfigSchema.partial().
 export type CompetitionUpdateRequest = z.infer<typeof competitionUpdateRequestSchema>;
 
 export const competitionStateRequestSchema = z.object({
-  action: z.enum(["OPEN_REGISTRATION", "CLOSE_REGISTRATION", "PUBLISH", "UNPUBLISH", "GENERATE_FIXTURES", "COMPLETE", "ARCHIVE", "CANCEL"]),
+  action: z.enum(["OPEN_REGISTRATION", "CLOSE_REGISTRATION", "PUBLISH", "UNPUBLISH", "GENERATE_FIXTURES", "GENERATE_KNOCKOUT", "COMPLETE", "ARCHIVE", "CANCEL"]),
 });
 export type CompetitionStateRequest = z.infer<typeof competitionStateRequestSchema>;
 
@@ -659,6 +659,7 @@ export const competitionMatchResultRequestSchema = z.object({
   homeScore: z.number().int().min(0).max(99),
   awayScore: z.number().int().min(0).max(99),
   correctionReason: z.string().trim().min(3).max(500).optional(),
+  confirmImpact: z.boolean().default(false),
   playerStats: z.array(playerMatchStatInputSchema).max(80).default([]),
 });
 export type CompetitionMatchResultRequest = z.infer<typeof competitionMatchResultRequestSchema>;
@@ -701,6 +702,8 @@ export type CompetitionMatchDto = z.infer<typeof competitionMatchDtoSchema>;
 
 export const competitionStandingRowDtoSchema = z.object({
   position: z.number().int().min(1),
+  groupId: z.string().uuid().nullable().optional(),
+  groupName: z.string().nullable().optional(),
   teamId: z.string().uuid(),
   teamName: z.string(),
   played: z.number().int().min(0),
