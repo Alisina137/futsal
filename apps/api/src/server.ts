@@ -28,7 +28,7 @@ const booking = new BookingService(bookingRepository, undefined, notificationSer
 const marketingRepository = new DrizzleMarketingRepository(db);
 const marketing = new MarketingService(marketingRepository, booking, undefined, notificationService);
 const teamRepository = new DrizzleTeamRepository(db);
-const teamService = new TeamService(teamRepository);
+const teamService = new TeamService(teamRepository, undefined, notificationService);
 const app = createApp({
   authService: auth,
   tokenService: tokens,
