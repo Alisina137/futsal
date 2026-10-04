@@ -21,7 +21,7 @@ function PlayerHome({user}:{user:UserDto|undefined}){
   const {t,language,isRTL}=useLocale();
   const {isOnline}=useNetwork();
   const role=user?.roles[0]??"PLAYER";
-  return <Screen>
+  return <Screen showHeader>
     <View style={{
       backgroundColor:colors.primary,
       borderRadius:20,
