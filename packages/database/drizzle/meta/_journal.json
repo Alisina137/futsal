@@ -15,6 +15,13 @@
       "when": 1791084392974,
       "tag": "0001_clean_retro_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791086808491,
+      "tag": "0002_careless_jack_power",
+      "breakpoints": true
     }
   ]
 }
