@@ -17,6 +17,15 @@ function setup() {
   const auth = new AuthService(authRepository, tokens);
   const clock = { now: new Date("2026-10-04T00:00:00.000Z") };
   const booking = new BookingService(bookingRepository, () => clock.now);
+  marketingRepository.onPromotionCreated = (promotion) => {
+    bookingRepository.promotionPrices.push({
+      id: promotion.id,
+      areaId: promotion.areaId,
+      startsAt: new Date(promotion.startsAt),
+      endsAt: new Date(promotion.endsAt),
+      discountedPriceAfn: promotion.discountedPriceAfn,
+    });
+  };
   const marketing = new MarketingService(marketingRepository, booking, () => clock.now);
   const app = createApp({ authService: auth, tokenService: tokens, bookingService: booking, marketingService: marketing });
   return { app, bookingRepository, marketingRepository, clock };
@@ -72,6 +81,45 @@ describe("Phase 4 marketing API", () => {
     expect(feed.status).toBe(200);
     expect(feed.body.items[0].type).toBe("PROMOTION");
     expect(feed.body.items[0].promotion.id).toBe(created.body.promotion.id);
+  });
+
+  it("books a promoted slot at the discounted server price", async () => {
+    const { app, bookingRepository, marketingRepository } = setup();
+    const owner = await register(app, "VENUE_OWNER", "0703334455");
+    const player = await register(app, "PLAYER", "0703334466");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    seedMarketingFromBooking(marketingRepository, venue);
+
+    let availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    const slot = availability.body.slots[0];
+
+    const promotion = await request(app).post("/api/v1/owner/promotions")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`)
+      .send({
+        areaId: slot.areaId,
+        startsAt: slot.startsAt,
+        discountedPriceAfn: 1250,
+        title: "Weak slot deal",
+        notifyFollowers: false,
+      });
+    expect(promotion.status).toBe(201);
+
+    availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    const promotedSlot = availability.body.slots.find((item: { promotionId: string | null }) => item.promotionId === promotion.body.promotion.id);
+    expect(promotedSlot.priceAfn).toBe(1250);
+    expect(promotedSlot.originalPriceAfn).toBe(1800);
+
+    const booked = await request(app).post("/api/v1/bookings")
+      .set("Authorization", `Bearer ${player.body.accessToken}`)
+      .send({
+        areaId: promotedSlot.areaId,
+        startsAt: promotedSlot.startsAt,
+        idempotencyKey: "phase4-discount-booking",
+      });
+
+    expect(booked.status).toBe(201);
+    expect(booked.body.booking.priceAfn).toBe(1250);
+    expect(bookingRepository.promotionPrices).toHaveLength(0);
   });
 
   it("rejects a promotion price that is not a discount", async () => {
