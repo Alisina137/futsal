@@ -27,7 +27,7 @@ export default function RegisterScreen(){
   const [error,setError]=useState<string|null>(null);
 
   const passwordHasLength=password.length>=8;
-  const passwordHasSpecial=/[^A-Za-z0-9\s]/.test(password);
+  const passwordHasSpecial=/[^\p{L}\p{N}\s]/u.test(password);
   const passwordValid=passwordHasLength&&passwordHasSpecial;
 
   async function submit(){
