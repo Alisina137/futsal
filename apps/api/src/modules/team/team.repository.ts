@@ -16,6 +16,7 @@ import {
   users,
 } from "@leaguekick/database";
 import { and, count, desc, eq, lte, or, sql } from "drizzle-orm";
+import { errors } from "../../lib/errors.js";
 import type {
   TeamIdentityUser,
   TeamMembershipRecord,
