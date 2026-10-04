@@ -38,7 +38,7 @@ export function createPublicTeamRouter(teams: TeamService) {
 
 export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenService) {
   const router = Router();
-  router.use(requireAuth(tokens));
+  const auth = requireAuth(tokens);
 
   const writeLimiter = rateLimit({
     windowMs: 60_000,
@@ -47,38 +47,38 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     legacyHeaders: false,
   });
 
-  router.get("/players/me", async (request, response, next) => {
+  router.get("/players/me", auth, async (request, response, next) => {
     try { response.json({ player: await teams.getOwnProfile(request.auth!.userId) }); }
     catch (error) { next(error); }
   });
 
-  router.patch("/players/me", writeLimiter, async (request, response, next) => {
+  router.patch("/players/me", auth, writeLimiter, async (request, response, next) => {
     try {
       const input = playerProfileUpdateRequestSchema.parse(request.body);
       response.json({ player: await teams.updateOwnProfile(request.auth!.userId, input) });
     } catch (error) { next(error); }
   });
 
-  router.get("/teams/mine", async (request, response, next) => {
+  router.get("/teams/mine", auth, async (request, response, next) => {
     try { response.json(await teams.listMyTeams(request.auth!.userId)); }
     catch (error) { next(error); }
   });
 
-  router.post("/teams", writeLimiter, async (request, response, next) => {
+  router.post("/teams", auth, writeLimiter, async (request, response, next) => {
     try {
       const input = teamCreateRequestSchema.parse(request.body);
       response.status(201).json({ team: await teams.createTeam(request.auth!.userId, input) });
     } catch (error) { next(error); }
   });
 
-  router.get("/teams/:teamId/roster", async (request, response, next) => {
+  router.get("/teams/:teamId/roster", auth, async (request, response, next) => {
     try {
       const teamId = routeIdSchema.parse(request.params.teamId);
       response.json({ team: await teams.getRoster(request.auth!.userId, teamId) });
     } catch (error) { next(error); }
   });
 
-  router.patch("/teams/:teamId", writeLimiter, async (request, response, next) => {
+  router.patch("/teams/:teamId", auth, writeLimiter, async (request, response, next) => {
     try {
       const teamId = routeIdSchema.parse(request.params.teamId);
       const input = teamUpdateRequestSchema.parse(request.body);
@@ -86,7 +86,7 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     } catch (error) { next(error); }
   });
 
-  router.patch("/teams/:teamId/members/:userId", writeLimiter, async (request, response, next) => {
+  router.patch("/teams/:teamId/members/:userId", auth, writeLimiter, async (request, response, next) => {
     try {
       const teamId = routeIdSchema.parse(request.params.teamId);
       const memberUserId = routeIdSchema.parse(request.params.userId);
@@ -95,7 +95,7 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     } catch (error) { next(error); }
   });
 
-  router.delete("/teams/:teamId/members/:userId", writeLimiter, async (request, response, next) => {
+  router.delete("/teams/:teamId/members/:userId", auth, writeLimiter, async (request, response, next) => {
     try {
       const teamId = routeIdSchema.parse(request.params.teamId);
       const memberUserId = routeIdSchema.parse(request.params.userId);
@@ -103,7 +103,7 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     } catch (error) { next(error); }
   });
 
-  router.post("/teams/:teamId/captain", writeLimiter, async (request, response, next) => {
+  router.post("/teams/:teamId/captain", auth, writeLimiter, async (request, response, next) => {
     try {
       const teamId = routeIdSchema.parse(request.params.teamId);
       const input = teamCaptainRequestSchema.parse(request.body);
@@ -111,7 +111,7 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     } catch (error) { next(error); }
   });
 
-  router.post("/teams/:teamId/manager", writeLimiter, async (request, response, next) => {
+  router.post("/teams/:teamId/manager", auth, writeLimiter, async (request, response, next) => {
     try {
       const teamId = routeIdSchema.parse(request.params.teamId);
       const input = teamManagerTransferRequestSchema.parse(request.body);
