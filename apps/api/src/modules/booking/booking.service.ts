@@ -205,6 +205,9 @@ export class BookingService {
   }
 
   async createOnlineBooking(playerUserId: string, input: OnlineBookingRequest): Promise<BookingDto> {
+    const replay = await this.repository.getBookingByIdempotency(playerUserId, input.idempotencyKey);
+    if (replay) return replay;
+
     const now = this.now();
     const startsAt = new Date(input.startsAt);
     if (startsAt.getTime() <= now.getTime()) throw errors.badRequest("BOOKING_IN_PAST", "Choose a future slot.");
