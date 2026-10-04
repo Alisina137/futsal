@@ -46,6 +46,14 @@ function assertOwnerWritable(venue: BookingVenueRecord | null, now: Date): asser
 function dateParts(date: string) {
   const [year, month, day] = date.split("-").map(Number);
   if (!year || !month || !day) throw errors.badRequest("INVALID_DATE", "Use a valid YYYY-MM-DD date.");
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw errors.badRequest("INVALID_DATE", "Use a real calendar date.");
+  }
   return { year, month, day };
 }
 
@@ -201,8 +209,7 @@ export class BookingService {
     const startsAt = new Date(input.startsAt);
     if (startsAt.getTime() <= now.getTime()) throw errors.badRequest("BOOKING_IN_PAST", "Choose a future slot.");
 
-    const venueCandidates = await this.repository.listPublicVenueRecords({});
-    const venue = venueCandidates.find((candidate) => candidate.areas.some((area) => area.id === input.areaId)) ?? null;
+    const venue = await this.repository.getVenueRecordByAreaId(input.areaId);
     assertBookableVenue(venue, now);
 
     const area = venue.areas.find((candidate) => candidate.id === input.areaId && candidate.active);
