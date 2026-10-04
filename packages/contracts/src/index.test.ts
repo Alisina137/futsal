@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAfghanistanPhone, registerRequestSchema } from "./index";
+import { normalizeAfghanistanPhone, ownerVenueSetupRequestSchema, registerRequestSchema } from "./index";
 
 describe("shared auth contracts", () => {
   it("normalizes common Afghanistan mobile forms", () => {
@@ -16,5 +16,44 @@ describe("shared auth contracts", () => {
       preferredLanguage: "fa-AF",
       accountType: "PLAYER",
     }).success).toBe(true);
+  });
+});
+
+describe("Phase 2 owner onboarding contracts", () => {
+  const setup = {
+    venue: {
+      name: "Kabul Futsal Center",
+      publicPhone: "0791234567",
+      whatsappPhone: "",
+      province: "Kabul",
+      city: "Kabul",
+      address: "District 10, Kabul",
+      latitude: null,
+      longitude: null,
+    },
+    areas: [{ name: "Pitch 1", defaultSessionDurationMinutes: 90, basePriceAfn: 1800 }],
+    openingHours: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+      dayOfWeek,
+      isClosed: false,
+      opensAt: "08:00",
+      closesAt: "22:00",
+    })),
+  };
+
+  it("accepts a complete venue setup", () => {
+    expect(ownerVenueSetupRequestSchema.safeParse(setup).success).toBe(true);
+  });
+
+  it("requires all seven unique weekdays", () => {
+    const invalid = { ...setup, openingHours: setup.openingHours.map((hour) => ({ ...hour, dayOfWeek: 0 })) };
+    expect(ownerVenueSetupRequestSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it("rejects closing time before opening time", () => {
+    const invalid = {
+      ...setup,
+      openingHours: setup.openingHours.map((hour, index) => index === 0 ? { ...hour, opensAt: "20:00", closesAt: "09:00" } : hour),
+    };
+    expect(ownerVenueSetupRequestSchema.safeParse(invalid).success).toBe(false);
   });
 });
