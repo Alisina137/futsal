@@ -163,6 +163,101 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   async hasCompletedMatch(competitionId:string){
     return [...this.matches.values()].some((item)=>item.competitionId===competitionId&&["COMPLETED","CORRECTED"].includes(item.status));
   }
+  async replaceGroupStage(
+    competitionId:string,
+    groups:Array<{
+      name:string;
+      sortOrder:number;
+      teamIds:string[];
+      fixtures:Array<{roundNumber:number;slotNumber:number;homeTeamId:string;awayTeamId:string}>;
+    }>,
+    _now:Date,
+  ){
+    for(const [id,match] of this.matches){
+      if(match.competitionId===competitionId)this.matches.delete(id);
+    }
+    for(const group of groups){
+      const groupId=randomUUID();
+      for(const teamId of group.teamIds){
+        const key=this.key(competitionId,teamId);
+        const current=this.registrations.get(key)!;
+        this.registrations.set(key,{...current,groupId,groupName:group.name});
+      }
+      for(const fixture of group.fixtures){
+        const id=randomUUID();
+        this.matches.set(id,{
+          id,competitionId,groupId,groupName:group.name,stage:"GROUP",
+          roundNumber:fixture.roundNumber,slotNumber:fixture.slotNumber,
+          homeTeamId:fixture.homeTeamId,homeTeamName:this.teams.get(fixture.homeTeamId)?.name??null,
+          awayTeamId:fixture.awayTeamId,awayTeamName:this.teams.get(fixture.awayTeamId)?.name??null,
+          areaId:null,areaName:null,startsAt:null,endsAt:null,status:"UNSCHEDULED",
+          homeScore:null,awayScore:null,winnerTeamId:null,nextMatchId:null,nextMatchSide:null,
+        });
+      }
+    }
+  }
+
+  async replaceKnockoutStage(
+    competitionId:string,
+    matches:Array<{
+      key:string;roundNumber:number;slotNumber:number;homeTeamId:string|null;awayTeamId:string|null;
+      nextKey:string|null;nextSide:"HOME"|"AWAY"|null;
+    }>,
+    _qualifiedTeamIds:string[],
+    _now:Date,
+  ){
+    for(const [id,match] of this.matches){
+      if(match.competitionId===competitionId&&match.stage==="KNOCKOUT")this.matches.delete(id);
+    }
+    const ids=new Map<string,string>();
+    for(const plan of matches)ids.set(plan.key,randomUUID());
+    for(const plan of matches){
+      const id=ids.get(plan.key)!;
+      this.matches.set(id,{
+        id,competitionId,groupId:null,groupName:null,stage:"KNOCKOUT",
+        roundNumber:plan.roundNumber,slotNumber:plan.slotNumber,
+        homeTeamId:plan.homeTeamId,homeTeamName:plan.homeTeamId?this.teams.get(plan.homeTeamId)?.name??null:null,
+        awayTeamId:plan.awayTeamId,awayTeamName:plan.awayTeamId?this.teams.get(plan.awayTeamId)?.name??null:null,
+        areaId:null,areaName:null,startsAt:null,endsAt:null,status:"UNSCHEDULED",
+        homeScore:null,awayScore:null,winnerTeamId:null,
+        nextMatchId:plan.nextKey?ids.get(plan.nextKey)??null:null,
+        nextMatchSide:plan.nextSide,
+      });
+    }
+  }
+
+  async groupStageCompleted(competitionId:string){
+    const rows=[...this.matches.values()].filter((item)=>item.competitionId===competitionId&&item.stage==="GROUP");
+    return rows.length>0&&rows.every((item)=>item.status==="COMPLETED"||item.status==="CORRECTED");
+  }
+
+  async knockoutStarted(competitionId:string){
+    return [...this.matches.values()].some((item)=>
+      item.competitionId===competitionId&&item.stage==="KNOCKOUT"&&["IN_PROGRESS","COMPLETED","CORRECTED"].includes(item.status));
+  }
+
+  async knockoutCompleted(competitionId:string){
+    const rows=[...this.matches.values()].filter((item)=>item.competitionId===competitionId&&item.stage==="KNOCKOUT");
+    return rows.length>0&&rows.every((item)=>item.status==="COMPLETED"||item.status==="CORRECTED");
+  }
+
+  async advanceKnockoutWinner(matchId:string,winnerTeamId:string,_now:Date){
+    const match=this.matches.get(matchId);
+    if(!match?.nextMatchId||!match.nextMatchSide)return;
+    const next=this.matches.get(match.nextMatchId);
+    if(!next)return;
+    this.matches.set(next.id,{
+      ...next,
+      ...(match.nextMatchSide==="HOME"
+        ?{homeTeamId:winnerTeamId,homeTeamName:this.teams.get(winnerTeamId)?.name??null}
+        :{awayTeamId:winnerTeamId,awayTeamName:this.teams.get(winnerTeamId)?.name??null}),
+    });
+  }
+
+  async replaceKnockoutParticipant(matchId:string,winnerTeamId:string,now:Date){
+    return this.advanceKnockoutWinner(matchId,winnerTeamId,now);
+  }
+
   async replaceLeagueFixtures(
     competitionId:string,
     fixtures:Array<{roundNumber:number;slotNumber:number;homeTeamId:string;awayTeamId:string}>,
