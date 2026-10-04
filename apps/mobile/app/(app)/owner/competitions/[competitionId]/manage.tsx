@@ -147,7 +147,11 @@ export default function ManageCompetitionScreen(){
     if(competition.status==="DRAFT")return["OPEN_REGISTRATION"];
     if(competition.status==="REGISTRATION_OPEN")return["CLOSE_REGISTRATION","UNPUBLISH"];
     if(competition.status==="REGISTRATION_CLOSED")return["GENERATE_FIXTURES"];
-    if((competition.status==="SCHEDULED"||competition.status==="IN_PROGRESS")&&competition.format==="GROUP_KNOCKOUT"&&competition.matches.some((m)=>m.stage==="GROUP")&&!competition.matches.some((m)=>m.stage==="KNOCKOUT"))return["GENERATE_KNOCKOUT","COMPLETE"];
+    if((competition.status==="SCHEDULED"||competition.status==="IN_PROGRESS")&&competition.format==="GROUP_KNOCKOUT"&&!competition.matches.some((m)=>m.stage==="KNOCKOUT")){
+      const groupMatches=competition.matches.filter((m)=>m.stage==="GROUP");
+      const groupsDone=groupMatches.length>0&&groupMatches.every((m)=>m.status==="COMPLETED"||m.status==="CORRECTED");
+      return groupsDone?["GENERATE_KNOCKOUT"]:[];
+    }
     if(competition.status==="SCHEDULED"||competition.status==="IN_PROGRESS")return["COMPLETE"];
     if(competition.status==="COMPLETED")return["ARCHIVE"];
     return[];
