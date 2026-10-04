@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
+import { z } from "zod";
 import {
   bookingCancelRequestSchema,
   dateOnlySchema,
@@ -10,6 +11,8 @@ import {
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
 import type { BookingService } from "./booking.service.js";
+
+const routeIdSchema = z.string().uuid();
 
 export function createPublicVenueRouter(booking: BookingService) {
   const router = Router();
@@ -24,14 +27,14 @@ export function createPublicVenueRouter(booking: BookingService) {
   });
 
   router.get("/:venueId", async (request, response, next) => {
-    try { response.json({ venue: await booking.getPublicVenue(request.params.venueId!) }); }
+    try { response.json({ venue: await booking.getPublicVenue(routeIdSchema.parse(request.params.venueId)) }); }
     catch (error) { next(error); }
   });
 
   router.get("/:venueId/availability", async (request, response, next) => {
     try {
       const date = dateOnlySchema.parse(request.query.date);
-      response.json(await booking.getAvailability(request.params.venueId!, date));
+      response.json(await booking.getAvailability(routeIdSchema.parse(request.params.venueId), date));
     } catch (error) { next(error); }
   });
 
@@ -58,7 +61,7 @@ export function createPlayerBookingRouter(booking: BookingService, tokens: Token
   router.post("/:bookingId/cancel", writeLimiter, async (request, response, next) => {
     try {
       const input = bookingCancelRequestSchema.parse(request.body ?? {});
-      response.json({ booking: await booking.cancelPlayerBooking(request.auth!.userId, request.params.bookingId!, input.reason) });
+      response.json({ booking: await booking.cancelPlayerBooking(request.auth!.userId, routeIdSchema.parse(request.params.bookingId), input.reason) });
     } catch (error) { next(error); }
   });
 
@@ -93,7 +96,7 @@ export function createOwnerScheduleRouter(booking: BookingService, tokens: Token
 
   router.delete("/blocks/:blockId", writeLimiter, async (request, response, next) => {
     try {
-      await booking.deleteBlock(request.auth!.userId, request.params.blockId!);
+      await booking.deleteBlock(request.auth!.userId, routeIdSchema.parse(request.params.blockId));
       response.status(204).send();
     } catch (error) { next(error); }
   });
@@ -101,7 +104,7 @@ export function createOwnerScheduleRouter(booking: BookingService, tokens: Token
   router.post("/bookings/:bookingId/cancel", writeLimiter, async (request, response, next) => {
     try {
       const input = bookingCancelRequestSchema.parse(request.body ?? {});
-      response.json({ booking: await booking.cancelOwnerBooking(request.auth!.userId, request.params.bookingId!, input.reason) });
+      response.json({ booking: await booking.cancelOwnerBooking(request.auth!.userId, routeIdSchema.parse(request.params.bookingId), input.reason) });
     } catch (error) { next(error); }
   });
 
