@@ -7,6 +7,7 @@ import type {
   TeamListItemDto,
   TeamMemberRole,
 } from "@leaguekick/contracts";
+import { errors } from "../src/lib/errors.js";
 import type {
   TeamIdentityUser,
   TeamMembershipRecord,
@@ -313,7 +314,7 @@ export class FakeTeamRepository implements TeamRepository {
       item.invitedUserId === input.invitedUserId &&
       item.status === "PENDING"
     );
-    if (duplicate) throw new Error("TEAM_INVITATION_PENDING");
+    if (duplicate) throw errors.conflict("TEAM_INVITATION_PENDING", "A pending invitation already exists for this player.");
 
     const team = this.teams.get(input.teamId)!;
     const user = this.users.get(input.invitedUserId)!;
