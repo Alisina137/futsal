@@ -585,8 +585,16 @@ const competitionConfigSchema = z.object({
   endsAt: isoDateTimeSchema.nullable().optional(),
 });
 
+type CompetitionConfigRefinementInput = {
+  startsAt?: string | null;
+  endsAt?: string | null;
+  format?: CompetitionFormat;
+  groupCount?: number | null;
+  qualifiersPerGroup?: number | null;
+};
+
 function validateCompetitionConfig(
-  value: Partial<z.infer<typeof competitionConfigSchema>>,
+  value: CompetitionConfigRefinementInput,
   ctx: z.RefinementCtx,
 ) {
   if (value.startsAt && value.endsAt && Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
