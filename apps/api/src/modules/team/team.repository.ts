@@ -159,13 +159,27 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   async getPublicPlayerProfile(userId: string): Promise<PublicPlayerProfileDto | null> {
-    const own = await this.getOwnPlayerProfile(userId);
-    if (!own || own.visibility !== "PUBLIC") return null;
+    const [row] = await this.db.select({
+      userId: playerProfiles.userId,
+      publicDisplayName: playerProfiles.publicDisplayName,
+      imageUrl: playerProfiles.imageUrl,
+      position: playerProfiles.position,
+      visibility: playerProfiles.visibility,
+    }).from(playerProfiles)
+      .innerJoin(users, eq(playerProfiles.userId, users.id))
+      .where(and(
+        eq(playerProfiles.userId, userId),
+        eq(playerProfiles.visibility, "PUBLIC"),
+        eq(users.status, "ACTIVE"),
+      ))
+      .limit(1);
+
+    if (!row) return null;
     return {
-      userId: own.userId,
-      publicDisplayName: own.publicDisplayName,
-      imageUrl: own.imageUrl,
-      position: own.position,
+      userId: row.userId,
+      publicDisplayName: row.publicDisplayName,
+      imageUrl: row.imageUrl,
+      position: row.position,
       teams: await this.listPlayerTeams(userId, true),
     };
   }
