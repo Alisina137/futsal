@@ -33,6 +33,14 @@ export class TeamService {
     return user;
   }
 
+  private async playerIdentity(userId: string) {
+    const user = await this.identity(userId);
+    if (!user.roles.includes("PLAYER")) {
+      throw errors.forbidden("PLAYER_ACCOUNT_REQUIRED", "A player account is required for team participation.");
+    }
+    return user;
+  }
+
   private async team(teamId: string) {
     const team = await this.repository.getTeamRecord(teamId);
     if (!team || team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
@@ -48,12 +56,12 @@ export class TeamService {
   }
 
   async getOwnProfile(userId: string): Promise<OwnPlayerProfileDto> {
-    const user = await this.identity(userId);
+    const user = await this.playerIdentity(userId);
     return this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
   }
 
   async updateOwnProfile(userId: string, input: PlayerProfileUpdateRequest): Promise<OwnPlayerProfileDto> {
-    const user = await this.identity(userId);
+    const user = await this.playerIdentity(userId);
     await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
     return this.repository.updatePlayerProfile(userId, {
       ...(input.publicDisplayName !== undefined ? { publicDisplayName: input.publicDisplayName.trim() } : {}),
@@ -71,7 +79,7 @@ export class TeamService {
   }
 
   async createTeam(userId: string, input: TeamCreateRequest): Promise<TeamDto> {
-    const user = await this.identity(userId);
+    const user = await this.playerIdentity(userId);
     await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
     return this.repository.createTeam({
       name: input.name.trim(),
@@ -91,12 +99,12 @@ export class TeamService {
   }
 
   async listMyTeams(userId: string) {
-    await this.identity(userId);
+    await this.playerIdentity(userId);
     return { teams: await this.repository.listUserTeams(userId) };
   }
 
   async getRoster(userId: string, teamId: string): Promise<TeamDto> {
-    await this.identity(userId);
+    await this.playerIdentity(userId);
     const membership = await this.repository.getMembership(teamId, userId);
     if (!membership || membership.status !== "ACTIVE") {
       throw errors.forbidden("TEAM_MEMBER_REQUIRED", "Only active team members can view this roster.");
@@ -208,7 +216,7 @@ export class TeamService {
   }
 
   async listMyInvitations(userId: string) {
-    await this.identity(userId);
+    await this.playerIdentity(userId);
     return { invitations: await this.repository.listInvitationsForUser(userId, this.now()) };
   }
 
@@ -218,7 +226,7 @@ export class TeamService {
   }
 
   async acceptInvitation(userId: string, invitationId: string) {
-    const user = await this.identity(userId);
+    const user = await this.playerIdentity(userId);
     await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
     const invitation = await this.repository.acceptInvitation(invitationId, userId, this.now());
     if (!invitation) {
@@ -228,7 +236,7 @@ export class TeamService {
   }
 
   async declineInvitation(userId: string, invitationId: string) {
-    await this.identity(userId);
+    await this.playerIdentity(userId);
     const invitation = await this.repository.declineInvitation(invitationId, userId, this.now());
     if (!invitation) {
       throw errors.conflict("INVITATION_UNAVAILABLE", "This invitation is no longer available.");
