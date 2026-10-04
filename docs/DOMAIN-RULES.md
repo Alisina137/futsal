@@ -1,4 +1,4 @@
-# LeagueKick Domain Rules — Phase 2
+# Futsal Domain Rules — Phase 2
 
 This document records implementation-level domain rules that are authoritative in the Product Specification and active through Phase 2.
 
@@ -51,5 +51,5 @@ This document records implementation-level domain rules that are authoritative i
 39. Push registration stores only Expo push tokens and platform metadata; push delivery is best-effort and never replaces in-app notification state.
 40. Notification deduplication is enforced per user + dedupe key so retries cannot create duplicate notifications.
 41. Promotion/post follower fan-out respects per-user notification preferences and server-side frequency limits.
-42. Notification deep links must target a real LeagueKick route and must never be treated as an authorization boundary.
+42. Notification deep links must target a real Futsal route and must never be treated as an authorization boundary.
 43. Owners can create promotions/posts only while venue Premium entitlement permits marketing writes; expired/cancelled/suspended venues retain history but cannot publish new marketing inventory.
