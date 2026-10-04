@@ -13,6 +13,7 @@ import {
   teamInvitations,
   teamMemberships,
   teams,
+  userRoles,
   users,
 } from "@leaguekick/database";
 import { and, count, desc, eq, lte, or, sql } from "drizzle-orm";
@@ -47,7 +48,9 @@ export class DrizzleTeamRepository implements TeamRepository {
       displayName: users.displayName,
       username: users.username,
     }).from(users).where(and(eq(users.id, userId), eq(users.status, "ACTIVE"))).limit(1);
-    return row ?? null;
+    if (!row) return null;
+    const roles = await this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId));
+    return { ...row, roles: roles.map((item) => item.role) };
   }
 
   async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
@@ -71,7 +74,9 @@ export class DrizzleTeamRepository implements TeamRepository {
       eq(users.status, "ACTIVE"),
       identifierCondition,
     )).limit(1);
-    return row ?? null;
+    if (!row) return null;
+    const roles = await this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, row.id));
+    return { ...row, roles: roles.map((item) => item.role) };
   }
 
   private async listPlayerTeams(userId: string, publicOnly: boolean): Promise<OwnPlayerProfileDto["teams"]> {
