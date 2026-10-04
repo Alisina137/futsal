@@ -386,6 +386,9 @@ export class CompetitionService {
       if (competition.status !== "IN_PROGRESS" && competition.status !== "SCHEDULED") {
         throw errors.conflict("INVALID_COMPETITION_STATE", "This competition is not ready for completion.");
       }
+      if (competition.format === "GROUP_KNOCKOUT" && !await this.repository.knockoutCompleted(competitionId)) {
+        throw errors.conflict("KNOCKOUT_INCOMPLETE", "Generate and complete the knockout stage before finishing the competition.");
+      }
       if (!await this.repository.allRequiredMatchesCompleted(competitionId)) {
         throw errors.conflict("MATCHES_INCOMPLETE", "Complete all required matches before finishing the competition.");
       }
