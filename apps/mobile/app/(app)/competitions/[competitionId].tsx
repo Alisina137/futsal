@@ -126,7 +126,7 @@ export default function CompetitionDetailScreen(){
             <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
               {match.groupName?t("competition.group",{name:match.groupName}):t("competition.round",{number:match.roundNumber})}
             </AppText>
-            <AppText variant="caption" muted>{t(`competition.status.${competition.status}` as never)}</AppText>
+            <AppText variant="caption" muted>{t(`competition.matchStatus.${match.status}` as never)}</AppText>
           </View>
           <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",alignItems:"center",gap:spacing.sm}}>
             <AppText weight="bold" style={{flex:1}}>{match.homeTeamName??t("competition.tbd")}</AppText>
