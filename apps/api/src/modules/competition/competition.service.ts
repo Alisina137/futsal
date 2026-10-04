@@ -1,6 +1,8 @@
 import type {
   CompetitionCreateRequest,
   CompetitionInviteTeamRequest,
+  CompetitionMatchResultRequest,
+  CompetitionMatchScheduleRequest,
   CompetitionRegistrationDecisionRequest,
   CompetitionRegistrationResponseRequest,
   CompetitionStateRequest,
@@ -13,6 +15,7 @@ import type {
   CompetitionRepository,
   CompetitionVenueRecord,
 } from "./competition.types.js";
+import { calculateStandings, generateRoundRobin } from "./competition.engine.js";
 
 function entitlement(venue: CompetitionVenueRecord, now: Date) {
   const sub = venue.subscription;
@@ -27,6 +30,40 @@ export class CompetitionService {
     private readonly repository: CompetitionRepository,
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  private derive(competition: Awaited<ReturnType<CompetitionRepository["getCompetitionDto"]>>) {
+    if (!competition) return null;
+    if (competition.format !== "LEAGUE") return competition;
+
+    const accepted = competition.teams
+      .filter((team) => team.status === "ACCEPTED")
+      .map((team) => ({ id: team.teamId, name: team.teamName, seed: team.seed }));
+    const results = competition.matches
+      .filter((match) =>
+        match.stage === "LEAGUE" &&
+        (match.status === "COMPLETED" || match.status === "CORRECTED") &&
+        match.homeTeamId &&
+        match.awayTeamId &&
+        match.homeScore !== null &&
+        match.awayScore !== null
+      )
+      .map((match) => ({
+        homeTeamId: match.homeTeamId!,
+        awayTeamId: match.awayTeamId!,
+        homeScore: match.homeScore!,
+        awayScore: match.awayScore!,
+      }));
+
+    return {
+      ...competition,
+      standings: calculateStandings(
+        accepted,
+        results,
+        { win: competition.winPoints, draw: competition.drawPoints, loss: competition.lossPoints },
+        competition.tieBreakOrder,
+      ),
+    };
+  }
 
   private async ownerVenue(ownerUserId: string) {
     const venue = await this.repository.getOwnerVenue(ownerUserId);
@@ -66,7 +103,7 @@ export class CompetitionService {
     if (!record || !record.published || record.status === "DRAFT") {
       throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
     }
-    const competition = await this.repository.getCompetitionDto(competitionId);
+    const competition = this.derive(await this.repository.getCompetitionDto(competitionId));
     if (!competition) throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
     return {
       ...competition,
@@ -81,7 +118,7 @@ export class CompetitionService {
 
   async getOwner(ownerUserId: string, competitionId: string) {
     await this.ownerCompetition(ownerUserId, competitionId);
-    const competition = await this.repository.getCompetitionDto(competitionId);
+    const competition = this.derive(await this.repository.getCompetitionDto(competitionId));
     if (!competition) throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
     return competition;
   }
@@ -210,6 +247,57 @@ export class CompetitionService {
       });
     }
 
+    if (input.action === "GENERATE_FIXTURES") {
+      if (competition.format !== "LEAGUE") {
+        throw errors.badRequest("FORMAT_NOT_SUPPORTED_HERE", "This fixture generator is for league competitions.");
+      }
+      if (competition.status !== "REGISTRATION_CLOSED") {
+        throw errors.conflict("REGISTRATION_MUST_BE_CLOSED", "Close registration before generating fixtures.");
+      }
+      const accepted = (await this.repository.listCompetitionTeams(competitionId))
+        .filter((team) => team.status === "ACCEPTED");
+      if (accepted.length < 2) {
+        throw errors.badRequest("NOT_ENOUGH_TEAMS", "At least two accepted teams are required.");
+      }
+      await this.repository.replaceLeagueFixtures(
+        competitionId,
+        generateRoundRobin(accepted.map((team) => team.teamId)),
+        now,
+      );
+      await this.repository.setCompetitionState(competitionId, {
+        status: "SCHEDULED",
+        updatedAt: now,
+      });
+      return this.getOwner(ownerUserId, competitionId);
+    }
+
+    if (input.action === "COMPLETE") {
+      if (competition.status !== "IN_PROGRESS" && competition.status !== "SCHEDULED") {
+        throw errors.conflict("INVALID_COMPETITION_STATE", "This competition is not ready for completion.");
+      }
+      if (!await this.repository.allRequiredMatchesCompleted(competitionId)) {
+        throw errors.conflict("MATCHES_INCOMPLETE", "Complete all required matches before finishing the competition.");
+      }
+      await this.repository.setCompetitionState(competitionId, {
+        status: "COMPLETED",
+        completedAt: now,
+        updatedAt: now,
+      });
+      return this.getOwner(ownerUserId, competitionId);
+    }
+
+    if (input.action === "ARCHIVE") {
+      if (competition.status !== "COMPLETED") {
+        throw errors.conflict("COMPETITION_NOT_COMPLETED", "Only completed competitions can be archived.");
+      }
+      await this.repository.setCompetitionState(competitionId, {
+        status: "ARCHIVED",
+        archivedAt: now,
+        updatedAt: now,
+      });
+      return this.getOwner(ownerUserId, competitionId);
+    }
+
     if (input.action === "CANCEL") {
       if (competition.status === "COMPLETED" || competition.status === "ARCHIVED") {
         throw errors.conflict("INVALID_COMPETITION_STATE", "This competition can no longer be cancelled.");
@@ -325,6 +413,104 @@ export class CompetitionService {
       now: this.now(),
     });
     return this.repository.getRegistration(competitionId, teamId);
+  }
+
+  async scheduleMatch(
+    ownerUserId: string,
+    competitionId: string,
+    matchId: string,
+    input: CompetitionMatchScheduleRequest,
+  ) {
+    const { venue, competition } = await this.ownerCompetition(ownerUserId, competitionId);
+    if (!["SCHEDULED", "IN_PROGRESS"].includes(competition.status)) {
+      throw errors.conflict("COMPETITION_NOT_SCHEDULED", "Generate fixtures before scheduling matches.");
+    }
+    const match = await this.repository.getMatch(matchId);
+    if (!match || match.competitionId !== competitionId) {
+      throw errors.badRequest("MATCH_NOT_FOUND", "Competition match not found.");
+    }
+    if (!match.homeTeamId || !match.awayTeamId) {
+      throw errors.conflict("MATCH_TEAMS_PENDING", "This match is waiting for its teams.");
+    }
+    const startsAt = new Date(input.startsAt);
+    const endsAt = new Date(input.endsAt);
+    if (endsAt.getTime() <= startsAt.getTime()) {
+      throw errors.badRequest("INVALID_MATCH_INTERVAL", "Match end must be after start.");
+    }
+    if (startsAt.getTime() <= this.now().getTime()) {
+      throw errors.badRequest("MATCH_IN_PAST", "Schedule the match in the future.");
+    }
+
+    await this.repository.scheduleMatchAtomic({
+      competitionId,
+      matchId,
+      venueId: venue.id,
+      areaId: input.areaId,
+      startsAt,
+      endsAt,
+      updatedAt: this.now(),
+    });
+    return this.getOwner(ownerUserId, competitionId);
+  }
+
+  async enterResult(
+    ownerUserId: string,
+    competitionId: string,
+    matchId: string,
+    input: CompetitionMatchResultRequest,
+  ) {
+    const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
+    const match = await this.repository.getMatch(matchId);
+    if (!match || match.competitionId !== competitionId) {
+      throw errors.badRequest("MATCH_NOT_FOUND", "Competition match not found.");
+    }
+    if (!["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CORRECTED"].includes(match.status)) {
+      throw errors.conflict("MATCH_NOT_READY", "Schedule this match before entering its result.");
+    }
+    if (!match.homeTeamId || !match.awayTeamId) {
+      throw errors.conflict("MATCH_TEAMS_PENDING", "This match is waiting for its teams.");
+    }
+
+    const correction = match.status === "COMPLETED" || match.status === "CORRECTED";
+    if (correction && !input.correctionReason?.trim()) {
+      throw errors.badRequest("CORRECTION_REASON_REQUIRED", "Explain why the completed result is being corrected.");
+    }
+    if (input.playerStats.filter((stat) => stat.playerOfMatch).length > 1) {
+      throw errors.badRequest("MULTIPLE_PLAYERS_OF_MATCH", "Only one player can be player of the match.");
+    }
+
+    const winnerTeamId =
+      input.homeScore === input.awayScore
+        ? null
+        : input.homeScore > input.awayScore
+          ? match.homeTeamId
+          : match.awayTeamId;
+
+    const now = this.now();
+    const saved = await this.repository.saveMatchResult({
+      competitionId,
+      matchId,
+      actorUserId: ownerUserId,
+      homeScore: input.homeScore,
+      awayScore: input.awayScore,
+      winnerTeamId,
+      correctionReason: input.correctionReason?.trim() || null,
+      playerStats: input.playerStats,
+      now,
+    });
+
+    if (!competition.materialPlayStartedAt || competition.status === "SCHEDULED") {
+      await this.repository.setCompetitionState(competitionId, {
+        status: "IN_PROGRESS",
+        materialPlayStartedAt: competition.materialPlayStartedAt ?? now,
+        updatedAt: now,
+      });
+    }
+
+    return {
+      match: saved,
+      competition: await this.getOwner(ownerUserId, competitionId),
+    };
   }
 
   async withdraw(userId: string, competitionId: string, teamId: string) {
