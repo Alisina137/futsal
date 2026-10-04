@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
-import { formatLocalDateTime } from "../../../src/lib/date-time";
+import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -240,12 +240,14 @@ export default function OwnerOnboardingScreen() {
         <AppText weight="semibold" style={{ color: status?.subscription.state === "TRIAL" ? colors.success : colors.warning }}>
           {t(`owner.subscription.${status?.subscription.state ?? "NOT_STARTED"}` as never)}
         </AppText>
-        {status?.subscription.trialEndsAt ? <View style={{ gap: spacing.xs }}>
-          <AppText variant="caption" muted>{t("owner.trialEnds")}</AppText>
-          <AppText weight="semibold">
-            {formatLocalDateTime(status.subscription.trialEndsAt, language)}
-          </AppText>
-        </View> : null}
+        {status?.subscription.trialEndsAt ? (() => {
+          const trialEnd = formatLocalDateTimeParts(status.subscription.trialEndsAt, language);
+          return <View style={{ gap: spacing.xs }}>
+            <AppText variant="caption" muted>{t("owner.trialEnds")}</AppText>
+            <AppText weight="semibold">{trialEnd.date}</AppText>
+            <AppText variant="caption" muted>{trialEnd.time}</AppText>
+          </View>;
+        })() : null}
         <Button label={t("owner.goDashboard")} onPress={() => router.replace("/home")} />
       </>}
     </Card> : null}
