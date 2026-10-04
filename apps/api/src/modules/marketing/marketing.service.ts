@@ -10,6 +10,7 @@ import { errors } from "../../lib/errors.js";
 import type { BookingService } from "../booking/booking.service.js";
 import type { MarketingRepository, MarketingVenueRecord } from "./marketing.types.js";
 import { mergeFeed } from "./marketing.types.js";
+import type { NotificationPublisher } from "../notifications/notification.types.js";
 
 function entitlementActive(venue: MarketingVenueRecord, now: Date) {
   if (venue.status !== "ACTIVE" || !venue.subscription) return false;
@@ -42,6 +43,7 @@ export class MarketingService {
     private readonly repository: MarketingRepository,
     private readonly booking: BookingService,
     private readonly now: () => Date = () => new Date(),
+    private readonly notifications?: NotificationPublisher,
   ) {}
 
   private async ownerVenue(ownerUserId: string, requireWrite = true) {
@@ -72,7 +74,7 @@ export class MarketingService {
       throw errors.badRequest("INVALID_DISCOUNT", "The promotion price must be lower than the current slot price.");
     }
 
-    return this.repository.createPromotion({
+    const promotion = await this.repository.createPromotion({
       venueId: venue.id,
       areaId: slot.areaId,
       startsAt: new Date(slot.startsAt),
@@ -85,6 +87,16 @@ export class MarketingService {
       createdByUserId: ownerUserId,
       createdAt: this.now(),
     });
+    if (input.notifyFollowers) {
+      await this.notifications?.promotionPublished({
+        venueId: venue.id,
+        promotionId: promotion.id,
+        venueName: venue.name,
+        title: promotion.title,
+        followerUserIds: await this.repository.listFollowerUserIds(venue.id),
+      });
+    }
+    return promotion;
   }
 
   async listOwnerPromotions(ownerUserId: string) {
@@ -127,7 +139,7 @@ export class MarketingService {
       targetId = null;
     }
 
-    return this.repository.createPost({
+    const post = await this.repository.createPost({
       venueId: venue.id,
       createdByUserId: ownerUserId,
       body: input.body.trim(),
@@ -136,6 +148,15 @@ export class MarketingService {
       ctaTargetId: targetId,
       publishedAt: this.now(),
     });
+    if (input.notifyFollowers) {
+      await this.notifications?.venuePostPublished({
+        venueId: venue.id,
+        postId: post.id,
+        venueName: venue.name,
+        followerUserIds: await this.repository.listFollowerUserIds(venue.id),
+      });
+    }
+    return post;
   }
 
   async listOwnerPosts(ownerUserId: string) {
