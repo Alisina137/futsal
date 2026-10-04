@@ -11,12 +11,15 @@ import { createOwnerScheduleRouter, createPlayerBookingRouter, createPublicVenue
 import type { BookingService } from "./modules/booking/booking.service.js";
 import { createOwnerRouter } from "./modules/owner/owner.routes.js";
 import type { OwnerOnboardingService } from "./modules/owner/owner.service.js";
+import { createOwnerMarketingRouter, createPublicMarketingRouter } from "./modules/marketing/marketing.routes.js";
+import type { MarketingService } from "./modules/marketing/marketing.service.js";
 
 export type AppDependencies = {
   authService: AuthService;
   tokenService: TokenService;
   ownerService?: OwnerOnboardingService;
   bookingService?: BookingService;
+  marketingService?: MarketingService;
   corsOrigin?: string;
 };
 
@@ -34,6 +37,10 @@ export function createApp(deps: AppDependencies) {
     app.use("/api/v1/venues", createPublicVenueRouter(deps.bookingService));
     app.use("/api/v1/bookings", createPlayerBookingRouter(deps.bookingService, deps.tokenService));
     app.use("/api/v1/owner", createOwnerScheduleRouter(deps.bookingService, deps.tokenService));
+  }
+  if (deps.marketingService) {
+    app.use("/api/v1", createPublicMarketingRouter(deps.marketingService, deps.tokenService));
+    app.use("/api/v1/owner", createOwnerMarketingRouter(deps.marketingService, deps.tokenService));
   }
 
   app.get("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {
