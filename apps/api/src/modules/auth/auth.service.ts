@@ -18,6 +18,8 @@ import type { AuthRepository, AuthUserRecord } from "./auth.types.js";
 import { toUserDto } from "./auth.types.js";
 import { TokenService } from "./token.service.js";
 
+const CREDENTIAL_RESET_COOLDOWN_MS = 72 * 60 * 60 * 1000;
+
 type AuthServiceOptions = {
   passwordResetSecret?: string;
   passwordResetCodeTtlMs?: number;
@@ -59,6 +61,18 @@ export class AuthService {
   private ensureActive(user: AuthUserRecord) {
     if (user.status === "SUSPENDED") throw errors.forbidden("ACCOUNT_SUSPENDED", "This account is suspended.");
     if (user.status === "DELETED") throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+  }
+
+  private ensurePasswordResetCooldown(user: AuthUserRecord) {
+    if (!user.lastCredentialResetAt) return;
+    const availableAt = new Date(user.lastCredentialResetAt.getTime() + CREDENTIAL_RESET_COOLDOWN_MS);
+    if (availableAt.getTime() > Date.now()) {
+      throw errors.conflict(
+        "PASSWORD_RESET_COOLDOWN",
+        "Credential reset is temporarily locked.",
+        { availableAt: availableAt.toISOString() },
+      );
+    }
   }
 
   private async createAuthResponse(user: AuthUserRecord, deviceLabel?: string): Promise<AuthResponse> {
@@ -192,6 +206,7 @@ export class AuthService {
     const user = await this.repository.getUserById(challenge.userId);
     if (!user) throw invalid();
     this.ensureActive(user);
+    this.ensurePasswordResetCooldown(user);
 
     const resetToken = randomBytes(32).toString("hex");
     const resetTokenExpiresAt = new Date(Date.now() + this.resetTokenTtlMs);
@@ -225,17 +240,25 @@ export class AuthService {
       throw errors.badRequest("INVALID_RESET_TOKEN", "The password reset session is invalid or expired.");
     }
 
+    const user = await this.repository.getUserById(challenge.userId);
+    if (!user) throw errors.badRequest("INVALID_RESET_TOKEN", "The password reset session is invalid or expired.");
+    this.ensureActive(user);
+    this.ensurePasswordResetCooldown(user);
+
     const username = input.username.trim();
     const usernameNormalized = normalizeUsername(username);
     if (!usernameNormalized) throw errors.badRequest("INVALID_USERNAME", "Enter a valid username.");
 
     const passwordHash = await argon2.hash(input.password);
+    const credentialResetAt = new Date();
     await this.repository.completePasswordReset({
       challengeId: challenge.id,
       userId: challenge.userId,
       username,
       usernameNormalized,
       passwordHash,
+      credentialResetAt,
+      cooldownCutoff: new Date(credentialResetAt.getTime() - CREDENTIAL_RESET_COOLDOWN_MS),
     });
   }
 
