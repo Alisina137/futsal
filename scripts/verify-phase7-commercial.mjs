@@ -103,7 +103,7 @@ for (const marker of [
 }
 
 requireText(journal, "0006_phase7_commercial_core", "Phase 7 migration is not registered");
-requireText(migration, 'CREATE TABLE "subscription_payments"', "Phase 7 payment migration missing");
-requireText(migration, 'CREATE TABLE "platform_settings"', "Phase 7 settings migration missing");
+requireText(migration, 'CREATE TABLE IF NOT EXISTS "subscription_payments"', "Phase 7 payment migration missing");
+requireText(migration, 'CREATE TABLE IF NOT EXISTS "platform_settings"', "Phase 7 settings migration missing");
 
 console.log("Phase 7 commercial SaaS verified: continuity enforcement, manual activation/payment history, owner analytics, platform admin controls, audit coverage, localization, and migration wiring are present.");
