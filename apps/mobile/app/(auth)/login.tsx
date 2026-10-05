@@ -16,7 +16,7 @@ import { useLocale } from "../../src/providers/LocaleProvider";
 export default function LoginScreen(){
   const {t,isRTL}=useLocale();
   const {signIn}=useAuth();
-  const params=useLocalSearchParams<{reset?:string}>();
+  const params=useLocalSearchParams<{reset?:string;next?:string}>();
   const identifierRef=useRef<TextInput>(null);
   const passwordRef=useRef<TextInput>(null);
   const [identifier,setIdentifier]=useState("");
@@ -50,7 +50,7 @@ export default function LoginScreen(){
     clearErrors();
     try{
       await signIn({identifier:identifier.trim(),password});
-      router.replace("/home");
+      router.replace(params.next==="/admin"?"/admin":"/home");
     }catch(cause){
       if(cause instanceof ApiRequestError&&(
         cause.code==="INVALID_CREDENTIALS"||
