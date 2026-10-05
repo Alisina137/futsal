@@ -13,7 +13,6 @@ import { errors } from "../../lib/errors.js";
 import type {
   CompetitionRecord,
   CompetitionRepository,
-  CompetitionVenueRecord,
 } from "./competition.types.js";
 import {
   assignGroups,
