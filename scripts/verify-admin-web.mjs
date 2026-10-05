@@ -17,6 +17,10 @@ assert(launcher.includes('"8082"'), "Admin launcher must default to the dedicate
 assert(index.includes('process.env.EXPO_PUBLIC_ADMIN_MODE === "true"'), "Root route must recognize admin mode.");
 assert(index.includes('"/admin"'), "Root route must redirect admin mode to /admin.");
 assert(login.includes('params.next==="/admin"?"/admin":"/home"'), "Login must return an admin launch to /admin.");
+assert(login.includes('const adminPortal=params.next==="/admin";'), "Admin login must render a distinct admin portal experience.");
 assert(admin.includes('roles.includes("PLATFORM_ADMIN")'), "Admin screen must remain PLATFORM_ADMIN-gated.");
+assert(admin.includes('const adminNavItems'), "Admin screen must provide dedicated management navigation.");
+assert(admin.includes('function AdminSidebar'), "Admin screen must provide a dedicated admin sidebar.");
+assert(admin.includes('maxWidth: 1500'), "Admin workspace must use a desktop-width management layout.");
 
-console.log("Admin web launcher verified: dedicated command, admin-mode redirect, safe login return, and role gate.");
+console.log("Admin web verified: dedicated launcher, admin login, desktop management shell, safe redirect, and PLATFORM_ADMIN gate.");
