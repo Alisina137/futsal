@@ -198,6 +198,7 @@ export default function AdminScreen() {
           annualPriceAfn: Number(annual),
           trialDurationHours: Number(configTrialHours),
           featureFlags: settings.featureFlags,
+          notificationTemplates: settings.notificationTemplates,
         }),
         t("phase7.admin.updated"),
       )} disabled={busy} />
