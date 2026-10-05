@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing, touchTarget } from "@leaguekick/design-tokens";
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -20,7 +20,7 @@ type Props = TextInputProps & {
   containerStyle?: ViewStyle;
 };
 
-export function TextField({
+export const TextField = forwardRef<TextInput, Props>(function TextField({
   label,
   hint,
   error,
@@ -32,7 +32,7 @@ export function TextField({
   secureTextEntry = false,
   placeholder,
   ...props
-}: Props) {
+}, ref) {
   const { isRTL, t } = useLocale();
   const [focused, setFocused] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -40,10 +40,11 @@ export function TextField({
   const passwordField = Boolean(secureTextEntry);
 
   return <View style={[styles.wrapper, containerStyle]}>
-    <AppText weight="medium" style={focused ? styles.focusedLabel : undefined}>{label}</AppText>
+    <AppText weight="medium" style={error ? styles.errorLabel : focused ? styles.focusedLabel : undefined}>{label}</AppText>
 
     <View style={styles.inputShell}>
       <TextInput
+        ref={ref}
         {...props}
         secureTextEntry={passwordField ? !passwordVisible : false}
         placeholder={placeholder ?? label}
@@ -86,7 +87,7 @@ export function TextField({
         <Ionicons
           name={passwordVisible ? "eye-off-outline" : "eye-outline"}
           size={22}
-          color={focused ? colors.primary : colors.textMuted}
+          color={error ? colors.danger : focused ? colors.primary : colors.textMuted}
         />
       </Pressable> : null}
     </View>
@@ -97,7 +98,7 @@ export function TextField({
         ? <AppText variant="caption" muted>{hint}</AppText>
         : null}
   </View>;
-}
+});
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -105,6 +106,9 @@ const styles = StyleSheet.create({
   },
   focusedLabel: {
     color: colors.primary,
+  },
+  errorLabel: {
+    color: colors.danger,
   },
   inputShell: {
     position: "relative",
