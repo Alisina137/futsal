@@ -108,6 +108,7 @@ export default function RegisterScreen(){
       <TextField
         label={t("auth.password")}
         placeholder={t("auth.placeholderNewPassword")}
+        hint={t("auth.passwordHint")}
         value={password}
         onChangeText={setPassword}
         autoCapitalize="none"
