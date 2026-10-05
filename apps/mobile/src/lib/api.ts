@@ -78,6 +78,7 @@ export class ApiRequestError extends Error {
     readonly status: number | null,
     readonly requestId: string | null = null,
     readonly retryable: boolean = false,
+    readonly details: unknown = undefined,
   ) {
     super(message);
     this.name = "ApiRequestError";
@@ -126,6 +127,7 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
           response.status,
           errorBody?.error?.requestId ?? requestId,
           RETRYABLE_HTTP_STATUSES.has(response.status),
+          errorBody?.error?.details,
         );
         if (safeRead && error.retryable && attempt + 1 < maxAttempts) {
           await delay(READ_RETRY_DELAY_MS);
