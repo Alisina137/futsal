@@ -29,5 +29,7 @@ assert(admin.includes('roles.includes("PLATFORM_ADMIN")'), "Admin screen must re
 assert(admin.includes('const adminNavItems'), "Admin screen must provide dedicated management navigation.");
 assert(admin.includes('function AdminSidebar'), "Admin screen must provide a dedicated admin sidebar.");
 assert(admin.includes('maxWidth: 1500'), "Admin workspace must use a desktop-width management layout.");
+assert(admin.includes('const loadPart = async <T,>'), "Admin datasets must load independently so one failed endpoint cannot blank the console.");
+assert(admin.includes('loadIssues.join(" · ")'), "Admin console must expose endpoint-specific loading diagnostics.");
 
 console.log("Admin web verified: dedicated launcher, persistent browser session, admin-safe routing, desktop management shell, and PLATFORM_ADMIN gate.");
