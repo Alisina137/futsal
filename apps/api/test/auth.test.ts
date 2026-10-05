@@ -41,6 +41,28 @@ describe("Authentication identity and role model", () => {
     expect(me.body.user.roles).toEqual([]);
   });
 
+  it("allows the full name to be configured after signup without changing credentials", async () => {
+    const { app } = setup();
+    const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);
+
+    const updated = await request(app)
+      .patch("/api/v1/users/me")
+      .set("Authorization", `Bearer ${registration.body.accessToken}`)
+      .send({ displayName: "Ahmad Rahimi" });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.user.displayName).toBe("Ahmad Rahimi");
+    expect(updated.body.user.username).toBe("ahmad7");
+    expect(updated.body.user.phone).toBe("+93791234567");
+
+    const login = await request(app).post("/api/v1/auth/login").send({
+      identifier: "ahmad7",
+      password: baseRegistration.password,
+    });
+    expect(login.status).toBe(200);
+    expect(login.body.user.displayName).toBe("Ahmad Rahimi");
+  });
+
   it("requires matching password confirmation at registration", async () => {
     const { app } = setup();
     const response = await request(app).post("/api/v1/auth/register").send({
