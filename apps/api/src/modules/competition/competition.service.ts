@@ -581,10 +581,12 @@ export class CompetitionService {
     }
 
     const correction = match.status === "COMPLETED" || match.status === "CORRECTED";
+    const confirmImpact = input.confirmImpact ?? false;
+    const playerStats = input.playerStats ?? [];
     if (correction && !input.correctionReason?.trim()) {
       throw errors.badRequest("CORRECTION_REASON_REQUIRED", "Explain why the completed result is being corrected.");
     }
-    if (input.playerStats.filter((stat) => stat.playerOfMatch).length > 1) {
+    if (playerStats.filter((stat) => stat.playerOfMatch).length > 1) {
       throw errors.badRequest("MULTIPLE_PLAYERS_OF_MATCH", "Only one player can be player of the match.");
     }
 
@@ -600,7 +602,7 @@ export class CompetitionService {
       if (downstream && ["IN_PROGRESS","COMPLETED","CORRECTED"].includes(downstream.status)) {
         throw errors.conflict("DOWNSTREAM_RESULT_LOCKED", "A later knockout match has already started or finished.");
       }
-      if (downstream?.status === "SCHEDULED" && !input.confirmImpact) {
+      if (downstream?.status === "SCHEDULED" && !confirmImpact) {
         throw errors.conflict("IMPACT_CONFIRMATION_REQUIRED", "Confirm the impact before changing a winner used by a scheduled next-round match.");
       }
     }
@@ -608,7 +610,7 @@ export class CompetitionService {
     const knockoutAlreadyStarted = match.stage === "GROUP"
       ? await this.repository.knockoutStarted(competitionId)
       : false;
-    if (correction && match.stage === "GROUP" && knockoutAlreadyStarted && !input.confirmImpact) {
+    if (correction && match.stage === "GROUP" && knockoutAlreadyStarted && !confirmImpact) {
       throw errors.conflict(
         "GROUP_CORRECTION_IMPACT_CONFIRMATION_REQUIRED",
         "Knockout play has started. Confirm the impact before correcting a group result.",
@@ -627,7 +629,7 @@ export class CompetitionService {
       awayScore: input.awayScore,
       winnerTeamId,
       correctionReason: input.correctionReason?.trim() || null,
-      playerStats: input.playerStats,
+      playerStats,
       now,
     });
 
