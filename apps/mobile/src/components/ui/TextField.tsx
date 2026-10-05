@@ -15,7 +15,7 @@ import { AppText } from "./AppText";
 type Props = TextInputProps & {
   label: string;
   hint?: string;
-  error?: string;
+  error?: string | undefined;
   forceLtr?: boolean;
   containerStyle?: ViewStyle;
 };
