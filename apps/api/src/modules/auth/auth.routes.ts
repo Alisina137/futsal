@@ -17,6 +17,7 @@ import type { AuthService } from "./auth.service.js";
 export function createAuthRouter(auth: AuthService, tokens: TokenService) {
   const router = Router();
   const limiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
+  const resetLimiter = rateLimit({ windowMs: 10 * 60_000, limit: 8, standardHeaders: "draft-8", legacyHeaders: false });
   router.use(limiter);
 
   router.post("/register", async (request, response, next) => {
@@ -40,21 +41,21 @@ export function createAuthRouter(auth: AuthService, tokens: TokenService) {
     } catch (error) { next(error); }
   });
 
-  router.post("/password-reset/request", async (request, response, next) => {
+  router.post("/password-reset/request", resetLimiter, async (request, response, next) => {
     try {
       const input = passwordResetRequestSchema.parse(request.body);
       response.json(await auth.requestPasswordReset(input));
     } catch (error) { next(error); }
   });
 
-  router.post("/password-reset/verify", async (request, response, next) => {
+  router.post("/password-reset/verify", resetLimiter, async (request, response, next) => {
     try {
       const input = passwordResetVerifySchema.parse(request.body);
       response.json(await auth.verifyPasswordReset(input));
     } catch (error) { next(error); }
   });
 
-  router.post("/password-reset/complete", async (request, response, next) => {
+  router.post("/password-reset/complete", resetLimiter, async (request, response, next) => {
     try {
       const input = passwordResetCompleteSchema.parse(request.body);
       await auth.completePasswordReset(input);
