@@ -18,12 +18,13 @@ import type { AuthRepository, AuthUserRecord } from "./auth.types.js";
 import { toUserDto } from "./auth.types.js";
 import { TokenService } from "./token.service.js";
 
-const CREDENTIAL_RESET_COOLDOWN_MS = 72 * 60 * 60 * 1000;
+const DEFAULT_CREDENTIAL_RESET_COOLDOWN_MS = 72 * 60 * 60 * 1000;
 
 type AuthServiceOptions = {
   passwordResetSecret?: string;
   passwordResetCodeTtlMs?: number;
   passwordResetTokenTtlMs?: number;
+  passwordResetCooldownMs?: number;
   deliverPasswordResetCode?: (phoneE164: string, code: string) => Promise<void>;
   exposePasswordResetCode?: boolean;
 };
@@ -32,6 +33,7 @@ export class AuthService {
   private readonly resetSecret: string | null;
   private readonly resetCodeTtlMs: number;
   private readonly resetTokenTtlMs: number;
+  private readonly resetCooldownMs: number;
   private readonly deliverPasswordResetCode: ((phoneE164: string, code: string) => Promise<void>) | undefined;
   private readonly exposePasswordResetCode: boolean;
 
@@ -43,6 +45,7 @@ export class AuthService {
     this.resetSecret = options.passwordResetSecret ?? null;
     this.resetCodeTtlMs = options.passwordResetCodeTtlMs ?? 10 * 60 * 1000;
     this.resetTokenTtlMs = options.passwordResetTokenTtlMs ?? 10 * 60 * 1000;
+    this.resetCooldownMs = options.passwordResetCooldownMs ?? DEFAULT_CREDENTIAL_RESET_COOLDOWN_MS;
     this.deliverPasswordResetCode = options.deliverPasswordResetCode;
     this.exposePasswordResetCode = options.exposePasswordResetCode ?? false;
   }
@@ -65,7 +68,7 @@ export class AuthService {
 
   private ensurePasswordResetCooldown(user: AuthUserRecord) {
     if (!user.lastCredentialResetAt) return;
-    const availableAt = new Date(user.lastCredentialResetAt.getTime() + CREDENTIAL_RESET_COOLDOWN_MS);
+    const availableAt = new Date(user.lastCredentialResetAt.getTime() + this.resetCooldownMs);
     if (availableAt.getTime() > Date.now()) {
       throw errors.conflict(
         "PASSWORD_RESET_COOLDOWN",
@@ -258,7 +261,7 @@ export class AuthService {
       usernameNormalized,
       passwordHash,
       credentialResetAt,
-      cooldownCutoff: new Date(credentialResetAt.getTime() - CREDENTIAL_RESET_COOLDOWN_MS),
+      cooldownCutoff: new Date(credentialResetAt.getTime() - this.resetCooldownMs),
     });
   }
 
