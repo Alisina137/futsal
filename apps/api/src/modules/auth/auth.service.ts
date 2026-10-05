@@ -121,7 +121,7 @@ export class AuthService {
 
     const emailNormalized = input.email?.trim().toLowerCase() || null;
     return toUserDto(await this.repository.updateAccountProfile(userId, {
-      displayName: input.displayName.trim(),
+      displayName: input.displayName?.trim() || user.username || user.displayName,
       profileImageUrl: input.profileImageUrl?.trim() || null,
       age: input.age ?? null,
       emailNormalized,
