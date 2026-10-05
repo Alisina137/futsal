@@ -8,6 +8,11 @@ import type {
   PublicVenueDto,
   PublicVenueListResponse,
   RegisterRequest,
+  PasswordResetRequest,
+  PasswordResetRequestResponse,
+  PasswordResetVerifyRequest,
+  PasswordResetVerifyResponse,
+  PasswordResetCompleteRequest,
   SelfAssignableRole,
   UserDto,
   VenueAvailabilityResponse,
@@ -164,6 +169,12 @@ export const systemApi = {
 export const authApi = {
   register: (input: RegisterRequest) => request<AuthResponse>("/api/v1/auth/register", { method: "POST", body: JSON.stringify(input) }),
   login: (input: LoginRequest) => request<AuthResponse>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(input) }),
+  requestPasswordReset: (input: PasswordResetRequest) =>
+    request<PasswordResetRequestResponse>("/api/v1/auth/password-reset/request", { method: "POST", body: JSON.stringify(input) }),
+  verifyPasswordReset: (input: PasswordResetVerifyRequest) =>
+    request<PasswordResetVerifyResponse>("/api/v1/auth/password-reset/verify", { method: "POST", body: JSON.stringify(input) }),
+  completePasswordReset: (input: PasswordResetCompleteRequest) =>
+    request<void>("/api/v1/auth/password-reset/complete", { method: "POST", body: JSON.stringify(input) }),
   refresh: (refreshToken: string) => request<AuthResponse>("/api/v1/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   logout: (refreshToken: string) => request<void>("/api/v1/auth/logout", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   activateRole: (accessToken: string, role: SelfAssignableRole) =>
