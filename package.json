@@ -15,7 +15,7 @@
     "build": "pnpm -r --if-present build",
     "verify": "pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:mobile-rtl && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "pnpm --filter @leaguekick/database db:generate",
-    "db:migrate": "pnpm --dir packages/database db:migrate",
+    "db:migrate": "pnpm --dir packages/database run db:migrate",
     "verify:phase3": "node scripts/verify-phase3-resilience.mjs",
     "verify:phase6": "node scripts/verify-phase6-competition.mjs",
     "verify:phase5": "node scripts/verify-phase5-teams.mjs",
