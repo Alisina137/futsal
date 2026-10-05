@@ -180,6 +180,7 @@ export default function RegisterScreen(){
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="username-new"
+        maxLength={12}
         returnKeyType="next"
         onSubmitEditing={()=>phoneRef.current?.focus()}
         forceLtr
