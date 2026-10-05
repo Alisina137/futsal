@@ -31,14 +31,28 @@ function setup() {
   return { app, bookingRepository, marketingRepository, clock };
 }
 
-async function register(app: ReturnType<typeof createApp>, accountType: "PLAYER" | "VENUE_OWNER", phone: string) {
-  return request(app).post("/api/v1/auth/register").send({
-    displayName: accountType === "PLAYER" ? "Player" : "Owner",
+async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VENUE_OWNER", phone: string) {
+  const username = `u${phone.replace(/\D/g, "").slice(-10)}`;
+  const registration = await request(app).post("/api/v1/auth/register").send({
+    username,
     phone,
-    password: "strong-pass-4",
+    password: "strong-pass-4!",
+    confirmPassword: "strong-pass-4!",
     preferredLanguage: "fa-AF",
-    accountType,
   });
+  expect(registration.status).toBe(201);
+
+  const activated = await request(app)
+    .post("/api/v1/auth/roles/activate")
+    .set("Authorization", `Bearer ${registration.body.accessToken}`)
+    .send({ role });
+  expect(activated.status).toBe(200);
+
+  const refreshed = await request(app)
+    .post("/api/v1/auth/refresh")
+    .send({ refreshToken: registration.body.refreshToken });
+  expect(refreshed.status).toBe(200);
+  return refreshed;
 }
 
 function seedMarketingFromBooking(marketingRepository: FakeMarketingRepository, venue: ReturnType<FakeBookingRepository["seedVenue"]>["venue"]) {

@@ -12,6 +12,38 @@
 
 > **Source-of-truth note:** This document defines what the product should do and how users should experience it. A separate software-development workflow should govern repository inspection, coding, migrations, testing execution, Git operations, and deployment.
 
+## Authentication and role model
+
+Futsal uses one account identity independently from product roles.
+
+- Every new signup begins as a **simple authenticated user** with no Player, Venue Owner, Team Manager, Referee, staff, competition-admin, or platform-admin role automatically assigned.
+- Signup requires, in this order: **username, phone number, password, confirm password**.
+- Username is required, unique, and limited to **3–12 characters** using letters, numbers, and underscore. Phone number is required and unique.
+- Full name is **not** collected during signup; the user may configure it later from the authenticated account profile.
+- No account type is chosen during signup.
+- Sign-in accepts either the account's **username or phone number**, together with its password.
+- Invalid sign-in credentials use one generic localized message equivalent to **“No user exists with these credentials.”** The response must not reveal whether the username/phone or password was the part that failed.
+- Password and confirm-password inputs provide independent show/hide controls.
+- Every signup input has an input-specific placeholder/example so the expected value is obvious before typing.
+- Signup validates all submitted fields in one pass. Every invalid signup input receives a red border/label and an exact localized error directly below that input; focus moves to the first invalid field in visual/form order.
+- Multiple invalid signup inputs are shown simultaneously rather than stopping after the first error.
+- New passwords require at least 8 characters, at least one letter, at least one number, and at least one special character; the signup screen shows these requirements with live completion indicators.
+- **Forgot password** is phone-based but requires proof of phone ownership: phone → short-lived 6-digit verification code → short-lived reset token → editable username + new password + confirm password → confirmation dialog → credential update.
+- The phone-recovery request must not reveal whether the submitted number exists before verification.
+- A successful reset revokes all refresh sessions immediately. Already-issued access tokens remain bounded by the existing 15-minute access-token lifetime. The confirmation dialog shows username and phone, masks the new password by default, and allows user-controlled reveal.
+- After confirming a credential reset, the mobile app must clear any current local authentication session, return to the Login screen, and require a fresh sign-in using the updated username/phone and new password. Password reset must never auto-authenticate the user.
+- A successful phone/SMS credential reset starts a **72-hour (3-day) credential-reset cooldown**. The cooldown is enforced server-side and atomically at the database boundary. A user who verifies their phone again during the cooldown is told the exact Kabul date/time when credential reset becomes available again. A previously verified reset token cannot bypass the cooldown.
+- Production password reset requires an HTTPS SMS delivery provider; development may expose a reset code only under an explicit non-production development mode.
+- The signup form avoids role-model explanatory copy; it uses a concise sports-oriented signup title and keeps role education for the post-signup role flow.
+- **Profile is the single account/role surface:** username, phone, configured full name, current roles, and self-service role activation live in Profile rather than Home.
+- Account Profile supports optional private personal details: profile image, age, email, city, and short bio. Full name also remains optional after signup. These fields are account data and are not automatically exposed through the public Player Profile.
+- Profile-image entry currently uses an HTTPS image URL with preview because production media storage/upload infrastructure is not yet configured; direct device upload must use the future media-storage pipeline rather than storing local device paths.
+- **Home is discovery-oriented:** it must retain direct access to venue discovery, Feed, and Competitions without showing account identity or role-selection controls. Venue owners may keep operational dashboard content while retaining these discovery entry points.
+- A user may later add participation roles to the same identity. The initial self-service roles are Player, Venue Owner, Team Manager, and Referee.
+- Activating Team Manager also enables Player capability because team participation is built on player identity; actual authority over a team remains object-scoped to that team's manager.
+- Venue Staff, Competition Admin, and Platform Admin are controlled roles and must be assigned through authorized operational workflows rather than self-service.
+- Roles are additive capabilities; they do not create a second login identity or change the user's username/phone credentials.
+
 ---
 
 # 1. Executive Summary

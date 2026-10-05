@@ -1,13 +1,18 @@
 import type { UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { sessions, userRoles, users } from "@leaguekick/database";
-import { eq } from "drizzle-orm";
+import { passwordResetChallenges, sessions, userRoles, users } from "@leaguekick/database";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
-import type { AuthRepository, AuthUserRecord, CreateUserInput, SessionRecord } from "./auth.types.js";
+import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
 
-function isUniqueViolation(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23505";
+function uniqueConstraint(error: unknown, depth = 0): string | null {
+  if (depth > 4 || typeof error !== "object" || error === null) return null;
+  const candidate = error as { code?: unknown; constraint?: unknown; cause?: unknown };
+  if (candidate.code === "23505") {
+    return typeof candidate.constraint === "string" ? candidate.constraint : "";
+  }
+  return uniqueConstraint(candidate.cause, depth + 1);
 }
 
 export class DrizzleAuthRepository implements AuthRepository {
@@ -25,6 +30,12 @@ export class DrizzleAuthRepository implements AuthRepository {
       username: row.username,
       usernameNormalized: row.usernameNormalized,
       phoneE164: row.phoneE164,
+      profileImageUrl: row.profileImageUrl,
+      age: row.age,
+      emailNormalized: row.emailNormalized,
+      city: row.city,
+      bio: row.bio,
+      lastCredentialResetAt: row.lastCredentialResetAt,
       passwordHash: row.passwordHash,
       preferredLanguage: row.preferredLanguage,
       status: row.status,
@@ -66,25 +77,175 @@ export class DrizzleAuthRepository implements AuthRepository {
           preferredLanguage: input.preferredLanguage,
         }).returning();
         if (!row) throw new Error("Failed to create user.");
-        await tx.insert(userRoles).values({ userId: row.id, role: input.role });
         return {
           id: row.id,
           displayName: row.displayName,
           username: row.username,
           usernameNormalized: row.usernameNormalized,
           phoneE164: row.phoneE164,
+          profileImageUrl: row.profileImageUrl,
+          age: row.age,
+          emailNormalized: row.emailNormalized,
+          city: row.city,
+          bio: row.bio,
+          lastCredentialResetAt: row.lastCredentialResetAt,
           passwordHash: row.passwordHash,
           preferredLanguage: row.preferredLanguage,
           status: row.status,
-          roles: [input.role],
+          roles: [],
         };
       });
     } catch (error) {
-      if (isUniqueViolation(error)) {
+      const constraint = uniqueConstraint(error);
+      if (constraint === "users_username_normalized_uq") {
+        throw errors.conflict("USERNAME_ALREADY_EXISTS", "That username is already registered.");
+      }
+      if (constraint === "users_phone_e164_uq") {
+        throw errors.conflict("PHONE_ALREADY_EXISTS", "That phone number is already registered.");
+      }
+      if (constraint !== null) {
         throw errors.conflict("IDENTITY_ALREADY_EXISTS", "That phone number or username is already registered.");
       }
       throw error;
     }
+  }
+
+  async addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord> {
+    if (roles.length > 0) {
+      await this.db.insert(userRoles).values(roles.map((role) => ({ userId, role }))).onConflictDoNothing();
+    }
+    const user = await this.getUserById(userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    return user;
+  }
+
+  async updateAccountProfile(userId: string, input: UpdateAccountProfileInput): Promise<AuthUserRecord> {
+    try {
+      const [row] = await this.db.update(users)
+        .set({
+          displayName: input.displayName,
+          profileImageUrl: input.profileImageUrl,
+          age: input.age,
+          emailNormalized: input.emailNormalized,
+          city: input.city,
+          bio: input.bio,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      if (!row) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+      return this.hydrate(row);
+    } catch (error) {
+      const constraint = uniqueConstraint(error);
+      if (constraint === "users_email_normalized_uq") {
+        throw errors.conflict("EMAIL_ALREADY_EXISTS", "That email address is already in use.");
+      }
+      throw error;
+    }
+  }
+
+  async createPasswordResetChallenge(input: {
+    userId: string | null;
+    phoneE164: string;
+    codeHash: string;
+    expiresAt: Date;
+  }): Promise<PasswordResetChallengeRecord> {
+    const [row] = await this.db.insert(passwordResetChallenges).values(input).returning();
+    if (!row) throw new Error("Failed to create password reset challenge.");
+    return row;
+  }
+
+  async getPasswordResetChallenge(id: string): Promise<PasswordResetChallengeRecord | null> {
+    const [row] = await this.db.select().from(passwordResetChallenges).where(eq(passwordResetChallenges.id, id)).limit(1);
+    return row ?? null;
+  }
+
+  async incrementPasswordResetAttempts(id: string): Promise<void> {
+    const challenge = await this.getPasswordResetChallenge(id);
+    if (!challenge) return;
+    await this.db.update(passwordResetChallenges)
+      .set({ attempts: challenge.attempts + 1 })
+      .where(eq(passwordResetChallenges.id, id));
+  }
+
+  async verifyPasswordResetChallenge(input: {
+    id: string;
+    resetTokenHash: string;
+    resetTokenExpiresAt: Date;
+  }): Promise<void> {
+    await this.db.update(passwordResetChallenges)
+      .set({
+        verifiedAt: new Date(),
+        resetTokenHash: input.resetTokenHash,
+        resetTokenExpiresAt: input.resetTokenExpiresAt,
+      })
+      .where(eq(passwordResetChallenges.id, input.id));
+  }
+
+  async completePasswordReset(input: {
+    challengeId: string;
+    userId: string;
+    username: string;
+    usernameNormalized: string;
+    passwordHash: string;
+    credentialResetAt: Date;
+    cooldownCutoff: Date;
+  }): Promise<AuthUserRecord> {
+    try {
+      await this.db.transaction(async (tx) => {
+        const [updated] = await tx.update(users)
+          .set({
+            username: input.username,
+            usernameNormalized: input.usernameNormalized,
+            passwordHash: input.passwordHash,
+            lastCredentialResetAt: input.credentialResetAt,
+            updatedAt: input.credentialResetAt,
+          })
+          .where(and(
+            eq(users.id, input.userId),
+            or(
+              isNull(users.lastCredentialResetAt),
+              lte(users.lastCredentialResetAt, input.cooldownCutoff),
+            ),
+          ))
+          .returning({ id: users.id });
+
+        if (!updated) {
+          const [current] = await tx.select({ lastCredentialResetAt: users.lastCredentialResetAt })
+            .from(users)
+            .where(eq(users.id, input.userId))
+            .limit(1);
+          if (!current) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+
+          const cooldownMs = input.credentialResetAt.getTime() - input.cooldownCutoff.getTime();
+          const availableAt = current.lastCredentialResetAt
+            ? new Date(current.lastCredentialResetAt.getTime() + cooldownMs).toISOString()
+            : input.credentialResetAt.toISOString();
+          throw errors.conflict(
+            "PASSWORD_RESET_COOLDOWN",
+            "Credential reset is temporarily locked.",
+            { availableAt },
+          );
+        }
+
+        await tx.update(passwordResetChallenges)
+          .set({ consumedAt: input.credentialResetAt })
+          .where(eq(passwordResetChallenges.id, input.challengeId));
+        await tx.update(sessions)
+          .set({ revokedAt: input.credentialResetAt, lastSeenAt: input.credentialResetAt })
+          .where(eq(sessions.userId, input.userId));
+      });
+    } catch (error) {
+      const constraint = uniqueConstraint(error);
+      if (constraint === "users_username_normalized_uq") {
+        throw errors.conflict("USERNAME_ALREADY_EXISTS", "That username is already registered.");
+      }
+      throw error;
+    }
+
+    const user = await this.getUserById(input.userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    return user;
   }
 
   async createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }): Promise<SessionRecord> {
@@ -109,5 +270,11 @@ export class DrizzleAuthRepository implements AuthRepository {
 
   async revokeSessionByRefreshHash(refreshTokenHash: string): Promise<void> {
     await this.db.update(sessions).set({ revokedAt: new Date(), lastSeenAt: new Date() }).where(eq(sessions.refreshTokenHash, refreshTokenHash));
+  }
+
+  async revokeAllSessionsForUser(userId: string): Promise<void> {
+    await this.db.update(sessions)
+      .set({ revokedAt: new Date(), lastSeenAt: new Date() })
+      .where(eq(sessions.userId, userId));
   }
 }

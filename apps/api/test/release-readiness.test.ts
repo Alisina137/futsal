@@ -93,6 +93,9 @@ describe("Phase 8 release readiness", () => {
       DATABASE_URL: "postgresql://example",
       CORS_ORIGIN: "https://app.example.com,https://admin.example.com",
       ACCESS_TOKEN_SECRET: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN",
+      PASSWORD_RESET_SECRET: "reset0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN",
+      PASSWORD_RESET_SMS_WEBHOOK_URL: "https://sms.example.com/password-reset",
+      PASSWORD_RESET_DEV_MODE: "false",
       APP_VERSION: "1.0.0",
       REQUEST_LOGGING: "true",
     });

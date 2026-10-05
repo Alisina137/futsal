@@ -53,6 +53,14 @@ export function OwnerDashboard() {
       <AppText muted>{t("owner.dashboardSubtitle")}</AppText>
     </View>
 
+    <Card>
+      <AppText variant="bodyLarge" weight="bold">{t("home.discoveryTitle")}</AppText>
+      <AppText muted>{t("home.discoveryBody")}</AppText>
+      <Button label={t("booking.findVenue")} onPress={() => router.push("/venues")} variant="secondary" />
+      <Button label={t("feed.title")} onPress={() => router.push("/feed")} variant="secondary" />
+      <Button label={t("competition.title")} onPress={() => router.push("/competitions")} variant="secondary" />
+    </Card>
+
     {error ? <Card>
       <AppText style={{ color: colors.danger }}>{error}</AppText>
       <Button label={t("common.retry")} onPress={() => void load()} variant="secondary" />

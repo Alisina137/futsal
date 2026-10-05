@@ -1,4 +1,5 @@
 import type {
+  AccountProfileUpdateRequest,
   ApiErrorBody,
   AuthResponse,
   LoginRequest,
@@ -7,6 +8,12 @@ import type {
   PublicVenueDto,
   PublicVenueListResponse,
   RegisterRequest,
+  PasswordResetRequest,
+  PasswordResetRequestResponse,
+  PasswordResetVerifyRequest,
+  PasswordResetVerifyResponse,
+  PasswordResetCompleteRequest,
+  SelfAssignableRole,
   UserDto,
   VenueAvailabilityResponse,
   BookingDto,
@@ -71,6 +78,7 @@ export class ApiRequestError extends Error {
     readonly status: number | null,
     readonly requestId: string | null = null,
     readonly retryable: boolean = false,
+    readonly details: unknown = undefined,
   ) {
     super(message);
     this.name = "ApiRequestError";
@@ -119,6 +127,7 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
           response.status,
           errorBody?.error?.requestId ?? requestId,
           RETRYABLE_HTTP_STATUSES.has(response.status),
+          errorBody?.error?.details,
         );
         if (safeRead && error.retryable && attempt + 1 < maxAttempts) {
           await delay(READ_RETRY_DELAY_MS);
@@ -162,8 +171,18 @@ export const systemApi = {
 export const authApi = {
   register: (input: RegisterRequest) => request<AuthResponse>("/api/v1/auth/register", { method: "POST", body: JSON.stringify(input) }),
   login: (input: LoginRequest) => request<AuthResponse>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(input) }),
+  requestPasswordReset: (input: PasswordResetRequest) =>
+    request<PasswordResetRequestResponse>("/api/v1/auth/password-reset/request", { method: "POST", body: JSON.stringify(input) }),
+  verifyPasswordReset: (input: PasswordResetVerifyRequest) =>
+    request<PasswordResetVerifyResponse>("/api/v1/auth/password-reset/verify", { method: "POST", body: JSON.stringify(input) }),
+  completePasswordReset: (input: PasswordResetCompleteRequest) =>
+    request<void>("/api/v1/auth/password-reset/complete", { method: "POST", body: JSON.stringify(input) }),
   refresh: (refreshToken: string) => request<AuthResponse>("/api/v1/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   logout: (refreshToken: string) => request<void>("/api/v1/auth/logout", { method: "POST", body: JSON.stringify({ refreshToken }) }),
+  activateRole: (accessToken: string, role: SelfAssignableRole) =>
+    request<{ user: UserDto }>("/api/v1/auth/roles/activate", { method: "POST", body: JSON.stringify({ role }) }, accessToken),
+  updateProfile: (accessToken: string, input: AccountProfileUpdateRequest) =>
+    request<{ user: UserDto }>("/api/v1/users/me", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
   me: (accessToken: string) => request<{ user: UserDto }>("/api/v1/users/me", {}, accessToken),
 };
 

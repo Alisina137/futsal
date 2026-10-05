@@ -32,22 +32,35 @@ async function register(
   teamRepository: FakeTeamRepository,
   input: { phone: string; username: string; displayName: string },
 ) {
-  const response = await request(app).post("/api/v1/auth/register").send({
-    displayName: input.displayName,
+  const password = "strong-pass-5!";
+  const registration = await request(app).post("/api/v1/auth/register").send({
     phone: input.phone,
     username: input.username,
-    password: "strong-pass-5!",
+    password,
+    confirmPassword: password,
     preferredLanguage: "fa-AF",
-    accountType: "PLAYER",
   });
-  expect(response.status).toBe(201);
+  expect(registration.status).toBe(201);
+
+  const activated = await request(app)
+    .post("/api/v1/auth/roles/activate")
+    .set("Authorization", `Bearer ${registration.body.accessToken}`)
+    .send({ role: "PLAYER" });
+  expect(activated.status).toBe(200);
+
+  const refreshed = await request(app)
+    .post("/api/v1/auth/refresh")
+    .send({ refreshToken: registration.body.refreshToken });
+  expect(refreshed.status).toBe(200);
+
   teamRepository.seedUser({
-    id: response.body.user.id,
-    displayName: response.body.user.displayName,
-    username: response.body.user.username,
-    phoneE164: response.body.user.phone,
+    id: refreshed.body.user.id,
+    displayName: input.displayName,
+    username: refreshed.body.user.username,
+    phoneE164: refreshed.body.user.phone,
+    roles: ["PLAYER"],
   });
-  return response.body as { accessToken: string; user: { id: string; phone: string } };
+  return refreshed.body as { accessToken: string; user: { id: string; phone: string } };
 }
 
 async function createTeam(app: ReturnType<typeof createApp>, token: string) {
@@ -63,19 +76,19 @@ describe("Phase 5 team invitations", () => {
     const { app, teamRepository, notificationRepository } = setup();
     const manager = await register(app, teamRepository, {
       phone: "0705560001",
-      username: "invite_manager",
+      username: "inv_manager",
       displayName: "Invite Manager",
     });
     const player = await register(app, teamRepository, {
       phone: "0705560002",
-      username: "invite_player",
+      username: "inv_player",
       displayName: "Invite Player",
     });
     const team = await createTeam(app, manager.accessToken);
 
     const invited = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "invite_player", role: "CAPTAIN", shirtNumber: 9 });
+      .send({ identifier: "inv_player", role: "CAPTAIN", shirtNumber: 9 });
 
     expect(invited.status).toBe(201);
     expect(invited.body.invitation.status).toBe("PENDING");
@@ -84,7 +97,7 @@ describe("Phase 5 team invitations", () => {
 
     const duplicate = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "invite_player", role: "PLAYER" });
+      .send({ identifier: "inv_player", role: "PLAYER" });
     expect(duplicate.status).toBe(409);
     expect(duplicate.body.error.code).toBe("TEAM_INVITATION_PENDING");
 
@@ -106,12 +119,12 @@ describe("Phase 5 team invitations", () => {
     const { app, teamRepository, notificationRepository } = setup();
     const manager = await register(app, teamRepository, {
       phone: "0705560011",
-      username: "quiet_manager",
+      username: "q_manager",
       displayName: "Quiet Manager",
     });
     const player = await register(app, teamRepository, {
       phone: "0705560012",
-      username: "quiet_player",
+      username: "q_player",
       displayName: "Quiet Player",
     });
     const team = await createTeam(app, manager.accessToken);
@@ -122,7 +135,7 @@ describe("Phase 5 team invitations", () => {
 
     const invited = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "quiet_player", role: "PLAYER" });
+      .send({ identifier: "q_player", role: "PLAYER" });
 
     expect(invited.status).toBe(201);
     expect(notificationRepository.notifications).toHaveLength(0);
@@ -137,19 +150,19 @@ describe("Phase 5 team invitations", () => {
     const { app, teamRepository, clock } = setup();
     const manager = await register(app, teamRepository, {
       phone: "0705560021",
-      username: "expiry_manager",
+      username: "exp_manager",
       displayName: "Expiry Manager",
     });
     const player = await register(app, teamRepository, {
       phone: "0705560022",
-      username: "expiry_player",
+      username: "exp_player",
       displayName: "Expiry Player",
     });
     const team = await createTeam(app, manager.accessToken);
 
     const invited = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "expiry_player", role: "PLAYER" });
+      .send({ identifier: "exp_player", role: "PLAYER" });
     expect(invited.status).toBe(201);
 
     clock.now = new Date("2026-10-12T00:00:01.000Z");
@@ -168,19 +181,19 @@ describe("Phase 5 team invitations", () => {
     const { app, teamRepository } = setup();
     const manager = await register(app, teamRepository, {
       phone: "0705560041",
-      username: "transfer_manager",
+      username: "tr_manager",
       displayName: "Transfer Manager",
     });
     const player = await register(app, teamRepository, {
       phone: "0705560042",
-      username: "transfer_player",
+      username: "tr_player",
       displayName: "Transfer Player",
     });
     const team = await createTeam(app, manager.accessToken);
 
     const invited = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "transfer_player", role: "PLAYER" });
+      .send({ identifier: "tr_player", role: "PLAYER" });
     await request(app).post(`/api/v1/teams/invitations/${invited.body.invitation.id}/accept`)
       .set("Authorization", `Bearer ${player.accessToken}`);
 
@@ -207,24 +220,24 @@ describe("Phase 5 team invitations", () => {
     const { app, teamRepository } = setup();
     const manager = await register(app, teamRepository, {
       phone: "0705560031",
-      username: "revoke_manager",
+      username: "rv_manager",
       displayName: "Revoke Manager",
     });
     const outsider = await register(app, teamRepository, {
       phone: "0705560032",
-      username: "revoke_outsider",
+      username: "rv_outsider",
       displayName: "Revoke Outsider",
     });
     const player = await register(app, teamRepository, {
       phone: "0705560033",
-      username: "revoke_player",
+      username: "rv_player",
       displayName: "Revoke Player",
     });
     const team = await createTeam(app, manager.accessToken);
 
     const invited = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "revoke_player", role: "PLAYER" });
+      .send({ identifier: "rv_player", role: "PLAYER" });
 
     const forbidden = await request(app).delete(`/api/v1/teams/${team.id}/invitations/${invited.body.invitation.id}`)
       .set("Authorization", `Bearer ${outsider.accessToken}`);

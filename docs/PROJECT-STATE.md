@@ -21,7 +21,19 @@ Increase futsal venue utilization and revenue through reliable availability and 
 ## Core architecture decisions
 - Structured monolith; no microservices.
 - Mobile is the primary customer interface.
+- Authentication identity is separate from product roles: signup creates a role-free base user with required username + phone + password confirmation; roles are activated later.
+- Usernames are unique, 3–12 characters, and use letters/numbers/underscore.
+- Login accepts either normalized Afghanistan phone or normalized username with the same password and returns one generic invalid-credentials message.
+- Full name is configured after signup; it is not a registration requirement.
+- Password recovery is phone-based but verification-gated: 6-digit short-lived code → short-lived reset token → username/password update → refresh sessions revoked; existing access tokens remain bounded by the 15-minute access-token TTL.
+- A successful phone/SMS credential reset starts a 72-hour cooldown; after verified phone ownership, attempts during the cooldown receive the exact next-allowed timestamp, and the final reset write enforces the same cooldown atomically.
+- Recovery requests do not reveal phone/account existence before code verification; production requires an HTTPS SMS delivery provider while local development may expose the code only in explicit non-production dev mode.
+- Self-service role activation is limited to PLAYER, VENUE_OWNER, TEAM_MANAGER and REFEREE; privileged staff/admin roles remain controlled.
+- Profile is the single mobile surface for account identity and role selection/activation; Home does not expose username/phone/role controls.
+- Account Profile supports optional full name, HTTPS profile image, age, email, city and short bio; these remain private account fields and do not automatically become public Player Profile data.
+- Home remains discovery-oriented with venue discovery, Feed, and Competitions available to authenticated users; owner Home retains operational dashboard content plus these discovery entry points.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
+- `pnpm db:migrate` now executes the runtime Drizzle migrator directly from the database package, normalizes Neon SSL modes to explicit `verify-full`, and prints the underlying PostgreSQL code/detail/hint instead of only a recursive pnpm failure.
 - Server owns authorization, venue ownership, entitlement, live availability, confirmation price, promotion validity and notification fan-out.
 - One Venue Owner account maps to at most one venue.
 - Premium trial is exactly 72 hours and starts explicitly.
@@ -48,7 +60,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Afghanistan launch venue timezone defaults to `Asia/Kabul`; persisted timestamps are UTC instants.
 
 ## Current implementation phase
-Phase 8 — Release Readiness.
+Pre-release verification and corrections after Phase 8 — Release Readiness.
 
 All Phase 8 implementation tasks are integrated on `phase-08-release-readiness`: Android release configuration/assets, production security and observability hardening, mobile resilience/safe recovery, accessibility/localization review, support/backup/monitoring tooling, and the final release verification/test plan.
 
@@ -61,8 +73,11 @@ Committed canonical migrations:
 - `0004_past_goliath` — Phase 5.
 - `0005_robust_smiling_tiger` — Phase 6 competition engine.
 - `0006_phase7_commercial_core` — Phase 7 venue verification, subscription payments and platform configuration.
+- `0007_password_reset_challenges` — pre-release secure phone verification/password reset challenges.
+- `0008_account_profile_fields` — optional private account profile image URL, age, city and bio fields; email uses the existing normalized unique column.
+- `0009_password_reset_cooldown` — authoritative last successful credential-reset timestamp for the 72-hour cooldown.
 
-The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 has no database schema change and adds no migration.
+The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 itself had no database schema change. Pre-release authentication corrections add `0007_password_reset_challenges.sql`; it is committed but must not be marked applied until the user runs `pnpm db:migrate` successfully.
 
 ## Phase 1 status
 Foundation implemented and previously verified.

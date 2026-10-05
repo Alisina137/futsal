@@ -14,14 +14,11 @@ export const userRoleSchema = z.enum([
 ]);
 export type UserRole = z.infer<typeof userRoleSchema>;
 
-export const accountTypeSchema = z.enum(["PLAYER", "VENUE_OWNER"]);
-export type AccountType = z.infer<typeof accountTypeSchema>;
-
 export const usernameSchema = z
   .string()
   .trim()
   .min(3)
-  .max(30)
+  .max(12)
   .regex(/^[A-Za-z0-9_]+$/, "Username may contain only letters, numbers, and underscore.");
 
 export const phoneInputSchema = z
@@ -33,26 +30,96 @@ export const phoneInputSchema = z
 
 export const passwordSchema = z.string().min(8).max(128);
 
-export const newPasswordSchema = passwordSchema.regex(
-  /[^\p{L}\p{N}\s]/u,
-  "Password must include at least one special character.",
-);
+export const newPasswordSchema = passwordSchema
+  .regex(/\p{L}/u, "Password must include at least one letter.")
+  .regex(/\p{N}/u, "Password must include at least one number.")
+  .regex(
+    /[^\p{L}\p{N}\s]/u,
+    "Password must include at least one special character.",
+  );
 
 export const registerRequestSchema = z.object({
-  displayName: z.string().trim().min(2).max(80),
+  username: usernameSchema,
   phone: phoneInputSchema,
-  username: usernameSchema.optional().or(z.literal("")),
   password: newPasswordSchema,
+  confirmPassword: newPasswordSchema,
   preferredLanguage: languageCodeSchema.default("fa-AF"),
-  accountType: accountTypeSchema,
+}).superRefine((value, ctx) => {
+  if (value.password !== value.confirmPassword) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["confirmPassword"],
+      message: "Passwords do not match.",
+    });
+  }
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
+
+export const selfAssignableRoleSchema = z.enum(["PLAYER", "VENUE_OWNER", "TEAM_MANAGER", "REFEREE"]);
+export type SelfAssignableRole = z.infer<typeof selfAssignableRoleSchema>;
+
+export const selfRoleActivationRequestSchema = z.object({
+  role: selfAssignableRoleSchema,
+});
+export type SelfRoleActivationRequest = z.infer<typeof selfRoleActivationRequestSchema>;
+
+export const accountProfileUpdateRequestSchema = z.object({
+  displayName: z.string().trim().max(80).optional().or(z.literal("")),
+  profileImageUrl: z.string().trim().url().refine((value) => value.startsWith("https://"), "Use an HTTPS image URL.").optional().or(z.literal("")),
+  age: z.number().int().min(1).max(120).nullable().optional(),
+  email: z.string().trim().email().max(320).optional().or(z.literal("")),
+  city: z.string().trim().max(80).optional().or(z.literal("")),
+  bio: z.string().trim().max(280).optional().or(z.literal("")),
+});
+export type AccountProfileUpdateRequest = z.infer<typeof accountProfileUpdateRequestSchema>;
 
 export const loginRequestSchema = z.object({
   identifier: z.string().trim().min(3).max(80),
   password: passwordSchema,
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
+
+export const passwordResetRequestSchema = z.object({
+  phone: phoneInputSchema,
+});
+export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;
+
+export const passwordResetVerifySchema = z.object({
+  requestId: z.string().uuid(),
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit verification code."),
+});
+export type PasswordResetVerifyRequest = z.infer<typeof passwordResetVerifySchema>;
+
+export const passwordResetCompleteSchema = z.object({
+  requestId: z.string().uuid(),
+  resetToken: z.string().min(32),
+  username: usernameSchema,
+  password: newPasswordSchema,
+  confirmPassword: newPasswordSchema,
+}).superRefine((value, ctx) => {
+  if (value.password !== value.confirmPassword) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["confirmPassword"],
+      message: "Passwords do not match.",
+    });
+  }
+});
+export type PasswordResetCompleteRequest = z.infer<typeof passwordResetCompleteSchema>;
+
+export type PasswordResetRequestResponse = {
+  requestId: string;
+  expiresAt: string;
+  debugCode?: string;
+};
+
+export type PasswordResetVerifyResponse = {
+  requestId: string;
+  resetToken: string;
+  resetTokenExpiresAt: string;
+  username: string;
+  phone: string;
+};
 
 export const refreshRequestSchema = z.object({ refreshToken: z.string().min(32) });
 export const logoutRequestSchema = refreshRequestSchema;
@@ -62,6 +129,11 @@ export const userDtoSchema = z.object({
   displayName: z.string(),
   username: z.string().nullable(),
   phone: z.string(),
+  profileImageUrl: z.string().nullable(),
+  age: z.number().int().min(1).max(120).nullable(),
+  email: z.string().nullable(),
+  city: z.string().nullable(),
+  bio: z.string().nullable(),
   preferredLanguage: languageCodeSchema,
   roles: z.array(userRoleSchema),
   status: z.enum(["ACTIVE", "SUSPENDED"]),

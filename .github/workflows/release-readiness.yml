@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - phase-08-release-readiness
+      - pre-release-auth-identity-roles
   pull_request:
     branches:
       - main

@@ -65,6 +65,11 @@ export const users = pgTable(
     phoneE164: varchar("phone_e164", { length: 20 }).notNull(),
     phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
     emailNormalized: varchar("email_normalized", { length: 320 }),
+    profileImageUrl: text("profile_image_url"),
+    age: integer("age"),
+    city: varchar("city", { length: 80 }),
+    bio: varchar("bio", { length: 280 }),
+    lastCredentialResetAt: timestamp("last_credential_reset_at", { withTimezone: true }),
     passwordHash: text("password_hash").notNull(),
     preferredLanguage: languageCodeEnum("preferred_language").notNull().default("fa-AF"),
     status: userStatusEnum("status").notNull().default("ACTIVE"),
@@ -106,6 +111,28 @@ export const sessions = pgTable(
     uniqueIndex("sessions_refresh_token_hash_uq").on(table.refreshTokenHash),
     index("sessions_user_id_idx").on(table.userId),
     index("sessions_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
+export const passwordResetChallenges = pgTable(
+  "password_reset_challenges",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    phoneE164: varchar("phone_e164", { length: 20 }).notNull(),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    resetTokenHash: varchar("reset_token_hash", { length: 64 }),
+    resetTokenExpiresAt: timestamp("reset_token_expires_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("password_reset_phone_created_idx").on(table.phoneE164, table.createdAt),
+    index("password_reset_expires_idx").on(table.expiresAt),
+    index("password_reset_user_idx").on(table.userId),
   ],
 );
 
@@ -664,6 +691,7 @@ export type VenueBlockRow = typeof venueBlocks.$inferSelect;
 export type BookingRow = typeof bookings.$inferSelect;
 export type VenuePromotionRow = typeof venuePromotions.$inferSelect;
 export type VenuePostRow = typeof venuePosts.$inferSelect;
+export type PasswordResetChallengeRow = typeof passwordResetChallenges.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
 export type PlayerProfileRow = typeof playerProfiles.$inferSelect;
 export type TeamRow = typeof teams.$inferSelect;

@@ -20,6 +20,27 @@ The integrated CI workflow repeats the repository verification from a clean inst
 
 ## Critical E2E journeys
 
+Before the booking/competition journeys, verify authentication identity:
+
+- new signup contains username, phone, password and confirm password only;
+- after one successful phone-verified credential reset, a second reset within 72 hours is rejected with the exact next-allowed Kabul date/time;
+- a reset token verified before the first reset is also rejected if used after the cooldown begins, proving the final reset endpoint cannot be raced/bypassed;
+- all four signup inputs show input-specific placeholders, with a concise password example;
+- submitting multiple invalid signup fields marks all of them red, shows a localized field-specific message below each, and focuses the first invalid field;
+- username accepts 3–12 characters only;
+- duplicate username highlights Username; duplicate phone highlights Phone;
+- invalid sign-in credentials show one generic localized message and do not reveal whether the identifier or password matched;
+- Forgot Password accepts a phone number, proceeds generically without revealing account existence, requires a 6-digit verification code, then displays the verified account username with new password + confirm password;
+- reset confirmation dialog shows username and phone, masks the new password by default with an optional reveal control, and requires explicit confirmation;
+- after confirmed reset, refresh sessions are revoked and the user returns to sign-in; old credentials fail and the new credentials succeed; already-issued access tokens remain bounded by the 15-minute access-token lifetime;
+- password guidance visibly checks 8+ characters, at least one letter, at least one number, special character, and password confirmation;
+- registration rejects passwords missing a letter, a number, or a special character;
+- new account has no product role;
+- username and phone can each sign in to the same account;
+- full name can be added later from Account Profile;
+- Player/Venue Owner/Team Manager/Referee can be activated later without changing login credentials;
+- privileged staff/admin roles cannot be self-assigned.
+
 Exercise each journey on the preview APK against a pilot API/database:
 
 1. Player discovers a venue, opens availability and confirms a slot.
