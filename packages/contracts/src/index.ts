@@ -18,7 +18,7 @@ export const usernameSchema = z
   .string()
   .trim()
   .min(3)
-  .max(30)
+  .max(12)
   .regex(/^[A-Za-z0-9_]+$/, "Username may contain only letters, numbers, and underscore.");
 
 export const phoneInputSchema = z
@@ -73,6 +73,48 @@ export const loginRequestSchema = z.object({
   password: passwordSchema,
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
+
+export const passwordResetRequestSchema = z.object({
+  phone: phoneInputSchema,
+});
+export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;
+
+export const passwordResetVerifySchema = z.object({
+  requestId: z.string().uuid(),
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit verification code."),
+});
+export type PasswordResetVerifyRequest = z.infer<typeof passwordResetVerifySchema>;
+
+export const passwordResetCompleteSchema = z.object({
+  requestId: z.string().uuid(),
+  resetToken: z.string().min(32),
+  username: usernameSchema,
+  password: newPasswordSchema,
+  confirmPassword: newPasswordSchema,
+}).superRefine((value, ctx) => {
+  if (value.password !== value.confirmPassword) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["confirmPassword"],
+      message: "Passwords do not match.",
+    });
+  }
+});
+export type PasswordResetCompleteRequest = z.infer<typeof passwordResetCompleteSchema>;
+
+export type PasswordResetRequestResponse = {
+  requestId: string;
+  expiresAt: string;
+  debugCode?: string;
+};
+
+export type PasswordResetVerifyResponse = {
+  requestId: string;
+  resetToken: string;
+  resetTokenExpiresAt: string;
+  username: string;
+  phone: string;
+};
 
 export const refreshRequestSchema = z.object({ refreshToken: z.string().min(32) });
 export const logoutRequestSchema = refreshRequestSchema;
