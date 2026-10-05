@@ -14,6 +14,7 @@ export function LanguagePicker() {
       return <Pressable
         key={item.code}
         accessibilityRole="radio"
+        accessibilityLabel={item.nativeName}
         accessibilityState={{checked:selected}}
         onPress={()=>void setLanguage(item.code as LanguageCode)}
         style={({pressed})=>[
