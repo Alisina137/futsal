@@ -50,6 +50,13 @@
       "when": 1791169200000,
       "tag": "0006_phase7_commercial_core",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791172200000,
+      "tag": "0007_password_reset_challenges",
+      "breakpoints": true
     }
   ]
 }
