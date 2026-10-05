@@ -1,4 +1,5 @@
 import type {
+  AccountProfileUpdateRequest,
   ApiErrorBody,
   AuthResponse,
   LoginRequest,
@@ -167,6 +168,8 @@ export const authApi = {
   logout: (refreshToken: string) => request<void>("/api/v1/auth/logout", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   activateRole: (accessToken: string, role: SelfAssignableRole) =>
     request<{ user: UserDto }>("/api/v1/auth/roles/activate", { method: "POST", body: JSON.stringify({ role }) }, accessToken),
+  updateProfile: (accessToken: string, input: AccountProfileUpdateRequest) =>
+    request<{ user: UserDto }>("/api/v1/users/me", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
   me: (accessToken: string) => request<{ user: UserDto }>("/api/v1/users/me", {}, accessToken),
 };
 
