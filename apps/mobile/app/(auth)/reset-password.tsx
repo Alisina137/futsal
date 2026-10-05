@@ -20,6 +20,7 @@ import { Button } from "../../src/components/ui/Button";
 import { Card } from "../../src/components/ui/Card";
 import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
+import { useAuth } from "../../src/providers/AuthProvider";
 import { useLocale } from "../../src/providers/LocaleProvider";
 
 type Field="username"|"password"|"confirmPassword";
@@ -27,6 +28,7 @@ type FieldErrors=Partial<Record<Field,string>>;
 
 export default function ResetPasswordScreen(){
   const {t,isRTL}=useLocale();
+  const {signOut}=useAuth();
   const resetSession=getPasswordResetSession();
 
   const usernameRef=useRef<TextInput>(null);
@@ -140,6 +142,7 @@ export default function ResetPasswordScreen(){
       });
       setDialogVisible(false);
       clearPasswordResetSession();
+      await signOut();
       router.replace({pathname:"/login",params:{reset:"success"}});
     }catch(cause){
       setDialogVisible(false);
