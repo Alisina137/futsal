@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
-import { loginRequestSchema, logoutRequestSchema, refreshRequestSchema, registerRequestSchema } from "@leaguekick/contracts";
+import { loginRequestSchema, logoutRequestSchema, refreshRequestSchema, registerRequestSchema, selfRoleActivationRequestSchema } from "@leaguekick/contracts";
+import { requireAuth } from "../../middleware/auth.js";
+import type { TokenService } from "./token.service.js";
 import type { AuthService } from "./auth.service.js";
 
-export function createAuthRouter(auth: AuthService) {
+export function createAuthRouter(auth: AuthService, tokens: TokenService) {
   const router = Router();
   const limiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
   router.use(limiter);
@@ -12,6 +14,13 @@ export function createAuthRouter(auth: AuthService) {
     try {
       const input = registerRequestSchema.parse(request.body);
       response.status(201).json(await auth.register(input, request.get("user-agent") ?? undefined));
+    } catch (error) { next(error); }
+  });
+
+  router.post("/roles/activate", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const input = selfRoleActivationRequestSchema.parse(request.body);
+      response.json({ user: await auth.activateSelfRole(request.auth!.userId, input.role) });
     } catch (error) { next(error); }
   });
 
