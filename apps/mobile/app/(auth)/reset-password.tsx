@@ -120,12 +120,20 @@ export default function ResetPasswordScreen(){
   }
 
   async function confirmReset(){
+    const activeResetSession=getPasswordResetSession();
+    if(!activeResetSession){
+      setDialogVisible(false);
+      setFormError(t("auth.resetExpired"));
+      router.replace("/forgot-password");
+      return;
+    }
+
     setBusy(true);
     setFormError(null);
     try{
       await authApi.completePasswordReset({
-        requestId:resetSession.requestId,
-        resetToken:resetSession.resetToken,
+        requestId:activeResetSession.requestId,
+        resetToken:activeResetSession.resetToken,
         username:username.trim(),
         password,
         confirmPassword,
