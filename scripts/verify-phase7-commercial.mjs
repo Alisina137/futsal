@@ -77,6 +77,7 @@ for (const marker of [
 requireText(app, "createOwnerCommercialRouter", "Phase 7 app wiring missing");
 requireText(app, "createAdminRouter", "Phase 7 admin wiring missing");
 requireText(server, "CommercialService", "Phase 7 server wiring missing");
+requireText(server, "setAccessValidator", "Immediate suspended-user access revocation missing");
 requireText(ownerService, "trialDurationMs", "Configurable trial duration is not wired");
 
 for (const marker of [
