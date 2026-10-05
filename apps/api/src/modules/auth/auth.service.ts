@@ -1,5 +1,5 @@
 import argon2 from "argon2";
-import type { AuthResponse, LoginRequest, RegisterRequest, SelfAssignableRole } from "@leaguekick/contracts";
+import type { AccountProfileUpdateRequest, AuthResponse, LoginRequest, RegisterRequest, SelfAssignableRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone, normalizeUsername } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord } from "./auth.types.js";
@@ -68,6 +68,13 @@ export class AuthService {
       ? (["PLAYER", "TEAM_MANAGER"] as const)
       : ([role] as const);
     return toUserDto(await this.repository.addRoles(userId, [...roles]));
+  }
+
+  async updateProfile(userId: string, input: AccountProfileUpdateRequest) {
+    const user = await this.repository.getUserById(userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    this.ensureActive(user);
+    return toUserDto(await this.repository.updateDisplayName(userId, input.displayName.trim()));
   }
 
   async login(input: LoginRequest, deviceLabel?: string): Promise<AuthResponse> {
