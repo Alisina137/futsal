@@ -24,9 +24,13 @@ Before the booking/competition journeys, verify authentication identity:
 
 - new signup contains username, phone, password and confirm password only;
 - all four signup inputs show input-specific placeholders, with a concise password example;
-- submitting multiple invalid signup/sign-in fields marks all of them red, shows a localized field-specific message below each, and focuses the first invalid field;
+- submitting multiple invalid signup fields marks all of them red, shows a localized field-specific message below each, and focuses the first invalid field;
+- username accepts 3–12 characters only;
 - duplicate username highlights Username; duplicate phone highlights Phone;
-- wrong sign-in credentials mark both identifier and password without revealing which credential matched;
+- invalid sign-in credentials show one generic localized message and do not reveal whether the identifier or password matched;
+- Forgot Password accepts a phone number, proceeds generically without revealing account existence, requires a 6-digit verification code, then displays the verified account username with new password + confirm password;
+- reset confirmation dialog shows username and phone, masks the new password by default with an optional reveal control, and requires explicit confirmation;
+- after confirmed reset, all old sessions are revoked and the user returns to sign-in; old credentials fail and the new credentials succeed;
 - password guidance visibly checks 8+ characters, at least one letter, at least one number, special character, and password confirmation;
 - registration rejects passwords missing a letter, a number, or a special character;
 - new account has no product role;
