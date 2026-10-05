@@ -13,80 +13,52 @@ import { TextField } from "../../src/components/ui/TextField";
 import { useAuth } from "../../src/providers/AuthProvider";
 import { useLocale } from "../../src/providers/LocaleProvider";
 
-type LoginField="identifier"|"password";
-type FieldErrors=Partial<Record<LoginField,string>>;
-
 export default function LoginScreen(){
   const {t,isRTL}=useLocale();
   const {signIn}=useAuth();
   const identifierRef=useRef<TextInput>(null);
   const passwordRef=useRef<TextInput>(null);
-
   const [identifier,setIdentifier]=useState("");
   const [password,setPassword]=useState("");
-  const [fieldErrors,setFieldErrors]=useState<FieldErrors>({});
+  const [invalidIdentifier,setInvalidIdentifier]=useState(false);
+  const [invalidPassword,setInvalidPassword]=useState(false);
   const [formError,setFormError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
 
-  function focusField(field:LoginField){
-    (field==="identifier"?identifierRef:passwordRef).current?.focus();
-  }
-
-  function applyFieldErrors(next:FieldErrors){
-    setFieldErrors(next);
-    const first=(["identifier","password"] as const).find((field)=>Boolean(next[field]));
-    if(first) requestAnimationFrame(()=>focusField(first));
-  }
-
-  function clearFieldError(field:LoginField){
-    setFieldErrors((current)=>{
-      if(!current[field]) return current;
-      const next={...current};
-      delete next[field];
-      return next;
-    });
+  function clearErrors(){
+    setInvalidIdentifier(false);
+    setInvalidPassword(false);
     setFormError(null);
-  }
-
-  function validate(){
-    const next:FieldErrors={};
-    const cleanIdentifier=identifier.trim();
-
-    if(!cleanIdentifier){
-      next.identifier=t("validation.required");
-    }else if(cleanIdentifier.length<3){
-      next.identifier=t("auth.identifierInvalid");
-    }
-
-    if(!password){
-      next.password=t("auth.passwordRequired");
-    }else if(password.length<8){
-      next.password=t("auth.loginPasswordInvalid");
-    }
-
-    if(Object.keys(next).length){
-      applyFieldErrors(next);
-      return false;
-    }
-
-    setFieldErrors({});
-    return true;
   }
 
   async function submit(){
-    setFormError(null);
-    if(!validate()) return;
+    const missingIdentifier=!identifier.trim();
+    const missingPassword=!password;
+    if(missingIdentifier||missingPassword){
+      setInvalidIdentifier(missingIdentifier);
+      setInvalidPassword(missingPassword);
+      setFormError(t("auth.invalidCredentials"));
+      requestAnimationFrame(()=>{
+        if(missingIdentifier) identifierRef.current?.focus();
+        else passwordRef.current?.focus();
+      });
+      return;
+    }
 
     setBusy(true);
+    clearErrors();
     try{
       await signIn({identifier:identifier.trim(),password});
       router.replace("/home");
     }catch(cause){
-      if(cause instanceof ApiRequestError&&cause.code==="INVALID_CREDENTIALS"){
-        applyFieldErrors({
-          identifier:t("auth.checkIdentifier"),
-          password:t("auth.checkPassword"),
-        });
+      if(cause instanceof ApiRequestError&&(
+        cause.code==="INVALID_CREDENTIALS"||
+        cause.code==="VALIDATION_ERROR"
+      )){
+        setInvalidIdentifier(true);
+        setInvalidPassword(true);
+        setFormError(t("auth.invalidCredentials"));
+        requestAnimationFrame(()=>identifierRef.current?.focus());
       }else{
         setFormError(t("auth.genericError"));
       }
@@ -108,9 +80,9 @@ export default function LoginScreen(){
         ref={identifierRef}
         label={t("auth.identifier")}
         placeholder={t("auth.placeholderIdentifier")}
-        error={fieldErrors.identifier}
+        invalid={invalidIdentifier}
         value={identifier}
-        onChangeText={(value)=>{setIdentifier(value);clearFieldError("identifier");}}
+        onChangeText={(value)=>{setIdentifier(value);clearErrors();}}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="username"
@@ -123,9 +95,9 @@ export default function LoginScreen(){
         ref={passwordRef}
         label={t("auth.password")}
         placeholder={t("auth.placeholderPassword")}
-        error={fieldErrors.password}
+        invalid={invalidPassword}
         value={password}
-        onChangeText={(value)=>{setPassword(value);clearFieldError("password");}}
+        onChangeText={(value)=>{setPassword(value);clearErrors();}}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="current-password"
@@ -133,6 +105,14 @@ export default function LoginScreen(){
         onSubmitEditing={()=>void submit()}
         secureTextEntry
       />
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={()=>router.push("/forgot-password")}
+        style={({pressed})=>[styles.forgotLink,pressed&&styles.pressed]}
+      >
+        <AppText weight="semibold" style={{color:colors.primary}}>{t("auth.forgotPassword")}</AppText>
+      </Pressable>
 
       {formError?<View accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.errorBox}>
         <Ionicons name="alert-circle-outline" size={19} color={colors.danger}/>
@@ -174,6 +154,8 @@ const styles=StyleSheet.create({
     shadowOffset:{width:0,height:8},
     elevation:4,
   },
+  forgotLink:{alignSelf:"flex-end",paddingVertical:2},
+  pressed:{opacity:0.7},
   errorBox:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:"#FFF4F2",borderWidth:1,borderColor:"#F5C5C1"},
   securityRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,paddingTop:spacing.xs},
   switchRow:{justifyContent:"center",alignItems:"center",gap:spacing.sm,paddingBottom:spacing.sm},
