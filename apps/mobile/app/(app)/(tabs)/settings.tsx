@@ -249,7 +249,7 @@ function RoleSelector({
   return <View style={styles.roleList}>
     {options.map((option,index)=>{
       const active=activeRoles.includes(option.role);
-      return <View key={option.role}>
+      return <View key={option.role} style={styles.roleItem}>
         {index>0?<Divider/>:null}
         <View style={[styles.roleRow,{flexDirection:rtl?"row-reverse":"row"}]}>
           <IconBox name={option.icon} positive={active}/>
@@ -263,14 +263,14 @@ function RoleSelector({
             </View>
             <AppText variant="caption" muted>{t(option.body)}</AppText>
           </View>
-          <Button
-            label={active?t("roles.active"):t("roles.activate")}
-            onPress={()=>onSelect(option.role)}
-            loading={busyRole===option.role}
-            disabled={active||busyRole!==null}
-            variant={active?"secondary":"primary"}
-          />
         </View>
+        <Button
+          label={active?t("roles.active"):t("roles.activate")}
+          onPress={()=>onSelect(option.role)}
+          loading={busyRole===option.role}
+          disabled={active||busyRole!==null}
+          variant={active?"secondary":"primary"}
+        />
       </View>;
     })}
     {error?<AppText accessibilityRole="alert" style={styles.roleError}>{error}</AppText>:null}
@@ -391,6 +391,10 @@ const styles=StyleSheet.create({
   },
   roleList:{
     gap:0,
+  },
+  roleItem:{
+    gap:spacing.sm,
+    paddingVertical:spacing.xs,
   },
   roleRow:{
     alignItems:"center",
