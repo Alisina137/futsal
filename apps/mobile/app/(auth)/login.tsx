@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import { ApiRequestError } from "../../src/lib/api";
@@ -16,6 +16,7 @@ import { useLocale } from "../../src/providers/LocaleProvider";
 export default function LoginScreen(){
   const {t,isRTL}=useLocale();
   const {signIn}=useAuth();
+  const params=useLocalSearchParams<{reset?:string}>();
   const identifierRef=useRef<TextInput>(null);
   const passwordRef=useRef<TextInput>(null);
   const [identifier,setIdentifier]=useState("");
@@ -75,6 +76,11 @@ export default function LoginScreen(){
         <AppText variant="title" weight="bold">{t("auth.welcomeBack")}</AppText>
         <AppText muted>{t("auth.loginSubtitle")}</AppText>
       </View>
+
+      {params.reset==="success"?<View accessibilityLiveRegion="polite" style={styles.successBox}>
+        <Ionicons name="checkmark-circle-outline" size={19} color={colors.success}/>
+        <AppText variant="caption" style={{flex:1,color:colors.success}}>{t("auth.resetSuccess")}</AppText>
+      </View>:null}
 
       <TextField
         ref={identifierRef}
@@ -156,6 +162,7 @@ const styles=StyleSheet.create({
   },
   forgotLink:{alignSelf:"flex-end",paddingVertical:2},
   pressed:{opacity:0.7},
+  successBox:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:"#F0FBF4",borderWidth:1,borderColor:"#B7E2C4"},
   errorBox:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:"#FFF4F2",borderWidth:1,borderColor:"#F5C5C1"},
   securityRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,paddingTop:spacing.xs},
   switchRow:{justifyContent:"center",alignItems:"center",gap:spacing.sm,paddingBottom:spacing.sm},
