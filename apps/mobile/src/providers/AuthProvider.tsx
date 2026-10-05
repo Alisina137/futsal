@@ -1,4 +1,4 @@
-import type { AuthResponse, LoginRequest, RegisterRequest } from "@leaguekick/contracts";
+import type { AuthResponse, LoginRequest, RegisterRequest, SelfAssignableRole } from "@leaguekick/contracts";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApiRequestError, authApi } from "../lib/api";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "../lib/auth-storage";
@@ -9,6 +9,7 @@ type AuthContextValue = {
   session: AuthResponse | null;
   signIn: (input: LoginRequest) => Promise<AuthResponse>;
   register: (input: RegisterRequest) => Promise<AuthResponse>;
+  activateRole: (role: SelfAssignableRole) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
   revalidate: () => Promise<void>;
 };
@@ -50,6 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (input: LoginRequest) => adopt(await authApi.login(input)), [adopt]);
   const register = useCallback(async (input: RegisterRequest) => adopt(await authApi.register(input)), [adopt]);
+  const activateRole = useCallback(async (role: SelfAssignableRole) => {
+    if (!session) throw new Error("Authentication is required.");
+    await authApi.activateRole(session.accessToken, role);
+    return adopt(await authApi.refresh(session.refreshToken));
+  }, [adopt, session]);
 
   const signOut = useCallback(async () => {
     const current = session;
@@ -68,7 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [adopt, session]);
 
-  const value = useMemo(() => ({ status, session, signIn, register, signOut, revalidate }), [status, session, signIn, register, signOut, revalidate]);
+  const value = useMemo(
+    () => ({ status, session, signIn, register, activateRole, signOut, revalidate }),
+    [status, session, signIn, register, activateRole, signOut, revalidate],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
