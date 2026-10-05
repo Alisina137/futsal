@@ -21,6 +21,7 @@ export default function ProfileScreen(){
   const [refreshing,setRefreshing]=useState(false);
   const user=session?.user;
   const owner=user?.roles.includes("VENUE_OWNER")??false;
+  const player=user?.roles.includes("PLAYER")??false;
   const admin=user?.roles.includes("PLATFORM_ADMIN")??false;
 
   const initials=useMemo(()=>{
@@ -28,7 +29,10 @@ export default function ProfileScreen(){
     return words.slice(0,2).map((word)=>word[0]?.toUpperCase()??"").join("")||"LK";
   },[user?.displayName]);
 
-  const roles=user?.roles.map((role)=>t(`role.${role}` as never)).join(", ")??"";
+  const roles=user?.roles.length
+    ?user.roles.map((role)=>t(("role."+role) as never)).join(", ")
+    :t("roles.basicUser");
+  const hasConfiguredDisplayName=Boolean(user?.displayName&&user.displayName!==user.username);
   const networkLabel=!hasResolved
     ?t("settings.connectionChecking")
     :isOnline
@@ -77,12 +81,13 @@ export default function ProfileScreen(){
 
     <SectionHeader icon="person-circle-outline" title={t("settings.account")} subtitle={t("settings.accountSubtitle")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
-      <InfoRow icon="person-outline" label={t("auth.displayName")} value={user?.displayName??""} rtl={isRTL}/>
-      <Divider/>
+      {hasConfiguredDisplayName?<><InfoRow icon="person-outline" label={t("auth.displayName")} value={user?.displayName??""} rtl={isRTL}/><Divider/></>:null}
+      {user?.username?<><InfoRow icon="at-outline" label={t("settings.username")} value={`@${user.username}`} rtl={isRTL} ltr/><Divider/></>:null}
       <InfoRow icon="call-outline" label={t("auth.phone")} value={user?.phone??""} rtl={isRTL} ltr/>
-      {user?.username?<><Divider/><InfoRow icon="at-outline" label={t("settings.username")} value={`@${user.username}`} rtl={isRTL} ltr/></>:null}
       <Divider/>
       <InfoRow icon="id-card-outline" label={t("home.accountRole")} value={roles} rtl={isRTL}/>
+      <Divider/>
+      <ActionRow icon="layers-outline" title={t("settings.roles")} subtitle={t("settings.rolesBody")} rtl={isRTL} onPress={()=>router.push("/roles")}/>
     </Card>
 
     <SectionHeader icon="options-outline" title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")} rtl={isRTL}/>
@@ -144,7 +149,7 @@ export default function ProfileScreen(){
         <ActionRow icon="pricetag-outline" title={t("ownerMarketing.promotionsTitle")} subtitle={t("settings.ownerPromotionsBody")} rtl={isRTL} onPress={()=>router.push("/owner/promotions")}/>
         <Divider/>
         <ActionRow icon="megaphone-outline" title={t("ownerMarketing.postsTitle")} subtitle={t("settings.ownerPostsBody")} rtl={isRTL} onPress={()=>router.push("/owner/posts")}/>
-      </>:<>
+      </>:player?<>
         <ActionRow icon="people-outline" title={t("teams.title")} subtitle={t("teams.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/teams")}/>
         <Divider/>
         <ActionRow icon="trophy-outline" title={t("competition.title")} subtitle={t("competition.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/competitions")}/>
@@ -156,6 +161,14 @@ export default function ProfileScreen(){
         <ActionRow icon="calendar-outline" title={t("booking.myBookings")} subtitle={t("settings.playerBookingsBody")} rtl={isRTL} onPress={()=>router.push("/bookings")}/>
         <Divider/>
         <ActionRow icon="newspaper-outline" title={t("feed.title")} subtitle={t("settings.playerFeedBody")} rtl={isRTL} onPress={()=>router.push("/feed")}/>
+      </>:<>
+        <ActionRow icon="business-outline" title={t("booking.venuesTitle")} subtitle={t("settings.playerVenuesBody")} rtl={isRTL} onPress={()=>router.push("/venues")}/>
+        <Divider/>
+        <ActionRow icon="trophy-outline" title={t("competition.title")} subtitle={t("competition.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/competitions")}/>
+        <Divider/>
+        <ActionRow icon="newspaper-outline" title={t("feed.title")} subtitle={t("settings.playerFeedBody")} rtl={isRTL} onPress={()=>router.push("/feed")}/>
+        <Divider/>
+        <ActionRow icon="layers-outline" title={t("settings.roles")} subtitle={t("settings.rolesBody")} rtl={isRTL} onPress={()=>router.push("/roles")}/>
       </>}
     </Card>
 
