@@ -1,8 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { router } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useRef, useState } from "react";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import { ApiRequestError } from "../../src/lib/api";
 import { AuthHero } from "../../src/components/auth/AuthHero";
 import { Button } from "../../src/components/ui/Button";
@@ -13,25 +13,83 @@ import { TextField } from "../../src/components/ui/TextField";
 import { useAuth } from "../../src/providers/AuthProvider";
 import { useLocale } from "../../src/providers/LocaleProvider";
 
+type LoginField="identifier"|"password";
+type FieldErrors=Partial<Record<LoginField,string>>;
+
 export default function LoginScreen(){
   const {t,isRTL}=useLocale();
   const {signIn}=useAuth();
+  const identifierRef=useRef<TextInput>(null);
+  const passwordRef=useRef<TextInput>(null);
+
   const [identifier,setIdentifier]=useState("");
   const [password,setPassword]=useState("");
+  const [fieldErrors,setFieldErrors]=useState<FieldErrors>({});
+  const [formError,setFormError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
-  const [error,setError]=useState<string|null>(null);
+
+  function focusField(field:LoginField){
+    (field==="identifier"?identifierRef:passwordRef).current?.focus();
+  }
+
+  function applyFieldErrors(next:FieldErrors){
+    setFieldErrors(next);
+    const first=(["identifier","password"] as const).find((field)=>Boolean(next[field]));
+    if(first) requestAnimationFrame(()=>focusField(first));
+  }
+
+  function clearFieldError(field:LoginField){
+    setFieldErrors((current)=>{
+      if(!current[field]) return current;
+      const next={...current};
+      delete next[field];
+      return next;
+    });
+    setFormError(null);
+  }
+
+  function validate(){
+    const next:FieldErrors={};
+    const cleanIdentifier=identifier.trim();
+
+    if(!cleanIdentifier){
+      next.identifier=t("validation.required");
+    }else if(cleanIdentifier.length<3){
+      next.identifier=t("auth.identifierInvalid");
+    }
+
+    if(!password){
+      next.password=t("auth.passwordRequired");
+    }else if(password.length<8){
+      next.password=t("auth.loginPasswordInvalid");
+    }
+
+    if(Object.keys(next).length){
+      applyFieldErrors(next);
+      return false;
+    }
+
+    setFieldErrors({});
+    return true;
+  }
 
   async function submit(){
-    if(!identifier.trim()||!password){setError(t("validation.required"));return;}
+    setFormError(null);
+    if(!validate()) return;
+
     setBusy(true);
-    setError(null);
     try{
       await signIn({identifier:identifier.trim(),password});
       router.replace("/home");
     }catch(cause){
-      setError(cause instanceof ApiRequestError&&cause.code==="INVALID_CREDENTIALS"
-        ?t("auth.invalidCredentials")
-        :t("auth.genericError"));
+      if(cause instanceof ApiRequestError&&cause.code==="INVALID_CREDENTIALS"){
+        applyFieldErrors({
+          identifier:t("auth.checkIdentifier"),
+          password:t("auth.checkPassword"),
+        });
+      }else{
+        setFormError(t("auth.genericError"));
+      }
     }finally{
       setBusy(false);
     }
@@ -47,30 +105,38 @@ export default function LoginScreen(){
       </View>
 
       <TextField
+        ref={identifierRef}
         label={t("auth.identifier")}
         placeholder={t("auth.placeholderIdentifier")}
+        error={fieldErrors.identifier}
         value={identifier}
-        onChangeText={setIdentifier}
+        onChangeText={(value)=>{setIdentifier(value);clearFieldError("identifier");}}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="username"
+        returnKeyType="next"
+        onSubmitEditing={()=>passwordRef.current?.focus()}
         forceLtr
       />
 
       <TextField
+        ref={passwordRef}
         label={t("auth.password")}
         placeholder={t("auth.placeholderPassword")}
+        error={fieldErrors.password}
         value={password}
-        onChangeText={setPassword}
+        onChangeText={(value)=>{setPassword(value);clearFieldError("password");}}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="current-password"
+        returnKeyType="done"
+        onSubmitEditing={()=>void submit()}
         secureTextEntry
       />
 
-      {error?<View accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.errorBox}>
+      {formError?<View accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.errorBox}>
         <Ionicons name="alert-circle-outline" size={19} color={colors.danger}/>
-        <AppText variant="caption" style={{flex:1,color:colors.danger}}>{error}</AppText>
+        <AppText variant="caption" style={{flex:1,color:colors.danger}}>{formError}</AppText>
       </View>:null}
 
       <Button
