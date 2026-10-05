@@ -62,7 +62,7 @@ export default function OwnerAnalyticsScreen() {
     {error ? <AppText style={{ color: colors.danger }}>{error}</AppText> : null}
     {!loading && data && data.bookingCount === 0 ? <Card><AppText>{t("phase7.analytics.empty")}</AppText></Card> : null}
 
-    {data ? <>
+    {data && data.bookingCount > 0 ? <>
       <Metric title={t("phase7.analytics.occupancy")} value={`${(data.occupancyRate * 100).toFixed(1)}%`} body={t("phase7.analytics.occupancyBody", { booked: Math.round(data.bookedMinutes / 60), available: Math.round(data.availableMinutes / 60) })} />
       <Metric title={t("phase7.analytics.gmv")} value={`${data.grossBookingValueAfn} AFN`} body={t("phase7.analytics.gmvBody")} />
       <Metric title={t("phase7.analytics.bookings")} value={String(data.bookingCount)} body={t("phase7.analytics.bookingBody", { confirmed: data.confirmedBookingCount, cancelled: data.cancelledBookingCount })} />
