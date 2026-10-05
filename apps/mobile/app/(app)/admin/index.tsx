@@ -162,6 +162,19 @@ export default function AdminScreen() {
       </View>)}
     </Card>
 
+    {duplicates.length > 0 ? <Card>
+      <AppText variant="bodyLarge" weight="bold">{t("phase7.admin.duplicateReview")}</AppText>
+      <AppText variant="caption" muted>{t("phase7.admin.duplicateReviewBody")}</AppText>
+      {duplicates.map((group, groupIndex) => <View key={`duplicate-${groupIndex}`} style={{ gap: spacing.xs, paddingVertical: spacing.sm }}>
+        <AppText weight="semibold">{t("phase7.admin.duplicateGroup", { number: groupIndex + 1, count: group.length })}</AppText>
+        {group.map((venue) => <View key={venue.id} style={{ gap: 2 }}>
+          <AppText>{venue.name} · {venue.city}</AppText>
+          <AppText variant="caption" muted>{venue.address}</AppText>
+          <AppText variant="caption" forceLtr>{venue.id}</AppText>
+        </View>)}
+      </View>)}
+    </Card> : null}
+
     {paymentVenueId ? <Card>
       <AppText variant="bodyLarge" weight="bold">{t("phase7.admin.paymentHistory")}</AppText>
       <AppText variant="caption" forceLtr>{paymentVenueId}</AppText>
