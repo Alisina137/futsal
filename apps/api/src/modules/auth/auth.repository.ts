@@ -1,10 +1,10 @@
 import type { UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { sessions, userRoles, users } from "@leaguekick/database";
+import { passwordResetChallenges, sessions, userRoles, users } from "@leaguekick/database";
 import { eq } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
-import type { AuthRepository, AuthUserRecord, CreateUserInput, SessionRecord } from "./auth.types.js";
+import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord } from "./auth.types.js";
 
 function uniqueConstraint(error: unknown, depth = 0): string | null {
   if (depth > 4 || typeof error !== "object" || error === null) return null;
@@ -116,6 +116,82 @@ export class DrizzleAuthRepository implements AuthRepository {
     return this.hydrate(row);
   }
 
+  async createPasswordResetChallenge(input: {
+    userId: string | null;
+    phoneE164: string;
+    codeHash: string;
+    expiresAt: Date;
+  }): Promise<PasswordResetChallengeRecord> {
+    const [row] = await this.db.insert(passwordResetChallenges).values(input).returning();
+    if (!row) throw new Error("Failed to create password reset challenge.");
+    return row;
+  }
+
+  async getPasswordResetChallenge(id: string): Promise<PasswordResetChallengeRecord | null> {
+    const [row] = await this.db.select().from(passwordResetChallenges).where(eq(passwordResetChallenges.id, id)).limit(1);
+    return row ?? null;
+  }
+
+  async incrementPasswordResetAttempts(id: string): Promise<void> {
+    const challenge = await this.getPasswordResetChallenge(id);
+    if (!challenge) return;
+    await this.db.update(passwordResetChallenges)
+      .set({ attempts: challenge.attempts + 1 })
+      .where(eq(passwordResetChallenges.id, id));
+  }
+
+  async verifyPasswordResetChallenge(input: {
+    id: string;
+    resetTokenHash: string;
+    resetTokenExpiresAt: Date;
+  }): Promise<void> {
+    await this.db.update(passwordResetChallenges)
+      .set({
+        verifiedAt: new Date(),
+        resetTokenHash: input.resetTokenHash,
+        resetTokenExpiresAt: input.resetTokenExpiresAt,
+      })
+      .where(eq(passwordResetChallenges.id, input.id));
+  }
+
+  async completePasswordReset(input: {
+    challengeId: string;
+    userId: string;
+    username: string;
+    usernameNormalized: string;
+    passwordHash: string;
+  }): Promise<AuthUserRecord> {
+    try {
+      await this.db.transaction(async (tx) => {
+        await tx.update(users)
+          .set({
+            username: input.username,
+            usernameNormalized: input.usernameNormalized,
+            displayName: input.username,
+            passwordHash: input.passwordHash,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, input.userId));
+        await tx.update(passwordResetChallenges)
+          .set({ consumedAt: new Date() })
+          .where(eq(passwordResetChallenges.id, input.challengeId));
+        await tx.update(sessions)
+          .set({ revokedAt: new Date(), lastSeenAt: new Date() })
+          .where(eq(sessions.userId, input.userId));
+      });
+    } catch (error) {
+      const constraint = uniqueConstraint(error);
+      if (constraint === "users_username_normalized_uq") {
+        throw errors.conflict("USERNAME_ALREADY_EXISTS", "That username is already registered.");
+      }
+      throw error;
+    }
+
+    const user = await this.getUserById(input.userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    return user;
+  }
+
   async createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }): Promise<SessionRecord> {
     const [row] = await this.db.insert(sessions).values({
       userId: input.userId,
@@ -138,5 +214,11 @@ export class DrizzleAuthRepository implements AuthRepository {
 
   async revokeSessionByRefreshHash(refreshTokenHash: string): Promise<void> {
     await this.db.update(sessions).set({ revokedAt: new Date(), lastSeenAt: new Date() }).where(eq(sessions.refreshTokenHash, refreshTokenHash));
+  }
+
+  async revokeAllSessionsForUser(userId: string): Promise<void> {
+    await this.db.update(sessions)
+      .set({ revokedAt: new Date(), lastSeenAt: new Date() })
+      .where(eq(sessions.userId, userId));
   }
 }
