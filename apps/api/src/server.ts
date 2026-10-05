@@ -53,16 +53,41 @@ const app = createApp({
   competitionService,
   commercialService,
   corsOrigin: env.CORS_ORIGIN,
+  appVersion: env.APP_VERSION,
+  requestLogging: env.REQUEST_LOGGING,
+  readinessCheck: async () => {
+    await pool.query("select 1");
+  },
 });
 
 const server = app.listen(env.API_PORT, "0.0.0.0", () => {
-  console.log(`Futsal API listening on http://0.0.0.0:${env.API_PORT}`);
+  console.log(JSON.stringify({
+    event: "api_started",
+    port: env.API_PORT,
+    version: env.APP_VERSION,
+    environment: env.NODE_ENV,
+  }));
 });
+server.requestTimeout = 30_000;
+server.headersTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
 
+let shuttingDown = false;
 async function shutdown(signal: string) {
-  console.log(`${signal} received; shutting down.`);
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(JSON.stringify({ event: "api_shutdown_started", signal }));
+
+  const forceTimer = setTimeout(() => {
+    console.error(JSON.stringify({ event: "api_shutdown_forced", signal }));
+    server.closeAllConnections();
+  }, 10_000);
+  forceTimer.unref();
+
   server.close(async () => {
+    clearTimeout(forceTimer);
     await pool.end();
+    console.log(JSON.stringify({ event: "api_shutdown_complete", signal }));
     process.exit(0);
   });
 }
