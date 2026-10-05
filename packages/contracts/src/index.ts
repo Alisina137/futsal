@@ -14,9 +14,6 @@ export const userRoleSchema = z.enum([
 ]);
 export type UserRole = z.infer<typeof userRoleSchema>;
 
-export const accountTypeSchema = z.enum(["PLAYER", "VENUE_OWNER"]);
-export type AccountType = z.infer<typeof accountTypeSchema>;
-
 export const usernameSchema = z
   .string()
   .trim()
@@ -39,14 +36,29 @@ export const newPasswordSchema = passwordSchema.regex(
 );
 
 export const registerRequestSchema = z.object({
-  displayName: z.string().trim().min(2).max(80),
+  username: usernameSchema,
   phone: phoneInputSchema,
-  username: usernameSchema.optional().or(z.literal("")),
   password: newPasswordSchema,
+  confirmPassword: newPasswordSchema,
   preferredLanguage: languageCodeSchema.default("fa-AF"),
-  accountType: accountTypeSchema,
+}).superRefine((value, ctx) => {
+  if (value.password !== value.confirmPassword) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["confirmPassword"],
+      message: "Passwords do not match.",
+    });
+  }
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
+
+export const selfAssignableRoleSchema = z.enum(["PLAYER", "VENUE_OWNER", "TEAM_MANAGER", "REFEREE"]);
+export type SelfAssignableRole = z.infer<typeof selfAssignableRoleSchema>;
+
+export const selfRoleActivationRequestSchema = z.object({
+  role: selfAssignableRoleSchema,
+});
+export type SelfRoleActivationRequest = z.infer<typeof selfRoleActivationRequestSchema>;
 
 export const loginRequestSchema = z.object({
   identifier: z.string().trim().min(3).max(80),
