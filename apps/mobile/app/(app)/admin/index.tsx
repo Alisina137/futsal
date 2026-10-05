@@ -37,6 +37,7 @@ export default function AdminScreen() {
   const [reason, setReason] = useState("");
   const [months, setMonths] = useState("1");
   const [amountAfn, setAmountAfn] = useState("1500");
+  const [paymentRef, setPaymentRef] = useState("");
   const [trialHours, setTrialHours] = useState("72");
   const [monthly, setMonthly] = useState("1500");
   const [annual, setAnnual] = useState("15000");
@@ -134,14 +135,16 @@ export default function AdminScreen() {
         <AppText variant="caption" forceLtr>{venue.id}</AppText>
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: spacing.xs }}>
           <Button label={t("phase7.admin.verify")} onPress={() => void action(() => adminApi.venueAction(token!, venue.id, { action: "VERIFY", reason }), t("phase7.admin.updated"))} disabled={busy || reason.trim().length < 3} variant="secondary" />
+          <Button label={t("phase7.admin.reject")} onPress={() => void action(() => adminApi.venueAction(token!, venue.id, { action: "REJECT", reason }), t("phase7.admin.updated"))} disabled={busy || reason.trim().length < 3} variant="secondary" />
           <Button label={venue.status === "SUSPENDED" ? t("phase7.admin.restore") : t("phase7.admin.suspend")} onPress={() => void action(() => adminApi.venueAction(token!, venue.id, { action: venue.status === "SUSPENDED" ? "RESTORE" : "SUSPEND", reason }), t("phase7.admin.updated"))} disabled={busy || reason.trim().length < 3} variant="secondary" />
         </View>
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: spacing.xs }}>
           <TextField label={t("phase7.admin.months")} value={months} onChangeText={setMonths} keyboardType="number-pad" forceLtr containerStyle={{ flex: 1 }} />
           <TextField label={t("phase7.admin.amount")} value={amountAfn} onChangeText={setAmountAfn} keyboardType="number-pad" forceLtr containerStyle={{ flex: 1 }} />
         </View>
+        <TextField label={t("phase7.admin.paymentReference")} value={paymentRef} onChangeText={setPaymentRef} forceLtr />
         <Button label={t("phase7.admin.activate")} onPress={() => void action(
-          () => adminApi.activateSubscription(token!, venue.id, { months: Number(months), amountAfn: Number(amountAfn), provider: "MANUAL", providerReference: "", note: reason }),
+          () => adminApi.activateSubscription(token!, venue.id, { months: Number(months), amountAfn: Number(amountAfn), provider: "MANUAL", providerReference: paymentRef, note: reason }),
           t("phase7.admin.activated"),
         )} disabled={busy || reason.trim().length < 3} />
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: spacing.xs }}>
