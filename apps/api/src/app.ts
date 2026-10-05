@@ -79,7 +79,7 @@ export function createApp(deps: AppDependencies) {
   app.disable("x-powered-by");
   app.use(helmet());
   app.use((request, response, next) => {
-    const requestId = request.header("X-Request-Id")?.trim().slice(0, 120) || randomUUID();
+    const requestId = randomUUID();
     response.locals.requestId = requestId;
     response.setHeader("X-Request-Id", requestId);
 
