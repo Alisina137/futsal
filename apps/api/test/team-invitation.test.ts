@@ -181,19 +181,19 @@ describe("Phase 5 team invitations", () => {
     const { app, teamRepository } = setup();
     const manager = await register(app, teamRepository, {
       phone: "0705560041",
-      username: "transfer_manager",
+      username: "tr_manager",
       displayName: "Transfer Manager",
     });
     const player = await register(app, teamRepository, {
       phone: "0705560042",
-      username: "transfer_player",
+      username: "tr_player",
       displayName: "Transfer Player",
     });
     const team = await createTeam(app, manager.accessToken);
 
     const invited = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "transfer_player", role: "PLAYER" });
+      .send({ identifier: "tr_player", role: "PLAYER" });
     await request(app).post(`/api/v1/teams/invitations/${invited.body.invitation.id}/accept`)
       .set("Authorization", `Bearer ${player.accessToken}`);
 
@@ -220,24 +220,24 @@ describe("Phase 5 team invitations", () => {
     const { app, teamRepository } = setup();
     const manager = await register(app, teamRepository, {
       phone: "0705560031",
-      username: "revoke_manager",
+      username: "rv_manager",
       displayName: "Revoke Manager",
     });
     const outsider = await register(app, teamRepository, {
       phone: "0705560032",
-      username: "revoke_outsider",
+      username: "rv_outsider",
       displayName: "Revoke Outsider",
     });
     const player = await register(app, teamRepository, {
       phone: "0705560033",
-      username: "revoke_player",
+      username: "rv_player",
       displayName: "Revoke Player",
     });
     const team = await createTeam(app, manager.accessToken);
 
     const invited = await request(app).post(`/api/v1/teams/${team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "revoke_player", role: "PLAYER" });
+      .send({ identifier: "rv_player", role: "PLAYER" });
 
     const forbidden = await request(app).delete(`/api/v1/teams/${team.id}/invitations/${invited.body.invitation.id}`)
       .set("Authorization", `Bearer ${outsider.accessToken}`);
