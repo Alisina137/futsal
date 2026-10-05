@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
-import type { AuthRepository, AuthUserRecord, CreateUserInput, SessionRecord } from "../src/modules/auth/auth.types.js";
+import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord } from "../src/modules/auth/auth.types.js";
 import { errors } from "../src/lib/errors.js";
 
 export class FakeAuthRepository implements AuthRepository {
   users = new Map<string, AuthUserRecord>();
   sessions = new Map<string, SessionRecord>();
+  passwordResets = new Map<string, PasswordResetChallengeRecord>();
 
   async findUserByIdentifier(identifier: string) {
     const raw = identifier.trim();
@@ -53,6 +54,81 @@ export class FakeAuthRepository implements AuthRepository {
     return next;
   }
 
+  async createPasswordResetChallenge(input: {
+    userId: string | null;
+    phoneE164: string;
+    codeHash: string;
+    expiresAt: Date;
+  }) {
+    const row: PasswordResetChallengeRecord = {
+      id: randomUUID(),
+      userId: input.userId,
+      phoneE164: input.phoneE164,
+      codeHash: input.codeHash,
+      expiresAt: input.expiresAt,
+      attempts: 0,
+      verifiedAt: null,
+      resetTokenHash: null,
+      resetTokenExpiresAt: null,
+      consumedAt: null,
+      createdAt: new Date(),
+    };
+    this.passwordResets.set(row.id, row);
+    return row;
+  }
+
+  async getPasswordResetChallenge(id: string) {
+    return this.passwordResets.get(id) ?? null;
+  }
+
+  async incrementPasswordResetAttempts(id: string) {
+    const row = this.passwordResets.get(id);
+    if (row) this.passwordResets.set(id, { ...row, attempts: row.attempts + 1 });
+  }
+
+  async verifyPasswordResetChallenge(input: {
+    id: string;
+    resetTokenHash: string;
+    resetTokenExpiresAt: Date;
+  }) {
+    const row = this.passwordResets.get(input.id);
+    if (!row) return;
+    this.passwordResets.set(input.id, {
+      ...row,
+      verifiedAt: new Date(),
+      resetTokenHash: input.resetTokenHash,
+      resetTokenExpiresAt: input.resetTokenExpiresAt,
+    });
+  }
+
+  async completePasswordReset(input: {
+    challengeId: string;
+    userId: string;
+    username: string;
+    usernameNormalized: string;
+    passwordHash: string;
+  }) {
+    if ([...this.users.values()].some((user) => user.id !== input.userId && user.usernameNormalized === input.usernameNormalized)) {
+      throw errors.conflict("USERNAME_ALREADY_EXISTS", "That username is already registered.");
+    }
+    const user = this.users.get(input.userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    const next = {
+      ...user,
+      username: input.username,
+      usernameNormalized: input.usernameNormalized,
+      displayName: input.username,
+      passwordHash: input.passwordHash,
+    };
+    this.users.set(input.userId, next);
+    const challenge = this.passwordResets.get(input.challengeId);
+    if (challenge) this.passwordResets.set(input.challengeId, { ...challenge, consumedAt: new Date() });
+    for (const [id, session] of this.sessions) {
+      if (session.userId === input.userId) this.sessions.set(id, { ...session, revokedAt: new Date() });
+    }
+    return next;
+  }
+
   async createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }) {
     const row: SessionRecord = { id: randomUUID(), userId: input.userId, refreshTokenHash: input.refreshTokenHash, expiresAt: input.expiresAt, revokedAt: null };
     this.sessions.set(row.id, row); return row;
@@ -61,4 +137,7 @@ export class FakeAuthRepository implements AuthRepository {
   async findSessionByRefreshHash(hash: string) { return [...this.sessions.values()].find((s) => s.refreshTokenHash === hash) ?? null; }
   async rotateSession(id: string, hash: string, expiresAt: Date) { const s=this.sessions.get(id); if (s) this.sessions.set(id,{...s,refreshTokenHash:hash,expiresAt}); }
   async revokeSessionByRefreshHash(hash: string) { const s=[...this.sessions.values()].find((x)=>x.refreshTokenHash===hash); if (s) this.sessions.set(s.id,{...s,revokedAt:new Date()}); }
+  async revokeAllSessionsForUser(userId: string) {
+    for (const [id, session] of this.sessions) if (session.userId === userId) this.sessions.set(id, { ...session, revokedAt: new Date() });
+  }
 }
