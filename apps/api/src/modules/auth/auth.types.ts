@@ -20,6 +20,20 @@ export type SessionRecord = {
   revokedAt: Date | null;
 };
 
+export type PasswordResetChallengeRecord = {
+  id: string;
+  userId: string | null;
+  phoneE164: string;
+  codeHash: string;
+  expiresAt: Date;
+  attempts: number;
+  verifiedAt: Date | null;
+  resetTokenHash: string | null;
+  resetTokenExpiresAt: Date | null;
+  consumedAt: Date | null;
+  createdAt: Date;
+};
+
 export type CreateUserInput = {
   displayName: string;
   username: string;
@@ -35,10 +49,31 @@ export interface AuthRepository {
   createUser(input: CreateUserInput): Promise<AuthUserRecord>;
   addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord>;
   updateDisplayName(userId: string, displayName: string): Promise<AuthUserRecord>;
+  createPasswordResetChallenge(input: {
+    userId: string | null;
+    phoneE164: string;
+    codeHash: string;
+    expiresAt: Date;
+  }): Promise<PasswordResetChallengeRecord>;
+  getPasswordResetChallenge(id: string): Promise<PasswordResetChallengeRecord | null>;
+  incrementPasswordResetAttempts(id: string): Promise<void>;
+  verifyPasswordResetChallenge(input: {
+    id: string;
+    resetTokenHash: string;
+    resetTokenExpiresAt: Date;
+  }): Promise<void>;
+  completePasswordReset(input: {
+    challengeId: string;
+    userId: string;
+    username: string;
+    usernameNormalized: string;
+    passwordHash: string;
+  }): Promise<AuthUserRecord>;
   createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }): Promise<SessionRecord>;
   findSessionByRefreshHash(refreshTokenHash: string): Promise<SessionRecord | null>;
   rotateSession(sessionId: string, refreshTokenHash: string, expiresAt: Date): Promise<void>;
   revokeSessionByRefreshHash(refreshTokenHash: string): Promise<void>;
+  revokeAllSessionsForUser(userId: string): Promise<void>;
 }
 
 export function toUserDto(user: AuthUserRecord): UserDto {
