@@ -17,7 +17,7 @@ export default function LoginScreen(){
   const {t,isRTL}=useLocale();
   const {signIn}=useAuth();
   const params=useLocalSearchParams<{reset?:string;next?:string}>();
-  const adminPortal=params.next==="/admin";
+  const adminPortal=params.next==="/admin"||process.env.EXPO_PUBLIC_ADMIN_MODE==="true";
   const identifierRef=useRef<TextInput>(null);
   const passwordRef=useRef<TextInput>(null);
   const [identifier,setIdentifier]=useState("");
@@ -51,7 +51,7 @@ export default function LoginScreen(){
     clearErrors();
     try{
       await signIn({identifier:identifier.trim(),password});
-      router.replace(params.next==="/admin"?"/admin":"/home");
+      router.replace(adminPortal?"/admin":"/home");
     }catch(cause){
       if(cause instanceof ApiRequestError&&(
         cause.code==="INVALID_CREDENTIALS"||
