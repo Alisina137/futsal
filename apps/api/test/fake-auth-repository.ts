@@ -22,8 +22,11 @@ export class FakeAuthRepository implements AuthRepository {
   async getUserById(userId: string) { return this.users.get(userId) ?? null; }
 
   async createUser(input: CreateUserInput) {
-    if ([...this.users.values()].some((user) => user.phoneE164 === input.phoneE164 || (input.usernameNormalized && user.usernameNormalized === input.usernameNormalized))) {
-      throw errors.conflict("IDENTITY_ALREADY_EXISTS", "That phone number or username is already registered.");
+    if ([...this.users.values()].some((user) => user.phoneE164 === input.phoneE164)) {
+      throw errors.conflict("PHONE_ALREADY_EXISTS", "That phone number is already registered.");
+    }
+    if ([...this.users.values()].some((user) => user.usernameNormalized === input.usernameNormalized)) {
+      throw errors.conflict("USERNAME_ALREADY_EXISTS", "That username is already registered.");
     }
     const user: AuthUserRecord = {
       id: randomUUID(), displayName: input.displayName, username: input.username, usernameNormalized: input.usernameNormalized,
