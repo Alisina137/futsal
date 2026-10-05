@@ -592,11 +592,11 @@ const competitionConfigSchema = z.object({
 });
 
 type CompetitionConfigRefinementInput = {
-  startsAt?: string | null;
-  endsAt?: string | null;
-  format?: CompetitionFormat;
-  groupCount?: number | null;
-  qualifiersPerGroup?: number | null;
+  startsAt?: string | null | undefined;
+  endsAt?: string | null | undefined;
+  format?: CompetitionFormat | undefined;
+  groupCount?: number | null | undefined;
+  qualifiersPerGroup?: number | null | undefined;
 };
 
 function validateCompetitionConfig(
