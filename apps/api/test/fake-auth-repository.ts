@@ -31,8 +31,8 @@ export class FakeAuthRepository implements AuthRepository {
     }
     const user: AuthUserRecord = {
       id: randomUUID(), displayName: input.displayName, username: input.username, usernameNormalized: input.usernameNormalized,
-      phoneE164: input.phoneE164, passwordHash: input.passwordHash, preferredLanguage: input.preferredLanguage,
-      status: "ACTIVE", roles: [],
+      phoneE164: input.phoneE164, profileImageUrl: null, age: null, emailNormalized: null, city: null, bio: null,
+      passwordHash: input.passwordHash, preferredLanguage: input.preferredLanguage, status: "ACTIVE", roles: [],
     };
     this.users.set(user.id, user);
     return user;
@@ -46,10 +46,13 @@ export class FakeAuthRepository implements AuthRepository {
     return next;
   }
 
-  async updateDisplayName(userId: string, displayName: string) {
+  async updateAccountProfile(userId: string, input: import("../src/modules/auth/auth.types.js").UpdateAccountProfileInput) {
     const user = this.users.get(userId);
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
-    const next = { ...user, displayName };
+    if (input.emailNormalized && [...this.users.values()].some((item) => item.id !== userId && item.emailNormalized === input.emailNormalized)) {
+      throw errors.conflict("EMAIL_ALREADY_EXISTS", "That email address is already in use.");
+    }
+    const next = { ...user, ...input };
     this.users.set(userId, next);
     return next;
   }
