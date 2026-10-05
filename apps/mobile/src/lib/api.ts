@@ -7,6 +7,7 @@ import type {
   PublicVenueDto,
   PublicVenueListResponse,
   RegisterRequest,
+  SelfAssignableRole,
   UserDto,
   VenueAvailabilityResponse,
   BookingDto,
@@ -164,6 +165,8 @@ export const authApi = {
   login: (input: LoginRequest) => request<AuthResponse>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(input) }),
   refresh: (refreshToken: string) => request<AuthResponse>("/api/v1/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   logout: (refreshToken: string) => request<void>("/api/v1/auth/logout", { method: "POST", body: JSON.stringify({ refreshToken }) }),
+  activateRole: (accessToken: string, role: SelfAssignableRole) =>
+    request<{ user: UserDto }>("/api/v1/auth/roles/activate", { method: "POST", body: JSON.stringify({ role }) }, accessToken),
   me: (accessToken: string) => request<{ user: UserDto }>("/api/v1/users/me", {}, accessToken),
 };
 
