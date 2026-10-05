@@ -117,7 +117,6 @@ export class FakeAuthRepository implements AuthRepository {
       ...user,
       username: input.username,
       usernameNormalized: input.usernameNormalized,
-      displayName: input.username,
       passwordHash: input.passwordHash,
     };
     this.users.set(input.userId, next);
