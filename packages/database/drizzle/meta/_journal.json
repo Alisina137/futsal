@@ -64,6 +64,13 @@
       "when": 1791175800000,
       "tag": "0008_account_profile_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791179400000,
+      "tag": "0009_password_reset_cooldown",
+      "breakpoints": true
     }
   ]
 }
