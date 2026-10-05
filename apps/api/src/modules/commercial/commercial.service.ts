@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS = {
   annualPriceAfn: 15000,
   trialDurationHours: 72,
   featureFlags: {},
+  notificationTemplates: {},
 } satisfies Omit<CommercialSettingsRecord, "updatedAt">;
 
 function toSettingsDto(settings: CommercialSettingsRecord | null, now: Date): PlatformSettingsDto {
@@ -32,6 +33,7 @@ function toSettingsDto(settings: CommercialSettingsRecord | null, now: Date): Pl
     annualPriceAfn: settings?.annualPriceAfn ?? DEFAULT_SETTINGS.annualPriceAfn,
     trialDurationHours: settings?.trialDurationHours ?? DEFAULT_SETTINGS.trialDurationHours,
     featureFlags: settings?.featureFlags ?? DEFAULT_SETTINGS.featureFlags,
+    notificationTemplates: settings?.notificationTemplates ?? DEFAULT_SETTINGS.notificationTemplates,
     updatedAt: (settings?.updatedAt ?? now).toISOString(),
   };
 }
