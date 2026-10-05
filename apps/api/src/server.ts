@@ -23,6 +23,7 @@ const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
 const tokens = new TokenService(env.ACCESS_TOKEN_SECRET, env.ACCESS_TOKEN_ISSUER, env.ACCESS_TOKEN_AUDIENCE);
 const auth = new AuthService(authRepository, tokens);
+tokens.setAccessValidator(async (userId) => (await authRepository.getUserById(userId))?.status === "ACTIVE");
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
 const notificationRepository = new DrizzleNotificationRepository(db);
 const notificationService = new NotificationService(notificationRepository);
