@@ -29,9 +29,9 @@ export function AuthHero() {
     </View>
 
     <View style={[styles.chips,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <View style={styles.chip}><Ionicons name="flash-outline" size={14} color="#CFF8DD"/><AppText variant="caption" weight="semibold" style={styles.chipText}>LIVE</AppText></View>
-      <View style={styles.chip}><Ionicons name="shield-checkmark-outline" size={14} color="#CFF8DD"/><AppText variant="caption" weight="semibold" style={styles.chipText}>SECURE</AppText></View>
-      <View style={styles.chip}><Ionicons name="trophy-outline" size={14} color="#CFF8DD"/><AppText variant="caption" weight="semibold" style={styles.chipText}>FUTSAL</AppText></View>
+      <View style={styles.chip}><Ionicons name="flash-outline" size={14} color="#CFF8DD"/><AppText variant="caption" weight="semibold" style={styles.chipText}>{t("common.online")}</AppText></View>
+      <View style={styles.chip}><Ionicons name="shield-checkmark-outline" size={14} color="#CFF8DD"/><AppText variant="caption" weight="semibold" style={styles.chipText}>{t("settings.secureSession")}</AppText></View>
+      <View style={styles.chip}><Ionicons name="trophy-outline" size={14} color="#CFF8DD"/><AppText variant="caption" weight="semibold" style={styles.chipText}>{t("common.appName")}</AppText></View>
     </View>
   </View>;
 }
