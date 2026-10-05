@@ -24,7 +24,6 @@ const authRepository = new DrizzleAuthRepository(db);
 const tokens = new TokenService(env.ACCESS_TOKEN_SECRET, env.ACCESS_TOKEN_ISSUER, env.ACCESS_TOKEN_AUDIENCE);
 const auth = new AuthService(authRepository, tokens);
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
-const owner = new OwnerOnboardingService(ownerRepository);
 const notificationRepository = new DrizzleNotificationRepository(db);
 const notificationService = new NotificationService(notificationRepository);
 const bookingRepository = new DrizzleBookingRepository(db);
@@ -37,6 +36,11 @@ const competitionRepository = new DrizzleCompetitionRepository(db);
 const competitionService = new CompetitionService(competitionRepository);
 const commercialRepository = new DrizzleCommercialRepository(db);
 const commercialService = new CommercialService(commercialRepository);
+const owner = new OwnerOnboardingService(
+  ownerRepository,
+  undefined,
+  async () => ((await commercialRepository.getSettings())?.trialDurationHours ?? 72) * 60 * 60 * 1000,
+);
 const app = createApp({
   authService: auth,
   tokenService: tokens,
