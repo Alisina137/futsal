@@ -68,8 +68,9 @@ Committed canonical migrations:
 - `0004_past_goliath` — Phase 5.
 - `0005_robust_smiling_tiger` — Phase 6 competition engine.
 - `0006_phase7_commercial_core` — Phase 7 venue verification, subscription payments and platform configuration.
+- `0007_password_reset_challenges` — pre-release secure phone verification/password reset challenges.
 
-The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 has no database schema change and adds no migration.
+The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 itself had no database schema change. Pre-release authentication corrections add `0007_password_reset_challenges.sql`; it is committed but must not be marked applied until the user runs `pnpm db:migrate` successfully.
 
 ## Phase 1 status
 Foundation implemented and previously verified.
