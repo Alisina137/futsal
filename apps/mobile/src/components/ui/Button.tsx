@@ -11,6 +11,7 @@ type Props = {
   variant?: "primary" | "secondary" | "ghost" | "danger";
   icon?: ReactNode;
   style?: ViewStyle;
+  accessibilityHint?: string;
 };
 
 export function Button({
@@ -21,11 +22,14 @@ export function Button({
   variant = "primary",
   icon,
   style,
+  accessibilityHint,
 }: Props) {
   const blocked = disabled || loading;
 
   return <Pressable
     accessibilityRole="button"
+    accessibilityLabel={label}
+    accessibilityHint={accessibilityHint}
     accessibilityState={{ disabled: blocked, busy: loading }}
     disabled={blocked}
     onPress={onPress}
