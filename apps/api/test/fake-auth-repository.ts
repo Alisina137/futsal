@@ -42,6 +42,14 @@ export class FakeAuthRepository implements AuthRepository {
     return next;
   }
 
+  async updateDisplayName(userId: string, displayName: string) {
+    const user = this.users.get(userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    const next = { ...user, displayName };
+    this.users.set(userId, next);
+    return next;
+  }
+
   async createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }) {
     const row: SessionRecord = { id: randomUUID(), userId: input.userId, refreshTokenHash: input.refreshTokenHash, expiresAt: input.expiresAt, revokedAt: null };
     this.sessions.set(row.id, row); return row;
