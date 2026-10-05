@@ -1,123 +1,128 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { UserDto } from "@leaguekick/contracts";
-import { View } from "react-native";
 import { router } from "expo-router";
+import { StyleSheet, View } from "react-native";
 import { OwnerDashboard } from "../../../src/components/owner/OwnerDashboard";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Card } from "../../../src/components/ui/Card";
-import { Button } from "../../../src/components/ui/Button";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
-import { useNetwork } from "../../../src/providers/NetworkProvider";
 
 export default function HomeScreen(){
   const {session}=useAuth();
-  const user=session?.user;
-  if(user?.roles.includes("VENUE_OWNER")) return <OwnerDashboard/>;
-  if(user?.roles.includes("PLAYER")) return <PlayerHome user={user}/>;
-  return <BaseUserHome user={user}/>;
+  const owner=session?.user.roles.includes("VENUE_OWNER")??false;
+
+  if(owner) return <OwnerDashboard/>;
+
+  return <DiscoveryHome/>;
 }
 
-function BaseUserHome({user}:{user:UserDto|undefined}){
+function DiscoveryHome(){
   const {t,isRTL}=useLocale();
-  const {isOnline}=useNetwork();
-  const active=user?.roles??[];
-  const roleLabel=active.length
-    ?active.map((role)=>t(("role."+role) as never)).join(", ")
-    :t("roles.basicUser");
+
+  const actions=[
+    {
+      key:"venues",
+      icon:"business-outline" as const,
+      title:t("booking.findVenue"),
+      body:t("home.discoveryVenuesBody"),
+      onPress:()=>router.push("/venues"),
+    },
+    {
+      key:"feed",
+      icon:"newspaper-outline" as const,
+      title:t("feed.title"),
+      body:t("home.discoveryFeedBody"),
+      onPress:()=>router.push("/feed"),
+    },
+    {
+      key:"competitions",
+      icon:"trophy-outline" as const,
+      title:t("competition.title"),
+      body:t("home.discoveryCompetitionsBody"),
+      onPress:()=>router.push("/competitions"),
+    },
+  ];
 
   return <Screen showHeader>
-    <View style={styles.baseHero}>
+    <View style={styles.hero}>
       <View style={[styles.heroBadge,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Ionicons name="football" size={18} color="#86EFAC"/>
-        <AppText variant="caption" weight="bold" style={{color:"#DDFBE6"}}>{t("auth.heroEyebrow")}</AppText>
+        <AppText variant="caption" weight="bold" style={styles.heroBadgeText}>{t("auth.heroEyebrow")}</AppText>
       </View>
-      <AppText variant="title" weight="bold" style={{color:"#FFFFFF"}}>{t("home.baseTitle")}</AppText>
-      <AppText style={{color:"#C7D5E2"}}>{t("home.baseBody")}</AppText>
-      <Button
-        label={t("home.chooseRole")}
-        onPress={()=>router.push("/roles")}
-        icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF"/>}
-      />
+      <AppText variant="title" weight="bold" style={styles.heroTitle}>{t("home.discoveryTitle")}</AppText>
+      <AppText style={styles.heroBody}>{t("home.discoveryBody")}</AppText>
     </View>
 
-    <Card>
-      <InfoRow label={t("settings.username")} value={user?.username?"@"+user.username:""} rtl={isRTL} ltrValue/>
-      <InfoRow label={t("home.accountRole")} value={roleLabel} rtl={isRTL}/>
-      <InfoRow label={t("home.connection")} value={isOnline?t("common.online"):t("network.offlineTitle")} rtl={isRTL}/>
-    </Card>
-
-    <Card style={{gap:spacing.md}}>
-      <AppText variant="bodyLarge" weight="bold">{t("roles.basicUserBody")}</AppText>
-      <Button label={t("booking.findVenue")} onPress={()=>router.push("/venues")}/>
-      <Button label={t("feed.title")} onPress={()=>router.push("/feed")} variant="secondary"/>
-      <Button label={t("competition.title")} onPress={()=>router.push("/competitions")} variant="secondary"/>
-    </Card>
+    <View style={styles.grid}>
+      {actions.map((action)=><Card key={action.key} style={styles.actionCard}>
+        <View style={[styles.actionTop,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.actionIcon}>
+            <Ionicons name={action.icon} size={24} color={colors.primary}/>
+          </View>
+          <View style={styles.actionCopy}>
+            <AppText variant="bodyLarge" weight="bold">{action.title}</AppText>
+            <AppText variant="caption" muted>{action.body}</AppText>
+          </View>
+        </View>
+        <View
+          accessibilityRole="button"
+          accessibilityLabel={action.title}
+          onTouchEnd={action.onPress}
+          style={[styles.openRow,{flexDirection:isRTL?"row-reverse":"row"}]}
+        >
+          <AppText weight="semibold" style={{color:colors.primary}}>{t("common.open")}</AppText>
+          <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={18} color={colors.primary}/>
+        </View>
+      </Card>)}
+    </View>
   </Screen>;
 }
 
-function PlayerHome({user}:{user:UserDto|undefined}){
-  const {t,language,isRTL}=useLocale();
-  const {isOnline}=useNetwork();
-  const roles=user?.roles.length
-    ?user.roles.map((role)=>t(("role."+role) as never)).join(", ")
-    :t("roles.basicUser");
-
-  return <Screen showHeader>
-    <View style={styles.playerHero}>
-      <AppText variant="title" weight="bold" style={{color:"#FFFFFF"}}>{t("home.greeting",{name:user?.displayName??""})}</AppText>
-      <AppText style={{color:"#DCE8FF"}}>{t("home.foundationBody")}</AppText>
-    </View>
-    <Card>
-      <AppText weight="semibold" style={{color:colors.primary}}>{t("home.foundationTitle")}</AppText>
-      <View style={{gap:spacing.sm}}>
-        <InfoRow label={t("home.accountRole")} value={roles} rtl={isRTL}/>
-        <InfoRow label={t("home.connection")} value={isOnline?t("common.online"):t("network.offlineTitle")} rtl={isRTL}/>
-        <InfoRow label={t("home.language")} value={language} rtl={isRTL} ltrValue/>
-      </View>
-    </Card>
-    <Card style={{backgroundColor:colors.primarySoft}}>
-      <AppText weight="semibold">{t("booking.quickStart")}</AppText>
-      <AppText>{t("booking.quickStartBody")}</AppText>
-      <Button label={t("booking.findVenue")} onPress={()=>router.push("/venues")} />
-      <Button label={t("booking.myBookings")} onPress={()=>router.push("/bookings")} variant="secondary" />
-      <Button label={t("competition.title")} onPress={()=>router.push("/competitions")} variant="secondary" />
-      <Button label={t("settings.roles")} onPress={()=>router.push("/roles")} variant="ghost" />
-    </Card>
-  </Screen>;
-}
-
-function InfoRow({label,value,rtl,ltrValue=false}:{label:string;value:string;rtl:boolean;ltrValue?:boolean}){
-  return <View style={{flexDirection:rtl?"row-reverse":"row",justifyContent:"space-between",gap:spacing.md}}>
-    <AppText muted>{label}</AppText>
-    <AppText weight="semibold" forceLtr={ltrValue} style={{flexShrink:1}}>{value}</AppText>
-  </View>;
-}
-
-const styles={
-  baseHero:{
+const styles=StyleSheet.create({
+  hero:{
     backgroundColor:"#071A2B",
     borderRadius:radius.lg,
     padding:spacing.lg,
-    gap:spacing.md,
+    gap:spacing.sm,
     shadowColor:"#071A2B",
     shadowOpacity:0.18,
     shadowRadius:14,
     shadowOffset:{width:0,height:6},
     elevation:4,
   },
-  heroBadge:{alignSelf:"flex-start",alignItems:"center",gap:spacing.xs,paddingHorizontal:spacing.sm,paddingVertical:6,borderRadius:radius.pill,backgroundColor:"rgba(255,255,255,0.08)"},
-  playerHero:{
-    backgroundColor:colors.primary,
-    borderRadius:20,
-    padding:spacing.lg,
-    gap:spacing.sm,
-    shadowColor:colors.primary,
-    shadowOpacity:0.18,
-    shadowRadius:14,
-    shadowOffset:{width:0,height:6},
-    elevation:4,
+  heroBadge:{
+    alignSelf:"flex-start",
+    alignItems:"center",
+    gap:spacing.xs,
+    paddingHorizontal:spacing.sm,
+    paddingVertical:6,
+    borderRadius:radius.pill,
+    backgroundColor:"rgba(255,255,255,0.08)",
   },
-} as const;
+  heroBadgeText:{color:"#DDFBE6"},
+  heroTitle:{color:"#FFFFFF"},
+  heroBody:{color:"#C7D5E2"},
+  grid:{gap:spacing.md},
+  actionCard:{gap:spacing.md,padding:spacing.lg},
+  actionTop:{alignItems:"center",gap:spacing.md},
+  actionIcon:{
+    width:50,
+    height:50,
+    borderRadius:16,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:colors.primarySoft,
+  },
+  actionCopy:{flex:1,gap:spacing.xs},
+  openRow:{
+    minHeight:44,
+    alignItems:"center",
+    justifyContent:"flex-end",
+    gap:spacing.xs,
+    borderTopWidth:1,
+    borderTopColor:colors.border,
+    paddingTop:spacing.sm,
+  },
+});
