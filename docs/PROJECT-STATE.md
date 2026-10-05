@@ -29,6 +29,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Recovery requests do not reveal phone/account existence before code verification; production requires an HTTPS SMS delivery provider while local development may expose the code only in explicit non-production dev mode.
 - Self-service role activation is limited to PLAYER, VENUE_OWNER, TEAM_MANAGER and REFEREE; privileged staff/admin roles remain controlled.
 - Profile is the single mobile surface for account identity and role selection/activation; Home does not expose username/phone/role controls.
+- Account Profile supports optional full name, HTTPS profile image, age, email, city and short bio; these remain private account fields and do not automatically become public Player Profile data.
 - Home remains discovery-oriented with venue discovery, Feed, and Competitions available to authenticated users; owner Home retains operational dashboard content plus these discovery entry points.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
 - Server owns authorization, venue ownership, entitlement, live availability, confirmation price, promotion validity and notification fan-out.
@@ -71,6 +72,7 @@ Committed canonical migrations:
 - `0005_robust_smiling_tiger` — Phase 6 competition engine.
 - `0006_phase7_commercial_core` — Phase 7 venue verification, subscription payments and platform configuration.
 - `0007_password_reset_challenges` — pre-release secure phone verification/password reset challenges.
+- `0008_account_profile_fields` — optional private account profile image URL, age, city and bio fields; email uses the existing normalized unique column.
 
 The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 itself had no database schema change. Pre-release authentication corrections add `0007_password_reset_challenges.sql`; it is committed but must not be marked applied until the user runs `pnpm db:migrate` successfully.
 
