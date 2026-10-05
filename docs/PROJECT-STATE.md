@@ -322,16 +322,9 @@ packages/database/drizzle/meta/_journal.json
 
 The database migration application succeeded. Do not regenerate the migration unless the database schema changes again.
 
-Next local gate:
+The Phase 6 migration is committed in the current stacked baseline. The remaining Phase 6 caveat is live Android competition/calendar-conflict signoff; current automated verification is exercised again by the integrated Phase 7 gate.
 
-```powershell
-git pull origin phase-06-competition-engine
-pnpm verify
-```
-
-After `pnpm verify` is fully green, commit/push only the generated Phase 6 migration files and complete `docs/PHASE-06-TEST-PLAN.md`.
-
-Do not mark Phase 6 fully verified until automated verification and the live competition/calendar conflict journeys pass.
+Do not mark Phase 6 live-device verification complete until the competition/calendar conflict journeys pass.
 
 ## Phase 7 delivered
 
