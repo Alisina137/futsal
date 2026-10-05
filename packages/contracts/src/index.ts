@@ -30,10 +30,13 @@ export const phoneInputSchema = z
 
 export const passwordSchema = z.string().min(8).max(128);
 
-export const newPasswordSchema = passwordSchema.regex(
-  /[^\p{L}\p{N}\s]/u,
-  "Password must include at least one special character.",
-);
+export const newPasswordSchema = passwordSchema
+  .regex(/\p{L}/u, "Password must include at least one letter.")
+  .regex(/\p{N}/u, "Password must include at least one number.")
+  .regex(
+    /[^\p{L}\p{N}\s]/u,
+    "Password must include at least one special character.",
+  );
 
 export const registerRequestSchema = z.object({
   username: usernameSchema,
