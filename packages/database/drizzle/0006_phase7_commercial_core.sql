@@ -24,6 +24,7 @@ CREATE TABLE "platform_settings" (
 	"annual_price_afn" integer DEFAULT 15000 NOT NULL,
 	"trial_duration_hours" integer DEFAULT 72 NOT NULL,
 	"feature_flags" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"notification_templates" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"updated_by_user_id" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );--> statement-breakpoint
