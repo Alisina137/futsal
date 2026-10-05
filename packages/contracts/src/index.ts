@@ -827,7 +827,7 @@ export const competitionMatchResultRequestSchema = z.object({
   confirmImpact: z.boolean().default(false),
   playerStats: z.array(playerMatchStatInputSchema).max(80).default([]),
 });
-export type CompetitionMatchResultRequest = z.infer<typeof competitionMatchResultRequestSchema>;
+export type CompetitionMatchResultRequest = z.input<typeof competitionMatchResultRequestSchema>;
 
 export const competitionTeamDtoSchema = z.object({
   teamId: z.string().uuid(),
