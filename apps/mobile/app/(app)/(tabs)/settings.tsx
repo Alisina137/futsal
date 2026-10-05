@@ -3,7 +3,7 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { SelfAssignableRole } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { LanguagePicker } from "../../../src/components/LanguagePicker";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -71,9 +71,11 @@ export default function ProfileScreen(){
 
     <View style={styles.hero}>
       <View style={[styles.heroTop,direction]}>
-        <View style={styles.avatar}>
-          <AppText variant="bodyLarge" weight="bold" style={{color:colors.primary}}>{initials}</AppText>
-        </View>
+        {user?.profileImageUrl
+          ?<Image source={{uri:user.profileImageUrl}} style={styles.avatarImage}/>
+          :<View style={styles.avatar}>
+            <AppText variant="bodyLarge" weight="bold" style={{color:colors.primary}}>{initials}</AppText>
+          </View>}
         <View style={styles.heroIdentity}>
           <AppText variant="bodyLarge" weight="bold" style={{color:"#FFFFFF"}}>{user?.displayName??""}</AppText>
           <AppText style={{color:"#DCE8FF"}} forceLtr>{user?.phone??""}</AppText>
@@ -350,6 +352,14 @@ const styles=StyleSheet.create({
   heroTop:{
     alignItems:"center",
     gap:spacing.md,
+  },
+  avatarImage:{
+    width:64,
+    height:64,
+    borderRadius:32,
+    borderWidth:3,
+    borderColor:"#BDD3FF",
+    backgroundColor:"#FFFFFF",
   },
   avatar:{
     width:64,
