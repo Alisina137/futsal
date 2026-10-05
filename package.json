@@ -13,7 +13,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
-    "verify": "pnpm verify:mobile-rtl && pnpm verify:trial-datetime && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
+    "verify": "pnpm verify:mobile-rtl && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "pnpm --filter @leaguekick/database db:generate",
     "db:migrate": "pnpm --filter @leaguekick/database db:migrate",
     "verify:phase3": "node scripts/verify-phase3-resilience.mjs",
@@ -21,7 +21,8 @@
     "verify:phase5": "node scripts/verify-phase5-teams.mjs",
     "verify:phase4": "node scripts/verify-phase4-marketing.mjs",
     "verify:mobile-rtl": "node scripts/verify-mobile-rtl-navigation.mjs",
-    "verify:trial-datetime": "node scripts/verify-trial-datetime.mjs"
+    "verify:trial-datetime": "node scripts/verify-trial-datetime.mjs",
+    "verify:phase7": "node scripts/verify-phase7-commercial.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

@@ -48,7 +48,9 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Afghanistan launch venue timezone defaults to `Asia/Kabul`; persisted timestamps are UTC instants.
 
 ## Current implementation phase
-Phase 6 — Competition Engine.
+Phase 7 — Subscription Enforcement, Analytics and Admin.
+
+All Phase 7 implementation tasks (7.1–7.6) are integrated on `phase-07-subscription-analytics-admin`. Local migration/application verification and live mobile/admin testing are still required before Phase 7 is marked fully verified.
 
 ## Migration baseline
 Committed canonical migrations:
@@ -57,8 +59,10 @@ Committed canonical migrations:
 - `0002_careless_jack_power` — Phase 3.
 - `0003_numerous_darwin` — Phase 4.
 - `0004_past_goliath` — Phase 5.
+- `0005_robust_smiling_tiger` — Phase 6 competition engine.
+- `0006_phase7_commercial_core` — Phase 7 venue verification, subscription payments and platform configuration.
 
-Phase 6 migration was generated locally as `0005_robust_smiling_tiger.sql` with `meta/0005_snapshot.json`, and the user reported `pnpm db:migrate` applied it successfully. Those generated Phase 6 migration files still need to be committed/pushed after full verification is green.
+The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. Phase 7 migration `0006_phase7_commercial_core.sql` is committed with its snapshot/journal entry and still needs to be applied in the user's environment.
 
 ## Phase 1 status
 Foundation implemented and previously verified.
@@ -318,18 +322,86 @@ packages/database/drizzle/meta/_journal.json
 
 The database migration application succeeded. Do not regenerate the migration unless the database schema changes again.
 
-Next local gate:
+The Phase 6 migration is committed in the current stacked baseline. The remaining Phase 6 caveat is live Android competition/calendar-conflict signoff; current automated verification is exercised again by the integrated Phase 7 gate.
+
+Do not mark Phase 6 live-device verification complete until the competition/calendar conflict journeys pass.
+
+## Phase 7 delivered
+
+### Subscription lifecycle and continuity
+- One shared server-side entitlement evaluator is used across booking, marketing and competitions.
+- Expired trials and ended paid periods resolve to `EXPIRED` / `CONTINUITY`.
+- New public bookable inventory and Premium writes are blocked after expiry.
+- Owners retain schedule access and existing-booking servicing/cancellation.
+- Owner billing status exposes FULL / CONTINUITY / NONE access modes.
+- Owner can request reactivation without client-side entitlement activation.
+
+### Billing and commercial configuration
+- Manual/admin subscription activation with configurable month periods.
+- Durable payment history with amount, period, provider, optional provider reference, note and reconciliation state.
+- Duplicate non-empty provider references are rejected.
+- Payment records can be voided with an audited reason without rewriting historical entitlement.
+- Monthly/annual price and trial-duration platform configuration.
+- Feature flags and notification-template configuration are persisted.
+- Future owner trials use configured trial duration; default remains 72 hours.
+- Owner Subscription mobile screen shows entitlement, verification, prices and payment history.
+
+### Owner analytics
+- Date-range analytics API and mobile screen.
+- Booking totals, confirmed/cancelled counts, online/manual mix and online-booking share.
+- Non-cancelled booking GMV estimate.
+- Booked minutes, available venue minutes and occupancy rate derived from authoritative bookings, active areas and opening hours.
+- Empty-state behavior avoids meaningless zero dashboards.
+- Analytics remain read-only and available during continuity mode.
+
+### Platform admin
+- `PLATFORM_ADMIN`-protected admin API and mobile console.
+- User search, suspension/restoration and refresh-session revocation.
+- Venue search, verification/rejection, suspension/restoration.
+- Duplicate venue review groups.
+- Trial extension.
+- Manual subscription activation and payment reconciliation.
+- Configurable commercial settings.
+- Support-note audit records.
+- Venue-post unpublish and promotion-close moderation controls.
+- Operational dashboard for active users/venues, verification queue, trial/paid/expired venues, recorded subscription payments and booking GMV estimate.
+- Privileged actions write audit-log records with actor, target and reason/metadata.
+- Self-suspension of the current admin account is blocked.
+
+### Data and migration
+- Venue verification status and verifier identity/timestamp.
+- `subscription_payments`.
+- `platform_settings`.
+- Canonical `0006_phase7_commercial_core` migration, snapshot and journal entry.
+
+### Mobile/localization
+- Owner Subscription entry.
+- Owner Analytics entry.
+- Platform Admin entry for admin-role accounts.
+- Dari, Pashto and English translations with RTL-aware layouts.
+
+### Verification coverage
+- Subscription entitlement unit tests.
+- Continuity-mode booking regression.
+- Phase 7 commercial API/service tests for owner billing, analytics, admin authorization and activation.
+- `verify:phase7` invariant gate.
+- `docs/PHASE-07-TEST-PLAN.md`.
+
+## Phase 7 verification status
+
+Status: **Implemented; local full verification, Phase 7 migration application and live mobile/admin test-plan signoff pending.**
+
+Required local gate:
 
 ```powershell
-git pull origin phase-06-competition-engine
+pnpm install
 pnpm verify
+pnpm db:migrate
 ```
 
-After `pnpm verify` is fully green, commit/push only the generated Phase 6 migration files and complete `docs/PHASE-06-TEST-PLAN.md`.
+Do not regenerate the Phase 7 migration before applying the committed `0006_phase7_commercial_core` migration.
 
-Do not mark Phase 6 fully verified until automated verification and the live competition/calendar conflict journeys pass.
+Phase 6 live-device competition verification caveat remains unchanged.
 
 ## Next phase
-Phase 7 — Subscription Enforcement, Analytics and Admin.
-
-Phase 7 should begin only after the Phase 6 verification baseline is confirmed.
+Phase 8 — Release Readiness.

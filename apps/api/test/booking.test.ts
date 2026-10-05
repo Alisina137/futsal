@@ -170,6 +170,57 @@ describe("Phase 3 availability and booking API", () => {
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("keeps existing booking service available in continuity mode while blocking new inventory writes", async () => {
+    const { app, bookingRepository, clock } = setup();
+    const owner = await register(app, "VENUE_OWNER", "0702223387");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id, {
+      trialEndsAt: new Date("2026-10-04T01:00:00.000Z"),
+    });
+    const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+
+    clock.now = new Date("2026-10-04T00:30:00.000Z");
+    const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    const slot = availability.body.slots[0];
+
+    const manual = await request(app)
+      .post("/api/v1/owner/bookings/manual")
+      .set(auth)
+      .send({
+        areaId: slot.areaId,
+        startsAt: slot.startsAt,
+        endsAt: slot.endsAt,
+        customerName: "Continuity customer",
+      });
+    expect(manual.status).toBe(201);
+
+    clock.now = new Date("2026-10-04T02:00:00.000Z");
+
+    const schedule = await request(app)
+      .get("/api/v1/owner/schedule?date=2026-10-05")
+      .set(auth);
+    expect(schedule.status).toBe(200);
+    expect(schedule.body.bookings.some((item: { id: string }) => item.id === manual.body.booking.id)).toBe(true);
+
+    const deniedWrite = await request(app)
+      .post("/api/v1/owner/bookings/manual")
+      .set(auth)
+      .send({
+        areaId: slot.areaId,
+        startsAt: "2026-10-05T06:00:00.000Z",
+        endsAt: "2026-10-05T07:30:00.000Z",
+        customerName: "Blocked after expiry",
+      });
+    expect(deniedWrite.status).toBe(403);
+    expect(deniedWrite.body.error.code).toBe("SUBSCRIPTION_REQUIRED");
+
+    const cancelled = await request(app)
+      .post(`/api/v1/owner/bookings/${manual.body.booking.id}/cancel`)
+      .set(auth)
+      .send({ reason: "Customer cancelled" });
+    expect(cancelled.status).toBe(200);
+    expect(cancelled.body.booking.status).toBe("CANCELLED");
+  });
+
   it("does not expose bookable inventory after the trial expires", async () => {
     const { app, bookingRepository, clock } = setup();
     const owner = await register(app, "VENUE_OWNER", "0702223388");

@@ -16,13 +16,15 @@ import { DrizzleTeamRepository } from "./modules/team/team.repository.js";
 import { TeamService } from "./modules/team/team.service.js";
 import { DrizzleCompetitionRepository } from "./modules/competition/competition.repository.js";
 import { CompetitionService } from "./modules/competition/competition.service.js";
+import { DrizzleCommercialRepository } from "./modules/commercial/commercial.repository.js";
+import { CommercialService } from "./modules/commercial/commercial.service.js";
 
 const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
 const tokens = new TokenService(env.ACCESS_TOKEN_SECRET, env.ACCESS_TOKEN_ISSUER, env.ACCESS_TOKEN_AUDIENCE);
 const auth = new AuthService(authRepository, tokens);
+tokens.setAccessValidator(async (userId) => (await authRepository.getUserById(userId))?.status === "ACTIVE");
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
-const owner = new OwnerOnboardingService(ownerRepository);
 const notificationRepository = new DrizzleNotificationRepository(db);
 const notificationService = new NotificationService(notificationRepository);
 const bookingRepository = new DrizzleBookingRepository(db);
@@ -33,6 +35,13 @@ const teamRepository = new DrizzleTeamRepository(db);
 const teamService = new TeamService(teamRepository, undefined, notificationService);
 const competitionRepository = new DrizzleCompetitionRepository(db);
 const competitionService = new CompetitionService(competitionRepository);
+const commercialRepository = new DrizzleCommercialRepository(db);
+const commercialService = new CommercialService(commercialRepository);
+const owner = new OwnerOnboardingService(
+  ownerRepository,
+  undefined,
+  async () => ((await commercialRepository.getSettings())?.trialDurationHours ?? 72) * 60 * 60 * 1000,
+);
 const app = createApp({
   authService: auth,
   tokenService: tokens,
@@ -42,6 +51,7 @@ const app = createApp({
   notificationService,
   teamService,
   competitionService,
+  commercialService,
   corsOrigin: env.CORS_ORIGIN,
 });
 

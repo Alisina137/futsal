@@ -8,6 +8,7 @@ export type AccessClaims = { userId: string; roles: UserRole[] };
 
 export class TokenService {
   private readonly key: Uint8Array;
+  private accessValidator: ((userId: string) => Promise<boolean>) | null = null;
 
   constructor(
     secret: string,
@@ -36,10 +37,17 @@ export class TokenService {
       if (!payload.sub) throw new Error("missing sub");
       const roles = userRoleSchema.array().safeParse(payload.roles);
       if (!roles.success) throw new Error("invalid roles");
+      if (this.accessValidator && !(await this.accessValidator(payload.sub))) {
+        throw new Error("account inactive");
+      }
       return { userId: payload.sub, roles: roles.data };
     } catch {
       throw errors.unauthorized("INVALID_ACCESS_TOKEN", "The access token is invalid or expired.");
     }
+  }
+
+  setAccessValidator(validator: (userId: string) => Promise<boolean>) {
+    this.accessValidator = validator;
   }
 
   createRefreshToken() {

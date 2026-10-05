@@ -7,6 +7,7 @@ import type {
 } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
+import { evaluateVenueEntitlement } from "../billing/entitlement.js";
 import type { OwnerAggregate, OwnerOnboardingRepository, OwnerSubscriptionRecord, OwnerVenueRecord } from "./owner.types.js";
 
 const TRIAL_DURATION_MS = 72 * 60 * 60 * 1000;
@@ -55,6 +56,9 @@ function toSubscriptionDto(subscription: OwnerSubscriptionRecord | null, now: Da
   if (!subscription) {
     return {
       state: "NOT_STARTED",
+      accessMode: "NONE",
+      canCreateBookableInventory: false,
+      canServiceExistingBookings: false,
       trialStartedAt: null,
       trialEndsAt: null,
       activeUntil: null,
@@ -62,12 +66,16 @@ function toSubscriptionDto(subscription: OwnerSubscriptionRecord | null, now: Da
     };
   }
 
-  const remainingSeconds = subscription.status === "TRIAL" && subscription.trialEndsAt
+  const entitlement = evaluateVenueEntitlement(subscription, now);
+  const remainingSeconds = entitlement.state === "TRIAL" && subscription.trialEndsAt
     ? Math.max(0, Math.floor((subscription.trialEndsAt.getTime() - now.getTime()) / 1000))
     : null;
 
   return {
-    state: subscription.status,
+    state: entitlement.state,
+    accessMode: entitlement.accessMode,
+    canCreateBookableInventory: entitlement.canCreateBookableInventory,
+    canServiceExistingBookings: entitlement.canServiceExistingBookings,
     trialStartedAt: subscription.trialStartedAt?.toISOString() ?? null,
     trialEndsAt: subscription.trialEndsAt?.toISOString() ?? null,
     activeUntil: subscription.activeUntil?.toISOString() ?? null,
@@ -79,17 +87,15 @@ export class OwnerOnboardingService {
   constructor(
     private readonly repository: OwnerOnboardingRepository,
     private readonly now: () => Date = () => new Date(),
+    private readonly trialDurationMs: () => Promise<number> | number = () => TRIAL_DURATION_MS,
   ) {}
 
   private async normalizeAggregate(aggregate: OwnerAggregate | null): Promise<OwnerAggregate | null> {
     if (!aggregate?.subscription) return aggregate;
     const now = this.now();
-    if (
-      aggregate.subscription.status === "TRIAL" &&
-      aggregate.subscription.trialEndsAt &&
-      aggregate.subscription.trialEndsAt.getTime() <= now.getTime()
-    ) {
-      await this.repository.expireTrial(aggregate.venue.id, now);
+    const entitlement = evaluateVenueEntitlement(aggregate.subscription, now);
+    if (entitlement.state === "EXPIRED" && aggregate.subscription.status !== "EXPIRED") {
+      await this.repository.markExpired(aggregate.venue.id, now);
       return {
         ...aggregate,
         subscription: { ...aggregate.subscription, status: "EXPIRED" },
@@ -154,7 +160,8 @@ export class OwnerOnboardingService {
     }
 
     const startedAt = this.now();
-    const endsAt = new Date(startedAt.getTime() + TRIAL_DURATION_MS);
+    const durationMs = await this.trialDurationMs();
+    const endsAt = new Date(startedAt.getTime() + durationMs);
     const subscription = await this.repository.startTrial({
       ownerUserId,
       venueId: current.venue.id,

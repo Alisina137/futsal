@@ -44,6 +44,19 @@ import type {
   CompetitionTeamDto,
   CompetitionUpdateRequest,
   CompetitionInviteTeamRequest,
+  OwnerBillingSummary,
+  OwnerAnalyticsResponse,
+  AdminDashboardResponse,
+  AdminUserDto,
+  AdminVenueDto,
+  AdminAuditLogDto,
+  PlatformSettingsDto,
+  PlatformSettingsUpdateRequest,
+  AdminVenueActionRequest,
+  AdminUserStatusRequest,
+  AdminSubscriptionActivationRequest,
+  AdminTrialExtensionRequest,
+  SubscriptionPaymentDto,
 } from "@leaguekick/contracts";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
@@ -129,6 +142,12 @@ export const ownerApi = {
     request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}/publish`, { method: "POST" }, accessToken),
   unpublishPost: (accessToken: string, postId: string) =>
     request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}/unpublish`, { method: "POST" }, accessToken),
+  subscription: (accessToken: string) =>
+    request<OwnerBillingSummary>("/api/v1/owner/subscription", {}, accessToken),
+  requestReactivation: (accessToken: string) =>
+    request<{ requested: boolean }>("/api/v1/owner/subscription/reactivation-request", { method: "POST" }, accessToken),
+  analytics: (accessToken: string, from: string, to: string) =>
+    request<OwnerAnalyticsResponse>(`/api/v1/owner/analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {}, accessToken),
 };
 
 
@@ -219,6 +238,42 @@ export const teamApi = {
     request<{ invitation: TeamInvitationDto }>(`/api/v1/teams/${teamId}/invitations/${invitationId}`, { method: "DELETE" }, accessToken),
 };
 
+
+
+export const adminApi = {
+  dashboard: (accessToken: string) =>
+    request<AdminDashboardResponse>("/api/v1/admin/dashboard", {}, accessToken),
+  users: (accessToken: string, q = "") =>
+    request<{ users: AdminUserDto[] }>(`/api/v1/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, accessToken),
+  setUserStatus: (accessToken: string, userId: string, input: AdminUserStatusRequest) =>
+    request<{ updated: boolean }>(`/api/v1/admin/users/${userId}/status`, { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+  venues: (accessToken: string, q = "") =>
+    request<{ venues: AdminVenueDto[] }>(`/api/v1/admin/venues${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, accessToken),
+  duplicateVenues: (accessToken: string) =>
+    request<{ groups: AdminVenueDto[][] }>("/api/v1/admin/venues/duplicates", {}, accessToken),
+  venueAction: (accessToken: string, venueId: string, input: AdminVenueActionRequest) =>
+    request<{ updated: boolean }>(`/api/v1/admin/venues/${venueId}/action`, { method: "POST", body: JSON.stringify(input) }, accessToken),
+  activateSubscription: (accessToken: string, venueId: string, input: AdminSubscriptionActivationRequest) =>
+    request<{ activated: boolean }>(`/api/v1/admin/venues/${venueId}/subscription/activate`, { method: "POST", body: JSON.stringify(input) }, accessToken),
+  extendTrial: (accessToken: string, venueId: string, input: AdminTrialExtensionRequest) =>
+    request<{ extended: boolean }>(`/api/v1/admin/venues/${venueId}/trial/extend`, { method: "POST", body: JSON.stringify(input) }, accessToken),
+  payments: (accessToken: string, venueId: string) =>
+    request<{ payments: SubscriptionPaymentDto[] }>(`/api/v1/admin/venues/${venueId}/payments`, {}, accessToken),
+  settings: (accessToken: string) =>
+    request<{ settings: PlatformSettingsDto }>("/api/v1/admin/settings", {}, accessToken),
+  updateSettings: (accessToken: string, input: PlatformSettingsUpdateRequest) =>
+    request<{ settings: PlatformSettingsDto }>("/api/v1/admin/settings", { method: "PUT", body: JSON.stringify(input) }, accessToken),
+  audit: (accessToken: string) =>
+    request<{ logs: AdminAuditLogDto[] }>("/api/v1/admin/audit", {}, accessToken),
+  supportNote: (accessToken: string, targetType: "USER" | "VENUE", targetId: string, note: string) =>
+    request<{ created: boolean }>("/api/v1/admin/support-notes", { method: "POST", body: JSON.stringify({ targetType, targetId, note }) }, accessToken),
+  voidPayment: (accessToken: string, paymentId: string, reason: string) =>
+    request<{ voided: boolean }>(`/api/v1/admin/payments/${paymentId}/void`, { method: "POST", body: JSON.stringify({ reason }) }, accessToken),
+  unpublishPost: (accessToken: string, postId: string, reason: string) =>
+    request<{ unpublished: boolean }>(`/api/v1/admin/content/posts/${postId}/unpublish`, { method: "POST", body: JSON.stringify({ reason }) }, accessToken),
+  closePromotion: (accessToken: string, promotionId: string, reason: string) =>
+    request<{ closed: boolean }>(`/api/v1/admin/content/promotions/${promotionId}/close`, { method: "POST", body: JSON.stringify({ reason }) }, accessToken),
+};
 
 export const competitionApi = {
   list: () =>

@@ -199,7 +199,7 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
     }
   }
 
-  async expireTrial(venueId: string, expiredAt: Date): Promise<void> {
+  async markExpired(venueId: string, expiredAt: Date): Promise<void> {
     await this.db.update(venueSubscriptions).set({ status: "EXPIRED", updatedAt: expiredAt }).where(eq(venueSubscriptions.venueId, venueId));
   }
 }

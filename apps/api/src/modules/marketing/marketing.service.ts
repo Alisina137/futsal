@@ -8,20 +8,10 @@ import type {
 } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import type { BookingService } from "../booking/booking.service.js";
-import type { MarketingRepository, MarketingVenueRecord } from "./marketing.types.js";
+import type { MarketingRepository } from "./marketing.types.js";
 import { mergeFeed } from "./marketing.types.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
-
-function entitlementActive(venue: MarketingVenueRecord, now: Date) {
-  if (venue.status !== "ACTIVE" || !venue.subscription) return false;
-  if (venue.subscription.status === "TRIAL") {
-    return Boolean(venue.subscription.trialEndsAt && venue.subscription.trialEndsAt.getTime() > now.getTime());
-  }
-  if (venue.subscription.status === "ACTIVE") {
-    return !venue.subscription.activeUntil || venue.subscription.activeUntil.getTime() > now.getTime();
-  }
-  return false;
-}
+import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 
 function localDateForInstant(instant: Date, timeZone: string) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -50,7 +40,7 @@ export class MarketingService {
     const venue = await this.repository.getOwnerVenue(ownerUserId);
     if (!venue) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
     if (venue.status === "SUSPENDED") throw errors.forbidden("VENUE_SUSPENDED", "This venue is suspended.");
-    if (requireWrite && !entitlementActive(venue, this.now())) {
+    if (requireWrite && !hasPremiumWriteAccess(venue.subscription, this.now())) {
       throw errors.forbidden("SUBSCRIPTION_REQUIRED", "An active Premium trial or subscription is required.");
     }
     return venue;

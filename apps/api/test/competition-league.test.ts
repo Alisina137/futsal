@@ -65,24 +65,24 @@ describe("Phase 6 league lifecycle",()=>{
     const [first,second,third]=ownerView.matches.sort((a,b)=>a.roundNumber-b.roundNumber||a.slotNumber-b.slotNumber);
 
     await service.enterResult(ownerId,competition.id,first!.id,{
-      homeScore:2,awayScore:0,playerStats:[],
+      homeScore:2,awayScore:0,confirmImpact:false,playerStats:[],
     });
 
     await expect(service.changeState(ownerId,competition.id,{action:"COMPLETE"}))
       .rejects.toMatchObject({code:"MATCHES_INCOMPLETE"});
 
     await expect(service.enterResult(ownerId,competition.id,first!.id,{
-      homeScore:1,awayScore:1,playerStats:[],
+      homeScore:1,awayScore:1,confirmImpact:false,playerStats:[],
     })).rejects.toMatchObject({code:"CORRECTION_REASON_REQUIRED"});
 
     await service.enterResult(ownerId,competition.id,first!.id,{
-      homeScore:1,awayScore:1,correctionReason:"Official score correction",playerStats:[],
+      homeScore:1,awayScore:1,correctionReason:"Official score correction",confirmImpact:false,playerStats:[],
     });
     await service.enterResult(ownerId,competition.id,second!.id,{
-      homeScore:3,awayScore:1,playerStats:[],
+      homeScore:3,awayScore:1,confirmImpact:false,playerStats:[],
     });
     await service.enterResult(ownerId,competition.id,third!.id,{
-      homeScore:0,awayScore:2,playerStats:[],
+      homeScore:0,awayScore:2,confirmImpact:false,playerStats:[],
     });
 
     ownerView=await service.getOwner(ownerId,competition.id);

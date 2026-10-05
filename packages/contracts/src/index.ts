@@ -149,8 +149,14 @@ export type OwnerVenueDto = z.infer<typeof ownerVenueDtoSchema>;
 export const venueSubscriptionStateSchema = z.enum(["NOT_STARTED", "TRIAL", "ACTIVE", "EXPIRED", "CANCELLED"]);
 export type VenueSubscriptionState = z.infer<typeof venueSubscriptionStateSchema>;
 
+export const venueSubscriptionAccessModeSchema = z.enum(["NONE", "FULL", "CONTINUITY"]);
+export type VenueSubscriptionAccessMode = z.infer<typeof venueSubscriptionAccessModeSchema>;
+
 export const venueSubscriptionDtoSchema = z.object({
   state: venueSubscriptionStateSchema,
+  accessMode: venueSubscriptionAccessModeSchema,
+  canCreateBookableInventory: z.boolean(),
+  canServiceExistingBookings: z.boolean(),
   trialStartedAt: z.string().nullable(),
   trialEndsAt: z.string().nullable(),
   activeUntil: z.string().nullable(),
@@ -174,6 +180,157 @@ export const dateOnlySchema = z.string()
   }, "Use a real calendar date.");
 export const isoDateTimeSchema = z.string()
   .refine((value) => /(Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)), "Use an ISO datetime with timezone.");
+
+export const venueVerificationStatusSchema = z.enum(["PENDING", "VERIFIED", "REJECTED"]);
+export type VenueVerificationStatus = z.infer<typeof venueVerificationStatusSchema>;
+
+export const subscriptionPaymentStatusSchema = z.enum(["RECORDED", "VOIDED"]);
+export type SubscriptionPaymentStatus = z.infer<typeof subscriptionPaymentStatusSchema>;
+
+export const subscriptionPaymentDtoSchema = z.object({
+  id: z.string().uuid(),
+  venueId: z.string().uuid(),
+  amountAfn: z.number().int().min(0),
+  periodStartsAt: isoDateTimeSchema,
+  periodEndsAt: isoDateTimeSchema,
+  provider: z.string(),
+  providerReference: z.string().nullable(),
+  status: subscriptionPaymentStatusSchema,
+  note: z.string().nullable(),
+  createdAt: isoDateTimeSchema,
+});
+export type SubscriptionPaymentDto = z.infer<typeof subscriptionPaymentDtoSchema>;
+
+export const platformSettingsDtoSchema = z.object({
+  monthlyPriceAfn: z.number().int().min(0),
+  annualPriceAfn: z.number().int().min(0),
+  trialDurationHours: z.number().int().min(1).max(720),
+  featureFlags: z.record(z.string(), z.boolean()),
+  notificationTemplates: z.record(z.string(), z.string()),
+  updatedAt: isoDateTimeSchema,
+});
+export type PlatformSettingsDto = z.infer<typeof platformSettingsDtoSchema>;
+
+export const ownerBillingSummarySchema = z.object({
+  venueId: z.string().uuid(),
+  verificationStatus: venueVerificationStatusSchema,
+  subscription: venueSubscriptionDtoSchema,
+  settings: platformSettingsDtoSchema,
+  payments: z.array(subscriptionPaymentDtoSchema),
+  canReactivate: z.boolean(),
+});
+export type OwnerBillingSummary = z.infer<typeof ownerBillingSummarySchema>;
+
+export const ownerAnalyticsResponseSchema = z.object({
+  from: dateOnlySchema,
+  to: dateOnlySchema,
+  generatedAt: isoDateTimeSchema,
+  bookingCount: z.number().int().min(0),
+  confirmedBookingCount: z.number().int().min(0),
+  cancelledBookingCount: z.number().int().min(0),
+  onlineBookingCount: z.number().int().min(0),
+  manualBookingCount: z.number().int().min(0),
+  onlineBookingShare: z.number().min(0).max(1),
+  grossBookingValueAfn: z.number().int().min(0),
+  bookedMinutes: z.number().int().min(0),
+  availableMinutes: z.number().int().min(0),
+  occupancyRate: z.number().min(0).max(1),
+});
+export type OwnerAnalyticsResponse = z.infer<typeof ownerAnalyticsResponseSchema>;
+
+export const adminSubscriptionActivationRequestSchema = z.object({
+  months: z.number().int().min(1).max(24),
+  amountAfn: z.number().int().min(0).max(100_000_000),
+  provider: z.string().trim().min(1).max(40).default("MANUAL"),
+  providerReference: z.string().trim().max(120).optional().or(z.literal("")),
+  note: z.string().trim().max(500).optional().or(z.literal("")),
+});
+export type AdminSubscriptionActivationRequest = z.infer<typeof adminSubscriptionActivationRequestSchema>;
+
+export const adminTrialExtensionRequestSchema = z.object({
+  hours: z.number().int().min(1).max(720),
+  reason: z.string().trim().min(3).max(500),
+});
+export type AdminTrialExtensionRequest = z.infer<typeof adminTrialExtensionRequestSchema>;
+
+export const adminVenueActionRequestSchema = z.object({
+  action: z.enum(["VERIFY", "REJECT", "SUSPEND", "RESTORE"]),
+  reason: z.string().trim().min(3).max(500),
+});
+export type AdminVenueActionRequest = z.infer<typeof adminVenueActionRequestSchema>;
+
+export const adminUserStatusRequestSchema = z.object({
+  status: z.enum(["ACTIVE", "SUSPENDED"]),
+  reason: z.string().trim().min(3).max(500),
+});
+export type AdminUserStatusRequest = z.infer<typeof adminUserStatusRequestSchema>;
+
+export const platformSettingsUpdateRequestSchema = z.object({
+  monthlyPriceAfn: z.number().int().min(0).max(100_000_000),
+  annualPriceAfn: z.number().int().min(0).max(1_000_000_000),
+  trialDurationHours: z.number().int().min(1).max(720),
+  featureFlags: z.record(z.string(), z.boolean()).default({}),
+  notificationTemplates: z.record(z.string(), z.string()).default({}),
+});
+export type PlatformSettingsUpdateRequest = z.infer<typeof platformSettingsUpdateRequestSchema>;
+
+export const adminSupportNoteRequestSchema = z.object({
+  targetType: z.enum(["USER", "VENUE"]),
+  targetId: z.string().uuid(),
+  note: z.string().trim().min(3).max(1000),
+});
+export type AdminSupportNoteRequest = z.infer<typeof adminSupportNoteRequestSchema>;
+
+export const adminUserDtoSchema = z.object({
+  id: z.string().uuid(),
+  displayName: z.string(),
+  username: z.string().nullable(),
+  phone: z.string(),
+  status: z.enum(["ACTIVE", "SUSPENDED", "DELETED"]),
+  roles: z.array(userRoleSchema),
+  createdAt: isoDateTimeSchema,
+});
+export type AdminUserDto = z.infer<typeof adminUserDtoSchema>;
+
+export const adminVenueDtoSchema = z.object({
+  id: z.string().uuid(),
+  ownerUserId: z.string().uuid(),
+  name: z.string(),
+  province: z.string(),
+  city: z.string(),
+  address: z.string(),
+  status: z.enum(["DRAFT", "READY", "ACTIVE", "SUSPENDED"]),
+  verificationStatus: venueVerificationStatusSchema,
+  subscriptionState: venueSubscriptionStateSchema,
+  trialEndsAt: isoDateTimeSchema.nullable(),
+  activeUntil: isoDateTimeSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+});
+export type AdminVenueDto = z.infer<typeof adminVenueDtoSchema>;
+
+export const adminAuditLogDtoSchema = z.object({
+  id: z.string().uuid(),
+  actorUserId: z.string().uuid().nullable(),
+  action: z.string(),
+  targetType: z.string(),
+  targetId: z.string().nullable(),
+  metadata: z.record(z.string(), z.unknown()),
+  createdAt: isoDateTimeSchema,
+});
+export type AdminAuditLogDto = z.infer<typeof adminAuditLogDtoSchema>;
+
+export const adminDashboardResponseSchema = z.object({
+  generatedAt: isoDateTimeSchema,
+  activeUsers: z.number().int().min(0),
+  activeVenues: z.number().int().min(0),
+  pendingVenueVerifications: z.number().int().min(0),
+  trialVenues: z.number().int().min(0),
+  paidVenues: z.number().int().min(0),
+  expiredVenues: z.number().int().min(0),
+  recordedPaymentsAfn: z.number().int().min(0),
+  bookingGmvAfn: z.number().int().min(0),
+});
+export type AdminDashboardResponse = z.infer<typeof adminDashboardResponseSchema>;
 
 export const bookingModeSchema = z.enum(["INSTANT", "APPROVAL"]);
 export type BookingMode = z.infer<typeof bookingModeSchema>;
@@ -586,11 +743,11 @@ const competitionConfigSchema = z.object({
 });
 
 type CompetitionConfigRefinementInput = {
-  startsAt?: string | null;
-  endsAt?: string | null;
-  format?: CompetitionFormat;
-  groupCount?: number | null;
-  qualifiersPerGroup?: number | null;
+  startsAt?: string | null | undefined;
+  endsAt?: string | null | undefined;
+  format?: CompetitionFormat | undefined;
+  groupCount?: number | null | undefined;
+  qualifiersPerGroup?: number | null | undefined;
 };
 
 function validateCompetitionConfig(

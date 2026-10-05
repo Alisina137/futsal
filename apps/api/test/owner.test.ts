@@ -83,7 +83,7 @@ class FakeOwnerRepository implements OwnerOnboardingRepository {
     return subscription;
   }
 
-  async expireTrial(venueId: string) {
+  async markExpired(venueId: string) {
     for (const [ownerId, aggregate] of this.venues) {
       if (aggregate.venue.id === venueId && aggregate.subscription) {
         this.venues.set(ownerId, {
@@ -115,12 +115,15 @@ const completeSetup = {
   })),
 } satisfies OwnerVenueSetupRequest;
 
-function setup(clock = { now: new Date("2026-10-04T00:00:00.000Z") }) {
+function setup(
+  clock = { now: new Date("2026-10-04T00:00:00.000Z") },
+  trialDurationMs = TRIAL_DURATION_MS,
+) {
   const authRepository = new FakeAuthRepository();
   const ownerRepository = new FakeOwnerRepository();
   const tokens = new TokenService("test-secret-that-is-longer-than-thirty-two-characters", "test", "test-mobile");
   const auth = new AuthService(authRepository, tokens);
-  const owner = new OwnerOnboardingService(ownerRepository, () => clock.now);
+  const owner = new OwnerOnboardingService(ownerRepository, () => clock.now, () => trialDurationMs);
   return {
     app: createApp({ authService: auth, tokenService: tokens, ownerService: owner }),
     authRepository,
@@ -169,6 +172,7 @@ describe("Phase 2 owner onboarding API", () => {
     const before = await request(app).get("/api/v1/owner/onboarding").set(auth);
     expect(before.body.venue).toBeNull();
     expect(before.body.subscription.state).toBe("NOT_STARTED");
+    expect(before.body.subscription.accessMode).toBe("NONE");
 
     const saved = await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
     expect(saved.status).toBe(200);
@@ -185,12 +189,29 @@ describe("Phase 2 owner onboarding API", () => {
     const trial = await request(app).post("/api/v1/owner/trial/start").set(auth);
     expect(trial.status).toBe(200);
     expect(trial.body.subscription.state).toBe("TRIAL");
+    expect(trial.body.subscription.accessMode).toBe("FULL");
+    expect(trial.body.subscription.canCreateBookableInventory).toBe(true);
     const started = Date.parse(trial.body.subscription.trialStartedAt);
     const ends = Date.parse(trial.body.subscription.trialEndsAt);
     expect(ends - started).toBe(TRIAL_DURATION_MS);
 
     const secondStart = await request(app).post("/api/v1/owner/trial/start").set(auth);
     expect(secondStart.body.subscription.trialStartedAt).toBe(trial.body.subscription.trialStartedAt);
+  });
+
+  it("uses the configured trial duration for new trials", async () => {
+    const clock = { now: new Date("2026-10-04T03:00:00.000Z") };
+    const configuredDurationMs = 96 * 60 * 60 * 1000;
+    const { app } = setup(clock, configuredDurationMs);
+    const owner = await register(app, "VENUE_OWNER", "0701112287");
+    const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+
+    await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
+    const started = await request(app).post("/api/v1/owner/trial/start").set(auth);
+
+    expect(started.status).toBe(200);
+    expect(Date.parse(started.body.subscription.trialEndsAt) - Date.parse(started.body.subscription.trialStartedAt))
+      .toBe(configuredDurationMs);
   });
 
   it("expires the trial server-side after exactly 72 hours", async () => {
@@ -207,7 +228,35 @@ describe("Phase 2 owner onboarding API", () => {
     const expired = await request(app).get("/api/v1/owner/onboarding").set(auth);
     expect(expired.status).toBe(200);
     expect(expired.body.subscription.state).toBe("EXPIRED");
+    expect(expired.body.subscription.accessMode).toBe("CONTINUITY");
+    expect(expired.body.subscription.canCreateBookableInventory).toBe(false);
+    expect(expired.body.subscription.canServiceExistingBookings).toBe(true);
     expect(expired.body.subscription.remainingSeconds).toBeNull();
+  });
+
+  it("normalizes an ended paid subscription into continuity mode", async () => {
+    const clock = { now: new Date("2026-10-04T03:00:00.000Z") };
+    const { app, ownerRepository } = setup(clock);
+    const owner = await register(app, "VENUE_OWNER", "0701112289");
+    const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+
+    await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
+    await request(app).post("/api/v1/owner/trial/start").set(auth);
+
+    const aggregate = ownerRepository.venues.get(owner.body.user.id)!;
+    aggregate.subscription = {
+      ...aggregate.subscription!,
+      status: "ACTIVE",
+      trialStartedAt: null,
+      trialEndsAt: null,
+      activeUntil: new Date(clock.now.getTime() - 1_000),
+    };
+
+    const expired = await request(app).get("/api/v1/owner/onboarding").set(auth);
+    expect(expired.status).toBe(200);
+    expect(expired.body.subscription.state).toBe("EXPIRED");
+    expect(expired.body.subscription.accessMode).toBe("CONTINUITY");
+    expect(ownerRepository.venues.get(owner.body.user.id)?.subscription?.status).toBe("EXPIRED");
   });
 
   it("locks the physical venue identity after a trial has started", async () => {

@@ -51,8 +51,9 @@ export default function ManageCompetitionScreen(){
         ownerApi.getStatus(session.accessToken),
       ]);
       setCompetition(next);
-      setAreas(status.venue?.areas.filter((item)=>item.active).map((item)=>({id:item.id,name:item.name}))??[]);
-      setAreaId((current)=>current||status.venue?.areas.find((item)=>item.active)?.id||"");
+      const venueAreas=status.venue?.areas.map((item)=>({id:item.id,name:item.name}))??[];
+      setAreas(venueAreas);
+      setAreaId((current)=>current||venueAreas[0]?.id||"");
     }catch{setError(t("competition.loadError"));}
     finally{setLoading(false);}
   },[competitionId,session,t]);
@@ -130,10 +131,11 @@ export default function ManageCompetitionScreen(){
     if(!Number.isInteger(home)||home<0||!Number.isInteger(away)||away<0){setError(t("competition.resultError"));return;}
     setBusy("result");setError(null);
     try{
+      const trimmedReason=correctionReason.trim();
       const result=await competitionApi.enterResult(session.accessToken,competitionId,activeMatch.id,{
         homeScore:home,
         awayScore:away,
-        correctionReason:correctionReason.trim()||undefined,
+        ...(trimmedReason ? { correctionReason: trimmedReason } : {}),
         confirmImpact,
         playerStats:[],
       });

@@ -9,8 +9,8 @@ function setup(options?:{subscriptionStatus?:"TRIAL"|"ACTIVE"|"EXPIRED"|"CANCELL
   const repository=new FakeCompetitionRepository();
   const ownerId="11111111-1111-4111-8111-111111111111";
   const venue=repository.seedVenue(ownerId,{
-    subscriptionStatus:options?.subscriptionStatus,
-    trialEndsAt:options?.trialEndsAt,
+    ...(options?.subscriptionStatus !== undefined ? { subscriptionStatus: options.subscriptionStatus } : {}),
+    ...(options?.trialEndsAt !== undefined ? { trialEndsAt: options.trialEndsAt } : {}),
   });
   const service=new CompetitionService(repository,()=>NOW);
   return {repository,service,ownerId,venue};
