@@ -24,6 +24,8 @@ const resetSession = read("apps/mobile/src/lib/passwordResetSession.ts");
 const databaseSchema = read("packages/database/src/schema.ts");
 const resetMigration = read("packages/database/drizzle/0007_password_reset_challenges.sql");
 const accountProfileMigration = read("packages/database/drizzle/0008_account_profile_fields.sql");
+const resetCooldownMigration = read("packages/database/drizzle/0009_password_reset_cooldown.sql");
+const migrationRunner = read("packages/database/scripts/migrate.mjs");
 const roles = read("apps/mobile/app/(app)/roles.tsx");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const ownerDashboard = read("apps/mobile/src/components/owner/OwnerDashboard.tsx");
@@ -59,6 +61,13 @@ for (const marker of [
 ]) requireText(authRepo, marker, "Password reset persistence invariant missing");
 requireText(databaseSchema, 'passwordResetChallenges = pgTable(', "Password reset challenge table missing");
 requireText(resetMigration, 'CREATE TABLE IF NOT EXISTS "password_reset_challenges"', "Password reset migration missing");
+requireText(resetCooldownMigration, '"last_credential_reset_at"', "Password reset cooldown migration missing");
+for (const marker of [
+  'migrate(db, { migrationsFolder })',
+  'DATABASE_DIRECT_URL',
+  '"verify-full"',
+  'Database migration failed.',
+]) requireText(migrationRunner, marker, "Transparent migration runner invariant missing");
 
 for (const marker of [
   "displayName: username",
@@ -73,6 +82,10 @@ for (const marker of [
   "randomBytes(32)",
   "attempts >= 5",
   "resetTokenExpiresAt",
+  "DEFAULT_CREDENTIAL_RESET_COOLDOWN_MS = 72 * 60 * 60 * 1000",
+  "ensurePasswordResetCooldown",
+  '"PASSWORD_RESET_COOLDOWN"',
+  "cooldownCutoff",
 ]) requireText(authService, marker, "Auth service identity/role invariant missing");
 
 requireText(authRoutes, 'router.post("/roles/activate"', "Role activation endpoint missing");
@@ -130,6 +143,9 @@ for (const marker of [
   'authApi.verifyPasswordReset',
   'setPasswordResetSession(verified)',
   'router.replace("/reset-password")',
+  '"PASSWORD_RESET_COOLDOWN"',
+  't("auth.resetCooldown",{dateTime})',
+  'timeZone:"Asia/Kabul"',
 ]) requireText(forgotPassword, marker, "Forgot-password UX invariant missing");
 
 for (const marker of [
@@ -140,6 +156,8 @@ for (const marker of [
   "<Modal",
   "showDialogPassword",
   '"•".repeat',
+  '"PASSWORD_RESET_COOLDOWN"',
+  't("auth.resetCooldown",{dateTime})',
 ]) requireText(resetPassword, marker, "Credential-reset UX invariant missing");
 
 for (const marker of [
@@ -214,6 +232,7 @@ for (const marker of [
   '"auth.resetTitle"',
   '"auth.confirmResetTitle"',
   '"auth.resetSuccess"',
+  '"auth.resetCooldown"',
   '"auth.baseAccountNote"',
   '"roles.basicUser"',
   '"settings.roles"',
