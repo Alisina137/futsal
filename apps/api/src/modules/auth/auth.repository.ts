@@ -2,7 +2,7 @@ import type { UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
 import { passwordResetChallenges, sessions, userRoles, users } from "@leaguekick/database";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
 
@@ -35,6 +35,7 @@ export class DrizzleAuthRepository implements AuthRepository {
       emailNormalized: row.emailNormalized,
       city: row.city,
       bio: row.bio,
+      lastCredentialResetAt: row.lastCredentialResetAt,
       passwordHash: row.passwordHash,
       preferredLanguage: row.preferredLanguage,
       status: row.status,
@@ -87,6 +88,7 @@ export class DrizzleAuthRepository implements AuthRepository {
           emailNormalized: row.emailNormalized,
           city: row.city,
           bio: row.bio,
+          lastCredentialResetAt: row.lastCredentialResetAt,
           passwordHash: row.passwordHash,
           preferredLanguage: row.preferredLanguage,
           status: row.status,
@@ -186,22 +188,51 @@ export class DrizzleAuthRepository implements AuthRepository {
     username: string;
     usernameNormalized: string;
     passwordHash: string;
+    credentialResetAt: Date;
+    cooldownCutoff: Date;
   }): Promise<AuthUserRecord> {
     try {
       await this.db.transaction(async (tx) => {
-        await tx.update(users)
+        const [updated] = await tx.update(users)
           .set({
             username: input.username,
             usernameNormalized: input.usernameNormalized,
             passwordHash: input.passwordHash,
-            updatedAt: new Date(),
+            lastCredentialResetAt: input.credentialResetAt,
+            updatedAt: input.credentialResetAt,
           })
-          .where(eq(users.id, input.userId));
+          .where(and(
+            eq(users.id, input.userId),
+            or(
+              isNull(users.lastCredentialResetAt),
+              lte(users.lastCredentialResetAt, input.cooldownCutoff),
+            ),
+          ))
+          .returning({ id: users.id });
+
+        if (!updated) {
+          const [current] = await tx.select({ lastCredentialResetAt: users.lastCredentialResetAt })
+            .from(users)
+            .where(eq(users.id, input.userId))
+            .limit(1);
+          if (!current) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+
+          const cooldownMs = input.credentialResetAt.getTime() - input.cooldownCutoff.getTime();
+          const availableAt = current.lastCredentialResetAt
+            ? new Date(current.lastCredentialResetAt.getTime() + cooldownMs).toISOString()
+            : input.credentialResetAt.toISOString();
+          throw errors.conflict(
+            "PASSWORD_RESET_COOLDOWN",
+            "Credential reset is temporarily locked.",
+            { availableAt },
+          );
+        }
+
         await tx.update(passwordResetChallenges)
-          .set({ consumedAt: new Date() })
+          .set({ consumedAt: input.credentialResetAt })
           .where(eq(passwordResetChallenges.id, input.challengeId));
         await tx.update(sessions)
-          .set({ revokedAt: new Date(), lastSeenAt: new Date() })
+          .set({ revokedAt: input.credentialResetAt, lastSeenAt: input.credentialResetAt })
           .where(eq(sessions.userId, input.userId));
       });
     } catch (error) {
