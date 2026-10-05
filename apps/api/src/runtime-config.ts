@@ -22,10 +22,10 @@ export const runtimeEnvSchema = z.object({
   ACCESS_TOKEN_AUDIENCE: z.string().default("leaguekick-mobile"),
   APP_VERSION: z.string().trim().min(1).max(80).default("dev"),
   REQUEST_LOGGING: booleanFromEnv(true),
-  PASSWORD_RESET_SECRET: z.string().min(32),
+  PASSWORD_RESET_SECRET: z.string().min(32).default("development-only-password-reset-secret-000000000000"),
   PASSWORD_RESET_SMS_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
   PASSWORD_RESET_SMS_WEBHOOK_TOKEN: z.string().optional().or(z.literal("")),
-  PASSWORD_RESET_DEV_MODE: booleanFromEnv(false),
+  PASSWORD_RESET_DEV_MODE: booleanFromEnv(true),
 }).superRefine((value, ctx) => {
   if (value.NODE_ENV !== "production") return;
 
@@ -59,7 +59,7 @@ export const runtimeEnvSchema = z.object({
   }
 
   const resetSecret = value.PASSWORD_RESET_SECRET.toLowerCase();
-  if (value.PASSWORD_RESET_SECRET.length < 48 || resetSecret.includes("replace-with") || resetSecret.includes("example") || resetSecret.includes("changeme")) {
+  if (value.PASSWORD_RESET_SECRET.length < 48 || resetSecret.includes("replace-with") || resetSecret.includes("example") || resetSecret.includes("changeme") || resetSecret.includes("development-only")) {
     ctx.addIssue({
       code: "custom",
       path: ["PASSWORD_RESET_SECRET"],
