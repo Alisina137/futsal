@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { colors, spacing } from "@leaguekick/design-tokens";
 import { useLocale } from "../providers/LocaleProvider";
@@ -21,26 +21,21 @@ class CrashBoundary extends Component<BoundaryProps, { failed: boolean }> {
     console.error("Unhandled mobile UI error");
   }
 
-  reset = () => this.setState({ failed: false });
-
   render() {
-    if (!this.state.failed) return this.props.children;
-    return this.props.fallback;
+    return this.state.failed ? this.props.fallback : this.props.children;
   }
 }
 
 export function AppCrashBoundary({ children }: { children: ReactNode }) {
   const { t } = useLocale();
-  return <CrashBoundary fallback={
+  const [resetKey, setResetKey] = useState(0);
+
+  return <CrashBoundary key={resetKey} fallback={
     <View style={styles.screen} accessibilityRole="alert" accessibilityLiveRegion="assertive">
       <View style={styles.card}>
         <AppText variant="title" weight="bold">{t("crash.title")}</AppText>
         <AppText>{t("crash.body")}</AppText>
-        <Button label={t("crash.retry")} onPress={() => {
-          // The boundary remount is driven by this small local reload key.
-          // A full native reload is deliberately not required for recovery.
-          globalThis.setTimeout(() => undefined, 0);
-        }}/>
+        <Button label={t("crash.retry")} onPress={() => setResetKey((value) => value + 1)}/>
       </View>
     </View>
   }>{children}</CrashBoundary>;
