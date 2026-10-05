@@ -25,7 +25,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Usernames are unique, 3–12 characters, and use letters/numbers/underscore.
 - Login accepts either normalized Afghanistan phone or normalized username with the same password and returns one generic invalid-credentials message.
 - Full name is configured after signup; it is not a registration requirement.
-- Password recovery is phone-based but verification-gated: 6-digit short-lived code → short-lived reset token → username/password update → all existing sessions revoked.
+- Password recovery is phone-based but verification-gated: 6-digit short-lived code → short-lived reset token → username/password update → refresh sessions revoked; existing access tokens remain bounded by the 15-minute access-token TTL.
 - Recovery requests do not reveal phone/account existence before code verification; production requires an HTTPS SMS delivery provider while local development may expose the code only in explicit non-production dev mode.
 - Self-service role activation is limited to PLAYER, VENUE_OWNER, TEAM_MANAGER and REFEREE; privileged staff/admin roles remain controlled.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
