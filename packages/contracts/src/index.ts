@@ -149,8 +149,14 @@ export type OwnerVenueDto = z.infer<typeof ownerVenueDtoSchema>;
 export const venueSubscriptionStateSchema = z.enum(["NOT_STARTED", "TRIAL", "ACTIVE", "EXPIRED", "CANCELLED"]);
 export type VenueSubscriptionState = z.infer<typeof venueSubscriptionStateSchema>;
 
+export const venueSubscriptionAccessModeSchema = z.enum(["NONE", "FULL", "CONTINUITY"]);
+export type VenueSubscriptionAccessMode = z.infer<typeof venueSubscriptionAccessModeSchema>;
+
 export const venueSubscriptionDtoSchema = z.object({
   state: venueSubscriptionStateSchema,
+  accessMode: venueSubscriptionAccessModeSchema,
+  canCreateBookableInventory: z.boolean(),
+  canServiceExistingBookings: z.boolean(),
   trialStartedAt: z.string().nullable(),
   trialEndsAt: z.string().nullable(),
   activeUntil: z.string().nullable(),
