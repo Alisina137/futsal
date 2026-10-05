@@ -132,14 +132,29 @@ function setup(
   };
 }
 
-async function register(app: ReturnType<typeof createApp>, accountType: "PLAYER" | "VENUE_OWNER", phone: string) {
-  return request(app).post("/api/v1/auth/register").send({
-    displayName: accountType === "PLAYER" ? "Player" : "Owner",
+async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VENUE_OWNER", phone: string) {
+  const username = `owner_test_${phone.replace(/\D/g, "")}`;
+  const password = "strong-pass-2!";
+  const registration = await request(app).post("/api/v1/auth/register").send({
+    username,
     phone,
-    password: "strong-pass-2",
+    password,
+    confirmPassword: password,
     preferredLanguage: "fa-AF",
-    accountType,
   });
+  expect(registration.status).toBe(201);
+
+  const activated = await request(app)
+    .post("/api/v1/auth/roles/activate")
+    .set("Authorization", `Bearer ${registration.body.accessToken}`)
+    .send({ role });
+  expect(activated.status).toBe(200);
+
+  const refreshed = await request(app)
+    .post("/api/v1/auth/refresh")
+    .send({ refreshToken: registration.body.refreshToken });
+  expect(refreshed.status).toBe(200);
+  return refreshed;
 }
 
 describe("Phase 2 owner onboarding API", () => {
