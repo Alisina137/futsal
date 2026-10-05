@@ -24,7 +24,11 @@ Futsal uses one account identity independently from product roles.
 - Sign-in accepts either the account's **username or phone number**, together with its password.
 - Password and confirm-password inputs provide independent show/hide controls.
 - Every signup input has an input-specific placeholder/example so the expected value is obvious before typing.
+- Signup and sign-in validate all submitted fields in one pass. Every invalid input receives a red border/label and an exact localized error directly below that input; focus moves to the first invalid field in visual/form order.
+- Multiple invalid inputs are shown simultaneously rather than stopping after the first error.
+- Credential mismatch on sign-in intentionally marks both identifier and password because authentication must not reveal which credential was correct.
 - New passwords require at least 8 characters, at least one letter, at least one number, and at least one special character; the signup screen shows these requirements with live completion indicators.
+- The signup form avoids role-model explanatory copy; it uses a concise sports-oriented signup title and keeps role education for the post-signup role flow.
 - A user may later add participation roles to the same identity. The initial self-service roles are Player, Venue Owner, Team Manager, and Referee.
 - Activating Team Manager also enables Player capability because team participation is built on player identity; actual authority over a team remains object-scoped to that team's manager.
 - Venue Staff, Competition Admin, and Platform Admin are controlled roles and must be assigned through authorized operational workflows rather than self-service.
