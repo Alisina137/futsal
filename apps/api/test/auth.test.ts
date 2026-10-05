@@ -282,20 +282,6 @@ describe("Authentication identity and role model", () => {
     expect(parallelComplete.body.error.code).toBe("PASSWORD_RESET_COOLDOWN");
     expect(parallelComplete.body.error.details.availableAt).toBeTypeOf("string");
 
-    const nextRequest = await request(app)
-      .post("/api/v1/auth/password-reset/request")
-      .send({ phone: baseRegistration.phone });
-    expect(nextRequest.status).toBe(200);
-
-    const nextVerify = await request(app)
-      .post("/api/v1/auth/password-reset/verify")
-      .send({ requestId: nextRequest.body.requestId, code: nextRequest.body.debugCode });
-    expect(nextVerify.status).toBe(409);
-    expect(nextVerify.body.error.code).toBe("PASSWORD_RESET_COOLDOWN");
-    const availableAtMs = Date.parse(nextVerify.body.error.details.availableAt);
-    expect(availableAtMs).toBeGreaterThan(Date.now() + 71 * 60 * 60 * 1000);
-    expect(availableAtMs).toBeLessThanOrEqual(Date.now() + 72 * 60 * 60 * 1000 + 5_000);
-
     const oldCredentials = await request(app).post("/api/v1/auth/login").send({
       identifier: "ahmad7",
       password: baseRegistration.password,
@@ -314,6 +300,47 @@ describe("Authentication identity and role model", () => {
       .post("/api/v1/auth/refresh")
       .send({ refreshToken: registration.body.refreshToken });
     expect(oldSession.status).toBe(401);
+  });
+
+  it("blocks a new verified recovery for 72 hours after a successful credential reset", async () => {
+    const { app } = setup();
+    const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);
+    expect(registration.status).toBe(201);
+
+    const firstRequest = await request(app)
+      .post("/api/v1/auth/password-reset/request")
+      .send({ phone: baseRegistration.phone });
+    const firstVerified = await request(app)
+      .post("/api/v1/auth/password-reset/verify")
+      .send({ requestId: firstRequest.body.requestId, code: firstRequest.body.debugCode });
+    expect(firstVerified.status).toBe(200);
+
+    const firstComplete = await request(app)
+      .post("/api/v1/auth/password-reset/complete")
+      .send({
+        requestId: firstVerified.body.requestId,
+        resetToken: firstVerified.body.resetToken,
+        username: "ahmadnew",
+        password: "Newpass1!",
+        confirmPassword: "Newpass1!",
+      });
+    expect(firstComplete.status).toBe(204);
+
+    const secondRequest = await request(app)
+      .post("/api/v1/auth/password-reset/request")
+      .send({ phone: baseRegistration.phone });
+    expect(secondRequest.status).toBe(200);
+
+    const secondVerify = await request(app)
+      .post("/api/v1/auth/password-reset/verify")
+      .send({ requestId: secondRequest.body.requestId, code: secondRequest.body.debugCode });
+    expect(secondVerify.status).toBe(409);
+    expect(secondVerify.body.error.code).toBe("PASSWORD_RESET_COOLDOWN");
+    expect(secondVerify.body.error.details.availableAt).toBeTypeOf("string");
+
+    const availableAtMs = Date.parse(secondVerify.body.error.details.availableAt);
+    expect(availableAtMs).toBeGreaterThan(Date.now() + 71 * 60 * 60 * 1000);
+    expect(availableAtMs).toBeLessThanOrEqual(Date.now() + 72 * 60 * 60 * 1000 + 5_000);
   });
 
   it("does not reveal account existence before phone verification", async () => {
