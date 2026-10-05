@@ -1,10 +1,9 @@
 name: Temporary Phase 7 Typecheck
 
 on:
-  pull_request:
+  push:
     branches:
-      - phase-06-competition-engine
-    types: [opened, synchronize, reopened]
+      - phase-07-subscription-analytics-admin
 
 permissions:
   contents: read
