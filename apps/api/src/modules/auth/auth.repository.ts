@@ -4,7 +4,7 @@ import type { Database } from "@leaguekick/database";
 import { passwordResetChallenges, sessions, userRoles, users } from "@leaguekick/database";
 import { eq } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
-import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord } from "./auth.types.js";
+import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
 
 function uniqueConstraint(error: unknown, depth = 0): string | null {
   if (depth > 4 || typeof error !== "object" || error === null) return null;
@@ -30,6 +30,11 @@ export class DrizzleAuthRepository implements AuthRepository {
       username: row.username,
       usernameNormalized: row.usernameNormalized,
       phoneE164: row.phoneE164,
+      profileImageUrl: row.profileImageUrl,
+      age: row.age,
+      emailNormalized: row.emailNormalized,
+      city: row.city,
+      bio: row.bio,
       passwordHash: row.passwordHash,
       preferredLanguage: row.preferredLanguage,
       status: row.status,
@@ -77,6 +82,11 @@ export class DrizzleAuthRepository implements AuthRepository {
           username: row.username,
           usernameNormalized: row.usernameNormalized,
           phoneE164: row.phoneE164,
+          profileImageUrl: row.profileImageUrl,
+          age: row.age,
+          emailNormalized: row.emailNormalized,
+          city: row.city,
+          bio: row.bio,
           passwordHash: row.passwordHash,
           preferredLanguage: row.preferredLanguage,
           status: row.status,
@@ -107,13 +117,29 @@ export class DrizzleAuthRepository implements AuthRepository {
     return user;
   }
 
-  async updateDisplayName(userId: string, displayName: string): Promise<AuthUserRecord> {
-    const [row] = await this.db.update(users)
-      .set({ displayName, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    if (!row) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
-    return this.hydrate(row);
+  async updateAccountProfile(userId: string, input: UpdateAccountProfileInput): Promise<AuthUserRecord> {
+    try {
+      const [row] = await this.db.update(users)
+        .set({
+          displayName: input.displayName,
+          profileImageUrl: input.profileImageUrl,
+          age: input.age,
+          emailNormalized: input.emailNormalized,
+          city: input.city,
+          bio: input.bio,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      if (!row) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+      return this.hydrate(row);
+    } catch (error) {
+      const constraint = uniqueConstraint(error);
+      if (constraint === "users_email_normalized_uq") {
+        throw errors.conflict("EMAIL_ALREADY_EXISTS", "That email address is already in use.");
+      }
+      throw error;
+    }
   }
 
   async createPasswordResetChallenge(input: {
