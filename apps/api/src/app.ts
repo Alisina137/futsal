@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { accountProfileUpdateRequestSchema } from "@leaguekick/contracts";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
@@ -163,6 +164,13 @@ export function createApp(deps: AppDependencies) {
   app.get("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {
     try {
       response.json({ user: await deps.authService.me(request.auth!.userId) });
+    } catch (error) { next(error); }
+  });
+
+  app.patch("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {
+    try {
+      const input = accountProfileUpdateRequestSchema.parse(request.body);
+      response.json({ user: await deps.authService.updateProfile(request.auth!.userId, input) });
     } catch (error) { next(error); }
   });
 
