@@ -1,7 +1,7 @@
 import type {
   CompetitionCreateRequest,
   CompetitionInviteTeamRequest,
-  CompetitionMatchResultRequest,
+  CompetitionMatchResultServiceInput,
   CompetitionMatchScheduleRequest,
   CompetitionRegistrationDecisionRequest,
   CompetitionRegistrationResponseRequest,
@@ -563,7 +563,7 @@ export class CompetitionService {
     ownerUserId: string,
     competitionId: string,
     matchId: string,
-    input: CompetitionMatchResultRequest,
+    input: CompetitionMatchResultServiceInput,
   ) {
     const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
     const match = await this.repository.getMatch(matchId);
