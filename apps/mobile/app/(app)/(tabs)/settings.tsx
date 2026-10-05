@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
+import type { SelfAssignableRole } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -15,10 +16,12 @@ import { useNetwork } from "../../../src/providers/NetworkProvider";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 export default function ProfileScreen(){
-  const {session,signOut,revalidate}=useAuth();
+  const {session,signOut,revalidate,activateRole}=useAuth();
   const {t,isRTL,language}=useLocale();
   const {isOnline,hasResolved}=useNetwork();
   const [refreshing,setRefreshing]=useState(false);
+  const [busyRole,setBusyRole]=useState<SelfAssignableRole|null>(null);
+  const [roleError,setRoleError]=useState<string|null>(null);
   const user=session?.user;
   const owner=user?.roles.includes("VENUE_OWNER")??false;
   const player=user?.roles.includes("PLAYER")??false;
@@ -43,6 +46,19 @@ export default function ProfileScreen(){
     setRefreshing(true);
     try{await revalidate();}
     finally{setRefreshing(false);}
+  }
+
+  async function selectRole(role:SelfAssignableRole){
+    if(user?.roles.includes(role)) return;
+    setBusyRole(role);
+    setRoleError(null);
+    try{
+      await activateRole(role);
+    }catch{
+      setRoleError(t("roles.error"));
+    }finally{
+      setBusyRole(null);
+    }
   }
 
   const direction={flexDirection:isRTL?"row-reverse":"row"} as const;
@@ -88,8 +104,18 @@ export default function ProfileScreen(){
       <InfoRow icon="id-card-outline" label={t("home.accountRole")} value={roles} rtl={isRTL}/>
       <Divider/>
       <ActionRow icon="create-outline" title={t("profile.accountEditTitle")} subtitle={t("profile.accountEditSubtitle")} rtl={isRTL} onPress={()=>router.push("/profile/account")}/>
-      <Divider/>
-      <ActionRow icon="layers-outline" title={t("settings.roles")} subtitle={t("settings.rolesBody")} rtl={isRTL} onPress={()=>router.push("/roles")}/>
+    </Card>
+
+    <SectionHeader icon="layers-outline" title={t("settings.roles")} subtitle={t("settings.rolesBody")} rtl={isRTL}/>
+    <Card style={styles.sectionCard}>
+      <RoleSelector
+        activeRoles={user?.roles??[]}
+        busyRole={busyRole}
+        error={roleError}
+        rtl={isRTL}
+        t={t}
+        onSelect={(role)=>void selectRole(role)}
+      />
     </Card>
 
     <SectionHeader icon="options-outline" title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")} rtl={isRTL}/>
@@ -169,8 +195,6 @@ export default function ProfileScreen(){
         <ActionRow icon="trophy-outline" title={t("competition.title")} subtitle={t("competition.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/competitions")}/>
         <Divider/>
         <ActionRow icon="newspaper-outline" title={t("feed.title")} subtitle={t("settings.playerFeedBody")} rtl={isRTL} onPress={()=>router.push("/feed")}/>
-        <Divider/>
-        <ActionRow icon="layers-outline" title={t("settings.roles")} subtitle={t("settings.rolesBody")} rtl={isRTL} onPress={()=>router.push("/roles")}/>
       </>}
     </Card>
 
@@ -198,6 +222,59 @@ export default function ProfileScreen(){
       />
     </Card>
   </Screen>;
+}
+
+function RoleSelector({
+  activeRoles,
+  busyRole,
+  error,
+  rtl,
+  t,
+  onSelect,
+}:{
+  activeRoles:string[];
+  busyRole:SelfAssignableRole|null;
+  error:string|null;
+  rtl:boolean;
+  t:(key:any,params?:Record<string,string|number>)=>string;
+  onSelect:(role:SelfAssignableRole)=>void;
+}){
+  const options:Array<{role:SelfAssignableRole;icon:IconName;body:any}>=[
+    {role:"PLAYER",icon:"football-outline",body:"roles.playerBody"},
+    {role:"VENUE_OWNER",icon:"business-outline",body:"roles.ownerBody"},
+    {role:"TEAM_MANAGER",icon:"people-outline",body:"roles.managerBody"},
+    {role:"REFEREE",icon:"flag-outline",body:"roles.refereeBody"},
+  ];
+
+  return <View style={styles.roleList}>
+    {options.map((option,index)=>{
+      const active=activeRoles.includes(option.role);
+      return <View key={option.role}>
+        {index>0?<Divider/>:null}
+        <View style={[styles.roleRow,{flexDirection:rtl?"row-reverse":"row"}]}>
+          <IconBox name={option.icon} positive={active}/>
+          <View style={styles.roleCopy}>
+            <View style={[styles.roleTitleRow,{flexDirection:rtl?"row-reverse":"row"}]}>
+              <AppText weight="semibold">{t(("role."+option.role) as any)}</AppText>
+              {active?<View style={styles.activeRoleBadge}>
+                <Ionicons name="checkmark-circle" size={14} color={colors.success}/>
+                <AppText variant="caption" weight="semibold" style={{color:colors.success}}>{t("roles.active")}</AppText>
+              </View>:null}
+            </View>
+            <AppText variant="caption" muted>{t(option.body)}</AppText>
+          </View>
+          <Button
+            label={active?t("roles.active"):t("roles.activate")}
+            onPress={()=>onSelect(option.role)}
+            loading={busyRole===option.role}
+            disabled={active||busyRole!==null}
+            variant={active?"secondary":"primary"}
+          />
+        </View>
+      </View>;
+    })}
+    {error?<AppText accessibilityRole="alert" style={styles.roleError}>{error}</AppText>:null}
+  </View>;
 }
 
 function SectionHeader({icon,title,subtitle,rtl}:{icon:IconName;title:string;subtitle:string;rtl:boolean}){
@@ -311,6 +388,36 @@ const styles=StyleSheet.create({
   sectionCard:{
     gap:0,
     padding:spacing.md,
+  },
+  roleList:{
+    gap:0,
+  },
+  roleRow:{
+    alignItems:"center",
+    gap:spacing.sm,
+    paddingVertical:spacing.sm,
+  },
+  roleCopy:{
+    flex:1,
+    gap:2,
+  },
+  roleTitleRow:{
+    alignItems:"center",
+    gap:spacing.xs,
+    flexWrap:"wrap",
+  },
+  activeRoleBadge:{
+    minHeight:24,
+    paddingHorizontal:spacing.sm,
+    borderRadius:radius.pill,
+    backgroundColor:"#E9F8EF",
+    flexDirection:"row",
+    alignItems:"center",
+    gap:4,
+  },
+  roleError:{
+    color:colors.danger,
+    marginTop:spacing.sm,
   },
   settingLabelRow:{
     alignItems:"center",
