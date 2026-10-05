@@ -36,6 +36,7 @@ export type CommercialSettingsRecord = {
   annualPriceAfn: number;
   trialDurationHours: number;
   featureFlags: Record<string, boolean>;
+  notificationTemplates: Record<string, string>;
   updatedAt: Date;
 };
 
@@ -93,6 +94,7 @@ export interface CommercialRepository {
     annualPriceAfn: number;
     trialDurationHours: number;
     featureFlags: Record<string, boolean>;
+    notificationTemplates: Record<string, string>;
   }, now: Date): Promise<CommercialSettingsRecord>;
   listAuditLogs(): Promise<AdminAuditLogDto[]>;
   addSupportNote(actorUserId: string, targetType: "USER" | "VENUE", targetId: string, note: string, now: Date): Promise<void>;
