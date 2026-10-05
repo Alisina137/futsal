@@ -35,6 +35,8 @@ Futsal uses one account identity independently from product roles.
 - Production password reset requires an HTTPS SMS delivery provider; development may expose a reset code only under an explicit non-production development mode.
 - The signup form avoids role-model explanatory copy; it uses a concise sports-oriented signup title and keeps role education for the post-signup role flow.
 - **Profile is the single account/role surface:** username, phone, configured full name, current roles, and self-service role activation live in Profile rather than Home.
+- Account Profile supports optional private personal details: profile image, age, email, city, and short bio. Full name also remains optional after signup. These fields are account data and are not automatically exposed through the public Player Profile.
+- Profile-image entry currently uses an HTTPS image URL with preview because production media storage/upload infrastructure is not yet configured; direct device upload must use the future media-storage pipeline rather than storing local device paths.
 - **Home is discovery-oriented:** it must retain direct access to venue discovery, Feed, and Competitions without showing account identity or role-selection controls. Venue owners may keep operational dashboard content while retaining these discovery entry points.
 - A user may later add participation roles to the same identity. The initial self-service roles are Player, Venue Owner, Team Manager, and Referee.
 - Activating Team Manager also enables Player capability because team participation is built on player identity; actual authority over a team remains object-scoped to that team's manager.
