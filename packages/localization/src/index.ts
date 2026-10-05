@@ -130,7 +130,7 @@ const en = {
   "home.nextTitle": "Next product milestone",
   "home.nextBody": "Venue discovery, live availability, and player booking are the next product milestone.",
   "profile.title": "Profile",
-  "profile.subtitle": "Manage your account information, roles, language, security, and shortcuts."
+  "profile.subtitle": "Manage your account information, roles, language, security, and shortcuts.",
   "profile.headerSubtitle": "Futsal booking & community",
   "profile.openProfile": "Open profile",
   "profile.accountEditTitle": "Account profile",
@@ -850,7 +850,7 @@ const fa = {
   "home.nextTitle": "مرحله بعدی محصول",
   "home.nextBody": "کشف سالن، ظرفیت زنده و رزرو بازیکن مرحله بعدی محصول است.",
   "profile.title": "پروفایل",
-  "profile.subtitle": "اطلاعات حساب، نقش‌ها، زبان، امنیت و دسترسی‌های سریع خود را مدیریت کنید."
+  "profile.subtitle": "اطلاعات حساب، نقش‌ها، زبان، امنیت و دسترسی‌های سریع خود را مدیریت کنید.",
   "profile.headerSubtitle": "رزرو و جامعه فوتسال",
   "profile.openProfile": "بازکردن پروفایل",
   "profile.accountEditTitle": "پروفایل حساب",
@@ -1568,7 +1568,7 @@ const ps = {
   "home.nextTitle": "بل محصول پړاو",
   "home.nextBody": "د میدان موندل، ژوندی موجودیت او د لوبغاړي بک کول د محصول بل پړاو دی.",
   "profile.title": "پروفایل",
-  "profile.subtitle": "د حساب معلومات، رولونه، ژبه، امنیت او چټک لاسرسی اداره کړئ."
+  "profile.subtitle": "د حساب معلومات، رولونه، ژبه، امنیت او چټک لاسرسی اداره کړئ.",
   "profile.headerSubtitle": "د فوتسال بک او ټولنه",
   "profile.openProfile": "پروفایل پرانیزئ",
   "profile.accountEditTitle": "د حساب پروفایل",
