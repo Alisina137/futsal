@@ -65,6 +65,11 @@ export type SelfRoleActivationRequest = z.infer<typeof selfRoleActivationRequest
 
 export const accountProfileUpdateRequestSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
+  profileImageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  age: z.number().int().min(1).max(120).nullable().optional(),
+  email: z.string().trim().email().max(320).optional().or(z.literal("")),
+  city: z.string().trim().max(80).optional().or(z.literal("")),
+  bio: z.string().trim().max(280).optional().or(z.literal("")),
 });
 export type AccountProfileUpdateRequest = z.infer<typeof accountProfileUpdateRequestSchema>;
 
@@ -124,6 +129,11 @@ export const userDtoSchema = z.object({
   displayName: z.string(),
   username: z.string().nullable(),
   phone: z.string(),
+  profileImageUrl: z.string().nullable(),
+  age: z.number().int().min(1).max(120).nullable(),
+  email: z.string().nullable(),
+  city: z.string().nullable(),
+  bio: z.string().nullable(),
   preferredLanguage: languageCodeSchema,
   roles: z.array(userRoleSchema),
   status: z.enum(["ACTIVE", "SUSPENDED"]),
