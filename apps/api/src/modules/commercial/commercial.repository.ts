@@ -34,6 +34,7 @@ import type {
   VenueOpeningHourInput,
 } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
+import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 import type {
   CommercialRepository,
   CommercialSettingsRecord,
@@ -395,7 +396,17 @@ export class DrizzleCommercialRepository implements CommercialRepository {
     } else if (action === "SUSPEND") {
       await this.db.update(venues).set({ status: "SUSPENDED", updatedAt: now }).where(eq(venues.id, venueId));
     } else {
-      await this.db.update(venues).set({ status: "ACTIVE", updatedAt: now }).where(eq(venues.id, venueId));
+      const [subscription] = await this.db
+        .select()
+        .from(venueSubscriptions)
+        .where(eq(venueSubscriptions.venueId, venueId))
+        .limit(1);
+      const restoredStatus = hasPremiumWriteAccess(subscription ?? null, now)
+        ? "ACTIVE"
+        : venue.setupCompletedAt
+          ? "READY"
+          : "DRAFT";
+      await this.db.update(venues).set({ status: restoredStatus, updatedAt: now }).where(eq(venues.id, venueId));
     }
 
     const auditAction = {
