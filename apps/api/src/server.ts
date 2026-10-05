@@ -16,6 +16,8 @@ import { DrizzleTeamRepository } from "./modules/team/team.repository.js";
 import { TeamService } from "./modules/team/team.service.js";
 import { DrizzleCompetitionRepository } from "./modules/competition/competition.repository.js";
 import { CompetitionService } from "./modules/competition/competition.service.js";
+import { DrizzleCommercialRepository } from "./modules/commercial/commercial.repository.js";
+import { CommercialService } from "./modules/commercial/commercial.service.js";
 
 const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
@@ -33,6 +35,8 @@ const teamRepository = new DrizzleTeamRepository(db);
 const teamService = new TeamService(teamRepository, undefined, notificationService);
 const competitionRepository = new DrizzleCompetitionRepository(db);
 const competitionService = new CompetitionService(competitionRepository);
+const commercialRepository = new DrizzleCommercialRepository(db);
+const commercialService = new CommercialService(commercialRepository);
 const app = createApp({
   authService: auth,
   tokenService: tokens,
@@ -42,6 +46,7 @@ const app = createApp({
   notificationService,
   teamService,
   competitionService,
+  commercialService,
   corsOrigin: env.CORS_ORIGIN,
 });
 
