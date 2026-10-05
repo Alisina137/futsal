@@ -23,8 +23,11 @@ The integrated CI workflow repeats the repository verification from a clean inst
 Before the booking/competition journeys, verify authentication identity:
 
 - new signup contains username, phone, password and confirm password only;
-- all four signup inputs show input-specific placeholders;
-- password guidance visibly checks 8+ characters, letter + number, special character, and password confirmation;
+- all four signup inputs show input-specific placeholders, with a concise password example;
+- submitting multiple invalid signup/sign-in fields marks all of them red, shows a localized field-specific message below each, and focuses the first invalid field;
+- duplicate username highlights Username; duplicate phone highlights Phone;
+- wrong sign-in credentials mark both identifier and password without revealing which credential matched;
+- password guidance visibly checks 8+ characters, at least one letter, at least one number, special character, and password confirmation;
 - registration rejects passwords missing a letter, a number, or a special character;
 - new account has no product role;
 - username and phone can each sign in to the same account;
