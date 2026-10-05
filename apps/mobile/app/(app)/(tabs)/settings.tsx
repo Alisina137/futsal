@@ -21,6 +21,7 @@ export default function ProfileScreen(){
   const [refreshing,setRefreshing]=useState(false);
   const user=session?.user;
   const owner=user?.roles.includes("VENUE_OWNER")??false;
+  const admin=user?.roles.includes("PLATFORM_ADMIN")??false;
 
   const initials=useMemo(()=>{
     const words=(user?.displayName??"LK").trim().split(/\s+/).filter(Boolean);
@@ -125,10 +126,18 @@ export default function ProfileScreen(){
       />
     </Card>
 
+    {admin?<Card style={styles.sectionCard}>
+      <ActionRow icon="shield-outline" title={t("phase7.admin.title")} subtitle={t("phase7.admin.subtitle")} rtl={isRTL} onPress={()=>router.push("/admin")}/>
+    </Card>:null}
+
     <SectionHeader icon="flash-outline" title={t("settings.quickAccess")} subtitle={t("settings.quickAccessSubtitle")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
       {owner?<>
         <ActionRow icon="time-outline" title={t("schedule.title")} subtitle={t("settings.ownerScheduleBody")} rtl={isRTL} onPress={()=>router.push("/schedule")}/>
+        <Divider/>
+        <ActionRow icon="card-outline" title={t("phase7.subscription.title")} subtitle={t("phase7.subscription.subtitle")} rtl={isRTL} onPress={()=>router.push("/owner/subscription")}/>
+        <Divider/>
+        <ActionRow icon="analytics-outline" title={t("phase7.analytics.title")} subtitle={t("phase7.analytics.subtitle")} rtl={isRTL} onPress={()=>router.push("/owner/analytics")}/>
         <Divider/>
         <ActionRow icon="trophy-outline" title={t("competition.ownerTitle")} subtitle={t("competition.ownerQuickAccessBody")} rtl={isRTL} onPress={()=>router.push("/owner/competitions")}/>
         <Divider/>
