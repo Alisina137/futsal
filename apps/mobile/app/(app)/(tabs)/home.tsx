@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { OwnerDashboard } from "../../../src/components/owner/OwnerDashboard";
 import { AppText } from "../../../src/components/ui/AppText";
+import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -66,15 +67,12 @@ function DiscoveryHome(){
             <AppText variant="caption" muted>{action.body}</AppText>
           </View>
         </View>
-        <View
-          accessibilityRole="button"
-          accessibilityLabel={action.title}
-          onTouchEnd={action.onPress}
-          style={[styles.openRow,{flexDirection:isRTL?"row-reverse":"row"}]}
-        >
-          <AppText weight="semibold" style={{color:colors.primary}}>{t("common.open")}</AppText>
-          <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={18} color={colors.primary}/>
-        </View>
+        <Button
+          label={action.title}
+          onPress={action.onPress}
+          variant="secondary"
+          icon={<Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={18} color={colors.primary}/>}
+        />
       </Card>)}
     </View>
   </Screen>;
@@ -115,14 +113,5 @@ const styles=StyleSheet.create({
     justifyContent:"center",
     backgroundColor:colors.primarySoft,
   },
-  actionCopy:{flex:1,gap:spacing.xs},
-  openRow:{
-    minHeight:44,
-    alignItems:"center",
-    justifyContent:"flex-end",
-    gap:spacing.xs,
-    borderTopWidth:1,
-    borderTopColor:colors.border,
-    paddingTop:spacing.sm,
-  },
+  actionCopy:{flex:1,gap:spacing.xs}
 });
