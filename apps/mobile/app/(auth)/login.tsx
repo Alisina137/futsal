@@ -17,6 +17,7 @@ export default function LoginScreen(){
   const {t,isRTL}=useLocale();
   const {signIn}=useAuth();
   const params=useLocalSearchParams<{reset?:string;next?:string}>();
+  const adminPortal=params.next==="/admin";
   const identifierRef=useRef<TextInput>(null);
   const passwordRef=useRef<TextInput>(null);
   const [identifier,setIdentifier]=useState("");
@@ -72,10 +73,16 @@ export default function LoginScreen(){
     <AuthHero/>
 
     <Card style={styles.formCard}>
-      <View style={{gap:spacing.xs}}>
+      {adminPortal?<View style={styles.adminPortalBanner}>
+        <View style={styles.adminPortalIcon}><Ionicons name="shield-checkmark-outline" size={24} color={colors.primary}/></View>
+        <View style={{flex:1,gap:2}}>
+          <AppText variant="title" weight="bold">{t("phase7.admin.title")}</AppText>
+          <AppText muted>{t("phase7.admin.subtitle")}</AppText>
+        </View>
+      </View>:<View style={{gap:spacing.xs}}>
         <AppText variant="title" weight="bold">{t("auth.welcomeBack")}</AppText>
         <AppText muted>{t("auth.loginSubtitle")}</AppText>
-      </View>
+      </View>}
 
       {params.reset==="success"?<View accessibilityLiveRegion="polite" style={styles.successBox}>
         <Ionicons name="checkmark-circle-outline" size={19} color={colors.success}/>
@@ -138,12 +145,12 @@ export default function LoginScreen(){
       </View>
     </Card>
 
-    <View style={[styles.switchRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+    {!adminPortal?<View style={[styles.switchRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <AppText muted>{t("auth.noAccount")}</AppText>
       <Pressable accessibilityRole="button" onPress={()=>router.replace("/register")}>
         <AppText weight="bold" style={{color:colors.primary}}>{t("auth.createAccount")}</AppText>
       </Pressable>
-    </View>
+    </View>:null}
   </Screen>;
 }
 
@@ -160,6 +167,8 @@ const styles=StyleSheet.create({
     shadowOffset:{width:0,height:8},
     elevation:4,
   },
+  adminPortalBanner:{flexDirection:"row",alignItems:"center",gap:spacing.md,padding:spacing.md,borderRadius:radius.md,backgroundColor:colors.primarySoft,borderWidth:1,borderColor:"#B9CEF8"},
+  adminPortalIcon:{width:46,height:46,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:"#FFFFFF"},
   forgotLink:{alignSelf:"flex-end",paddingVertical:2},
   pressed:{opacity:0.7},
   successBox:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:"#F0FBF4",borderWidth:1,borderColor:"#B7E2C4"},
