@@ -11,6 +11,7 @@ export type AuthUserRecord = {
   emailNormalized: string | null;
   city: string | null;
   bio: string | null;
+  lastCredentialResetAt: Date | null;
   passwordHash: string;
   preferredLanguage: LanguageCode;
   status: "ACTIVE" | "SUSPENDED" | "DELETED";
@@ -82,6 +83,8 @@ export interface AuthRepository {
     username: string;
     usernameNormalized: string;
     passwordHash: string;
+    credentialResetAt: Date;
+    cooldownCutoff: Date;
   }): Promise<AuthUserRecord>;
   createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }): Promise<SessionRecord>;
   findSessionByRefreshHash(refreshTokenHash: string): Promise<SessionRecord | null>;
