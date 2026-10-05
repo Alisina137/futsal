@@ -12,6 +12,22 @@
 
 > **Source-of-truth note:** This document defines what the product should do and how users should experience it. A separate software-development workflow should govern repository inspection, coding, migrations, testing execution, Git operations, and deployment.
 
+## Authentication and role model
+
+Futsal uses one account identity independently from product roles.
+
+- Every new signup begins as a **simple authenticated user** with no Player, Venue Owner, Team Manager, Referee, staff, competition-admin, or platform-admin role automatically assigned.
+- Signup requires, in this order: **username, phone number, password, confirm password**.
+- Username is required and unique. Phone number is required and unique.
+- Full name is **not** collected during signup; the user may configure it later from the authenticated account profile.
+- No account type is chosen during signup.
+- Sign-in accepts either the account's **username or phone number**, together with its password.
+- Password and confirm-password inputs provide independent show/hide controls.
+- A user may later add participation roles to the same identity. The initial self-service roles are Player, Venue Owner, Team Manager, and Referee.
+- Activating Team Manager also enables Player capability because team participation is built on player identity; actual authority over a team remains object-scoped to that team's manager.
+- Venue Staff, Competition Admin, and Platform Admin are controlled roles and must be assigned through authorized operational workflows rather than self-service.
+- Roles are additive capabilities; they do not create a second login identity or change the user's username/phone credentials.
+
 ---
 
 # 1. Executive Summary
