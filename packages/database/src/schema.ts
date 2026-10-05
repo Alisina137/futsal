@@ -29,6 +29,8 @@ export const userRoleEnum = pgEnum("user_role", [
 ]);
 export const venueStatusEnum = pgEnum("venue_status", ["DRAFT", "READY", "ACTIVE", "SUSPENDED"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", ["TRIAL", "ACTIVE", "EXPIRED", "CANCELLED"]);
+export const venueVerificationStatusEnum = pgEnum("venue_verification_status", ["PENDING", "VERIFIED", "REJECTED"]);
+export const subscriptionPaymentStatusEnum = pgEnum("subscription_payment_status", ["RECORDED", "VOIDED"]);
 export const bookingModeEnum = pgEnum("booking_mode", ["INSTANT", "APPROVAL"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["PENDING", "CONFIRMED", "CANCELLED"]);
 export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
@@ -138,6 +140,9 @@ export const venues = pgTable(
     bookingMode: bookingModeEnum("booking_mode").notNull().default("INSTANT"),
     cancellationPolicy: text("cancellation_policy").notNull().default("Cancellation is allowed before the booking start time."),
     status: venueStatusEnum("status").notNull().default("DRAFT"),
+    verificationStatus: venueVerificationStatusEnum("verification_status").notNull().default("PENDING"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verifiedByUserId: uuid("verified_by_user_id").references(() => users.id, { onDelete: "set null" }),
     setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -214,6 +219,44 @@ export const venueTrialClaims = pgTable(
   ],
 );
 
+
+export const subscriptionPayments = pgTable(
+  "subscription_payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "restrict" }),
+    amountAfn: integer("amount_afn").notNull(),
+    periodStartsAt: timestamp("period_starts_at", { withTimezone: true }).notNull(),
+    periodEndsAt: timestamp("period_ends_at", { withTimezone: true }).notNull(),
+    provider: varchar("provider", { length: 40 }).notNull().default("MANUAL"),
+    providerReference: varchar("provider_reference", { length: 120 }),
+    status: subscriptionPaymentStatusEnum("status").notNull().default("RECORDED"),
+    note: varchar("note", { length: 500 }),
+    recordedByUserId: uuid("recorded_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedByUserId: uuid("voided_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("subscription_payments_venue_created_idx").on(table.venueId, table.createdAt),
+    uniqueIndex("subscription_payments_provider_reference_uq")
+      .on(table.provider, table.providerReference)
+      .where(sql`${table.providerReference} is not null`),
+  ],
+);
+
+export const platformSettings = pgTable(
+  "platform_settings",
+  {
+    id: varchar("id", { length: 20 }).primaryKey().default("default"),
+    monthlyPriceAfn: integer("monthly_price_afn").notNull().default(1500),
+    annualPriceAfn: integer("annual_price_afn").notNull().default(15000),
+    trialDurationHours: integer("trial_duration_hours").notNull().default(72),
+    featureFlags: jsonb("feature_flags").$type<Record<string, boolean>>().notNull().default({}),
+    updatedByUserId: uuid("updated_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
 
 export const venueBlocks = pgTable(
   "venue_blocks",
