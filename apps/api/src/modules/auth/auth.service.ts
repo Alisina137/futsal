@@ -30,7 +30,7 @@ export class AuthService {
   private readonly resetSecret: string | null;
   private readonly resetCodeTtlMs: number;
   private readonly resetTokenTtlMs: number;
-  private readonly deliverPasswordResetCode?: (phoneE164: string, code: string) => Promise<void>;
+  private readonly deliverPasswordResetCode: ((phoneE164: string, code: string) => Promise<void>) | undefined;
   private readonly exposePasswordResetCode: boolean;
 
   constructor(
