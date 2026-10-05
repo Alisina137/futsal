@@ -66,7 +66,6 @@ export class DrizzleAuthRepository implements AuthRepository {
           preferredLanguage: input.preferredLanguage,
         }).returning();
         if (!row) throw new Error("Failed to create user.");
-        await tx.insert(userRoles).values({ userId: row.id, role: input.role });
         return {
           id: row.id,
           displayName: row.displayName,
@@ -76,7 +75,7 @@ export class DrizzleAuthRepository implements AuthRepository {
           passwordHash: row.passwordHash,
           preferredLanguage: row.preferredLanguage,
           status: row.status,
-          roles: [input.role],
+          roles: [],
         };
       });
     } catch (error) {
@@ -85,6 +84,15 @@ export class DrizzleAuthRepository implements AuthRepository {
       }
       throw error;
     }
+  }
+
+  async addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord> {
+    if (roles.length > 0) {
+      await this.db.insert(userRoles).values(roles.map((role) => ({ userId, role }))).onConflictDoNothing();
+    }
+    const user = await this.getUserById(userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    return user;
   }
 
   async createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }): Promise<SessionRecord> {
