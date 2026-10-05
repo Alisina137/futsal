@@ -22,7 +22,6 @@ export default function ForgotPasswordScreen(){
   const [phone,setPhone]=useState("");
   const [phoneError,setPhoneError]=useState<string|null>(null);
   const [requestId,setRequestId]=useState<string|null>(null);
-  const [expiresAt,setExpiresAt]=useState<string|null>(null);
   const [debugCode,setDebugCode]=useState<string|null>(null);
   const [code,setCode]=useState("");
   const [codeError,setCodeError]=useState<string|null>(null);
@@ -50,7 +49,6 @@ export default function ForgotPasswordScreen(){
     try{
       const result=await authApi.requestPasswordReset({phone:clean});
       setRequestId(result.requestId);
-      setExpiresAt(result.expiresAt);
       setDebugCode(result.debugCode??null);
       setCode("");
       requestAnimationFrame(()=>codeRef.current?.focus());
@@ -170,7 +168,7 @@ export default function ForgotPasswordScreen(){
 
         <Pressable
           accessibilityRole="button"
-          onPress={()=>{setRequestId(null);setExpiresAt(null);setDebugCode(null);setCode("");setCodeError(null);}}
+          onPress={()=>{setRequestId(null);setDebugCode(null);setCode("");setCodeError(null);}}
           style={styles.secondaryLink}
         >
           <AppText weight="semibold" style={{color:colors.primary}}>{t("auth.phone")}</AppText>
@@ -182,7 +180,6 @@ export default function ForgotPasswordScreen(){
         <AppText variant="caption" style={{flex:1,color:colors.danger}}>{formError}</AppText>
       </View>:null}
 
-      {expiresAt?<AppText variant="caption" muted forceLtr>{expiresAt}</AppText>:null}
     </Card>
 
     <Pressable
