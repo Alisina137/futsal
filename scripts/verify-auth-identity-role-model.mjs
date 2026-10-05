@@ -134,6 +134,7 @@ for (const marker of [
 for (const marker of [
   "getPasswordResetSession()",
   "authApi.completePasswordReset",
+  "await signOut()",
   'router.replace({pathname:"/login",params:{reset:"success"}})',
   "<Modal",
   "showDialogPassword",
