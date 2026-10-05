@@ -132,7 +132,7 @@ export function createApp(deps: AppDependencies) {
     }
   });
 
-  app.use("/api/v1/auth", createAuthRouter(deps.authService));
+  app.use("/api/v1/auth", createAuthRouter(deps.authService, deps.tokenService));
   if (deps.ownerService) app.use("/api/v1/owner", createOwnerRouter(deps.ownerService, deps.tokenService));
   if (deps.bookingService) {
     app.use("/api/v1/venues", createPublicVenueRouter(deps.bookingService));
