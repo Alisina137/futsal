@@ -166,6 +166,8 @@ export default function ProfileScreen(){
       <InfoRow icon="globe-outline" label={t("settings.region")} value={t("settings.regionValue")} rtl={isRTL}/>
       <Divider/>
       <InfoRow icon="cloud-outline" label={t("home.connection")} value={networkLabel} rtl={isRTL}/>
+      <Divider/>
+      <ActionRow icon="help-buoy-outline" title={t("support.title")} subtitle={t("support.subtitle")} rtl={isRTL} onPress={()=>router.push("/support")}/>
     </Card>
 
     <Card style={styles.signOutCard}>
@@ -196,6 +198,8 @@ function SectionHeader({icon,title,subtitle,rtl}:{icon:IconName;title:string;sub
 function ActionRow({icon,title,subtitle,rtl,onPress}:{icon:IconName;title:string;subtitle:string;rtl:boolean;onPress:()=>void}){
   return <Pressable
     accessibilityRole="button"
+    accessibilityLabel={title}
+    accessibilityHint={subtitle}
     onPress={onPress}
     style={({pressed})=>[
       styles.actionRow,

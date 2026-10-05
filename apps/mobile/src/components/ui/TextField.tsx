@@ -68,6 +68,8 @@ export function TextField({
         ]}
         placeholderTextColor={colors.textMuted}
         accessibilityLabel={label}
+        accessibilityHint={error ?? hint}
+        accessibilityState={{ disabled: props.editable === false }}
         selectionColor={colors.primary}
       />
 
@@ -90,7 +92,7 @@ export function TextField({
     </View>
 
     {error
-      ? <AppText variant="caption" style={{ color: colors.danger }}>{error}</AppText>
+      ? <AppText variant="caption" accessibilityLiveRegion="polite" style={{ color: colors.danger }}>{error}</AppText>
       : hint
         ? <AppText variant="caption" muted>{hint}</AppText>
         : null}

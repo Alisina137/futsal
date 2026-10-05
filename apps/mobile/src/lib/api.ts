@@ -60,48 +60,104 @@ import type {
 } from "@leaguekick/contracts";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
+const REQUEST_TIMEOUT_MS = 12_000;
+const READ_RETRY_DELAY_MS = 300;
+const RETRYABLE_HTTP_STATUSES = new Set([502, 503, 504]);
 
 export class ApiRequestError extends Error {
   constructor(
     readonly code: string,
     message: string,
     readonly status: number | null,
+    readonly requestId: string | null = null,
+    readonly retryable: boolean = false,
   ) {
     super(message);
     this.name = "ApiRequestError";
   }
 
-  get isNetworkError() { return this.code === "NETWORK_ERROR"; }
+  get isNetworkError() { return this.code === "NETWORK_ERROR" || this.code === "TIMEOUT"; }
+  get isTransient() { return this.isNetworkError || this.retryable; }
+}
+
+function isSafeRead(init: RequestInit) {
+  const method = (init.method ?? "GET").toUpperCase();
+  return method === "GET" || method === "HEAD";
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 async function request<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
-  try {
-    const response = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        ...(init.headers ?? {}),
-      },
-    });
-    if (response.status === 204) return undefined as T;
-    const body = await response.json().catch(() => null) as T | ApiErrorBody | null;
-    if (!response.ok) {
-      const errorBody = body as ApiErrorBody | null;
-      throw new ApiRequestError(errorBody?.error?.code ?? "HTTP_ERROR", errorBody?.error?.message ?? "Request failed.", response.status);
+  const safeRead = isSafeRead(init);
+  const maxAttempts = safeRead ? 2 : 1;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${baseUrl}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+          ...(init.body ? { "Content-Type": "application/json" } : {}),
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          ...(init.headers ?? {}),
+        },
+      });
+
+      const requestId = response.headers.get("X-Request-Id");
+      if (response.status === 204) return undefined as T;
+      const body = await response.json().catch(() => null) as T | ApiErrorBody | null;
+      if (!response.ok) {
+        const errorBody = body as ApiErrorBody | null;
+        const error = new ApiRequestError(
+          errorBody?.error?.code ?? "HTTP_ERROR",
+          errorBody?.error?.message ?? "Request failed.",
+          response.status,
+          errorBody?.error?.requestId ?? requestId,
+          RETRYABLE_HTTP_STATUSES.has(response.status),
+        );
+        if (safeRead && error.retryable && attempt + 1 < maxAttempts) {
+          await delay(READ_RETRY_DELAY_MS);
+          continue;
+        }
+        throw error;
+      }
+      return body as T;
+    } catch (error) {
+      if (error instanceof ApiRequestError) throw error;
+      const timedOut = error instanceof Error && error.name === "AbortError";
+      const transient = new ApiRequestError(
+        timedOut ? "TIMEOUT" : "NETWORK_ERROR",
+        timedOut ? "The request timed out." : "Cannot reach the server.",
+        null,
+        null,
+        true,
+      );
+      if (safeRead && attempt + 1 < maxAttempts) {
+        await delay(READ_RETRY_DELAY_MS);
+        continue;
+      }
+      throw transient;
+    } finally {
+      clearTimeout(timeout);
     }
-    return body as T;
-  } catch (error) {
-    if (error instanceof ApiRequestError) throw error;
-    throw new ApiRequestError("NETWORK_ERROR", error instanceof Error && error.name === "AbortError" ? "The request timed out." : "Cannot reach the server.", null);
-  } finally {
-    clearTimeout(timeout);
   }
+
+  throw new ApiRequestError("NETWORK_ERROR", "Cannot reach the server.", null, null, true);
 }
+
+export const systemApi = {
+  health: () => request<{ status: "ok"; service: string; version: string }>("/health"),
+  get apiHost() {
+    try { return new URL(baseUrl).host; }
+    catch { return "unavailable"; }
+  },
+};
+
 
 export const authApi = {
   register: (input: RegisterRequest) => request<AuthResponse>("/api/v1/auth/register", { method: "POST", body: JSON.stringify(input) }),

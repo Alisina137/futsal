@@ -969,7 +969,7 @@ export const pushDeviceRegisterRequestSchema = z.object({
 export type PushDeviceRegisterRequest = z.infer<typeof pushDeviceRegisterRequestSchema>;
 
 export type ApiErrorBody = {
-  error: { code: string; message: string; details?: unknown };
+  error: { code: string; message: string; requestId?: string; details?: unknown };
 };
 
 export function normalizeAfghanistanPhone(value: string): string {

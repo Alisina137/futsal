@@ -1,0 +1,30 @@
+name: Release Readiness
+
+on:
+  push:
+    branches:
+      - main
+      - phase-08-release-readiness
+  pull_request:
+    branches:
+      - main
+      - phase-07-subscription-analytics-admin
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.5.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
