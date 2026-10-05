@@ -23,6 +23,7 @@ const resetPassword = read("apps/mobile/app/(auth)/reset-password.tsx");
 const resetSession = read("apps/mobile/src/lib/passwordResetSession.ts");
 const databaseSchema = read("packages/database/src/schema.ts");
 const resetMigration = read("packages/database/drizzle/0007_password_reset_challenges.sql");
+const accountProfileMigration = read("packages/database/drizzle/0008_account_profile_fields.sql");
 const roles = read("apps/mobile/app/(app)/roles.tsx");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const ownerDashboard = read("apps/mobile/src/components/owner/OwnerDashboard.tsx");
@@ -176,7 +177,20 @@ for (const marker of [
 ]) rejectText(home, marker, "Home must not expose account identity or role selection");
 requireText(tabs, "const player=", "Tab visibility must distinguish base users from players");
 requireText(settings, 'router.push("/profile/account")', "Settings account-profile entry missing");
-requireText(account, "updateProfile({displayName:value})", "Later full-name editing missing");
+for (const marker of [
+  "profileImageUrl",
+  "age",
+  "email",
+  "city",
+  "bio",
+  "updateProfile({",
+]) requireText(account, marker, "Extended account profile UX invariant missing");
+for (const marker of [
+  '"profile_image_url"',
+  '"age"',
+  '"city"',
+  '"bio"',
+]) requireText(accountProfileMigration, marker, "Account profile migration invariant missing");
 
 for (const marker of [
   '"auth.confirmPassword"',
@@ -204,6 +218,12 @@ for (const marker of [
   '"roles.basicUser"',
   '"settings.roles"',
   '"profile.accountEditTitle"',
+  '"profile.personalInfo"',
+  '"profile.image"',
+  '"profile.age"',
+  '"profile.email"',
+  '"profile.city"',
+  '"profile.bio"',
 ]) {
   const count = localization.split(marker).length - 1;
   if (count !== 3) throw new Error(`Auth localization must define ${marker} in all 3 languages; found ${count}.`);
