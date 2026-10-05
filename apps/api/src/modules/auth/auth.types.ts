@@ -34,6 +34,7 @@ export interface AuthRepository {
   getUserById(userId: string): Promise<AuthUserRecord | null>;
   createUser(input: CreateUserInput): Promise<AuthUserRecord>;
   addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord>;
+  updateDisplayName(userId: string, displayName: string): Promise<AuthUserRecord>;
   createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }): Promise<SessionRecord>;
   findSessionByRefreshHash(refreshTokenHash: string): Promise<SessionRecord | null>;
   rotateSession(sessionId: string, refreshTokenHash: string, expiresAt: Date): Promise<void>;
