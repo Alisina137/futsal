@@ -81,7 +81,7 @@ export default function RegisterScreen(){
 
     if(!cleanUsername){
       next.username=t("auth.usernameRequired");
-    }else if(!/^[A-Za-z0-9_]{3,30}$/.test(cleanUsername)){
+    }else if(!/^[A-Za-z0-9_]{3,12}$/.test(cleanUsername)){
       next.username=t("auth.usernameInvalid");
     }
 
