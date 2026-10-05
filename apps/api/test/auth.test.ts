@@ -8,8 +8,19 @@ import { FakeAuthRepository } from "./fake-auth-repository.js";
 function setup() {
   const repository = new FakeAuthRepository();
   const tokens = new TokenService("test-secret-that-is-longer-than-thirty-two-characters", "test", "test-mobile");
-  const auth = new AuthService(repository, tokens);
-  return { app: createApp({ authService: auth, tokenService: tokens }), repository };
+  const deliveredCodes = new Map<string, string>();
+  const auth = new AuthService(repository, tokens, {
+    passwordResetSecret: "test-password-reset-secret-that-is-longer-than-thirty-two-characters",
+    exposePasswordResetCode: true,
+    deliverPasswordResetCode: async (phone, code) => {
+      deliveredCodes.set(phone, code);
+    },
+  });
+  return {
+    app: createApp({ authService: auth, tokenService: tokens }),
+    repository,
+    deliveredCodes,
+  };
 }
 
 const baseRegistration = {
@@ -158,7 +169,7 @@ describe("Authentication identity and role model", () => {
 
     const duplicatePhone = await request(app).post("/api/v1/auth/register").send({
       ...baseRegistration,
-      username: "another_user",
+      username: "another_usr",
     });
     expect(duplicatePhone.status).toBe(409);
     expect(duplicatePhone.body.error.code).toBe("PHONE_ALREADY_EXISTS");
@@ -169,5 +180,79 @@ describe("Authentication identity and role model", () => {
     });
     expect(duplicateUsername.status).toBe(409);
     expect(duplicateUsername.body.error.code).toBe("USERNAME_ALREADY_EXISTS");
+  });
+
+  it("resets credentials only after phone verification and revokes previous sessions", async () => {
+    const { app } = setup();
+    const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);
+    expect(registration.status).toBe(201);
+
+    const resetRequest = await request(app)
+      .post("/api/v1/auth/password-reset/request")
+      .send({ phone: baseRegistration.phone });
+    expect(resetRequest.status).toBe(200);
+    expect(resetRequest.body.requestId).toBeTypeOf("string");
+    expect(resetRequest.body.debugCode).toMatch(/^\d{6}$/);
+
+    const wrongCode = await request(app)
+      .post("/api/v1/auth/password-reset/verify")
+      .send({ requestId: resetRequest.body.requestId, code: "000000" });
+    expect(wrongCode.status).toBe(400);
+    expect(wrongCode.body.error.code).toBe("INVALID_RESET_CODE");
+
+    const verified = await request(app)
+      .post("/api/v1/auth/password-reset/verify")
+      .send({ requestId: resetRequest.body.requestId, code: resetRequest.body.debugCode });
+    expect(verified.status).toBe(200);
+    expect(verified.body.username).toBe("ahmad7");
+    expect(verified.body.phone).toBe("+93791234567");
+    expect(verified.body.resetToken).toBeTypeOf("string");
+
+    const completed = await request(app)
+      .post("/api/v1/auth/password-reset/complete")
+      .send({
+        requestId: verified.body.requestId,
+        resetToken: verified.body.resetToken,
+        username: "ahmadnew",
+        password: "Newpass1!",
+        confirmPassword: "Newpass1!",
+      });
+    expect(completed.status).toBe(204);
+
+    const oldCredentials = await request(app).post("/api/v1/auth/login").send({
+      identifier: "ahmad7",
+      password: baseRegistration.password,
+    });
+    expect(oldCredentials.status).toBe(401);
+
+    const newCredentials = await request(app).post("/api/v1/auth/login").send({
+      identifier: "ahmadnew",
+      password: "Newpass1!",
+    });
+    expect(newCredentials.status).toBe(200);
+    expect(newCredentials.body.user.username).toBe("ahmadnew");
+    expect(newCredentials.body.user.phone).toBe("+93791234567");
+
+    const oldSession = await request(app)
+      .post("/api/v1/auth/refresh")
+      .send({ refreshToken: registration.body.refreshToken });
+    expect(oldSession.status).toBe(401);
+  });
+
+  it("does not reveal account existence before phone verification", async () => {
+    const { app } = setup();
+    const response = await request(app)
+      .post("/api/v1/auth/password-reset/request")
+      .send({ phone: "0799999999" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.requestId).toBeTypeOf("string");
+    expect(response.body.debugCode).toMatch(/^\d{6}$/);
+
+    const verify = await request(app)
+      .post("/api/v1/auth/password-reset/verify")
+      .send({ requestId: response.body.requestId, code: response.body.debugCode });
+    expect(verify.status).toBe(400);
+    expect(verify.body.error.code).toBe("INVALID_RESET_CODE");
   });
 });
