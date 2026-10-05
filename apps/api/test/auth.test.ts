@@ -59,12 +59,24 @@ describe("Authentication identity and role model", () => {
     const updated = await request(app)
       .patch("/api/v1/users/me")
       .set("Authorization", `Bearer ${registration.body.accessToken}`)
-      .send({ displayName: "Ahmad Rahimi" });
+      .send({
+        displayName: "Ahmad Rahimi",
+        profileImageUrl: "https://example.com/ahmad.jpg",
+        age: 26,
+        email: "Ahmad@example.com",
+        city: "Kabul",
+        bio: "Futsal fan and weekend player.",
+      });
 
     expect(updated.status).toBe(200);
     expect(updated.body.user.displayName).toBe("Ahmad Rahimi");
     expect(updated.body.user.username).toBe("ahmad7");
     expect(updated.body.user.phone).toBe("+93791234567");
+    expect(updated.body.user.profileImageUrl).toBe("https://example.com/ahmad.jpg");
+    expect(updated.body.user.age).toBe(26);
+    expect(updated.body.user.email).toBe("ahmad@example.com");
+    expect(updated.body.user.city).toBe("Kabul");
+    expect(updated.body.user.bio).toBe("Futsal fan and weekend player.");
 
     const login = await request(app).post("/api/v1/auth/login").send({
       identifier: "ahmad7",
@@ -72,6 +84,8 @@ describe("Authentication identity and role model", () => {
     });
     expect(login.status).toBe(200);
     expect(login.body.user.displayName).toBe("Ahmad Rahimi");
+    expect(login.body.user.email).toBe("ahmad@example.com");
+    expect(login.body.user.age).toBe(26);
   });
 
   it("requires matching password confirmation at registration", async () => {
