@@ -28,6 +28,8 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Password recovery is phone-based but verification-gated: 6-digit short-lived code → short-lived reset token → username/password update → refresh sessions revoked; existing access tokens remain bounded by the 15-minute access-token TTL.
 - Recovery requests do not reveal phone/account existence before code verification; production requires an HTTPS SMS delivery provider while local development may expose the code only in explicit non-production dev mode.
 - Self-service role activation is limited to PLAYER, VENUE_OWNER, TEAM_MANAGER and REFEREE; privileged staff/admin roles remain controlled.
+- Profile is the single mobile surface for account identity and role selection/activation; Home does not expose username/phone/role controls.
+- Home remains discovery-oriented with venue discovery, Feed, and Competitions available to authenticated users; owner Home retains operational dashboard content plus these discovery entry points.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
 - Server owns authorization, venue ownership, entitlement, live availability, confirmation price, promotion validity and notification fan-out.
 - One Venue Owner account maps to at most one venue.
