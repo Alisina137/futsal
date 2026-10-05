@@ -19,7 +19,7 @@ function setup() {
 }
 
 async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VENUE_OWNER", phone: string) {
-  const username = `test_${phone.replace(/\D/g, "")}`;
+  const username = `u${phone.replace(/\D/g, "").slice(-10)}`;
   const registration = await request(app).post("/api/v1/auth/register").send({
     username,
     phone,
