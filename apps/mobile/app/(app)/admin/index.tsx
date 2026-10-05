@@ -10,7 +10,7 @@ import type {
 } from "@leaguekick/contracts";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
-import { adminApi } from "../../../src/lib/api";
+import { adminApi, ApiRequestError } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -76,34 +76,51 @@ export default function AdminScreen() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [loadIssues, setLoadIssues] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!token || !isAdmin) return;
     setLoading(true);
     setMessage(null);
-    try {
-      const [dashboardData, userData, venueData, duplicateData, auditData, settingsData] = await Promise.all([
-        adminApi.dashboard(token),
-        adminApi.users(token, query),
-        adminApi.venues(token, query),
-        adminApi.duplicateVenues(token),
-        adminApi.audit(token),
-        adminApi.settings(token),
-      ]);
-      setDashboard(dashboardData);
-      setUsers(userData.users);
-      setVenues(venueData.venues);
-      setDuplicates(duplicateData.groups);
-      setAudit(auditData.logs);
-      setSettings(settingsData.settings);
-      setMonthly(String(settingsData.settings.monthlyPriceAfn));
-      setAnnual(String(settingsData.settings.annualPriceAfn));
-      setConfigTrialHours(String(settingsData.settings.trialDurationHours));
-    } catch {
-      setMessage(t("phase7.admin.loadError"));
-    } finally {
-      setLoading(false);
-    }
+    setLoadIssues([]);
+
+    const failures: string[] = [];
+    const describeFailure = (label: string, error: unknown) => {
+      if (error instanceof ApiRequestError) {
+        const status = error.status ? ` HTTP ${error.status}` : "";
+        return `${label}: ${error.code}${status}`;
+      }
+      return `${label}: UNKNOWN_ERROR`;
+    };
+    const loadPart = async <T,>(
+      label: string,
+      task: () => Promise<T>,
+      apply: (value: T) => void,
+    ) => {
+      try {
+        apply(await task());
+      } catch (error) {
+        failures.push(describeFailure(label, error));
+      }
+    };
+
+    await Promise.all([
+      loadPart("dashboard", () => adminApi.dashboard(token), setDashboard),
+      loadPart("users", () => adminApi.users(token, query), (data) => setUsers(data.users)),
+      loadPart("venues", () => adminApi.venues(token, query), (data) => setVenues(data.venues)),
+      loadPart("duplicates", () => adminApi.duplicateVenues(token), (data) => setDuplicates(data.groups)),
+      loadPart("audit", () => adminApi.audit(token), (data) => setAudit(data.logs)),
+      loadPart("settings", () => adminApi.settings(token), (data) => {
+        setSettings(data.settings);
+        setMonthly(String(data.settings.monthlyPriceAfn));
+        setAnnual(String(data.settings.annualPriceAfn));
+        setConfigTrialHours(String(data.settings.trialDurationHours));
+      }),
+    ]);
+
+    setLoadIssues(failures);
+    if (failures.length === 6) setMessage(t("phase7.admin.loadError"));
+    setLoading(false);
   }, [isAdmin, query, t, token]);
 
   useEffect(() => { void load(); }, [load]);
@@ -166,6 +183,14 @@ export default function AdminScreen() {
         {message ? <View style={[styles.notice, message === t("phase7.admin.actionError") ? styles.noticeError : styles.noticeSuccess]}>
           <Ionicons name={message === t("phase7.admin.actionError") ? "alert-circle-outline" : "checkmark-circle-outline"} size={18} color={message === t("phase7.admin.actionError") ? colors.danger : colors.success}/>
           <AppText weight="medium" style={{ color: message === t("phase7.admin.actionError") ? colors.danger : colors.success }}>{message}</AppText>
+        </View> : null}
+
+        {loadIssues.length > 0 ? <View style={[styles.notice, styles.noticeWarning]}>
+          <Ionicons name="warning-outline" size={18} color={colors.warning}/>
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText weight="semibold" style={{ color: colors.warning }}>{t("phase7.admin.loadError")}</AppText>
+            <AppText variant="caption" forceLtr style={{ color: colors.warning }}>{loadIssues.join(" · ")}</AppText>
+          </View>
         </View> : null}
 
         {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={setSection} t={t} /> : null}
@@ -527,6 +552,7 @@ const styles = StyleSheet.create({
   notice: { minHeight: 44, borderRadius: radius.md, paddingHorizontal: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1 },
   noticeSuccess: { backgroundColor: "#EFFAF3", borderColor: "#B8E2C5" },
   noticeError: { backgroundColor: "#FFF3F1", borderColor: "#F2C4BE" },
+  noticeWarning: { backgroundColor: "#FFF9E8", borderColor: "#F1D797" },
   sectionIntro: { gap: spacing.xs },
   metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   metricCard: { minWidth: 190, flexGrow: 1, flexBasis: 220, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.xs },
