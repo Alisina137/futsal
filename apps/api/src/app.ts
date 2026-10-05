@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
@@ -33,16 +34,104 @@ export type AppDependencies = {
   competitionService?: CompetitionService;
   commercialService?: CommercialService;
   corsOrigin?: string;
+  appVersion?: string;
+  requestLogging?: boolean;
+  readinessCheck?: () => Promise<void>;
 };
+
+function normalizePath(path: string) {
+  return path.replace(
+    /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi,
+    ":id",
+  );
+}
+
+function requestIdOf(response: Response) {
+  return String(response.locals.requestId ?? "");
+}
+
+function sendError(
+  response: Response,
+  status: number,
+  code: string,
+  message: string,
+  details?: unknown,
+) {
+  response.status(status).json({
+    error: {
+      code,
+      message,
+      requestId: requestIdOf(response),
+      ...(details !== undefined ? { details } : {}),
+    },
+  });
+}
 
 export function createApp(deps: AppDependencies) {
   const app = express();
+  const appVersion = deps.appVersion ?? "dev";
+  const allowedOrigins = (deps.corsOrigin ?? "*")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const allowAnyOrigin = allowedOrigins.includes("*");
+
   app.disable("x-powered-by");
   app.use(helmet());
-  app.use(cors({ origin: deps.corsOrigin === "*" || !deps.corsOrigin ? true : deps.corsOrigin }));
-  app.use(express.json({ limit: "100kb" }));
+  app.use((request, response, next) => {
+    const requestId = request.header("X-Request-Id")?.trim().slice(0, 120) || randomUUID();
+    response.locals.requestId = requestId;
+    response.setHeader("X-Request-Id", requestId);
 
-  app.get("/health", (_request, response) => response.json({ status: "ok", service: "leaguekick-api" }));
+    if (deps.requestLogging) {
+      const startedAt = Date.now();
+      response.on("finish", () => {
+        console.info(JSON.stringify({
+          event: "http_request",
+          requestId,
+          method: request.method,
+          path: normalizePath(request.path),
+          statusCode: response.statusCode,
+          durationMs: Date.now() - startedAt,
+        }));
+      });
+    }
+    next();
+  });
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || allowAnyOrigin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new AppError(403, "CORS_ORIGIN_DENIED", "This origin is not allowed."));
+    },
+    exposedHeaders: ["X-Request-Id"],
+  }));
+  app.use(express.json({ limit: "100kb" }));
+  app.use("/api/v1", (_request, response, next) => {
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("Pragma", "no-cache");
+    next();
+  });
+
+  app.get("/health", (_request, response) => {
+    response.json({ status: "ok", service: "futsal-api", version: appVersion });
+  });
+  app.get("/ready", async (_request, response) => {
+    try {
+      await deps.readinessCheck?.();
+      response.json({ status: "ready", service: "futsal-api", version: appVersion });
+    } catch {
+      response.status(503).json({
+        status: "not_ready",
+        service: "futsal-api",
+        version: appVersion,
+        requestId: requestIdOf(response),
+      });
+    }
+  });
+
   app.use("/api/v1/auth", createAuthRouter(deps.authService));
   if (deps.ownerService) app.use("/api/v1/owner", createOwnerRouter(deps.ownerService, deps.tokenService));
   if (deps.bookingService) {
@@ -78,20 +167,25 @@ export function createApp(deps: AppDependencies) {
   });
 
   app.use((_request: Request, response: Response) => {
-    response.status(404).json({ error: { code: "NOT_FOUND", message: "Route not found." } });
+    sendError(response, 404, "NOT_FOUND", "Route not found.");
   });
 
   app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
     if (error instanceof ZodError) {
-      response.status(400).json({ error: { code: "VALIDATION_ERROR", message: "The request is invalid.", details: error.issues } });
+      sendError(response, 400, "VALIDATION_ERROR", "The request is invalid.", error.issues);
       return;
     }
     if (error instanceof AppError) {
-      response.status(error.statusCode).json({ error: { code: error.code, message: error.message, ...(error.details !== undefined ? { details: error.details } : {}) } });
+      sendError(response, error.statusCode, error.code, error.message, error.details);
       return;
     }
-    console.error("Unhandled API error", error);
-    response.status(500).json({ error: { code: "INTERNAL_ERROR", message: "The server could not complete the request." } });
+
+    console.error(JSON.stringify({
+      event: "unhandled_api_error",
+      requestId: requestIdOf(response),
+      errorType: error instanceof Error ? error.name : typeof error,
+    }));
+    sendError(response, 500, "INTERNAL_ERROR", "The server could not complete the request.");
   });
 
   return app;
