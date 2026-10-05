@@ -48,7 +48,9 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Afghanistan launch venue timezone defaults to `Asia/Kabul`; persisted timestamps are UTC instants.
 
 ## Current implementation phase
-Phase 6 — Competition Engine.
+Phase 7 — Subscription Enforcement, Analytics and Admin.
+
+Current task: **7.1 — Subscription lifecycle and continuity enforcement**.
 
 ## Migration baseline
 Committed canonical migrations:
@@ -329,7 +331,33 @@ After `pnpm verify` is fully green, commit/push only the generated Phase 6 migra
 
 Do not mark Phase 6 fully verified until automated verification and the live competition/calendar conflict journeys pass.
 
-## Next phase
-Phase 7 — Subscription Enforcement, Analytics and Admin.
+## Phase 7 task plan
 
-Phase 7 should begin only after the Phase 6 verification baseline is confirmed.
+1. **7.1 — Subscription lifecycle and continuity enforcement**
+   - Centralize entitlement evaluation.
+   - Normalize trial and paid expiry server-side.
+   - Preserve existing-booking service actions in continuity mode.
+   - Block new bookable inventory and Premium writes after expiry.
+2. **7.2 — Billing activation and owner subscription experience**
+   - Manual/admin subscription activation.
+   - Payment/plan-period history and provider references.
+   - Owner Subscription screen and reactivation state.
+3. **7.3 — Owner analytics**
+   - Occupancy, booking, revenue/GMV-estimate and online-share metrics.
+   - Date-range API and owner Analytics mobile screen.
+4. **7.4 — Platform admin core**
+   - Platform-admin authorization.
+   - User/venue search, venue verification, duplicate review and suspension/restoration.
+5. **7.5 — Admin subscriptions, configuration and audit**
+   - Trial extension/activation, payment reconciliation, plan configuration and audit-log views.
+6. **7.6 — Phase hardening and handoff**
+   - Cross-module regression tests, Phase 7 verifier, localization/RTL checks, test plan and final project-state update.
+
+## Phase 7 status
+
+Task 7.1 is implemented on `phase-07-task-01-subscription-continuity`; local `pnpm verify` is still required before it is treated as verified.
+
+Phase 6 remains implemented with migration `0005_robust_smiling_tiger.sql`; its previously documented live-device verification caveat remains unchanged.
+
+## Next phase
+Phase 8 — Release Readiness.
