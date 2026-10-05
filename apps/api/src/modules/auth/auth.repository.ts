@@ -167,7 +167,6 @@ export class DrizzleAuthRepository implements AuthRepository {
           .set({
             username: input.username,
             usernameNormalized: input.usernameNormalized,
-            displayName: input.username,
             passwordHash: input.passwordHash,
             updatedAt: new Date(),
           })
