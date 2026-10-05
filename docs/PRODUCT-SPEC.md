@@ -31,6 +31,7 @@ Futsal uses one account identity independently from product roles.
 - **Forgot password** is phone-based but requires proof of phone ownership: phone → short-lived 6-digit verification code → short-lived reset token → editable username + new password + confirm password → confirmation dialog → credential update.
 - The phone-recovery request must not reveal whether the submitted number exists before verification.
 - A successful reset revokes all refresh sessions immediately. Already-issued access tokens remain bounded by the existing 15-minute access-token lifetime. The confirmation dialog shows username and phone, masks the new password by default, and allows user-controlled reveal.
+- After confirming a credential reset, the mobile app must clear any current local authentication session, return to the Login screen, and require a fresh sign-in using the updated username/phone and new password. Password reset must never auto-authenticate the user.
 - Production password reset requires an HTTPS SMS delivery provider; development may expose a reset code only under an explicit non-production development mode.
 - The signup form avoids role-model explanatory copy; it uses a concise sports-oriented signup title and keeps role education for the post-signup role flow.
 - **Profile is the single account/role surface:** username, phone, configured full name, current roles, and self-service role activation live in Profile rather than Home.
