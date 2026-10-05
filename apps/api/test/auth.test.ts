@@ -248,6 +248,16 @@ describe("Authentication identity and role model", () => {
     expect(verified.body.phone).toBe("+93791234567");
     expect(verified.body.resetToken).toBeTypeOf("string");
 
+    const parallelRequest = await request(app)
+      .post("/api/v1/auth/password-reset/request")
+      .send({ phone: baseRegistration.phone });
+    expect(parallelRequest.status).toBe(200);
+
+    const parallelVerified = await request(app)
+      .post("/api/v1/auth/password-reset/verify")
+      .send({ requestId: parallelRequest.body.requestId, code: parallelRequest.body.debugCode });
+    expect(parallelVerified.status).toBe(200);
+
     const completed = await request(app)
       .post("/api/v1/auth/password-reset/complete")
       .send({
@@ -258,6 +268,33 @@ describe("Authentication identity and role model", () => {
         confirmPassword: "Newpass1!",
       });
     expect(completed.status).toBe(204);
+
+    const parallelComplete = await request(app)
+      .post("/api/v1/auth/password-reset/complete")
+      .send({
+        requestId: parallelVerified.body.requestId,
+        resetToken: parallelVerified.body.resetToken,
+        username: "ahmadnew2",
+        password: "Otherpass1!",
+        confirmPassword: "Otherpass1!",
+      });
+    expect(parallelComplete.status).toBe(409);
+    expect(parallelComplete.body.error.code).toBe("PASSWORD_RESET_COOLDOWN");
+    expect(parallelComplete.body.error.details.availableAt).toBeTypeOf("string");
+
+    const nextRequest = await request(app)
+      .post("/api/v1/auth/password-reset/request")
+      .send({ phone: baseRegistration.phone });
+    expect(nextRequest.status).toBe(200);
+
+    const nextVerify = await request(app)
+      .post("/api/v1/auth/password-reset/verify")
+      .send({ requestId: nextRequest.body.requestId, code: nextRequest.body.debugCode });
+    expect(nextVerify.status).toBe(409);
+    expect(nextVerify.body.error.code).toBe("PASSWORD_RESET_COOLDOWN");
+    const availableAtMs = Date.parse(nextVerify.body.error.details.availableAt);
+    expect(availableAtMs).toBeGreaterThan(Date.now() + 71 * 60 * 60 * 1000);
+    expect(availableAtMs).toBeLessThanOrEqual(Date.now() + 72 * 60 * 60 * 1000 + 5_000);
 
     const oldCredentials = await request(app).post("/api/v1/auth/login").send({
       identifier: "ahmad7",
