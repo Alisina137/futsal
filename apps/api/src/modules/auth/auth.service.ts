@@ -118,7 +118,16 @@ export class AuthService {
     const user = await this.repository.getUserById(userId);
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
     this.ensureActive(user);
-    return toUserDto(await this.repository.updateDisplayName(userId, input.displayName.trim()));
+
+    const emailNormalized = input.email?.trim().toLowerCase() || null;
+    return toUserDto(await this.repository.updateAccountProfile(userId, {
+      displayName: input.displayName.trim(),
+      profileImageUrl: input.profileImageUrl?.trim() || null,
+      age: input.age ?? null,
+      emailNormalized,
+      city: input.city?.trim() || null,
+      bio: input.bio?.trim() || null,
+    }));
   }
 
   async requestPasswordReset(input: PasswordResetRequest): Promise<PasswordResetRequestResponse> {
