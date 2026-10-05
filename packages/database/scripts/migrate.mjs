@@ -27,18 +27,24 @@ function safeTarget(value) {
   }
 }
 
-function errorDetails(error) {
+function errorDetails(error, depth = 0) {
+  if (depth > 6) return { message: "Nested database error depth exceeded." };
   if (!(error instanceof Error)) return { message: String(error) };
   const candidate = error;
   return {
     name: candidate.name,
     message: candidate.message,
     ...(typeof candidate.code === "string" ? { code: candidate.code } : {}),
+    ...(typeof candidate.severity === "string" ? { severity: candidate.severity } : {}),
     ...(typeof candidate.detail === "string" ? { detail: candidate.detail } : {}),
     ...(typeof candidate.hint === "string" ? { hint: candidate.hint } : {}),
+    ...(typeof candidate.position === "string" ? { position: candidate.position } : {}),
+    ...(typeof candidate.where === "string" ? { where: candidate.where } : {}),
     ...(typeof candidate.schema === "string" ? { schema: candidate.schema } : {}),
     ...(typeof candidate.table === "string" ? { table: candidate.table } : {}),
+    ...(typeof candidate.column === "string" ? { column: candidate.column } : {}),
     ...(typeof candidate.constraint === "string" ? { constraint: candidate.constraint } : {}),
+    ...(candidate.cause ? { cause: errorDetails(candidate.cause, depth + 1) } : {}),
   };
 }
 
@@ -56,6 +62,19 @@ const migrationsFolder = path.resolve(here, "../drizzle");
 try {
   await pool.query("select 1");
   console.log(`Database connection verified: ${safeTarget(connectionString)}`);
+
+  const diagnostics = await pool.query(`
+    select
+      current_setting('server_version') as server_version,
+      current_user as current_user,
+      current_database() as current_database,
+      has_schema_privilege(current_user, 'public', 'CREATE') as can_create_public,
+      to_regprocedure('gen_random_uuid()')::text as gen_random_uuid_function,
+      to_regclass('public.password_reset_challenges')::text as password_reset_table
+  `);
+  console.log("Migration preflight:");
+  console.log(JSON.stringify(diagnostics.rows[0], null, 2));
+
   console.log(`Applying migrations from: ${migrationsFolder}`);
   await migrate(db, { migrationsFolder });
   console.log("Database migrations applied successfully.");
