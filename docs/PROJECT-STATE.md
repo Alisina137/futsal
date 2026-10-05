@@ -22,8 +22,11 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Structured monolith; no microservices.
 - Mobile is the primary customer interface.
 - Authentication identity is separate from product roles: signup creates a role-free base user with required username + phone + password confirmation; roles are activated later.
-- Login accepts either normalized Afghanistan phone or normalized username with the same password.
+- Usernames are unique, 3–12 characters, and use letters/numbers/underscore.
+- Login accepts either normalized Afghanistan phone or normalized username with the same password and returns one generic invalid-credentials message.
 - Full name is configured after signup; it is not a registration requirement.
+- Password recovery is phone-based but verification-gated: 6-digit short-lived code → short-lived reset token → username/password update → all existing sessions revoked.
+- Recovery requests do not reveal phone/account existence before code verification; production requires an HTTPS SMS delivery provider while local development may expose the code only in explicit non-production dev mode.
 - Self-service role activation is limited to PLAYER, VENUE_OWNER, TEAM_MANAGER and REFEREE; privileged staff/admin roles remain controlled.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
 - Server owns authorization, venue ownership, entitlement, live availability, confirmation price, promotion validity and notification fan-out.
