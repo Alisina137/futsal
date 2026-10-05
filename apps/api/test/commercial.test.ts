@@ -144,6 +144,19 @@ describe("Phase 7 commercial SaaS API", () => {
     expect(response.body.settings.trialDurationHours).toBe(72);
   });
 
+  it("records a reactivation request without granting entitlement", async () => {
+    const { app, tokens, repository } = setup();
+    const access = await tokens.createAccessToken(repository.venue.ownerUserId, ["VENUE_OWNER"]);
+
+    const response = await request(app)
+      .post("/api/v1/owner/subscription/reactivation-request")
+      .set("Authorization", `Bearer ${access.token}`);
+
+    expect(response.status).toBe(202);
+    expect(repository.requested).toBe(true);
+    expect(repository.venue.subscription?.status).toBe("TRIAL");
+  });
+
   it("calculates occupancy and booking-value analytics from authoritative bookings", async () => {
     const { commercial, repository } = setup();
     const result = await commercial.ownerAnalytics(repository.venue.ownerUserId, "2026-10-05", "2026-10-05");
