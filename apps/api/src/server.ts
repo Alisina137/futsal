@@ -22,7 +22,30 @@ import { CommercialService } from "./modules/commercial/commercial.service.js";
 const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
 const tokens = new TokenService(env.ACCESS_TOKEN_SECRET, env.ACCESS_TOKEN_ISSUER, env.ACCESS_TOKEN_AUDIENCE);
-const auth = new AuthService(authRepository, tokens);
+
+async function deliverPasswordResetCode(phoneE164: string, code: string) {
+  if (!env.PASSWORD_RESET_SMS_WEBHOOK_URL) return;
+  const response = await fetch(env.PASSWORD_RESET_SMS_WEBHOOK_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(env.PASSWORD_RESET_SMS_WEBHOOK_TOKEN
+        ? { Authorization: `Bearer ${env.PASSWORD_RESET_SMS_WEBHOOK_TOKEN}` }
+        : {}),
+    },
+    body: JSON.stringify({
+      to: phoneE164,
+      message: `Futsal password reset code: ${code}. It expires in 10 minutes.`,
+    }),
+  });
+  if (!response.ok) throw new Error("Password reset SMS delivery failed.");
+}
+
+const auth = new AuthService(authRepository, tokens, {
+  passwordResetSecret: env.PASSWORD_RESET_SECRET,
+  exposePasswordResetCode: env.NODE_ENV !== "production" && env.PASSWORD_RESET_DEV_MODE,
+  ...(env.PASSWORD_RESET_SMS_WEBHOOK_URL ? { deliverPasswordResetCode } : {}),
+});
 tokens.setAccessValidator(async (userId) => (await authRepository.getUserById(userId))?.status === "ACTIVE");
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
 const notificationRepository = new DrizzleNotificationRepository(db);
