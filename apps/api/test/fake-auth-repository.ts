@@ -32,7 +32,7 @@ export class FakeAuthRepository implements AuthRepository {
     const user: AuthUserRecord = {
       id: randomUUID(), displayName: input.displayName, username: input.username, usernameNormalized: input.usernameNormalized,
       phoneE164: input.phoneE164, profileImageUrl: null, age: null, emailNormalized: null, city: null, bio: null,
-      passwordHash: input.passwordHash, preferredLanguage: input.preferredLanguage, status: "ACTIVE", roles: [],
+      lastCredentialResetAt: null, passwordHash: input.passwordHash, preferredLanguage: input.preferredLanguage, status: "ACTIVE", roles: [],
     };
     this.users.set(user.id, user);
     return user;
@@ -110,23 +110,34 @@ export class FakeAuthRepository implements AuthRepository {
     username: string;
     usernameNormalized: string;
     passwordHash: string;
+    credentialResetAt: Date;
+    cooldownCutoff: Date;
   }) {
     if ([...this.users.values()].some((user) => user.id !== input.userId && user.usernameNormalized === input.usernameNormalized)) {
       throw errors.conflict("USERNAME_ALREADY_EXISTS", "That username is already registered.");
     }
     const user = this.users.get(input.userId);
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+
+    if (user.lastCredentialResetAt && user.lastCredentialResetAt.getTime() > input.cooldownCutoff.getTime()) {
+      const cooldownMs = input.credentialResetAt.getTime() - input.cooldownCutoff.getTime();
+      throw errors.conflict("PASSWORD_RESET_COOLDOWN", "Credential reset is temporarily locked.", {
+        availableAt: new Date(user.lastCredentialResetAt.getTime() + cooldownMs).toISOString(),
+      });
+    }
+
     const next = {
       ...user,
       username: input.username,
       usernameNormalized: input.usernameNormalized,
       passwordHash: input.passwordHash,
+      lastCredentialResetAt: input.credentialResetAt,
     };
     this.users.set(input.userId, next);
     const challenge = this.passwordResets.get(input.challengeId);
-    if (challenge) this.passwordResets.set(input.challengeId, { ...challenge, consumedAt: new Date() });
+    if (challenge) this.passwordResets.set(input.challengeId, { ...challenge, consumedAt: input.credentialResetAt });
     for (const [id, session] of this.sessions) {
-      if (session.userId === input.userId) this.sessions.set(id, { ...session, revokedAt: new Date() });
+      if (session.userId === input.userId) this.sessions.set(id, { ...session, revokedAt: input.credentialResetAt });
     }
     return next;
   }
