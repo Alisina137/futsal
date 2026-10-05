@@ -12,25 +12,13 @@ import { errors } from "../../lib/errors.js";
 import type { BookingRepository, BookingVenueRecord } from "./booking.types.js";
 import { toPublicVenueDto } from "./booking.types.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
-
-function effectiveEntitlement(venue: BookingVenueRecord, now: Date): "TRIAL" | "ACTIVE" | "EXPIRED" | "NONE" {
-  const subscription = venue.subscription;
-  if (!subscription) return "NONE";
-  if (subscription.status === "TRIAL") {
-    return subscription.trialEndsAt && subscription.trialEndsAt.getTime() > now.getTime() ? "TRIAL" : "EXPIRED";
-  }
-  if (subscription.status === "ACTIVE") {
-    return !subscription.activeUntil || subscription.activeUntil.getTime() > now.getTime() ? "ACTIVE" : "EXPIRED";
-  }
-  return "EXPIRED";
-}
+import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 
 function assertBookableVenue(venue: BookingVenueRecord | null, now: Date): asserts venue is BookingVenueRecord {
   if (!venue || venue.status !== "ACTIVE") {
     throw errors.badRequest("VENUE_NOT_BOOKABLE", "Online booking is unavailable for this venue.");
   }
-  const entitlement = effectiveEntitlement(venue, now);
-  if (entitlement !== "TRIAL" && entitlement !== "ACTIVE") {
+  if (!hasPremiumWriteAccess(venue.subscription, now)) {
     throw errors.badRequest("VENUE_NOT_BOOKABLE", "Online booking is unavailable for this venue.");
   }
 }
@@ -38,8 +26,7 @@ function assertBookableVenue(venue: BookingVenueRecord | null, now: Date): asser
 function assertOwnerWritable(venue: BookingVenueRecord | null, now: Date): asserts venue is BookingVenueRecord {
   if (!venue) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
   if (venue.status === "SUSPENDED") throw errors.forbidden("VENUE_SUSPENDED", "This venue is suspended.");
-  const entitlement = effectiveEntitlement(venue, now);
-  if (entitlement !== "TRIAL" && entitlement !== "ACTIVE") {
+  if (!hasPremiumWriteAccess(venue.subscription, now)) {
     throw errors.forbidden("SUBSCRIPTION_REQUIRED", "An active Premium trial or subscription is required.");
   }
 }
@@ -155,7 +142,7 @@ export class BookingService {
     return {
       generatedAt: now.toISOString(),
       venues: records
-        .filter((venue) => venue.status === "ACTIVE" && ["TRIAL", "ACTIVE"].includes(effectiveEntitlement(venue, now)))
+        .filter((venue) => venue.status === "ACTIVE" && hasPremiumWriteAccess(venue.subscription, now))
         .map(toPublicVenueDto),
     };
   }
