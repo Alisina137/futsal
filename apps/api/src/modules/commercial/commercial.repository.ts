@@ -143,6 +143,7 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       annualPriceAfn: row.annualPriceAfn,
       trialDurationHours: row.trialDurationHours,
       featureFlags: row.featureFlags,
+      notificationTemplates: row.notificationTemplates,
       updatedAt: row.updatedAt,
     } : null;
   }
@@ -550,6 +551,7 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       annualPriceAfn: number;
       trialDurationHours: number;
       featureFlags: Record<string, boolean>;
+      notificationTemplates: Record<string, string>;
     },
     now: Date,
   ): Promise<CommercialSettingsRecord> {
@@ -581,6 +583,7 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       annualPriceAfn: row.annualPriceAfn,
       trialDurationHours: row.trialDurationHours,
       featureFlags: row.featureFlags,
+      notificationTemplates: row.notificationTemplates,
       updatedAt: row.updatedAt,
     };
   }
