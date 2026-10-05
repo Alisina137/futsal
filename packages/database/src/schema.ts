@@ -253,6 +253,7 @@ export const platformSettings = pgTable(
     annualPriceAfn: integer("annual_price_afn").notNull().default(15000),
     trialDurationHours: integer("trial_duration_hours").notNull().default(72),
     featureFlags: jsonb("feature_flags").$type<Record<string, boolean>>().notNull().default({}),
+    notificationTemplates: jsonb("notification_templates").$type<Record<string, string>>().notNull().default({}),
     updatedByUserId: uuid("updated_by_user_id").references(() => users.id, { onDelete: "set null" }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
