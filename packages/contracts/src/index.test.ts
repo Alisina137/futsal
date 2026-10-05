@@ -46,8 +46,28 @@ describe("shared auth contracts", () => {
     expect(registerRequestSchema.safeParse({
       phone: "0791234567",
       username: "ahmad_9",
-      password: "abcdefgh",
-      confirmPassword: "abcdefgh",
+      password: "abcdefgh1",
+      confirmPassword: "abcdefgh1",
+      preferredLanguage: "fa-AF",
+    }).success).toBe(false);
+  });
+
+  it("rejects a new password without a number", () => {
+    expect(registerRequestSchema.safeParse({
+      phone: "0791234567",
+      username: "ahmad_no_number",
+      password: "abcdefgh!",
+      confirmPassword: "abcdefgh!",
+      preferredLanguage: "fa-AF",
+    }).success).toBe(false);
+  });
+
+  it("rejects a new password without a letter", () => {
+    expect(registerRequestSchema.safeParse({
+      phone: "0791234567",
+      username: "ahmad_no_letter",
+      password: "12345678!",
+      confirmPassword: "12345678!",
       preferredLanguage: "fa-AF",
     }).success).toBe(false);
   });
