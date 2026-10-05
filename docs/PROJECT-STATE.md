@@ -21,6 +21,10 @@ Increase futsal venue utilization and revenue through reliable availability and 
 ## Core architecture decisions
 - Structured monolith; no microservices.
 - Mobile is the primary customer interface.
+- Authentication identity is separate from product roles: signup creates a role-free base user with required username + phone + password confirmation; roles are activated later.
+- Login accepts either normalized Afghanistan phone or normalized username with the same password.
+- Full name is configured after signup; it is not a registration requirement.
+- Self-service role activation is limited to PLAYER, VENUE_OWNER, TEAM_MANAGER and REFEREE; privileged staff/admin roles remain controlled.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
 - Server owns authorization, venue ownership, entitlement, live availability, confirmation price, promotion validity and notification fan-out.
 - One Venue Owner account maps to at most one venue.
@@ -48,7 +52,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Afghanistan launch venue timezone defaults to `Asia/Kabul`; persisted timestamps are UTC instants.
 
 ## Current implementation phase
-Phase 8 — Release Readiness.
+Pre-release verification and corrections after Phase 8 — Release Readiness.
 
 All Phase 8 implementation tasks are integrated on `phase-08-release-readiness`: Android release configuration/assets, production security and observability hardening, mobile resilience/safe recovery, accessibility/localization review, support/backup/monitoring tooling, and the final release verification/test plan.
 
