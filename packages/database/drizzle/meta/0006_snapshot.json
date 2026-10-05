@@ -4346,6 +4346,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "notification_templates": {
+          "name": "notification_templates",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
         }
       },
       "indexes": {},
