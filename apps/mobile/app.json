@@ -2,24 +2,37 @@
   "expo": {
     "name": "Futsal",
     "slug": "leaguekick",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "leaguekick",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "android": {
       "package": "com.leaguekick.app",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#087A5B"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2563EB"
       }
     },
     "ios": {
       "bundleIdentifier": "com.leaguekick.app",
+      "buildNumber": "1",
       "supportsTablet": true
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F6F8FC",
+          "image": "./assets/icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
