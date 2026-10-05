@@ -6,6 +6,11 @@ export type AuthUserRecord = {
   username: string | null;
   usernameNormalized: string | null;
   phoneE164: string;
+  profileImageUrl: string | null;
+  age: number | null;
+  emailNormalized: string | null;
+  city: string | null;
+  bio: string | null;
   passwordHash: string;
   preferredLanguage: LanguageCode;
   status: "ACTIVE" | "SUSPENDED" | "DELETED";
@@ -43,12 +48,21 @@ export type CreateUserInput = {
   preferredLanguage: LanguageCode;
 };
 
+export type UpdateAccountProfileInput = {
+  displayName: string;
+  profileImageUrl: string | null;
+  age: number | null;
+  emailNormalized: string | null;
+  city: string | null;
+  bio: string | null;
+};
+
 export interface AuthRepository {
   findUserByIdentifier(identifier: string): Promise<AuthUserRecord | null>;
   getUserById(userId: string): Promise<AuthUserRecord | null>;
   createUser(input: CreateUserInput): Promise<AuthUserRecord>;
   addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord>;
-  updateDisplayName(userId: string, displayName: string): Promise<AuthUserRecord>;
+  updateAccountProfile(userId: string, input: UpdateAccountProfileInput): Promise<AuthUserRecord>;
   createPasswordResetChallenge(input: {
     userId: string | null;
     phoneE164: string;
@@ -82,6 +96,11 @@ export function toUserDto(user: AuthUserRecord): UserDto {
     displayName: user.displayName,
     username: user.username,
     phone: user.phoneE164,
+    profileImageUrl: user.profileImageUrl,
+    age: user.age,
+    email: user.emailNormalized,
+    city: user.city,
+    bio: user.bio,
     preferredLanguage: user.preferredLanguage,
     roles: user.roles,
     status: user.status === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
