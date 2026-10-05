@@ -32,22 +32,35 @@ async function register(
   teamRepository: FakeTeamRepository,
   input: { phone: string; username: string; displayName: string },
 ) {
-  const response = await request(app).post("/api/v1/auth/register").send({
-    displayName: input.displayName,
+  const password = "strong-pass-5!";
+  const registration = await request(app).post("/api/v1/auth/register").send({
     phone: input.phone,
     username: input.username,
-    password: "strong-pass-5!",
+    password,
+    confirmPassword: password,
     preferredLanguage: "fa-AF",
-    accountType: "PLAYER",
   });
-  expect(response.status).toBe(201);
+  expect(registration.status).toBe(201);
+
+  const activated = await request(app)
+    .post("/api/v1/auth/roles/activate")
+    .set("Authorization", `Bearer ${registration.body.accessToken}`)
+    .send({ role: "PLAYER" });
+  expect(activated.status).toBe(200);
+
+  const refreshed = await request(app)
+    .post("/api/v1/auth/refresh")
+    .send({ refreshToken: registration.body.refreshToken });
+  expect(refreshed.status).toBe(200);
+
   teamRepository.seedUser({
-    id: response.body.user.id,
-    displayName: response.body.user.displayName,
-    username: response.body.user.username,
-    phoneE164: response.body.user.phone,
+    id: refreshed.body.user.id,
+    displayName: input.displayName,
+    username: refreshed.body.user.username,
+    phoneE164: refreshed.body.user.phone,
+    roles: ["PLAYER"],
   });
-  return response.body as { accessToken: string; user: { id: string; phone: string } };
+  return refreshed.body as { accessToken: string; user: { id: string; phone: string } };
 }
 
 async function createTeam(app: ReturnType<typeof createApp>, token: string) {
