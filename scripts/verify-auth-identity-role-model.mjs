@@ -32,6 +32,9 @@ for (const marker of [
   "password: newPasswordSchema",
   "confirmPassword: newPasswordSchema",
   "Passwords do not match.",
+  '.regex(/\\p{L}/u, "Password must include at least one letter.")',
+  '.regex(/\\p{N}/u, "Password must include at least one number.")',
+  '"Password must include at least one special character."',
   'z.enum(["PLAYER", "VENUE_OWNER", "TEAM_MANAGER", "REFEREE"])',
 ]) requireText(contracts, marker, "Auth identity contract invariant missing");
 
@@ -57,6 +60,12 @@ for (const marker of [
   'label={t("auth.phone")}',
   'label={t("auth.password")}',
   'label={t("auth.confirmPassword")}',
+  'placeholder={t("auth.placeholderUsername")}',
+  'placeholder={t("auth.placeholderPhone")}',
+  'placeholder={t("auth.placeholderNewPassword")}',
+  'placeholder={t("auth.placeholderConfirmPassword")}',
+  'label:t("auth.passwordRuleLettersNumbers")',
+  "passwordHasLetter&&passwordHasNumber",
   "secureTextEntry",
   'router.replace("/home")',
 ]) requireText(register, marker, "Signup UX invariant missing");
@@ -85,6 +94,11 @@ requireText(account, "updateProfile({displayName:value})", "Later full-name edit
 
 for (const marker of [
   '"auth.confirmPassword"',
+  '"auth.placeholderUsername"',
+  '"auth.placeholderPhone"',
+  '"auth.placeholderNewPassword"',
+  '"auth.placeholderConfirmPassword"',
+  '"auth.passwordRuleLettersNumbers"',
   '"auth.baseAccountNote"',
   '"roles.basicUser"',
   '"settings.roles"',
