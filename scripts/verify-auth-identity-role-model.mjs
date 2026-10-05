@@ -25,6 +25,7 @@ const databaseSchema = read("packages/database/src/schema.ts");
 const resetMigration = read("packages/database/drizzle/0007_password_reset_challenges.sql");
 const roles = read("apps/mobile/app/(app)/roles.tsx");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
+const ownerDashboard = read("apps/mobile/src/components/owner/OwnerDashboard.tsx");
 const tabs = read("apps/mobile/app/(app)/(tabs)/_layout.tsx");
 const settings = read("apps/mobile/app/(app)/(tabs)/settings.tsx");
 const account = read("apps/mobile/app/(app)/profile/account.tsx");
@@ -151,11 +152,28 @@ for (const marker of [
   '"TEAM_MANAGER"',
   '"REFEREE"',
   "activateRole",
-]) requireText(roles, marker, "Role center invariant missing");
-
-requireText(home, "return <BaseUserHome", "Role-free users need neutral home");
+  "<RoleSelector",
+  "selectRole(role:SelfAssignableRole)",
+]) requireText(settings, marker, "Profile role-management invariant missing");
+requireText(roles, '<Redirect href="/settings"/>', "Legacy role route must redirect to Profile");
+for (const marker of [
+  'router.push("/venues")',
+  'router.push("/feed")',
+  'router.push("/competitions")',
+  't("home.discoveryTitle")',
+]) requireText(home, marker, "Home discovery invariant missing");
+for (const marker of [
+  'router.push("/venues")',
+  'router.push("/feed")',
+  'router.push("/competitions")',
+]) requireText(ownerDashboard, marker, "Owner home discovery invariant missing");
+for (const marker of [
+  'router.push("/roles")',
+  't("home.accountRole")',
+  't("settings.username")',
+  't("home.chooseRole")',
+]) rejectText(home, marker, "Home must not expose account identity or role selection");
 requireText(tabs, "const player=", "Tab visibility must distinguish base users from players");
-requireText(settings, 'router.push("/roles")', "Settings role management entry missing");
 requireText(settings, 'router.push("/profile/account")', "Settings account-profile entry missing");
 requireText(account, "updateProfile({displayName:value})", "Later full-name editing missing");
 
