@@ -442,7 +442,7 @@ Phase 6 live-device competition verification caveat remains unchanged.
 
 ## Phase 8 verification status
 
-Status: **Implemented; automated clean-CI verification is being exercised on the integration branch. Live pilot signoff is still required before describing the product as pilot-ready.**
+Status: **Implemented; clean GitHub CI completed the full `pnpm verify` gate successfully on the Phase 8 integration branch. Live pilot signoff is still required before describing the product as pilot-ready.**
 
 Pilot signoff still requires a real preview APK/device run of the critical E2E matrix, Dari/Pashto TalkBack/large-text checks, deployed health/readiness/log correlation, an isolated backup/restore drill, real store screenshots, and operator-owned support/privacy/Play Console configuration.
 
