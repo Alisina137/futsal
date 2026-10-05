@@ -30,7 +30,7 @@ Futsal uses one account identity independently from product roles.
 - New passwords require at least 8 characters, at least one letter, at least one number, and at least one special character; the signup screen shows these requirements with live completion indicators.
 - **Forgot password** is phone-based but requires proof of phone ownership: phone → short-lived 6-digit verification code → short-lived reset token → editable username + new password + confirm password → confirmation dialog → credential update.
 - The phone-recovery request must not reveal whether the submitted number exists before verification.
-- A successful reset revokes all existing sessions. The confirmation dialog shows username and phone, masks the new password by default, and allows user-controlled reveal.
+- A successful reset revokes all refresh sessions immediately. Already-issued access tokens remain bounded by the existing 15-minute access-token lifetime. The confirmation dialog shows username and phone, masks the new password by default, and allows user-controlled reveal.
 - Production password reset requires an HTTPS SMS delivery provider; development may expose a reset code only under an explicit non-production development mode.
 - The signup form avoids role-model explanatory copy; it uses a concise sports-oriented signup title and keeps role education for the post-signup role flow.
 - A user may later add participation roles to the same identity. The initial self-service roles are Player, Venue Owner, Team Manager, and Referee.
