@@ -88,6 +88,32 @@ describe("Authentication identity and role model", () => {
     expect(login.body.user.age).toBe(26);
   });
 
+  it("keeps optional account profile email unique", async () => {
+    const { app } = setup();
+    const first = await request(app).post("/api/v1/auth/register").send(baseRegistration);
+    const second = await request(app).post("/api/v1/auth/register").send({
+      ...baseRegistration,
+      username: "zahra2",
+      phone: "0791234568",
+    });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+
+    const firstProfile = await request(app)
+      .patch("/api/v1/users/me")
+      .set("Authorization", `Bearer ${first.body.accessToken}`)
+      .send({ displayName: "", email: "shared@example.com" });
+    expect(firstProfile.status).toBe(200);
+
+    const duplicate = await request(app)
+      .patch("/api/v1/users/me")
+      .set("Authorization", `Bearer ${second.body.accessToken}`)
+      .send({ displayName: "", email: "SHARED@example.com" });
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body.error.code).toBe("EMAIL_ALREADY_EXISTS");
+  });
+
   it("requires matching password confirmation at registration", async () => {
     const { app } = setup();
     const response = await request(app).post("/api/v1/auth/register").send({
