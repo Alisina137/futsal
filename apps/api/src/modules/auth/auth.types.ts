@@ -22,18 +22,18 @@ export type SessionRecord = {
 
 export type CreateUserInput = {
   displayName: string;
-  username: string | null;
-  usernameNormalized: string | null;
+  username: string;
+  usernameNormalized: string;
   phoneE164: string;
   passwordHash: string;
   preferredLanguage: LanguageCode;
-  role: "PLAYER" | "VENUE_OWNER";
 };
 
 export interface AuthRepository {
   findUserByIdentifier(identifier: string): Promise<AuthUserRecord | null>;
   getUserById(userId: string): Promise<AuthUserRecord | null>;
   createUser(input: CreateUserInput): Promise<AuthUserRecord>;
+  addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord>;
   createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }): Promise<SessionRecord>;
   findSessionByRefreshHash(refreshTokenHash: string): Promise<SessionRecord | null>;
   rotateSession(sessionId: string, refreshTokenHash: string, expiresAt: Date): Promise<void>;
