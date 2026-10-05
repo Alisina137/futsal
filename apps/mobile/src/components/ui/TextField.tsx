@@ -16,6 +16,7 @@ type Props = TextInputProps & {
   label: string;
   hint?: string;
   error?: string | undefined;
+  invalid?: boolean;
   forceLtr?: boolean;
   containerStyle?: ViewStyle;
 };
@@ -24,6 +25,7 @@ export const TextField = forwardRef<TextInput, Props>(function TextField({
   label,
   hint,
   error,
+  invalid = false,
   forceLtr = false,
   containerStyle,
   style,
@@ -40,7 +42,7 @@ export const TextField = forwardRef<TextInput, Props>(function TextField({
   const passwordField = Boolean(secureTextEntry);
 
   return <View style={[styles.wrapper, containerStyle]}>
-    <AppText weight="medium" style={error ? styles.errorLabel : focused ? styles.focusedLabel : undefined}>{label}</AppText>
+    <AppText weight="medium" style={(error || invalid) ? styles.errorLabel : focused ? styles.focusedLabel : undefined}>{label}</AppText>
 
     <View style={styles.inputShell}>
       <TextInput
@@ -64,7 +66,7 @@ export const TextField = forwardRef<TextInput, Props>(function TextField({
           },
           passwordField && (rtl ? styles.passwordInputRtl : styles.passwordInputLtr),
           focused && styles.inputFocused,
-          error && styles.inputError,
+          (error || invalid) && styles.inputError,
           style,
         ]}
         placeholderTextColor={colors.textMuted}
@@ -87,7 +89,7 @@ export const TextField = forwardRef<TextInput, Props>(function TextField({
         <Ionicons
           name={passwordVisible ? "eye-off-outline" : "eye-outline"}
           size={22}
-          color={error ? colors.danger : focused ? colors.primary : colors.textMuted}
+          color={(error || invalid) ? colors.danger : focused ? colors.primary : colors.textMuted}
         />
       </Pressable> : null}
     </View>
