@@ -20,6 +20,15 @@ The integrated CI workflow repeats the repository verification from a clean inst
 
 ## Critical E2E journeys
 
+Before the booking/competition journeys, verify authentication identity:
+
+- new signup contains username, phone, password and confirm password only;
+- new account has no product role;
+- username and phone can each sign in to the same account;
+- full name can be added later from Account Profile;
+- Player/Venue Owner/Team Manager/Referee can be activated later without changing login credentials;
+- privileged staff/admin roles cannot be self-assigned.
+
 Exercise each journey on the preview APK against a pilot API/database:
 
 1. Player discovers a venue, opens availability and confirms a slot.
