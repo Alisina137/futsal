@@ -161,13 +161,13 @@ describe("Authentication identity and role model", () => {
       username: "another_user",
     });
     expect(duplicatePhone.status).toBe(409);
-    expect(duplicatePhone.body.error.code).toBe("IDENTITY_ALREADY_EXISTS");
+    expect(duplicatePhone.body.error.code).toBe("PHONE_ALREADY_EXISTS");
 
     const duplicateUsername = await request(app).post("/api/v1/auth/register").send({
       ...baseRegistration,
       phone: "0791234568",
     });
     expect(duplicateUsername.status).toBe(409);
-    expect(duplicateUsername.body.error.code).toBe("IDENTITY_ALREADY_EXISTS");
+    expect(duplicateUsername.body.error.code).toBe("USERNAME_ALREADY_EXISTS");
   });
 });
