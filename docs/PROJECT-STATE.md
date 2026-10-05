@@ -12,6 +12,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 ## Current stack
 - Monorepo: pnpm workspaces
 - Mobile: Expo SDK 57, React Native 0.86, TypeScript, Expo Router
+- Admin web development entry: `pnpm dev:admin` launches the protected Expo web admin dashboard on port 8082 while reusing the same API, auth, localization, and server-side authorization rules.
 - API: Node.js, TypeScript, Express 5
 - Database: PostgreSQL/Neon-compatible, Drizzle ORM
 - Validation/contracts: Zod
