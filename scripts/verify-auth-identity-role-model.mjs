@@ -18,6 +18,11 @@ const authRoutes = read("apps/api/src/modules/auth/auth.routes.ts");
 const app = read("apps/api/src/app.ts");
 const register = read("apps/mobile/app/(auth)/register.tsx");
 const login = read("apps/mobile/app/(auth)/login.tsx");
+const forgotPassword = read("apps/mobile/app/(auth)/forgot-password.tsx");
+const resetPassword = read("apps/mobile/app/(auth)/reset-password.tsx");
+const resetSession = read("apps/mobile/src/lib/passwordResetSession.ts");
+const databaseSchema = read("packages/database/src/schema.ts");
+const resetMigration = read("packages/database/drizzle/0007_password_reset_challenges.sql");
 const roles = read("apps/mobile/app/(app)/roles.tsx");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const tabs = read("apps/mobile/app/(app)/(tabs)/_layout.tsx");
@@ -27,6 +32,7 @@ const localization = read("packages/localization/src/index.ts");
 const spec = read("docs/PRODUCT-SPEC.md");
 
 for (const marker of [
+  ".max(12)",
   "username: usernameSchema",
   "phone: phoneInputSchema",
   "password: newPasswordSchema",
@@ -43,6 +49,14 @@ rejectText(authTypes, 'role: "PLAYER" | "VENUE_OWNER"', "CreateUserInput must no
 
 requireText(authRepo, "roles: []", "New database users must begin without product roles");
 requireText(authRepo, "async addRoles", "Later role persistence missing");
+for (const marker of [
+  "createPasswordResetChallenge",
+  "verifyPasswordResetChallenge",
+  "completePasswordReset",
+  "sessions",
+]) requireText(authRepo, marker, "Password reset persistence invariant missing");
+requireText(databaseSchema, 'passwordResetChallenges = pgTable(', "Password reset challenge table missing");
+requireText(resetMigration, 'CREATE TABLE IF NOT EXISTS "password_reset_challenges"', "Password reset migration missing");
 
 for (const marker of [
   "displayName: username",
@@ -50,9 +64,22 @@ for (const marker of [
   'role === "TEAM_MANAGER"',
   '(["PLAYER", "TEAM_MANAGER"] as const)',
   "async updateProfile",
+  "async requestPasswordReset",
+  "async verifyPasswordReset",
+  "async completePasswordReset",
+  "randomInt(0, 1_000_000)",
+  "randomBytes(32)",
+  "attempts >= 5",
+  "resetTokenExpiresAt",
 ]) requireText(authService, marker, "Auth service identity/role invariant missing");
 
 requireText(authRoutes, 'router.post("/roles/activate"', "Role activation endpoint missing");
+for (const marker of [
+  'router.post("/password-reset/request"',
+  'router.post("/password-reset/verify"',
+  'router.post("/password-reset/complete"',
+  "resetLimiter",
+]) requireText(authRoutes, marker, "Password reset route invariant missing");
 requireText(app, 'app.patch("/api/v1/users/me"', "Post-signup account profile endpoint missing");
 
 for (const marker of [
@@ -87,12 +114,36 @@ for (const marker of [
 for (const marker of [
   'label={t("auth.identifier")}',
   'label={t("auth.password")}',
-  "fieldErrors.identifier",
-  "fieldErrors.password",
-  "applyFieldErrors(next)",
-  "requestAnimationFrame(()=>focusField(first))",
+  "invalidIdentifier",
+  "invalidPassword",
+  'setFormError(t("auth.invalidCredentials"))',
+  'router.push("/forgot-password")',
   "secureTextEntry",
 ]) requireText(login, marker, "Sign-in UX invariant missing");
+rejectText(login, "fieldErrors.identifier", "Sign-in must use one generic credential error instead of per-field credential messages");
+rejectText(login, "fieldErrors.password", "Sign-in must use one generic credential error instead of per-field credential messages");
+
+for (const marker of [
+  'authApi.requestPasswordReset',
+  'authApi.verifyPasswordReset',
+  'setPasswordResetSession(verified)',
+  'router.replace("/reset-password")',
+]) requireText(forgotPassword, marker, "Forgot-password UX invariant missing");
+
+for (const marker of [
+  "getPasswordResetSession()",
+  "authApi.completePasswordReset",
+  'router.replace({pathname:"/login",params:{reset:"success"}})',
+  "<Modal",
+  "showDialogPassword",
+  '"•".repeat',
+]) requireText(resetPassword, marker, "Credential-reset UX invariant missing");
+
+for (const marker of [
+  "setPasswordResetSession",
+  "getPasswordResetSession",
+  "clearPasswordResetSession",
+]) requireText(resetSession, marker, "Reset token must remain in ephemeral in-memory session");
 
 for (const marker of [
   '"PLAYER"',
@@ -123,6 +174,13 @@ for (const marker of [
   '"auth.confirmPasswordRequired"',
   '"auth.usernameTaken"',
   '"auth.phoneTaken"',
+  '"auth.forgotPassword"',
+  '"auth.forgotTitle"',
+  '"auth.verificationCode"',
+  '"auth.invalidResetCode"',
+  '"auth.resetTitle"',
+  '"auth.confirmResetTitle"',
+  '"auth.resetSuccess"',
   '"auth.baseAccountNote"',
   '"roles.basicUser"',
   '"settings.roles"',
@@ -137,6 +195,10 @@ for (const marker of [
   "**username, phone number, password, confirm password**",
   "Full name is **not** collected during signup",
   "Sign-in accepts either the account's **username or phone number**",
+  "limited to **3–12 characters**",
+  "Forgot password",
+  "requires proof of phone ownership",
+  "revokes all existing sessions",
 ]) requireText(spec, marker, "Product-spec auth model missing");
 
-console.log("Auth identity/role model verified: base signup is role-free, username/phone credentials are authoritative, full name is configured later, role activation is explicit, and privileged roles remain controlled.");
+console.log("Auth identity/role model verified: base signup is role-free, usernames are 3–12 characters, login errors are generic, phone recovery requires one-time verification, reset tokens stay ephemeral on mobile, old sessions are revoked, and privileged roles remain controlled.");
