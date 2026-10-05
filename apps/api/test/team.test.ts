@@ -135,7 +135,7 @@ describe("Phase 5 teams and player identity API", () => {
     const { app, teamRepository } = setup();
     const owner = await register(app, teamRepository, {
       phone: "0705550013",
-      username: "venueowneronly",
+      username: "venue_owner",
       displayName: "Venue Owner Only",
       accountType: "VENUE_OWNER",
     });
