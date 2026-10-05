@@ -160,12 +160,12 @@ describe("Phase 5 teams and player identity API", () => {
     const { app, teamRepository } = setup();
     const manager = await register(app, teamRepository, {
       phone: "0705550014",
-      username: "player_manager14",
+      username: "plyr_mgr14",
       displayName: "Player Manager",
     });
     await register(app, teamRepository, {
       phone: "0705550015",
-      username: "owner_target15",
+      username: "own_target15",
       displayName: "Owner Target",
       accountType: "VENUE_OWNER",
     });
@@ -177,7 +177,7 @@ describe("Phase 5 teams and player identity API", () => {
 
     const invited = await request(app).post(`/api/v1/teams/${created.body.team.id}/invitations`)
       .set("Authorization", `Bearer ${manager.accessToken}`)
-      .send({ identifier: "owner_target15", role: "PLAYER" });
+      .send({ identifier: "own_target15", role: "PLAYER" });
 
     expect(invited.status).toBe(400);
     expect(invited.body.error.code).toBe("INVITEE_NOT_FOUND");
@@ -243,7 +243,7 @@ describe("Phase 5 teams and player identity API", () => {
     const { app, teamRepository } = setup();
     const player = await register(app, teamRepository, {
       phone: "0705550005",
-      username: "privateplayer",
+      username: "priv_player",
       displayName: "Private Player",
     });
 
