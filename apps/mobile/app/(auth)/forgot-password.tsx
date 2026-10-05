@@ -15,7 +15,7 @@ import { TextField } from "../../src/components/ui/TextField";
 import { useLocale } from "../../src/providers/LocaleProvider";
 
 export default function ForgotPasswordScreen(){
-  const {t,isRTL}=useLocale();
+  const {t,isRTL,language}=useLocale();
   const phoneRef=useRef<TextInput>(null);
   const codeRef=useRef<TextInput>(null);
 
@@ -27,6 +27,19 @@ export default function ForgotPasswordScreen(){
   const [codeError,setCodeError]=useState<string|null>(null);
   const [formError,setFormError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
+
+  function cooldownMessage(error:ApiRequestError){
+    const availableAt=(error.details as {availableAt?:unknown}|undefined)?.availableAt;
+    if(typeof availableAt!=="string") return t("auth.genericError");
+    const date=new Date(availableAt);
+    if(Number.isNaN(date.getTime())) return t("auth.genericError");
+    const dateTime=new Intl.DateTimeFormat(language,{
+      dateStyle:"medium",
+      timeStyle:"short",
+      timeZone:"Asia/Kabul",
+    }).format(date);
+    return t("auth.resetCooldown",{dateTime});
+  }
 
   async function requestCode(){
     const clean=phone.trim();
@@ -88,6 +101,8 @@ export default function ForgotPasswordScreen(){
       if(cause instanceof ApiRequestError&&cause.code==="INVALID_RESET_CODE"){
         setCodeError(t("auth.invalidResetCode"));
         requestAnimationFrame(()=>codeRef.current?.focus());
+      }else if(cause instanceof ApiRequestError&&cause.code==="PASSWORD_RESET_COOLDOWN"){
+        setFormError(cooldownMessage(cause));
       }else{
         setFormError(t("auth.genericError"));
       }
