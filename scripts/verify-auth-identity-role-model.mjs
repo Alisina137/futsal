@@ -198,7 +198,7 @@ for (const marker of [
   "limited to **3–12 characters**",
   "Forgot password",
   "requires proof of phone ownership",
-  "revokes all existing sessions",
+  "revokes all refresh sessions immediately",
 ]) requireText(spec, marker, "Product-spec auth model missing");
 
 console.log("Auth identity/role model verified: base signup is role-free, usernames are 3–12 characters, login errors are generic, phone recovery requires one-time verification, reset tokens stay ephemeral on mobile, old sessions are revoked, and privileged roles remain controlled.");
