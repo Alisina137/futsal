@@ -130,10 +130,11 @@ export default function ManageCompetitionScreen(){
     if(!Number.isInteger(home)||home<0||!Number.isInteger(away)||away<0){setError(t("competition.resultError"));return;}
     setBusy("result");setError(null);
     try{
+      const trimmedReason=correctionReason.trim();
       const result=await competitionApi.enterResult(session.accessToken,competitionId,activeMatch.id,{
         homeScore:home,
         awayScore:away,
-        correctionReason:correctionReason.trim()||undefined,
+        ...(trimmedReason ? { correctionReason: trimmedReason } : {}),
         confirmImpact,
         playerStats:[],
       });
