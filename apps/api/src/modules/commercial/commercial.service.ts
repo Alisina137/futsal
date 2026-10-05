@@ -231,6 +231,12 @@ export class CommercialService {
     return this.repository.listVenues(query);
   }
 
+  async venuePayments(venueId: string) {
+    const venue = await this.repository.getVenue(venueId);
+    if (!venue) throw errors.badRequest("VENUE_NOT_FOUND", "Venue not found.");
+    return this.repository.listPayments(venueId);
+  }
+
   async duplicateVenues() {
     const venues = await this.repository.listVenues();
     const groups = new Map<string, typeof venues>();
