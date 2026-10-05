@@ -5,6 +5,8 @@ import {
   onlineBookingRequestSchema,
   ownerVenueSetupRequestSchema,
   registerRequestSchema,
+  passwordResetCompleteSchema,
+  passwordResetVerifySchema,
   venueBlockRequestSchema,
   promotionCreateRequestSchema,
   venuePostCreateRequestSchema,
@@ -55,7 +57,7 @@ describe("shared auth contracts", () => {
   it("rejects a new password without a number", () => {
     expect(registerRequestSchema.safeParse({
       phone: "0791234567",
-      username: "ahmad_no_number",
+      username: "ahmad_nonum",
       password: "abcdefgh!",
       confirmPassword: "abcdefgh!",
       preferredLanguage: "fa-AF",
@@ -65,7 +67,7 @@ describe("shared auth contracts", () => {
   it("rejects a new password without a letter", () => {
     expect(registerRequestSchema.safeParse({
       phone: "0791234567",
-      username: "ahmad_no_letter",
+      username: "ahmad_noltr",
       password: "12345678!",
       confirmPassword: "12345678!",
       preferredLanguage: "fa-AF",
@@ -79,6 +81,60 @@ describe("shared auth contracts", () => {
       password: "Abcdefg!",
       confirmPassword: "Different!",
       preferredLanguage: "fa-AF",
+    }).success).toBe(false);
+  });
+
+  it("enforces usernames from 3 to 12 characters", () => {
+    expect(registerRequestSchema.safeParse({
+      phone: "0791234567",
+      username: "ab",
+      password: "Abcdef1!",
+      confirmPassword: "Abcdef1!",
+      preferredLanguage: "fa-AF",
+    }).success).toBe(false);
+
+    expect(registerRequestSchema.safeParse({
+      phone: "0791234567",
+      username: "abcdefghijkl",
+      password: "Abcdef1!",
+      confirmPassword: "Abcdef1!",
+      preferredLanguage: "fa-AF",
+    }).success).toBe(true);
+
+    expect(registerRequestSchema.safeParse({
+      phone: "0791234567",
+      username: "abcdefghijklm",
+      password: "Abcdef1!",
+      confirmPassword: "Abcdef1!",
+      preferredLanguage: "fa-AF",
+    }).success).toBe(false);
+  });
+
+  it("requires a 6-digit reset code and 3–12 character reset username", () => {
+    expect(passwordResetVerifySchema.safeParse({
+      requestId: "11111111-1111-4111-8111-111111111111",
+      code: "123456",
+    }).success).toBe(true);
+
+    expect(passwordResetVerifySchema.safeParse({
+      requestId: "11111111-1111-4111-8111-111111111111",
+      code: "12345",
+    }).success).toBe(false);
+
+    expect(passwordResetCompleteSchema.safeParse({
+      requestId: "11111111-1111-4111-8111-111111111111",
+      resetToken: "x".repeat(64),
+      username: "new_user",
+      password: "Newpass1!",
+      confirmPassword: "Newpass1!",
+    }).success).toBe(true);
+
+    expect(passwordResetCompleteSchema.safeParse({
+      requestId: "11111111-1111-4111-8111-111111111111",
+      resetToken: "x".repeat(64),
+      username: "username_is_too_long",
+      password: "Newpass1!",
+      confirmPassword: "Newpass1!",
     }).success).toBe(false);
   });
 });
