@@ -22,14 +22,7 @@ import {
   generateRoundRobin,
   qualifiedTeams,
 } from "./competition.engine.js";
-
-function entitlement(venue: CompetitionVenueRecord, now: Date) {
-  const sub = venue.subscription;
-  if (!sub) return false;
-  if (sub.status === "TRIAL") return Boolean(sub.trialEndsAt && sub.trialEndsAt.getTime() > now.getTime());
-  if (sub.status === "ACTIVE") return !sub.activeUntil || sub.activeUntil.getTime() > now.getTime();
-  return false;
-}
+import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 
 export class CompetitionService {
   constructor(
@@ -119,7 +112,7 @@ export class CompetitionService {
     const venue = await this.repository.getOwnerVenue(ownerUserId);
     if (!venue) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
     if (venue.status === "SUSPENDED") throw errors.forbidden("VENUE_SUSPENDED", "This venue is suspended.");
-    if (!entitlement(venue, this.now())) {
+    if (!hasPremiumWriteAccess(venue.subscription, this.now())) {
       throw errors.forbidden("SUBSCRIPTION_REQUIRED", "An active Premium trial or subscription is required.");
     }
     return venue;
