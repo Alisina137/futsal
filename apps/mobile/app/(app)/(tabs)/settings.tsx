@@ -87,6 +87,8 @@ export default function ProfileScreen(){
       <Divider/>
       <InfoRow icon="id-card-outline" label={t("home.accountRole")} value={roles} rtl={isRTL}/>
       <Divider/>
+      <ActionRow icon="create-outline" title={t("profile.accountEditTitle")} subtitle={t("profile.accountEditSubtitle")} rtl={isRTL} onPress={()=>router.push("/profile/account")}/>
+      <Divider/>
       <ActionRow icon="layers-outline" title={t("settings.roles")} subtitle={t("settings.rolesBody")} rtl={isRTL} onPress={()=>router.push("/roles")}/>
     </Card>
 
