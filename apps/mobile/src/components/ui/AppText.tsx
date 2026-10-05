@@ -18,5 +18,5 @@ export function AppText({ variant = "body", muted = false, weight = "regular", f
   const direction = forceLtr ? false : isRTL;
   const fontWeight = typography.weight[weight] as TextStyle["fontWeight"];
   const fontFamily = language === "en" ? undefined : weight === "bold" ? "Vazirmatn_700Bold" : weight === "semibold" ? "Vazirmatn_600SemiBold" : weight === "medium" ? "Vazirmatn_500Medium" : "Vazirmatn_400Regular";
-  return <Text {...props} style={[sizes[variant], { color: muted ? colors.textMuted : colors.text, textAlign: direction ? "right" : "left", writingDirection: direction ? "rtl" : "ltr", fontWeight, fontFamily }, style]} />;
+  return <Text {...props} allowFontScaling={props.allowFontScaling ?? true} style={[sizes[variant], { color: muted ? colors.textMuted : colors.text, textAlign: direction ? "right" : "left", writingDirection: direction ? "rtl" : "ltr", fontWeight, fontFamily }, style]} />;
 }
