@@ -24,4 +24,5 @@ jobs:
       - name: Mobile typecheck
         run: pnpm --filter @leaguekick/mobile typecheck
       - name: API typecheck
+        if: always()
         run: pnpm --filter @leaguekick/api typecheck
