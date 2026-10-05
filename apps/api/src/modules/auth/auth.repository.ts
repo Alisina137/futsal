@@ -95,6 +95,15 @@ export class DrizzleAuthRepository implements AuthRepository {
     return user;
   }
 
+  async updateDisplayName(userId: string, displayName: string): Promise<AuthUserRecord> {
+    const [row] = await this.db.update(users)
+      .set({ displayName, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!row) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    return this.hydrate(row);
+  }
+
   async createSession(input: { userId: string; refreshTokenHash: string; expiresAt: Date; deviceLabel?: string }): Promise<SessionRecord> {
     const [row] = await this.db.insert(sessions).values({
       userId: input.userId,
