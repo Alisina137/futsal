@@ -43,6 +43,13 @@
       "when": 1791107675942,
       "tag": "0005_robust_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791169200000,
+      "tag": "0006_phase7_commercial_core",
+      "breakpoints": true
     }
   ]
 }
