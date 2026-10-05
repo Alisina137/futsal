@@ -19,8 +19,8 @@ function app(options?: { readinessCheck?: () => Promise<void>; corsOrigin?: stri
     tokenService: tokens,
     appVersion: "1.0.0-test",
     requestLogging: false,
-    readinessCheck: options?.readinessCheck,
-    corsOrigin: options?.corsOrigin,
+    ...(options?.readinessCheck ? { readinessCheck: options.readinessCheck } : {}),
+    ...(options?.corsOrigin ? { corsOrigin: options.corsOrigin } : {}),
   });
 }
 
