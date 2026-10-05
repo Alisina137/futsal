@@ -23,6 +23,8 @@ The integrated CI workflow repeats the repository verification from a clean inst
 Before the booking/competition journeys, verify authentication identity:
 
 - new signup contains username, phone, password and confirm password only;
+- after one successful phone-verified credential reset, a second reset within 72 hours is rejected with the exact next-allowed Kabul date/time;
+- a reset token verified before the first reset is also rejected if used after the cooldown begins, proving the final reset endpoint cannot be raced/bypassed;
 - all four signup inputs show input-specific placeholders, with a concise password example;
 - submitting multiple invalid signup fields marks all of them red, shows a localized field-specific message below each, and focuses the first invalid field;
 - username accepts 3–12 characters only;
