@@ -87,6 +87,7 @@ export class OwnerOnboardingService {
   constructor(
     private readonly repository: OwnerOnboardingRepository,
     private readonly now: () => Date = () => new Date(),
+    private readonly trialDurationMs: () => Promise<number> | number = () => TRIAL_DURATION_MS,
   ) {}
 
   private async normalizeAggregate(aggregate: OwnerAggregate | null): Promise<OwnerAggregate | null> {
@@ -159,7 +160,8 @@ export class OwnerOnboardingService {
     }
 
     const startedAt = this.now();
-    const endsAt = new Date(startedAt.getTime() + TRIAL_DURATION_MS);
+    const durationMs = await this.trialDurationMs();
+    const endsAt = new Date(startedAt.getTime() + durationMs);
     const subscription = await this.repository.startTrial({
       ownerUserId,
       venueId: current.venue.id,
