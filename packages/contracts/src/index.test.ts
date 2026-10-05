@@ -36,8 +36,8 @@ describe("shared auth contracts", () => {
     expect(registerRequestSchema.safeParse({
       phone: "0791234567",
       username: "ahmad_8",
-      password: "Abcdefg!",
-      confirmPassword: "Abcdefg!",
+      password: "Abcdef1!",
+      confirmPassword: "Abcdef1!",
       preferredLanguage: "fa-AF",
     }).success).toBe(true);
   });
