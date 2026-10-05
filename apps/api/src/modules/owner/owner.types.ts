@@ -53,5 +53,5 @@ export interface OwnerOnboardingRepository {
     startedAt: Date;
     endsAt: Date;
   }): Promise<OwnerSubscriptionRecord>;
-  expireTrial(venueId: string, expiredAt: Date): Promise<void>;
+  markExpired(venueId: string, expiredAt: Date): Promise<void>;
 }
