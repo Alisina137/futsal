@@ -1,7 +1,7 @@
 import type {
   CompetitionCreateRequest,
   CompetitionInviteTeamRequest,
-  CompetitionMatchResultServiceInput,
+  CompetitionMatchResultRequest,
   CompetitionMatchScheduleRequest,
   CompetitionRegistrationDecisionRequest,
   CompetitionRegistrationResponseRequest,
@@ -563,7 +563,7 @@ export class CompetitionService {
     ownerUserId: string,
     competitionId: string,
     matchId: string,
-    input: CompetitionMatchResultServiceInput,
+    input: CompetitionMatchResultRequest,
   ) {
     const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
     const match = await this.repository.getMatch(matchId);
@@ -581,8 +581,8 @@ export class CompetitionService {
     }
 
     const correction = match.status === "COMPLETED" || match.status === "CORRECTED";
-    const confirmImpact = input.confirmImpact ?? false;
-    const playerStats = input.playerStats ?? [];
+    const confirmImpact = input.confirmImpact;
+    const playerStats = input.playerStats;
     if (correction && !input.correctionReason?.trim()) {
       throw errors.badRequest("CORRECTION_REASON_REQUIRED", "Explain why the completed result is being corrected.");
     }
