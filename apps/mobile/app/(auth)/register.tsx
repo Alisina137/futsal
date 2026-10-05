@@ -25,20 +25,23 @@ export default function RegisterScreen(){
   const [error,setError]=useState<string|null>(null);
 
   const passwordHasLength=password.length>=8;
+  const passwordHasLetter=/\p{L}/u.test(password);
+  const passwordHasNumber=/\p{N}/u.test(password);
   const passwordHasSpecial=/[^\p{L}\p{N}\s]/u.test(password);
   const passwordsMatch=password.length>0&&password===confirmPassword;
   const usernameValid=/^[A-Za-z0-9_]{3,30}$/.test(username.trim());
 
   const rules=useMemo(()=>[
     {key:"length",label:t("auth.passwordRuleLength"),met:passwordHasLength},
+    {key:"lettersNumbers",label:t("auth.passwordRuleLettersNumbers"),met:passwordHasLetter&&passwordHasNumber},
     {key:"special",label:t("auth.passwordRuleSpecial"),met:passwordHasSpecial},
     {key:"match",label:t("auth.passwordRuleMatch"),met:passwordsMatch},
-  ],[passwordHasLength,passwordHasSpecial,passwordsMatch,t]);
+  ],[passwordHasLength,passwordHasLetter,passwordHasNumber,passwordHasSpecial,passwordsMatch,t]);
 
   async function submit(){
     if(!usernameValid){setError(t("auth.usernameHint"));return;}
     if(!phone.trim()){setError(t("validation.phone"));return;}
-    if(!passwordHasLength||!passwordHasSpecial){setError(t("validation.password"));return;}
+    if(!passwordHasLength||!passwordHasLetter||!passwordHasNumber||!passwordHasSpecial){setError(t("validation.password"));return;}
     if(!passwordsMatch){setError(t("auth.passwordMismatch"));return;}
 
     setBusy(true);
