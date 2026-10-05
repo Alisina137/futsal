@@ -6,8 +6,13 @@ import { eq } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, SessionRecord } from "./auth.types.js";
 
-function isUniqueViolation(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23505";
+function uniqueConstraint(error: unknown, depth = 0): string | null {
+  if (depth > 4 || typeof error !== "object" || error === null) return null;
+  const candidate = error as { code?: unknown; constraint?: unknown; cause?: unknown };
+  if (candidate.code === "23505") {
+    return typeof candidate.constraint === "string" ? candidate.constraint : "";
+  }
+  return uniqueConstraint(candidate.cause, depth + 1);
 }
 
 export class DrizzleAuthRepository implements AuthRepository {
@@ -79,7 +84,14 @@ export class DrizzleAuthRepository implements AuthRepository {
         };
       });
     } catch (error) {
-      if (isUniqueViolation(error)) {
+      const constraint = uniqueConstraint(error);
+      if (constraint === "users_username_normalized_uq") {
+        throw errors.conflict("USERNAME_ALREADY_EXISTS", "That username is already registered.");
+      }
+      if (constraint === "users_phone_e164_uq") {
+        throw errors.conflict("PHONE_ALREADY_EXISTS", "That phone number is already registered.");
+      }
+      if (constraint !== null) {
         throw errors.conflict("IDENTITY_ALREADY_EXISTS", "That phone number or username is already registered.");
       }
       throw error;
