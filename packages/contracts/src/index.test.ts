@@ -22,36 +22,43 @@ describe("shared auth contracts", () => {
     expect(normalizeAfghanistanPhone("+93 79 123 4567")).toBe("+93791234567");
   });
 
-  it("accepts player registration input", () => {
+  it("accepts base-user registration input", () => {
     expect(registerRequestSchema.safeParse({
-      displayName: "Ahmad",
       phone: "0791234567",
       username: "ahmad_7",
-      password: "strong-pass-1",
+      password: "strong-pass-1!",
+      confirmPassword: "strong-pass-1!",
       preferredLanguage: "fa-AF",
-      accountType: "PLAYER",
     }).success).toBe(true);
   });
 
   it("accepts an 8-character new password with a special character", () => {
     expect(registerRequestSchema.safeParse({
-      displayName: "Ahmad",
       phone: "0791234567",
       username: "ahmad_8",
       password: "Abcdefg!",
+      confirmPassword: "Abcdefg!",
       preferredLanguage: "fa-AF",
-      accountType: "PLAYER",
     }).success).toBe(true);
   });
 
   it("rejects a new password without a special character", () => {
     expect(registerRequestSchema.safeParse({
-      displayName: "Ahmad",
       phone: "0791234567",
       username: "ahmad_9",
       password: "abcdefgh",
+      confirmPassword: "abcdefgh",
       preferredLanguage: "fa-AF",
-      accountType: "PLAYER",
+    }).success).toBe(false);
+  });
+
+  it("rejects mismatched password confirmation", () => {
+    expect(registerRequestSchema.safeParse({
+      phone: "0791234567",
+      username: "ahmad_10",
+      password: "Abcdefg!",
+      confirmPassword: "Different!",
+      preferredLanguage: "fa-AF",
     }).success).toBe(false);
   });
 });
