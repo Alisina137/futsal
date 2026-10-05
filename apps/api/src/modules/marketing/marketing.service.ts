@@ -8,7 +8,7 @@ import type {
 } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import type { BookingService } from "../booking/booking.service.js";
-import type { MarketingRepository, MarketingVenueRecord } from "./marketing.types.js";
+import type { MarketingRepository } from "./marketing.types.js";
 import { mergeFeed } from "./marketing.types.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
