@@ -131,7 +131,9 @@ export default function AdminScreen() {
       <AppText variant="caption" muted>{t("phase7.admin.duplicateCount", { count: duplicates.length })}</AppText>
       {venues.map((venue) => <View key={venue.id} style={{ gap: spacing.sm, paddingVertical: spacing.sm }}>
         <AppText weight="bold">{venue.name}</AppText>
-        <AppText variant="caption">{venue.city} · {venue.verificationStatus} · {venue.subscriptionState}</AppText>
+        <AppText variant="caption">
+          {venue.city} · {t(`phase7.verification.${venue.verificationStatus}` as never)} · {t(`owner.subscription.${venue.subscriptionState}` as never)}
+        </AppText>
         <AppText variant="caption" forceLtr>{venue.id}</AppText>
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: spacing.xs }}>
           <Button label={t("phase7.admin.verify")} onPress={() => void action(() => adminApi.venueAction(token!, venue.id, { action: "VERIFY", reason }), t("phase7.admin.updated"))} disabled={busy || reason.trim().length < 3} variant="secondary" />
@@ -180,7 +182,7 @@ export default function AdminScreen() {
       <AppText variant="caption" forceLtr>{paymentVenueId}</AppText>
       {payments.length === 0 ? <AppText muted>{t("phase7.subscription.noPayments")}</AppText> : payments.map((payment) => <View key={payment.id} style={{ gap: spacing.xs, paddingVertical: spacing.sm }}>
         <AppText weight="semibold" forceLtr>{payment.amountAfn} AFN · {payment.provider}</AppText>
-        <AppText variant="caption">{payment.status}</AppText>
+        <AppText variant="caption">{t(`phase7.payment.${payment.status}` as never)}</AppText>
         {payment.status === "RECORDED" ? <Button label={t("phase7.admin.voidPayment")} onPress={() => void action(
           () => adminApi.voidPayment(token!, payment.id, reason),
           t("phase7.admin.updated"),
