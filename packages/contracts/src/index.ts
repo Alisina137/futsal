@@ -60,6 +60,11 @@ export const selfRoleActivationRequestSchema = z.object({
 });
 export type SelfRoleActivationRequest = z.infer<typeof selfRoleActivationRequestSchema>;
 
+export const accountProfileUpdateRequestSchema = z.object({
+  displayName: z.string().trim().min(2).max(80),
+});
+export type AccountProfileUpdateRequest = z.infer<typeof accountProfileUpdateRequestSchema>;
+
 export const loginRequestSchema = z.object({
   identifier: z.string().trim().min(3).max(80),
   password: passwordSchema,
