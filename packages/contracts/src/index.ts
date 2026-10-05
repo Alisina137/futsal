@@ -206,6 +206,7 @@ export const platformSettingsDtoSchema = z.object({
   annualPriceAfn: z.number().int().min(0),
   trialDurationHours: z.number().int().min(1).max(720),
   featureFlags: z.record(z.string(), z.boolean()),
+  notificationTemplates: z.record(z.string(), z.string()),
   updatedAt: isoDateTimeSchema,
 });
 export type PlatformSettingsDto = z.infer<typeof platformSettingsDtoSchema>;
@@ -269,6 +270,7 @@ export const platformSettingsUpdateRequestSchema = z.object({
   annualPriceAfn: z.number().int().min(0).max(1_000_000_000),
   trialDurationHours: z.number().int().min(1).max(720),
   featureFlags: z.record(z.string(), z.boolean()).default({}),
+  notificationTemplates: z.record(z.string(), z.string()).default({}),
 });
 export type PlatformSettingsUpdateRequest = z.infer<typeof platformSettingsUpdateRequestSchema>;
 
