@@ -16,5 +16,5 @@ export const errors = {
   badRequest: (code: string, message: string, details?: unknown) => new AppError(400, code, message, details),
   unauthorized: (code = "UNAUTHORIZED", message = "Authentication is required.") => new AppError(401, code, message),
   forbidden: (code: string, message: string) => new AppError(403, code, message),
-  conflict: (code: string, message: string) => new AppError(409, code, message),
+  conflict: (code: string, message: string, details?: unknown) => new AppError(409, code, message, details),
 };
