@@ -64,7 +64,7 @@ export default function AccountProfileScreen(){
     const cityValue=city.trim();
     const bioValue=bio.trim();
 
-    if(name.length<2) next.displayName=t("validation.displayName");
+    if(name&&name.length<2) next.displayName=t("validation.displayName");
     if(image&&!/^https:\/\/\S+$/i.test(image)) next.profileImageUrl=t("profile.imageInvalid");
 
     if(age.trim()){
