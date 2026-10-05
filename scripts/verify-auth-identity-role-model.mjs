@@ -64,17 +64,33 @@ for (const marker of [
   'placeholder={t("auth.placeholderPhone")}',
   'placeholder={t("auth.placeholderNewPassword")}',
   'placeholder={t("auth.placeholderConfirmPassword")}',
-  'label:t("auth.passwordRuleLettersNumbers")',
-  "passwordHasLetter&&passwordHasNumber",
+  'label:t("auth.passwordRuleLetter")',
+  'label:t("auth.passwordRuleNumber")',
+  "passwordHasLetter",
+  "passwordHasNumber",
   "secureTextEntry",
   'router.replace("/home")',
 ]) requireText(register, marker, "Signup UX invariant missing");
 rejectText(register, "AccountType", "Signup must not expose account type");
 rejectText(register, "setDisplayName", "Signup must not collect full name");
+rejectText(register, 't("auth.registerSubtitle")', "Signup must not show role-model explanatory fluff");
+rejectText(register, 't("auth.baseAccountNote")', "Signup must not show role-assignment explanatory fluff");
+for (const marker of [
+  "fieldErrors.username",
+  "fieldErrors.phone",
+  "fieldErrors.password",
+  "fieldErrors.confirmPassword",
+  "applyFieldErrors(next)",
+  "requestAnimationFrame(()=>focusField(first))",
+]) requireText(register, marker, "Signup inline validation/focus invariant missing");
 
 for (const marker of [
   'label={t("auth.identifier")}',
   'label={t("auth.password")}',
+  "fieldErrors.identifier",
+  "fieldErrors.password",
+  "applyFieldErrors(next)",
+  "requestAnimationFrame(()=>focusField(first))",
   "secureTextEntry",
 ]) requireText(login, marker, "Sign-in UX invariant missing");
 
@@ -98,7 +114,15 @@ for (const marker of [
   '"auth.placeholderPhone"',
   '"auth.placeholderNewPassword"',
   '"auth.placeholderConfirmPassword"',
+  '"auth.passwordRuleLetter"',
+  '"auth.passwordRuleNumber"',
   '"auth.passwordRuleLettersNumbers"',
+  '"auth.usernameRequired"',
+  '"auth.phoneRequired"',
+  '"auth.passwordRequired"',
+  '"auth.confirmPasswordRequired"',
+  '"auth.usernameTaken"',
+  '"auth.phoneTaken"',
   '"auth.baseAccountNote"',
   '"roles.basicUser"',
   '"settings.roles"',
