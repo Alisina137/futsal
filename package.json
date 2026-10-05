@@ -2,7 +2,7 @@
   "name": "leaguekick",
   "version": "0.1.0",
   "private": true,
-  "description": "LeagueKick mobile-first futsal venue booking, operations, competitions, and community platform.",
+  "description": "Futsal mobile-first venue booking, operations, competitions, and community platform.",
   "packageManager": "pnpm@12.5.1",
   "engines": {
     "node": ">=22.13.0"
