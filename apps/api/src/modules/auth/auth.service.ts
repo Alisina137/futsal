@@ -1,5 +1,5 @@
 import argon2 from "argon2";
-import type { AuthResponse, LoginRequest, RegisterRequest } from "@leaguekick/contracts";
+import type { AuthResponse, LoginRequest, RegisterRequest, SelfAssignableRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone, normalizeUsername } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord } from "./auth.types.js";
@@ -42,18 +42,32 @@ export class AuthService {
     } catch {
       throw errors.badRequest("INVALID_PHONE", "Enter a valid Afghanistan phone number.");
     }
-    const usernameNormalized = normalizeUsername(input.username || undefined);
+    const username = input.username.trim();
+    const usernameNormalized = normalizeUsername(username);
+    if (!usernameNormalized) {
+      throw errors.badRequest("INVALID_USERNAME", "Enter a valid username.");
+    }
     const passwordHash = await argon2.hash(input.password);
     const user = await this.repository.createUser({
-      displayName: input.displayName.trim(),
-      username: input.username?.trim() || null,
+      displayName: username,
+      username,
       usernameNormalized,
       phoneE164,
       passwordHash,
       preferredLanguage: input.preferredLanguage,
-      role: input.accountType,
     });
     return this.createAuthResponse(user, deviceLabel);
+  }
+
+  async activateSelfRole(userId: string, role: SelfAssignableRole) {
+    const user = await this.repository.getUserById(userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    this.ensureActive(user);
+
+    const roles = role === "TEAM_MANAGER"
+      ? (["PLAYER", "TEAM_MANAGER"] as const)
+      : ([role] as const);
+    return toUserDto(await this.repository.addRoles(userId, [...roles]));
   }
 
   async login(input: LoginRequest, deviceLabel?: string): Promise<AuthResponse> {
