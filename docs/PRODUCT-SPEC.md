@@ -33,6 +33,8 @@ Futsal uses one account identity independently from product roles.
 - A successful reset revokes all refresh sessions immediately. Already-issued access tokens remain bounded by the existing 15-minute access-token lifetime. The confirmation dialog shows username and phone, masks the new password by default, and allows user-controlled reveal.
 - Production password reset requires an HTTPS SMS delivery provider; development may expose a reset code only under an explicit non-production development mode.
 - The signup form avoids role-model explanatory copy; it uses a concise sports-oriented signup title and keeps role education for the post-signup role flow.
+- **Profile is the single account/role surface:** username, phone, configured full name, current roles, and self-service role activation live in Profile rather than Home.
+- **Home is discovery-oriented:** it must retain direct access to venue discovery, Feed, and Competitions without showing account identity or role-selection controls. Venue owners may keep operational dashboard content while retaining these discovery entry points.
 - A user may later add participation roles to the same identity. The initial self-service roles are Player, Venue Owner, Team Manager, and Referee.
 - Activating Team Manager also enables Player capability because team participation is built on player identity; actual authority over a team remains object-scoped to that team's manager.
 - Venue Staff, Competition Admin, and Platform Admin are controlled roles and must be assigned through authorized operational workflows rather than self-service.
