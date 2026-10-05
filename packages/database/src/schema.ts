@@ -109,6 +109,28 @@ export const sessions = pgTable(
   ],
 );
 
+export const passwordResetChallenges = pgTable(
+  "password_reset_challenges",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    phoneE164: varchar("phone_e164", { length: 20 }).notNull(),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    resetTokenHash: varchar("reset_token_hash", { length: 64 }),
+    resetTokenExpiresAt: timestamp("reset_token_expires_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("password_reset_phone_created_idx").on(table.phoneE164, table.createdAt),
+    index("password_reset_expires_idx").on(table.expiresAt),
+    index("password_reset_user_idx").on(table.userId),
+  ],
+);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {
@@ -664,6 +686,7 @@ export type VenueBlockRow = typeof venueBlocks.$inferSelect;
 export type BookingRow = typeof bookings.$inferSelect;
 export type VenuePromotionRow = typeof venuePromotions.$inferSelect;
 export type VenuePostRow = typeof venuePosts.$inferSelect;
+export type PasswordResetChallengeRow = typeof passwordResetChallenges.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
 export type PlayerProfileRow = typeof playerProfiles.$inferSelect;
 export type TeamRow = typeof teams.$inferSelect;
