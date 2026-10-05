@@ -115,12 +115,15 @@ const completeSetup = {
   })),
 } satisfies OwnerVenueSetupRequest;
 
-function setup(clock = { now: new Date("2026-10-04T00:00:00.000Z") }) {
+function setup(
+  clock = { now: new Date("2026-10-04T00:00:00.000Z") },
+  trialDurationMs = TRIAL_DURATION_MS,
+) {
   const authRepository = new FakeAuthRepository();
   const ownerRepository = new FakeOwnerRepository();
   const tokens = new TokenService("test-secret-that-is-longer-than-thirty-two-characters", "test", "test-mobile");
   const auth = new AuthService(authRepository, tokens);
-  const owner = new OwnerOnboardingService(ownerRepository, () => clock.now);
+  const owner = new OwnerOnboardingService(ownerRepository, () => clock.now, () => trialDurationMs);
   return {
     app: createApp({ authService: auth, tokenService: tokens, ownerService: owner }),
     authRepository,
@@ -194,6 +197,21 @@ describe("Phase 2 owner onboarding API", () => {
 
     const secondStart = await request(app).post("/api/v1/owner/trial/start").set(auth);
     expect(secondStart.body.subscription.trialStartedAt).toBe(trial.body.subscription.trialStartedAt);
+  });
+
+  it("uses the configured trial duration for new trials", async () => {
+    const clock = { now: new Date("2026-10-04T03:00:00.000Z") };
+    const configuredDurationMs = 96 * 60 * 60 * 1000;
+    const { app } = setup(clock, configuredDurationMs);
+    const owner = await register(app, "VENUE_OWNER", "0701112287");
+    const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+
+    await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
+    const started = await request(app).post("/api/v1/owner/trial/start").set(auth);
+
+    expect(started.status).toBe(200);
+    expect(Date.parse(started.body.subscription.trialEndsAt) - Date.parse(started.body.subscription.trialStartedAt))
+      .toBe(configuredDurationMs);
   });
 
   it("expires the trial server-side after exactly 72 hours", async () => {
