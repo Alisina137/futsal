@@ -51,8 +51,9 @@ export default function ManageCompetitionScreen(){
         ownerApi.getStatus(session.accessToken),
       ]);
       setCompetition(next);
-      setAreas(status.venue?.areas.filter((item)=>item.active).map((item)=>({id:item.id,name:item.name}))??[]);
-      setAreaId((current)=>current||status.venue?.areas.find((item)=>item.active)?.id||"");
+      const venueAreas=status.venue?.areas.map((item)=>({id:item.id,name:item.name}))??[];
+      setAreas(venueAreas);
+      setAreaId((current)=>current||venueAreas[0]?.id||"");
     }catch{setError(t("competition.loadError"));}
     finally{setLoading(false);}
   },[competitionId,session,t]);
