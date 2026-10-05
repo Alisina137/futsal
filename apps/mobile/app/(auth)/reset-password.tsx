@@ -27,7 +27,7 @@ type Field="username"|"password"|"confirmPassword";
 type FieldErrors=Partial<Record<Field,string>>;
 
 export default function ResetPasswordScreen(){
-  const {t,isRTL}=useLocale();
+  const {t,isRTL,language}=useLocale();
   const {signOut}=useAuth();
   const resetSession=getPasswordResetSession();
 
@@ -43,6 +43,19 @@ export default function ResetPasswordScreen(){
   const [dialogVisible,setDialogVisible]=useState(false);
   const [showDialogPassword,setShowDialogPassword]=useState(false);
   const [busy,setBusy]=useState(false);
+
+  function cooldownMessage(error:ApiRequestError){
+    const availableAt=(error.details as {availableAt?:unknown}|undefined)?.availableAt;
+    if(typeof availableAt!=="string") return t("auth.genericError");
+    const date=new Date(availableAt);
+    if(Number.isNaN(date.getTime())) return t("auth.genericError");
+    const dateTime=new Intl.DateTimeFormat(language,{
+      dateStyle:"medium",
+      timeStyle:"short",
+      timeZone:"Asia/Kabul",
+    }).format(date);
+    return t("auth.resetCooldown",{dateTime});
+  }
 
   useEffect(()=>{
     if(!resetSession) router.replace("/forgot-password");
@@ -149,6 +162,9 @@ export default function ResetPasswordScreen(){
       if(cause instanceof ApiRequestError&&cause.code==="USERNAME_ALREADY_EXISTS"){
         setFieldErrors({username:t("auth.usernameTaken")});
         requestAnimationFrame(()=>usernameRef.current?.focus());
+      }else if(cause instanceof ApiRequestError&&cause.code==="PASSWORD_RESET_COOLDOWN"){
+        clearPasswordResetSession();
+        setFormError(cooldownMessage(cause));
       }else if(cause instanceof ApiRequestError&&(
         cause.code==="INVALID_RESET_TOKEN"||
         cause.code==="VALIDATION_ERROR"
