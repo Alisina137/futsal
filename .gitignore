@@ -14,3 +14,4 @@ apps/mobile/.expo/
 apps/mobile/dist/
 apps/api/dist/
 packages/*/dist/
+artifacts/backups/
