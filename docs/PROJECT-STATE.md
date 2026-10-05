@@ -48,9 +48,9 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Afghanistan launch venue timezone defaults to `Asia/Kabul`; persisted timestamps are UTC instants.
 
 ## Current implementation phase
-Phase 7 — Subscription Enforcement, Analytics and Admin.
+Phase 8 — Release Readiness.
 
-All Phase 7 implementation tasks (7.1–7.6) are integrated on `phase-07-subscription-analytics-admin`. Local migration/application verification and live mobile/admin testing are still required before Phase 7 is marked fully verified.
+All Phase 8 implementation tasks are integrated on `phase-08-release-readiness`: Android release configuration/assets, production security and observability hardening, mobile resilience/safe recovery, accessibility/localization review, support/backup/monitoring tooling, and the final release verification/test plan.
 
 ## Migration baseline
 Committed canonical migrations:
@@ -62,7 +62,7 @@ Committed canonical migrations:
 - `0005_robust_smiling_tiger` — Phase 6 competition engine.
 - `0006_phase7_commercial_core` — Phase 7 venue verification, subscription payments and platform configuration.
 
-The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. Phase 7 migration `0006_phase7_commercial_core.sql` is committed with its snapshot/journal entry and still needs to be applied in the user's environment.
+The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 has no database schema change and adds no migration.
 
 ## Phase 1 status
 Foundation implemented and previously verified.
@@ -389,19 +389,62 @@ Do not mark Phase 6 live-device verification complete until the competition/cale
 
 ## Phase 7 verification status
 
-Status: **Implemented; local full verification, Phase 7 migration application and live mobile/admin test-plan signoff pending.**
-
-Required local gate:
-
-```powershell
-pnpm install
-pnpm verify
-pnpm db:migrate
-```
-
-Do not regenerate the Phase 7 migration before applying the committed `0006_phase7_commercial_core` migration.
+Status: **Implemented; migration applied and automated verification reported without remaining errors by the user. Live mobile/admin test-plan signoff remains a separate manual requirement.**
 
 Phase 6 live-device competition verification caveat remains unchanged.
 
+## Phase 8 delivered
+
+### Android release packaging
+- App version advanced to 1.0.0 while preserving package `com.leaguekick.app` and the existing deep-link scheme.
+- Preview/internal APK and production AAB EAS profiles.
+- App icon, adaptive icon and Play feature graphic committed.
+- Play listing draft and real-screenshot capture plan.
+- Preview/production mobile API URL guidance requires HTTPS outside local development.
+
+### Security, health and observability
+- Production configuration rejects wildcard CORS, non-HTTPS browser origins and weak/placeholder access-token secrets.
+- Neon examples use explicit `sslmode=verify-full`.
+- Request correlation IDs are returned in headers/API errors.
+- Structured request logs contain method, normalized path, status and duration without request bodies or credentials.
+- API responses are no-store.
+- Separate liveness `/health` and database readiness `/ready`.
+- Graceful shutdown and bounded server request/header timeouts.
+- Release-readiness API tests cover health, readiness secrecy, CORS, request IDs and production configuration.
+
+### Mobile resilience and support
+- Existing 12-second network timeout retained.
+- Read-only GET/HEAD requests may retry once for transient network/502/503/504 failures.
+- Writes are never automatically replayed by the generic client.
+- Timeouts remain non-destructive to stored authenticated sessions.
+- Localized crash boundary never renders raw exception/stack text.
+- Support & diagnostics screen exposes safe app/API/connectivity/request correlation details only.
+
+### Accessibility and localization
+- Touch target remains 50dp.
+- Buttons/language selectors/settings actions have accessibility labels/hints.
+- Form hints/errors and connectivity changes are announced.
+- Dynamic text scaling remains enabled.
+- Support/recovery strings added in Dari, Pashto and English.
+
+### Operations and privacy
+- Guarded PowerShell PostgreSQL backup and isolated restore commands.
+- Backups are ignored by Git.
+- Pilot operations/monitoring/incident/rollback runbook.
+- Implementation-aligned pilot privacy notice.
+- Phase 8 test plan covers all 15 critical E2E journeys, low-connectivity, accessibility/device matrix, security, monitoring and restore drill.
+
+### Verification coverage
+- `verify:phase8` static invariant gate.
+- `release:check` integrated repository gate.
+- Clean-install GitHub Release Readiness workflow.
+- `docs/PHASE-08-TEST-PLAN.md`.
+
+## Phase 8 verification status
+
+Status: **Implemented; automated clean-CI verification is being exercised on the integration branch. Live pilot signoff is still required before describing the product as pilot-ready.**
+
+Pilot signoff still requires a real preview APK/device run of the critical E2E matrix, Dari/Pashto TalkBack/large-text checks, deployed health/readiness/log correlation, an isolated backup/restore drill, real store screenshots, and operator-owned support/privacy/Play Console configuration.
+
 ## Next phase
-Phase 8 — Release Readiness.
+Pilot release / launch signoff after the Phase 8 live-device and operations checklist passes.
