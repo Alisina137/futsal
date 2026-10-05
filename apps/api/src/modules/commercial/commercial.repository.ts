@@ -398,9 +398,15 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       await this.db.update(venues).set({ status: "ACTIVE", updatedAt: now }).where(eq(venues.id, venueId));
     }
 
+    const auditAction = {
+      VERIFY: "VENUE_VERIFIED",
+      REJECT: "VENUE_VERIFICATION_REJECTED",
+      SUSPEND: "VENUE_SUSPENDED",
+      RESTORE: "VENUE_RESTORED",
+    }[action];
     await this.db.insert(auditLogs).values({
       actorUserId,
-      action: `VENUE_${action}`,
+      action: auditAction,
       targetType: "VENUE",
       targetId: venueId,
       metadata: { reason, previousStatus: venue.status, previousVerificationStatus: venue.verificationStatus },
