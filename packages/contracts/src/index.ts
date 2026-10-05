@@ -65,7 +65,7 @@ export type SelfRoleActivationRequest = z.infer<typeof selfRoleActivationRequest
 
 export const accountProfileUpdateRequestSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
-  profileImageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  profileImageUrl: z.string().trim().url().refine((value) => value.startsWith("https://"), "Use an HTTPS image URL.").optional().or(z.literal("")),
   age: z.number().int().min(1).max(120).nullable().optional(),
   email: z.string().trim().email().max(320).optional().or(z.literal("")),
   city: z.string().trim().max(80).optional().or(z.literal("")),
