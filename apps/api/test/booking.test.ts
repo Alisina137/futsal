@@ -15,10 +15,15 @@ function setup() {
   const clock = { now: new Date("2026-10-04T00:00:00.000Z") };
   const booking = new BookingService(bookingRepository, () => clock.now);
   const app = createApp({ authService: auth, tokenService: tokens, bookingService: booking });
-  return { app, bookingRepository, clock };
+  return { app, bookingRepository, authRepository, clock };
 }
 
-async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VENUE_OWNER", phone: string) {
+async function register(
+  app: ReturnType<typeof createApp>,
+  authRepository: FakeAuthRepository,
+  role: "PLAYER" | "VENUE_OWNER",
+  phone: string,
+) {
   const username = `u${phone.replace(/\D/g, "").slice(-10)}`;
   const registration = await request(app).post("/api/v1/auth/register").send({
     username,
@@ -29,23 +34,32 @@ async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VEN
   });
   expect(registration.status).toBe(201);
 
-  const activated = await request(app)
-    .post("/api/v1/auth/roles/activate")
-    .set("Authorization", `Bearer ${registration.body.accessToken}`)
-    .send({ role });
-  expect(activated.status).toBe(200);
+  // "PLAYER" represents the free base-account player experience: no global role
+  // is activated. Venue Owner remains a paid management entitlement.
+  if (role === "PLAYER") return registration;
+
+  await authRepository.activateRoleSubscription({
+    actorUserId: registration.body.user.id,
+    userId: registration.body.user.id,
+    role: "VENUE_OWNER",
+    monthlyPriceAfn: 1000,
+    months: 1,
+    paymentReference: "test-paid",
+    now: new Date("2026-10-04T00:00:00.000Z"),
+  });
 
   const refreshed = await request(app)
     .post("/api/v1/auth/refresh")
     .send({ refreshToken: registration.body.refreshToken });
   expect(refreshed.status).toBe(200);
+  expect(refreshed.body.user.roles).toContain("VENUE_OWNER");
   return refreshed;
 }
 
 describe("Phase 3 availability and booking API", () => {
   it("publishes live slots from opening hours and area price", async () => {
-    const { app, bookingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0702223300");
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223300");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
 
     const response = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
@@ -57,11 +71,11 @@ describe("Phase 3 availability and booking API", () => {
   });
 
   it("allows exactly one winner when two players race for the same slot", async () => {
-    const { app, bookingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0702223311");
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223311");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
-    const first = await register(app, "PLAYER", "0702223322");
-    const second = await register(app, "PLAYER", "0702223333");
+    const first = await register(app, authRepository, "PLAYER", "0702223322");
+    const second = await register(app, authRepository, "PLAYER", "0702223333");
     const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
     const slot = availability.body.slots[0];
 
@@ -79,10 +93,10 @@ describe("Phase 3 availability and booking API", () => {
   });
 
   it("prevents manual and online occupancy from overlapping", async () => {
-    const { app, bookingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0702223344");
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223344");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
-    const player = await register(app, "PLAYER", "0702223355");
+    const player = await register(app, authRepository, "PLAYER", "0702223355");
     const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
     const slot = availability.body.slots[0];
 
@@ -105,10 +119,10 @@ describe("Phase 3 availability and booking API", () => {
   });
 
   it("owner blocks remove capacity and cancellation makes capacity available again", async () => {
-    const { app, bookingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0702223366");
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223366");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
-    const player = await register(app, "PLAYER", "0702223377");
+    const player = await register(app, authRepository, "PLAYER", "0702223377");
 
     let availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
     const blockedSlot = availability.body.slots[0];
@@ -137,10 +151,10 @@ describe("Phase 3 availability and booking API", () => {
   });
 
   it("retries the same player's idempotency key without creating a duplicate booking", async () => {
-    const { app, bookingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0702223390");
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223390");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
-    const player = await register(app, "PLAYER", "0702223391");
+    const player = await register(app, authRepository, "PLAYER", "0702223391");
     const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
     const slot = availability.body.slots[0];
     const body = { areaId: slot.areaId, startsAt: slot.startsAt, idempotencyKey: "stable-retry-key" };
@@ -155,12 +169,12 @@ describe("Phase 3 availability and booking API", () => {
   });
 
   it("keeps owner booking controls tenant-scoped", async () => {
-    const { app, bookingRepository } = setup();
-    const ownerA = await register(app, "VENUE_OWNER", "0702223392");
-    const ownerB = await register(app, "VENUE_OWNER", "0702223393");
+    const { app, bookingRepository, authRepository } = setup();
+    const ownerA = await register(app, authRepository, "VENUE_OWNER", "0702223392");
+    const ownerB = await register(app, authRepository, "VENUE_OWNER", "0702223393");
     const { venue } = bookingRepository.seedVenue(ownerA.body.user.id);
     bookingRepository.seedVenue(ownerB.body.user.id);
-    const player = await register(app, "PLAYER", "0702223394");
+    const player = await register(app, authRepository, "PLAYER", "0702223394");
     const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
     const slot = availability.body.slots[0];
     const booked = await request(app).post("/api/v1/bookings")
@@ -176,8 +190,8 @@ describe("Phase 3 availability and booking API", () => {
   });
 
   it("rejects impossible calendar dates", async () => {
-    const { app, bookingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0702223395");
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223395");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
     const response = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-02-31`);
     expect(response.status).toBe(400);
@@ -185,8 +199,8 @@ describe("Phase 3 availability and booking API", () => {
   });
 
   it("keeps existing booking service available in continuity mode while blocking new inventory writes", async () => {
-    const { app, bookingRepository, clock } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0702223387");
+    const { app, bookingRepository, authRepository, clock } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223387");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id, {
       trialEndsAt: new Date("2026-10-04T01:00:00.000Z"),
     });
@@ -236,8 +250,8 @@ describe("Phase 3 availability and booking API", () => {
   });
 
   it("does not expose bookable inventory after the trial expires", async () => {
-    const { app, bookingRepository, clock } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0702223388");
+    const { app, bookingRepository, authRepository, clock } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223388");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id, { trialEndsAt: new Date("2026-10-04T01:00:00.000Z") });
     clock.now = new Date("2026-10-04T02:00:00.000Z");
 
