@@ -64,6 +64,11 @@ export type SelfAssignableRole = PaidRole;
 export const roleSubscriptionStatusSchema = z.enum(["NONE", "PENDING", "ACTIVE", "EXPIRED", "CANCELLED"]);
 export type RoleSubscriptionStatus = z.infer<typeof roleSubscriptionStatusSchema>;
 
+export const roleSubscriptionRequestSchema = z.object({
+  paymentReference: z.string().trim().max(120).optional().or(z.literal("")),
+});
+export type RoleSubscriptionRequest = z.infer<typeof roleSubscriptionRequestSchema>;
+
 export const accountProfileUpdateRequestSchema = z.object({
   displayName: z.string().trim().max(80).optional().or(z.literal("")),
   profileImageUrl: z.string().trim().url().refine((value) => value.startsWith("https://"), "Use an HTTPS image URL.").optional().or(z.literal("")),
