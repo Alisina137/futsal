@@ -7,6 +7,7 @@ import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -48,6 +49,8 @@ export default function TeamInvitationsScreen(){
   }
 
   const pending=items.filter((item)=>item.status==="PENDING");
+
+  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
 
   return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
