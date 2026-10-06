@@ -6,6 +6,7 @@ import type {
   TeamCreateRequest,
   TeamDto,
   TeamInviteRequest,
+  TeamJoinRequestDto,
   TeamManagerTransferRequest,
   TeamMemberUpdateRequest,
   TeamUpdateRequest,
@@ -99,6 +100,47 @@ export class TeamService {
   async listMyTeams(userId: string) {
     await this.playerIdentity(userId);
     return { teams: await this.repository.listUserTeams(userId) };
+  }
+
+  async listTeamDirectory(userId: string) {
+    await this.playerIdentity(userId);
+    return { teams: await this.repository.listDirectoryTeams(userId) };
+  }
+
+  async getMyJoinRequest(userId: string, teamId: string): Promise<TeamJoinRequestDto | null> {
+    await this.playerIdentity(userId);
+    await this.team(teamId);
+    return this.repository.getJoinRequest(teamId, userId);
+  }
+
+  async requestToJoinTeam(userId: string, teamId: string): Promise<TeamJoinRequestDto> {
+    const user = await this.playerIdentity(userId);
+    const team = await this.team(teamId);
+    if (team.managerUserId === userId) {
+      throw errors.conflict("ALREADY_TEAM_MEMBER", "You already manage this team.");
+    }
+
+    const membership = await this.repository.getMembership(teamId, userId);
+    if (membership?.status === "ACTIVE") {
+      throw errors.conflict("ALREADY_TEAM_MEMBER", "You are already a member of this team.");
+    }
+
+    await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
+    return this.repository.createJoinRequest(teamId, userId, this.now());
+  }
+
+  async listJoinRequests(userId: string, teamId: string) {
+    await this.manager(teamId, userId);
+    return { requests: await this.repository.listJoinRequestsForTeam(teamId) };
+  }
+
+  async respondToJoinRequest(userId: string, teamId: string, requestId: string, accept: boolean) {
+    await this.manager(teamId, userId);
+    const request = await this.repository.respondJoinRequest(teamId, requestId, userId, accept, this.now());
+    if (!request) {
+      throw errors.conflict("TEAM_JOIN_REQUEST_UNAVAILABLE", "This join request is no longer available.");
+    }
+    return request;
   }
 
   async listTeamsDirectory(userId: string) {
