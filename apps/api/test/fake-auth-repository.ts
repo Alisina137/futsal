@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
+import { normalizeAfghanistanPhone, type AdminRoleSubscriptionDto, type PaidRole, type RoleSubscriptionOfferDto } from "@leaguekick/contracts";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord } from "../src/modules/auth/auth.types.js";
 import { errors } from "../src/lib/errors.js";
 
@@ -7,6 +7,15 @@ export class FakeAuthRepository implements AuthRepository {
   users = new Map<string, AuthUserRecord>();
   sessions = new Map<string, SessionRecord>();
   passwordResets = new Map<string, PasswordResetChallengeRecord>();
+  roleSubscriptions = new Map<string, {
+    userId: string;
+    role: PaidRole;
+    status: "PENDING" | "ACTIVE" | "EXPIRED" | "CANCELLED";
+    monthlyPriceAfn: number;
+    requestedAt: Date;
+    activeUntil: Date | null;
+    paymentReference: string | null;
+  }>();
 
   async findUserByIdentifier(identifier: string) {
     const raw = identifier.trim();
@@ -44,6 +53,85 @@ export class FakeAuthRepository implements AuthRepository {
     const next = { ...user, roles: [...new Set([...user.roles, ...roles])] };
     this.users.set(userId, next);
     return next;
+  }
+
+  async getRoleSubscriptionOffers(userId: string, prices: Record<PaidRole, number>, now: Date): Promise<RoleSubscriptionOfferDto[]> {
+    return (["VENUE_OWNER", "TEAM_MANAGER"] as PaidRole[]).map((role) => {
+      const row = this.roleSubscriptions.get(`${userId}:${role}`);
+      const status = row?.status === "ACTIVE" && (!row.activeUntil || row.activeUntil.getTime() <= now.getTime())
+        ? "EXPIRED"
+        : row?.status ?? "NONE";
+      return {
+        role,
+        monthlyPriceAfn: prices[role],
+        status,
+        requestedAt: row?.requestedAt.toISOString() ?? null,
+        activeUntil: row?.activeUntil?.toISOString() ?? null,
+      };
+    });
+  }
+
+  async requestRoleSubscription(userId: string, role: PaidRole, monthlyPriceAfn: number, paymentReference: string | null, now: Date) {
+    const existing = this.roleSubscriptions.get(`${userId}:${role}`);
+    if (existing?.status === "ACTIVE" && existing.activeUntil && existing.activeUntil.getTime() > now.getTime()) {
+      return {
+        role,
+        monthlyPriceAfn,
+        status: "ACTIVE" as const,
+        requestedAt: existing.requestedAt.toISOString(),
+        activeUntil: existing.activeUntil.toISOString(),
+      };
+    }
+    const row = { userId, role, status: "PENDING" as const, monthlyPriceAfn, requestedAt: now, activeUntil: null, paymentReference };
+    this.roleSubscriptions.set(`${userId}:${role}`, row);
+    return { role, monthlyPriceAfn, status: "PENDING" as const, requestedAt: now.toISOString(), activeUntil: null };
+  }
+
+  async listAdminRoleSubscriptions(now: Date): Promise<AdminRoleSubscriptionDto[]> {
+    return [...this.roleSubscriptions.values()].map((row) => {
+      const user = this.users.get(row.userId)!;
+      return {
+        userId: row.userId,
+        username: user.username,
+        displayName: user.displayName,
+        role: row.role,
+        monthlyPriceAfn: row.monthlyPriceAfn,
+        status: row.status === "ACTIVE" && (!row.activeUntil || row.activeUntil.getTime() <= now.getTime()) ? "EXPIRED" : row.status,
+        requestedAt: row.requestedAt.toISOString(),
+        activeUntil: row.activeUntil?.toISOString() ?? null,
+        paymentReference: row.paymentReference,
+      };
+    });
+  }
+
+  async activateRoleSubscription(input: {
+    actorUserId: string;
+    userId: string;
+    role: PaidRole;
+    monthlyPriceAfn: number;
+    months: number;
+    paymentReference: string | null;
+    now: Date;
+  }) {
+    const user = this.users.get(input.userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    const key = `${input.userId}:${input.role}`;
+    const current = this.roleSubscriptions.get(key);
+    const base = current?.status === "ACTIVE" && current.activeUntil && current.activeUntil.getTime() > input.now.getTime()
+      ? current.activeUntil
+      : input.now;
+    const activeUntil = new Date(base);
+    activeUntil.setUTCMonth(activeUntil.getUTCMonth() + input.months);
+    this.roleSubscriptions.set(key, {
+      userId: input.userId,
+      role: input.role,
+      status: "ACTIVE",
+      monthlyPriceAfn: input.monthlyPriceAfn,
+      requestedAt: current?.requestedAt ?? input.now,
+      activeUntil,
+      paymentReference: input.paymentReference,
+    });
+    return this.addRoles(input.userId, [input.role]);
   }
 
   async updateAccountProfile(userId: string, input: import("../src/modules/auth/auth.types.js").UpdateAccountProfileInput) {
