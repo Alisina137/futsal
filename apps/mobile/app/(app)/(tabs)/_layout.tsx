@@ -8,7 +8,6 @@ export default function TabsLayout(){
   const {t,isRTL}=useLocale();
   const {session}=useAuth();
   const owner=session?.user.roles.includes("VENUE_OWNER")??false;
-  const player=session?.user.roles.includes("PLAYER")??false;
 
   return <Tabs screenOptions={{
     headerShown:false,
@@ -31,9 +30,9 @@ export default function TabsLayout(){
     },
   }}>
     <Tabs.Screen name="home" options={{title:owner?t("owner.dashboardTitle"):t("home.title"),tabBarIcon:({color,size})=><Ionicons name={owner?"speedometer-outline":"home-outline"} color={color} size={size}/>}}/>
-    <Tabs.Screen name="venues" options={{...(owner?{href:null}:{}),title:t("booking.venuesTitle"),tabBarIcon:({color,size})=><Ionicons name="business-outline" color={color} size={size}/>}}/>
-    <Tabs.Screen name="bookings" options={{...((owner||!player)?{href:null}:{}),title:t("booking.myBookings"),tabBarIcon:({color,size})=><Ionicons name="calendar-outline" color={color} size={size}/>}}/>
-    <Tabs.Screen name="feed" options={{...(owner?{href:null}:{}),title:t("feed.title"),tabBarIcon:({color,size})=><Ionicons name="newspaper-outline" color={color} size={size}/>}}/>
+    <Tabs.Screen name="venues" options={{title:t("booking.venuesTitle"),tabBarIcon:({color,size})=><Ionicons name="business-outline" color={color} size={size}/>}}/>
+    <Tabs.Screen name="bookings" options={{title:t("booking.myBookings"),tabBarIcon:({color,size})=><Ionicons name="calendar-outline" color={color} size={size}/>}}/>
+    <Tabs.Screen name="feed" options={{title:t("feed.title"),tabBarIcon:({color,size})=><Ionicons name="newspaper-outline" color={color} size={size}/>}}/>
     <Tabs.Screen name="schedule" options={{...(!owner?{href:null}:{}),title:t("schedule.title"),tabBarIcon:({color,size})=><Ionicons name="time-outline" color={color} size={size}/>}}/>
     <Tabs.Screen name="settings" options={{title:t("profile.title"),tabBarIcon:({color,size})=><Ionicons name="person-circle-outline" color={color} size={size}/>}}/>
   </Tabs>;
