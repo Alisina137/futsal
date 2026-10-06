@@ -63,6 +63,53 @@ describe("Phase 6 competition setup and registration",()=>{
     expect(publicCompetition.id).toBe(created.id);
   });
 
+  it("requires a registration deadline and at least a 72-hour registration window",async()=>{
+    const {service,ownerId}=setup();
+
+    const missingDeadline=await service.create(ownerId,input({registrationClosesAt:null}));
+    await expect(
+      service.changeState(ownerId,missingDeadline.id,{action:"OPEN_REGISTRATION"}),
+    ).rejects.toMatchObject({code:"REGISTRATION_DEADLINE_REQUIRED",statusCode:400});
+
+    const shortWindow=await service.create(ownerId,input({
+      registrationClosesAt:new Date(NOW.getTime()+72*60*60*1000-1).toISOString(),
+    }));
+    await expect(
+      service.changeState(ownerId,shortWindow.id,{action:"OPEN_REGISTRATION"}),
+    ).rejects.toMatchObject({code:"REGISTRATION_WINDOW_TOO_SHORT",statusCode:400});
+
+    const exactWindow=await service.create(ownerId,input({
+      registrationClosesAt:new Date(NOW.getTime()+72*60*60*1000).toISOString(),
+    }));
+    const opened=await service.changeState(ownerId,exactWindow.id,{action:"OPEN_REGISTRATION"});
+    expect(opened?.status).toBe("REGISTRATION_OPEN");
+  });
+
+  it("enforces deadline, start, and end ordering across competition updates",async()=>{
+    const {service,ownerId}=setup();
+    const deadline=new Date(NOW.getTime()+4*24*60*60*1000);
+    const start=new Date(deadline.getTime()+60*60*1000);
+    const end=new Date(start.getTime()+2*60*60*1000);
+    const created=await service.create(ownerId,input({
+      registrationClosesAt:deadline.toISOString(),
+      startsAt:start.toISOString(),
+      endsAt:end.toISOString(),
+    }));
+
+    await expect(service.update(ownerId,created.id,{
+      startsAt:new Date(deadline.getTime()-1).toISOString(),
+    })).rejects.toMatchObject({code:"COMPETITION_START_BEFORE_REGISTRATION_CLOSE"});
+
+    await expect(service.update(ownerId,created.id,{
+      endsAt:new Date(start.getTime()-1).toISOString(),
+    })).rejects.toMatchObject({code:"COMPETITION_END_BEFORE_START"});
+
+    await service.changeState(ownerId,created.id,{action:"OPEN_REGISTRATION"});
+    await expect(service.update(ownerId,created.id,{
+      registrationClosesAt:new Date(NOW.getTime()+71*60*60*1000).toISOString(),
+    })).rejects.toMatchObject({code:"REGISTRATION_WINDOW_TOO_SHORT"});
+  });
+
   it("allows only the current team manager to apply",async()=>{
     const {service,repository,ownerId}=setup();
     const managerId="22222222-2222-4222-8222-222222222222";
