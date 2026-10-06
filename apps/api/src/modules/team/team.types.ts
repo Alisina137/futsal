@@ -1,8 +1,10 @@
 import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
+  TeamDirectoryItemDto,
   TeamDto,
   TeamInvitationDto,
+  TeamJoinRequestDto,
   TeamListItemDto,
   TeamMemberRole,
   UserRole,
@@ -62,7 +64,12 @@ export interface TeamRepository {
   }): Promise<TeamDto>;
   getTeamRecord(teamId: string): Promise<TeamRecord | null>;
   getTeam(teamId: string, includeRoster: boolean): Promise<TeamDto | null>;
+  listDirectoryTeams(userId: string): Promise<TeamDirectoryItemDto[]>;
   listUserTeams(userId: string): Promise<TeamListItemDto[]>;
+  getJoinRequest(teamId: string, requesterUserId: string): Promise<TeamJoinRequestDto | null>;
+  createJoinRequest(teamId: string, requesterUserId: string, now: Date): Promise<TeamJoinRequestDto>;
+  listJoinRequestsForTeam(teamId: string): Promise<TeamJoinRequestDto[]>;
+  respondJoinRequest(teamId: string, requestId: string, managerUserId: string, accept: boolean, now: Date): Promise<TeamJoinRequestDto | null>;
   getMembership(teamId: string, userId: string): Promise<TeamMembershipRecord | null>;
   updateTeam(teamId: string, input: {
     name?: string;
