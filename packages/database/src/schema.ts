@@ -39,7 +39,7 @@ export const promotionStatusEnum = pgEnum("promotion_status", ["ACTIVE", "CLOSED
 export const postStatusEnum = pgEnum("post_status", ["PUBLISHED", "UNPUBLISHED"]);
 export const postCtaTypeEnum = pgEnum("post_cta_type", ["NONE", "VENUE", "PROMOTION", "COMPETITION"]);
 export const socialEntityTypeEnum = pgEnum("social_entity_type", ["VENUE", "TEAM", "COMPETITION"]);
-export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE"]);
 export const notificationChannelEnum = pgEnum("notification_channel", ["IN_APP", "PUSH"]);
 export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", ["PENDING", "SENT", "SKIPPED", "FAILED"]);
 export const devicePlatformEnum = pgEnum("device_platform", ["ANDROID", "IOS"]);
@@ -54,7 +54,7 @@ export const teamJoinRequestStatusEnum = pgEnum("team_join_request_status", ["PE
 export const competitionFormatEnum = pgEnum("competition_format", ["LEAGUE", "KNOCKOUT", "GROUP_KNOCKOUT"]);
 export const competitionStatusEnum = pgEnum("competition_status", ["DRAFT", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "ARCHIVED", "CANCELLED"]);
 export const competitionRegistrationStatusEnum = pgEnum("competition_registration_status", ["INVITED", "APPLIED", "PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN"]);
-export const competitionFeeStatusEnum = pgEnum("competition_fee_status", ["UNPAID", "PAID", "WAIVED"]);
+export const competitionFeeStatusEnum = pgEnum("competition_fee_status", ["UNPAID", "PENDING", "PAID", "WAIVED"]);
 export const competitionMatchStageEnum = pgEnum("competition_match_stage", ["LEAGUE", "GROUP", "KNOCKOUT"]);
 export const competitionMatchStatusEnum = pgEnum("competition_match_status", ["UNSCHEDULED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "POSTPONED", "CANCELLED", "CORRECTED"]);
 
@@ -646,6 +646,8 @@ export const competitions = pgTable(
     tieBreakOrder: jsonb("tie_break_order").$type<string[]>().notNull().default(["POINTS", "GOAL_DIFFERENCE", "GOALS_FOR"]),
     groupCount: integer("group_count"),
     qualifiersPerGroup: integer("qualifiers_per_group"),
+    registrationClosesAt: timestamp("registration_closes_at", { withTimezone: true }),
+    matchDurationMinutes: integer("match_duration_minutes").notNull().default(60),
     startsAt: timestamp("starts_at", { withTimezone: true }),
     endsAt: timestamp("ends_at", { withTimezone: true }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -685,6 +687,9 @@ export const competitionTeams = pgTable(
     seed: integer("seed"),
     groupId: uuid("group_id").references(() => competitionGroups.id, { onDelete: "set null" }),
     feeStatus: competitionFeeStatusEnum("fee_status").notNull().default("UNPAID"),
+    feePaymentReference: varchar("fee_payment_reference", { length: 120 }),
+    feeConfirmedAt: timestamp("fee_confirmed_at", { withTimezone: true }),
+    feeConfirmedByUserId: uuid("fee_confirmed_by_user_id").references(() => users.id, { onDelete: "set null" }),
     appliedByUserId: uuid("applied_by_user_id").references(() => users.id, { onDelete: "set null" }),
     respondedByUserId: uuid("responded_by_user_id").references(() => users.id, { onDelete: "set null" }),
     respondedAt: timestamp("responded_at", { withTimezone: true }),
