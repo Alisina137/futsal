@@ -293,6 +293,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
         winnerTeamId:null,
         nextMatchId:null,
         nextMatchSide:null,
+        refereeUserId:null,
       });
     }
   }
