@@ -24,6 +24,13 @@ export default function CreateCompetitionScreen(){
   const [fee,setFee]=useState("0");
   const [groupCount,setGroupCount]=useState("2");
   const [qualifiers,setQualifiers]=useState("2");
+  const [registrationClosesAt,setRegistrationClosesAt]=useState("");
+  const [startsAt,setStartsAt]=useState("");
+  const [endsAt,setEndsAt]=useState("");
+  const [matchDuration,setMatchDuration]=useState("60");
+  const [winPoints,setWinPoints]=useState("3");
+  const [drawPoints,setDrawPoints]=useState("1");
+  const [lossPoints,setLossPoints]=useState("0");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
 
@@ -33,24 +40,39 @@ export default function CreateCompetitionScreen(){
     const registrationFeeAfn=Number(fee);
     const groups=Number(groupCount);
     const qualified=Number(qualifiers);
-    if(!name.trim()||!Number.isInteger(max)||max<2||!Number.isInteger(registrationFeeAfn)||registrationFeeAfn<0){
+    const duration=Number(matchDuration);
+    const win=Number(winPoints);
+    const draw=Number(drawPoints);
+    const loss=Number(lossPoints);
+    if(
+      !name.trim()
+      ||!Number.isInteger(max)||max<2
+      ||!Number.isInteger(registrationFeeAfn)||registrationFeeAfn<0
+      ||!Number.isInteger(duration)||duration<20||duration>180
+      ||![win,draw,loss].every((value)=>Number.isInteger(value)&&value>=0&&value<=20)
+      ||(format==="GROUP_KNOCKOUT"&&(!Number.isInteger(groups)||groups<2||!Number.isInteger(qualified)||qualified<1))
+    ){
       setError(t("competition.createError"));return;
     }
+
     const input:CompetitionCreateRequest={
       name:name.trim(),
       description:description.trim(),
       format,
       maxTeams:max,
       registrationFeeAfn,
-      winPoints:3,
-      drawPoints:1,
-      lossPoints:0,
+      winPoints:win,
+      drawPoints:draw,
+      lossPoints:loss,
       tieBreakOrder:["POINTS","GOAL_DIFFERENCE","GOALS_FOR","HEAD_TO_HEAD","ADMIN"],
       groupCount:format==="GROUP_KNOCKOUT"?groups:null,
       qualifiersPerGroup:format==="GROUP_KNOCKOUT"?qualified:null,
-      startsAt:null,
-      endsAt:null,
+      registrationClosesAt:registrationClosesAt.trim()||null,
+      matchDurationMinutes:duration,
+      startsAt:startsAt.trim()||null,
+      endsAt:endsAt.trim()||null,
     };
+
     setBusy(true);setError(null);
     try{
       const {competition}=await competitionApi.create(session.accessToken,input);
@@ -60,11 +82,16 @@ export default function CreateCompetitionScreen(){
   }
 
   return <Screen showHeader>
-    <AppText variant="title" weight="bold">{t("competition.createTitle")}</AppText>
-    <TextField label={t("competition.name")} value={name} onChangeText={setName}/>
-    <TextField label={t("competition.description")} value={description} onChangeText={setDescription} multiline/>
+    <View style={{gap:spacing.xs}}>
+      <AppText variant="title" weight="bold">{t("competition.createTitle")}</AppText>
+      <AppText muted>{t("competition.control.createSubtitle")}</AppText>
+    </View>
 
-    <Card>
+    <Card style={{gap:spacing.md}}>
+      <AppText variant="bodyLarge" weight="bold">{t("competition.control.identity")}</AppText>
+      <TextField label={t("competition.name")} value={name} onChangeText={setName}/>
+      <TextField label={t("competition.description")} value={description} onChangeText={setDescription} multiline/>
+
       <AppText weight="semibold">{t("competition.format")}</AppText>
       <View style={{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap",gap:spacing.sm}}>
         {formats.map((value)=><Pressable
@@ -76,17 +103,41 @@ export default function CreateCompetitionScreen(){
             backgroundColor:format===value?colors.primarySoft:colors.surface,
           }}
         >
-          <AppText weight="semibold" style={format===value?{color:colors.primary}:undefined}>{t(`competition.format.${value}` as never)}</AppText>
+          <AppText weight="semibold" style={format===value?{color:colors.primary}:undefined}>
+            {t(`competition.format.${value}` as never)}
+          </AppText>
         </Pressable>)}
       </View>
+
+      <TextField label={t("competition.maxTeams")} value={maxTeams} onChangeText={setMaxTeams} keyboardType="number-pad" forceLtr/>
+      <TextField label={t("competition.registrationFee")} value={fee} onChangeText={setFee} keyboardType="number-pad" forceLtr/>
+
+      {format==="GROUP_KNOCKOUT"?<View style={{gap:spacing.md}}>
+        <TextField label={t("competition.groupCount")} value={groupCount} onChangeText={setGroupCount} keyboardType="number-pad" forceLtr/>
+        <TextField label={t("competition.qualifiersPerGroup")} value={qualifiers} onChangeText={setQualifiers} keyboardType="number-pad" forceLtr/>
+      </View>:null}
     </Card>
 
-    <TextField label={t("competition.maxTeams")} value={maxTeams} onChangeText={setMaxTeams} keyboardType="number-pad" forceLtr/>
-    <TextField label={t("competition.registrationFee")} value={fee} onChangeText={setFee} keyboardType="number-pad" forceLtr/>
-    {format==="GROUP_KNOCKOUT"?<>
-      <TextField label={t("competition.groupCount")} value={groupCount} onChangeText={setGroupCount} keyboardType="number-pad" forceLtr/>
-      <TextField label={t("competition.qualifiersPerGroup")} value={qualifiers} onChangeText={setQualifiers} keyboardType="number-pad" forceLtr/>
-    </>:null}
+    <Card style={{gap:spacing.md}}>
+      <AppText variant="bodyLarge" weight="bold">{t("competition.control.scheduleRules")}</AppText>
+      <TextField
+        label={t("competition.registrationDeadline")}
+        value={registrationClosesAt}
+        onChangeText={setRegistrationClosesAt}
+        placeholder="2026-10-20T18:00:00+04:30"
+        forceLtr
+      />
+      <TextField label={t("competition.startsAt")} value={startsAt} onChangeText={setStartsAt} placeholder="2026-10-21T18:00:00+04:30" forceLtr/>
+      <TextField label={t("competition.endsAt")} value={endsAt} onChangeText={setEndsAt} placeholder="2026-10-30T21:00:00+04:30" forceLtr/>
+      <TextField label={t("competition.matchDuration")} value={matchDuration} onChangeText={setMatchDuration} keyboardType="number-pad" forceLtr/>
+
+      <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
+        <TextField label={t("competition.winPoints")} value={winPoints} onChangeText={setWinPoints} keyboardType="number-pad" forceLtr containerStyle={{flex:1}}/>
+        <TextField label={t("competition.drawPoints")} value={drawPoints} onChangeText={setDrawPoints} keyboardType="number-pad" forceLtr containerStyle={{flex:1}}/>
+        <TextField label={t("competition.lossPoints")} value={lossPoints} onChangeText={setLossPoints} keyboardType="number-pad" forceLtr containerStyle={{flex:1}}/>
+      </View>
+      <AppText variant="caption" muted>{t("competition.control.tieBreakDefault")}</AppText>
+    </Card>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     <Button label={t("competition.create")} onPress={()=>void submit()} loading={busy} disabled={!name.trim()}/>
