@@ -112,6 +112,8 @@ export default function PaidRoleSubscriptionScreen() {
     }
   }
 
+  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={500}/></Screen>;
+
   return <Screen showHeader>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{title}</AppText>
@@ -153,8 +155,6 @@ export default function PaidRoleSubscriptionScreen() {
     {message ? <Card style={styles.messageCard}>
       <AppText accessibilityRole="alert">{message}</AppText>
     </Card> : null}
-
-    {loading?<DataLoadingState variant="detail"/>:null}
 
     {!loading && !active && !pending ? <Card style={styles.subscribeCard}>
       <AppText variant="bodyLarge" weight="bold">{t("roles.subscribeTitle")}</AppText>
