@@ -61,13 +61,14 @@ export default function EditPlayerProfileScreen(){
     }finally{setBusy(false);}
   }
 
+  if(loading)return <Screen showHeader><DataLoadingState variant="form" minHeight={500}/></Screen>;
+
   return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("teams.profileTitle")}</AppText>
       <AppText muted>{t("teams.profileSubtitle")}</AppText>
     </View>
 
-    {loading?<DataLoadingState variant="form"/>:null}
     {profile?<Card style={{alignItems:"center",paddingVertical:spacing.lg}}>
       {imageUrl?<Image source={{uri:imageUrl}} style={{width:92,height:92,borderRadius:46}}/>:
         <View style={{width:92,height:92,borderRadius:46,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"}}>
