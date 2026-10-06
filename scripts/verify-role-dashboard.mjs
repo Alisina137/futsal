@@ -39,7 +39,7 @@ assert(
     && ownerSchedule < ownerPosts
     && ownerPosts < ownerAnalysis
     && ownerAnalysis < ownerSettings,
-  "Venue Owner dashboard navigation order must be Competitions → Manage Schedule → Posts → Analysis → Venue Settings.",
+  "Venue Owner dashboard navigation order must be Competitions → Venue Time Table → Media → Analysis → Venue Settings.",
 );
 
 assert(home.includes("marketingApi.socialFeed"), "Home must remain the shared social feed.");
