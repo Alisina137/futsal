@@ -71,6 +71,13 @@
       "when": 1791179400000,
       "tag": "0009_password_reset_cooldown",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791265200000,
+      "tag": "0010_paid_role_subscriptions",
+      "breakpoints": true
     }
   ]
 }
