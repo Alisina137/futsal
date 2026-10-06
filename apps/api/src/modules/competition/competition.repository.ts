@@ -2,6 +2,7 @@ import type {
   CompetitionDto,
   CompetitionListItemDto,
   CompetitionMatchDto,
+  CompetitionMediaPostDto,
   CompetitionTeamDto,
 } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
@@ -14,6 +15,8 @@ import {
   competitionTeams,
   playerMatchStats,
   playerProfiles,
+  socialFollows,
+  socialPosts,
   teamMemberships,
   teams,
   users,
@@ -23,7 +26,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, count, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   CompetitionRecord,
@@ -50,6 +53,8 @@ function toRecord(row: typeof competitions.$inferSelect): CompetitionRecord {
     tieBreakOrder: row.tieBreakOrder as CompetitionRecord["tieBreakOrder"],
     groupCount: row.groupCount,
     qualifiersPerGroup: row.qualifiersPerGroup,
+    registrationClosesAt: row.registrationClosesAt,
+    matchDurationMinutes: row.matchDurationMinutes,
     startsAt: row.startsAt,
     endsAt: row.endsAt,
     materialPlayStartedAt: row.materialPlayStartedAt,
@@ -123,6 +128,9 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       seed: competitionTeams.seed,
       groupId: competitionTeams.groupId,
       groupName: competitionGroups.name,
+      feeStatus: competitionTeams.feeStatus,
+      feePaymentReference: competitionTeams.feePaymentReference,
+      feeConfirmedAt: competitionTeams.feeConfirmedAt,
     }).from(competitionTeams)
       .innerJoin(teams, eq(competitionTeams.teamId, teams.id))
       .leftJoin(competitionGroups, eq(competitionTeams.groupId, competitionGroups.id))
@@ -242,6 +250,9 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       seed: team.seed,
       groupId: team.groupId,
       groupName: team.groupName,
+      feeStatus: team.feeStatus,
+      feePaymentReference: team.feePaymentReference,
+      feeConfirmedAt: team.feeConfirmedAt?.toISOString() ?? null,
     }));
 
     const finalMatch = matches
@@ -265,6 +276,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       tieBreakOrder: row.competition.tieBreakOrder as CompetitionDto["tieBreakOrder"],
       groupCount: row.competition.groupCount,
       qualifiersPerGroup: row.competition.qualifiersPerGroup,
+      registrationClosesAt: row.competition.registrationClosesAt?.toISOString() ?? null,
+      matchDurationMinutes: row.competition.matchDurationMinutes,
       startsAt: row.competition.startsAt?.toISOString() ?? null,
       endsAt: row.competition.endsAt?.toISOString() ?? null,
       teams: teamsDto,
@@ -306,6 +319,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         tieBreakOrder: row.competition.tieBreakOrder as CompetitionListItemDto["tieBreakOrder"],
         groupCount: row.competition.groupCount,
         qualifiersPerGroup: row.competition.qualifiersPerGroup,
+        registrationClosesAt: row.competition.registrationClosesAt?.toISOString() ?? null,
+        matchDurationMinutes: row.competition.matchDurationMinutes,
         startsAt: row.competition.startsAt?.toISOString() ?? null,
         endsAt: row.competition.endsAt?.toISOString() ?? null,
         acceptedTeams: Number(accepted?.value ?? 0),
