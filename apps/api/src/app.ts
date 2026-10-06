@@ -6,7 +6,7 @@ import helmet from "helmet";
 import { ZodError } from "zod";
 import { AppError } from "./lib/errors.js";
 import { requireAuth } from "./middleware/auth.js";
-import { createAuthRouter } from "./modules/auth/auth.routes.js";
+import { createAuthRouter, createRoleSubscriptionAdminRouter } from "./modules/auth/auth.routes.js";
 import type { AuthService } from "./modules/auth/auth.service.js";
 import type { TokenService } from "./modules/auth/token.service.js";
 import { createOwnerScheduleRouter, createPlayerBookingRouter, createPublicVenueRouter } from "./modules/booking/booking.routes.js";
@@ -138,6 +138,7 @@ export function createApp(deps: AppDependencies) {
   });
 
   app.use("/api/v1/auth", createAuthRouter(deps.authService, deps.tokenService));
+  app.use("/api/v1/admin", createRoleSubscriptionAdminRouter(deps.authService, deps.tokenService));
   if (deps.ownerService) app.use("/api/v1/owner", createOwnerRouter(deps.ownerService, deps.tokenService));
   if (deps.bookingService) {
     app.use("/api/v1/venues", createPublicVenueRouter(deps.bookingService));
