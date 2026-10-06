@@ -22,9 +22,12 @@ assert(header.includes('href:"/bookings"'), "Hamburger menu must include My Book
 assert(header.includes('href:"/feed"'), "Hamburger menu must include Feed.");
 assert(header.includes('href:"/schedule"'), "Hamburger menu must include owner Schedule.");
 assert(header.includes('href:"/settings"'), "Hamburger menu must include Profile.");
-assert(header.includes('width:"82%"') && header.includes('maxWidth:340'), "Hamburger navigation must render as a side drawer.");
+assert(header.includes('width:286') && header.includes('maxWidth:"82%"'), "Hamburger navigation must use a compact bounded width.");
+assert(header.includes('maxHeight:"86%"'), "Hamburger navigation must cap height without filling the screen.");
+assert(!header.includes('height:"100%"'), "Hamburger navigation must not force full-screen height.");
+assert(header.includes('onPressIn={()=>setMenuOpen(false)}'), "Touching outside the drawer must close the menu immediately.");
 assert(tabs.includes('tabBarStyle:{display:"none"}'), "Bottom tab bar must remain hidden.");
 assert((localization.match(/"navigation\.openMenu"/g) ?? []).length === 3, "Open-menu label must exist in all three languages.");
 assert((localization.match(/"navigation\.closeMenu"/g) ?? []).length === 3, "Close-menu label must exist in all three languages.");
 
-console.log("Mobile header navigation verified: hamburger left, profile right, drawer destinations present, and bottom tabs hidden.");
+console.log("Mobile header navigation verified: hamburger left, profile right, compact dismissible drawer, destinations present, and bottom tabs hidden.");
