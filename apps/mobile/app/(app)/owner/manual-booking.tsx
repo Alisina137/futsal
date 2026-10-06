@@ -8,6 +8,7 @@ import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
+import { OwnerTopNav } from "../../../src/components/owner/OwnerTopNav";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -34,9 +35,10 @@ export default function ManualBookingScreen(){
     else setError(t("schedule.manualError"));
   }finally{setBusy(false);}}
 
-  if(loading)return <Screen><DataLoadingState variant="form" minHeight={500}/></Screen>;
+  if(loading)return <Screen><OwnerTopNav/><DataLoadingState variant="form" minHeight={500}/></Screen>;
 
   return <Screen>
+    <OwnerTopNav/>
     <AppText variant="title" weight="bold">{t("schedule.manualTitle")}</AppText>
     <Card>
       <AppText weight="semibold">{t("schedule.area")}</AppText>
