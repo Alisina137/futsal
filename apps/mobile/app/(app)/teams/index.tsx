@@ -14,6 +14,7 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 export default function MyTeamsScreen(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
+  const teamOwner=session?.user.roles.includes("TEAM_MANAGER")??false;
   const [teams,setTeams]=useState<TeamListItemDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -41,7 +42,11 @@ export default function MyTeamsScreen(){
     </View>
 
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
-      <Button label={t("teams.create")} onPress={()=>router.push("/teams/create")} style={{flex:1}}/>
+      <Button
+        label={teamOwner?t("teams.create"):t("roles.viewSubscription")}
+        onPress={()=>router.push(teamOwner?"/teams/create":"/role-subscriptions/team-owner")}
+        style={{flex:1}}
+      />
       <Button label={t("teams.invitationsTitle")} onPress={()=>router.push("/teams/invitations")} variant="secondary" style={{flex:1}}/>
     </View>
 
