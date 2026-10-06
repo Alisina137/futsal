@@ -7,6 +7,7 @@ import { ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -26,6 +27,8 @@ export default function OwnerScheduleScreen(){
 
   async function cancelBooking(id:string){if(!session)return;try{await ownerApi.cancelBooking(session.accessToken,id);await load();}catch{setError(t("schedule.cancelError"));}}
   async function unblock(id:string){if(!session)return;try{await ownerApi.deleteBlock(session.accessToken,id);await load();}catch{setError(t("schedule.unblockError"));}}
+
+  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={460}/></Screen>;
 
   return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
