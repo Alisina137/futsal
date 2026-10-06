@@ -46,7 +46,7 @@ const auth = new AuthService(authRepository, tokens, {
   exposePasswordResetCode: env.NODE_ENV !== "production" && env.PASSWORD_RESET_DEV_MODE,
   ...(env.PASSWORD_RESET_SMS_WEBHOOK_URL ? { deliverPasswordResetCode } : {}),
 });
-tokens.setAccessValidator(async (userId) => (await authRepository.getUserById(userId))?.status === "ACTIVE");
+tokens.setAccessValidator(async (userId) => (await authRepository.getUserById(userId))?.status ?? null);
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
 const notificationRepository = new DrizzleNotificationRepository(db);
 const notificationService = new NotificationService(notificationRepository);
