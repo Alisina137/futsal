@@ -17,7 +17,7 @@ function setup(options?:{subscriptionStatus?:"TRIAL"|"ACTIVE"|"EXPIRED"|"CANCELL
 }
 
 function input(overrides:Partial<CompetitionCreateRequest>={}):CompetitionCreateRequest{
-  return {
+  const base:CompetitionCreateRequest={
     name:"Kabul League",
     description:"City futsal league",
     format:"LEAGUE" as const,
@@ -33,8 +33,8 @@ function input(overrides:Partial<CompetitionCreateRequest>={}):CompetitionCreate
     matchDurationMinutes:60,
     startsAt:null,
     endsAt:null,
-    ...overrides,
   };
+  return {...base,...overrides};
 }
 
 describe("Phase 6 competition setup and registration",()=>{
