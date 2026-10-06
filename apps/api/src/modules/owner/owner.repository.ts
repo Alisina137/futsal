@@ -4,12 +4,13 @@ import {
   venueAreas,
   venueOpeningHours,
   venueSubscriptions,
+  roleSubscriptions,
   venueReferees,
   venueTrialClaims,
   venues,
   users,
 } from "@leaguekick/database";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, gt, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { OwnerAggregate, OwnerOnboardingRepository, OwnerSubscriptionRecord, OwnerVenueRecord } from "./owner.types.js";
 
@@ -144,6 +145,37 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
         opensAt: hour.isClosed ? null : hour.opensAt,
         closesAt: hour.isClosed ? null : hour.closesAt,
       })));
+
+      const [paidOwner] = await tx.select({ activeUntil: roleSubscriptions.activeUntil })
+        .from(roleSubscriptions)
+        .where(and(
+          eq(roleSubscriptions.userId, input.ownerUserId),
+          eq(roleSubscriptions.role, "VENUE_OWNER"),
+          eq(roleSubscriptions.status, "ACTIVE"),
+          gt(roleSubscriptions.activeUntil, input.completedAt),
+        ))
+        .limit(1);
+      if (paidOwner?.activeUntil) {
+        await tx.insert(venueSubscriptions).values({
+          venueId,
+          status: "ACTIVE",
+          trialStartedAt: null,
+          trialEndsAt: null,
+          activeUntil: paidOwner.activeUntil,
+          cancelledAt: null,
+          updatedAt: input.completedAt,
+        }).onConflictDoUpdate({
+          target: venueSubscriptions.venueId,
+          set: {
+            status: "ACTIVE",
+            trialStartedAt: null,
+            trialEndsAt: null,
+            activeUntil: paidOwner.activeUntil,
+            cancelledAt: null,
+            updatedAt: input.completedAt,
+          },
+        });
+      }
     });
 
     const aggregate = await this.getByOwnerId(input.ownerUserId);
