@@ -59,6 +59,7 @@ export type CompetitionTeamRecord = {
 
 export interface CompetitionRepository {
   getOwnerVenue(ownerUserId: string): Promise<CompetitionVenueRecord | null>;
+  isVenueReferee(venueId: string, userId: string): Promise<boolean>;
   getCompetitionRecord(competitionId: string): Promise<CompetitionRecord | null>;
   getCompetitionDto(competitionId: string): Promise<CompetitionDto | null>;
   listOwnerCompetitions(ownerUserId: string): Promise<CompetitionListItemDto[]>;
@@ -180,6 +181,7 @@ export interface CompetitionRepository {
     areaId: string;
     startsAt: Date;
     endsAt: Date;
+    refereeUserId: string | null;
     updatedAt: Date;
   }): Promise<void>;
 }
