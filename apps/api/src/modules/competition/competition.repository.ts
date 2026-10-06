@@ -517,6 +517,96 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     return Boolean(row);
   }
 
+  async updateTeamFee(input: Parameters<CompetitionRepository["updateTeamFee"]>[0]) {
+    const confirmed = input.status === "PAID" || input.status === "WAIVED";
+    await this.db.update(competitionTeams).set({
+      feeStatus: input.status,
+      feePaymentReference: input.paymentReference,
+      feeConfirmedAt: confirmed ? input.now : null,
+      feeConfirmedByUserId: confirmed ? input.ownerUserId : null,
+      updatedAt: input.now,
+    }).where(and(
+      eq(competitionTeams.competitionId, input.competitionId),
+      eq(competitionTeams.teamId, input.teamId),
+    ));
+    return this.getRegistration(input.competitionId, input.teamId);
+  }
+
+  async listCompetitionMedia(competitionId: string, includeUnpublished: boolean): Promise<CompetitionMediaPostDto[]> {
+    const rows = await this.db.select().from(socialPosts)
+      .where(and(
+        eq(socialPosts.entityType, "COMPETITION"),
+        eq(socialPosts.entityId, competitionId),
+      ))
+      .orderBy(desc(socialPosts.publishedAt));
+    return rows
+      .filter((row) => includeUnpublished || row.status === "PUBLISHED")
+      .map((row) => ({
+        id: row.id,
+        competitionId,
+        body: row.body,
+        imageUrl: row.imageUrl,
+        status: row.status,
+        publishedAt: row.publishedAt.toISOString(),
+        unpublishedAt: row.unpublishedAt?.toISOString() ?? null,
+      }));
+  }
+
+  async createCompetitionMediaPost(input: Parameters<CompetitionRepository["createCompetitionMediaPost"]>[0]) {
+    const [created] = await this.db.insert(socialPosts).values({
+      entityType: "COMPETITION",
+      entityId: input.competitionId,
+      createdByUserId: input.ownerUserId,
+      body: input.body,
+      imageUrl: input.imageUrl,
+      status: "PUBLISHED",
+      publishedAt: input.now,
+      createdAt: input.now,
+      updatedAt: input.now,
+    }).returning();
+    if (!created) throw new Error("Competition media post could not be created.");
+    return {
+      id: created.id,
+      competitionId: input.competitionId,
+      body: created.body,
+      imageUrl: created.imageUrl,
+      status: created.status,
+      publishedAt: created.publishedAt.toISOString(),
+      unpublishedAt: created.unpublishedAt?.toISOString() ?? null,
+    };
+  }
+
+  async setCompetitionMediaStatus(input: Parameters<CompetitionRepository["setCompetitionMediaStatus"]>[0]) {
+    const [updated] = await this.db.update(socialPosts).set({
+      status: input.published ? "PUBLISHED" : "UNPUBLISHED",
+      ...(input.published ? { publishedAt: input.now, unpublishedAt: null } : { unpublishedAt: input.now }),
+      updatedAt: input.now,
+    }).where(and(
+      eq(socialPosts.id, input.postId),
+      eq(socialPosts.entityType, "COMPETITION"),
+      eq(socialPosts.entityId, input.competitionId),
+    )).returning();
+    if (!updated) return null;
+    return {
+      id: updated.id,
+      competitionId: input.competitionId,
+      body: updated.body,
+      imageUrl: updated.imageUrl,
+      status: updated.status,
+      publishedAt: updated.publishedAt.toISOString(),
+      unpublishedAt: updated.unpublishedAt?.toISOString() ?? null,
+    };
+  }
+
+  async listCompetitionFollowerUserIds(competitionId: string) {
+    const rows = await this.db.select({ userId: socialFollows.userId }).from(socialFollows)
+      .where(and(
+        eq(socialFollows.entityType, "COMPETITION"),
+        eq(socialFollows.entityId, competitionId),
+      ));
+    return rows.map((row) => row.userId);
+  }
+
 
   async replaceGroupStage(
     competitionId: string,
