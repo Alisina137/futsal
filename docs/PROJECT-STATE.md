@@ -33,7 +33,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Normal authenticated accounts can discover and reserve venues without buying a role. The only self-service paid management subscriptions are Venue Owner (1000 AFN/month) and Team Owner / `TEAM_MANAGER` (300 AFN/month); payment confirmation gates role activation.
 - Profile is the single mobile surface for account identity and the two paid management subscriptions. Venue referees are scoped to one venue, while team players are scoped through team membership rather than global paid account roles.
 - Account Profile supports optional full name, HTTPS profile image, age, email, city and short bio; these remain private account fields and do not automatically become public Player Profile data.
-- Home is the shared personalized social feed for all account types: it shows posts from followed Venues, Teams, and Competitions and supports author/profile navigation, Like, inline Comments, and native Share. Role-specific operational content is accessed from Dashboard instead of replacing Home.
+- Home is the shared personalized social feed for all account types: it shows posts from followed Venues, Teams, and Competitions and supports author/profile navigation, post Like, dedicated Facebook-style Comments, and native Share. Comments support add, edit/delete own comment, and like/unlike comments. Role-specific operational content is accessed from Dashboard instead of replacing Home.
 - Normal User Teams is a directory of all ACTIVE teams, not a "My Teams" workspace. Users can open any team profile and send one pending join request; membership/Player access is granted only after the Team Owner accepts.
 - Six role-demo accounts are standardized by `pnpm db:seed:roles`: `shams` Normal User, `abdul` Player, `mahdi` Venue Owner, `alisina` Team Owner, `Saeed` Referee, and `ali` Platform Admin. The seeder requires those login accounts to already exist and never changes passwords.
 - Normal User `Teams` page is an all-active-team directory, not “My Teams”. Each team can be opened for its public/profile information; non-members can send a join request and see a pending state until the Team Owner responds.
@@ -472,3 +472,5 @@ Pilot signoff still requires a real preview APK/device run of the critical E2E m
 
 ## Next phase
 Pilot release / launch signoff after the Phase 8 live-device and operations checklist passes.
+
+- Public Venue and Team pages use profile-style presentation for social-post author navigation, with clearer identity, follower/member facts, actions, and structured content sections.
