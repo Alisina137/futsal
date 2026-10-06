@@ -767,6 +767,9 @@ export type TeamMembershipStatus = z.infer<typeof teamMembershipStatusSchema>;
 export const teamInvitationStatusSchema = z.enum(["PENDING", "ACCEPTED", "DECLINED", "REVOKED", "EXPIRED"]);
 export type TeamInvitationStatus = z.infer<typeof teamInvitationStatusSchema>;
 
+export const teamJoinRequestStatusSchema = z.enum(["PENDING", "ACCEPTED", "REJECTED", "CANCELLED"]);
+export type TeamJoinRequestStatus = z.infer<typeof teamJoinRequestStatusSchema>;
+
 export const playerProfileUpdateRequestSchema = z.object({
   publicDisplayName: z.string().trim().min(2).max(80).optional(),
   imageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
@@ -842,6 +845,23 @@ export type TeamDto = z.infer<typeof teamDtoSchema>;
 
 export const teamListItemDtoSchema = teamDtoSchema.omit({ members: true });
 export type TeamListItemDto = z.infer<typeof teamListItemDtoSchema>;
+
+export const teamDirectoryItemDtoSchema = teamListItemDtoSchema.extend({
+  membershipRole: teamMemberRoleSchema.nullable(),
+  joinRequestStatus: teamJoinRequestStatusSchema.nullable(),
+});
+export type TeamDirectoryItemDto = z.infer<typeof teamDirectoryItemDtoSchema>;
+
+export const teamJoinRequestDtoSchema = z.object({
+  id: z.string().uuid(),
+  teamId: z.string().uuid(),
+  teamName: z.string(),
+  userId: z.string().uuid(),
+  status: teamJoinRequestStatusSchema,
+  createdAt: isoDateTimeSchema,
+  respondedAt: isoDateTimeSchema.nullable(),
+});
+export type TeamJoinRequestDto = z.infer<typeof teamJoinRequestDtoSchema>;
 
 export const teamJoinRequestStatusSchema = z.enum(["PENDING", "ACCEPTED", "REJECTED", "CANCELLED"]);
 export type TeamJoinRequestStatus = z.infer<typeof teamJoinRequestStatusSchema>;
