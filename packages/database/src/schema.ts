@@ -51,7 +51,6 @@ export const teamMemberRoleEnum = pgEnum("team_member_role", ["MANAGER", "CAPTAI
 export const teamMembershipStatusEnum = pgEnum("team_membership_status", ["ACTIVE", "REMOVED"]);
 export const teamInvitationStatusEnum = pgEnum("team_invitation_status", ["PENDING", "ACCEPTED", "DECLINED", "REVOKED", "EXPIRED"]);
 export const teamJoinRequestStatusEnum = pgEnum("team_join_request_status", ["PENDING", "ACCEPTED", "REJECTED", "CANCELLED"]);
-export const teamJoinRequestStatusEnum = pgEnum("team_join_request_status", ["PENDING", "ACCEPTED", "REJECTED", "CANCELLED"]);
 export const competitionFormatEnum = pgEnum("competition_format", ["LEAGUE", "KNOCKOUT", "GROUP_KNOCKOUT"]);
 export const competitionStatusEnum = pgEnum("competition_status", ["DRAFT", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "ARCHIVED", "CANCELLED"]);
 export const competitionRegistrationStatusEnum = pgEnum("competition_registration_status", ["INVITED", "APPLIED", "PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN"]);
@@ -588,25 +587,6 @@ export const teamInvitations = pgTable(
       .where(sql`${table.status} = 'PENDING'`),
     index("team_invitations_invited_status_idx").on(table.invitedUserId, table.status),
     index("team_invitations_team_status_idx").on(table.teamId, table.status),
-  ],
-);
-
-
-export const teamJoinRequests = pgTable(
-  "team_join_requests",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    status: teamJoinRequestStatusEnum("status").notNull().default("PENDING"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    respondedAt: timestamp("responded_at", { withTimezone: true }),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex("team_join_requests_team_user_uq").on(table.teamId, table.userId),
-    index("team_join_requests_team_status_idx").on(table.teamId, table.status),
-    index("team_join_requests_user_status_idx").on(table.userId, table.status),
   ],
 );
 
