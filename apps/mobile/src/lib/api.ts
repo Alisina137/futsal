@@ -483,6 +483,12 @@ export const competitionApi = {
       { method: "POST", body: JSON.stringify(input) },
       accessToken,
     ),
+  duplicate: (accessToken: string, competitionId: string) =>
+    request<{ competition: CompetitionDto }>(
+      `/api/v1/owner/competitions/${competitionId}/duplicate`,
+      { method: "POST" },
+      accessToken,
+    ),
   update: (accessToken: string, competitionId: string, input: CompetitionUpdateRequest) =>
     request<{ competition: CompetitionDto }>(
       `/api/v1/owner/competitions/${competitionId}`,
@@ -554,6 +560,12 @@ export const competitionApi = {
     request<{ registration: CompetitionTeamDto | null }>(
       `/api/v1/owner/competitions/${competitionId}/registrations/${teamId}`,
       { method: "PATCH", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  removeTeam: (accessToken: string, competitionId: string, teamId: string) =>
+    request<{ registration: CompetitionTeamDto | null }>(
+      `/api/v1/owner/competitions/${competitionId}/registrations/${teamId}`,
+      { method: "DELETE" },
       accessToken,
     ),
   updateFee: (
