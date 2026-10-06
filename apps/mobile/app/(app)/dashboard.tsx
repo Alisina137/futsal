@@ -74,7 +74,7 @@ export default function DashboardScreen() {
         ? {
             title: t("dashboard.refereeTitle"),
             body: t("dashboard.refereeBody"),
-            icon: "whistle-outline" as const,
+            icon: "flag-outline" as const,
             actionLabel: t("competition.title"),
             action: () => router.push("/competitions"),
           }
