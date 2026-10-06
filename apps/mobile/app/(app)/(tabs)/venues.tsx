@@ -6,6 +6,7 @@ import { Pressable, View } from "react-native";
 import { venueApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { Button } from "../../../src/components/ui/Button";
@@ -26,6 +27,8 @@ export default function VenuesScreen(){
   },[city,t]);
 
   useEffect(()=>{void load();},[]);
+
+  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={460}/></Screen>;
 
   return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
