@@ -14,7 +14,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
-    "verify": "pnpm verify:admin-web && pnpm verify:suspension && pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:mobile-rtl && pnpm verify:navigation && pnpm verify:normal-user && pnpm verify:team-directory && pnpm verify:role-demo && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
+    "verify": "pnpm verify:admin-web && pnpm verify:suspension && pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:mobile-rtl && pnpm verify:navigation && pnpm verify:role-dashboard && pnpm verify:normal-user && pnpm verify:team-directory && pnpm verify:role-demo && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "pnpm --filter @leaguekick/database db:generate",
     "db:migrate": "pnpm --dir packages/database run db:migrate",
     "verify:phase3": "node scripts/verify-phase3-resilience.mjs",
@@ -33,7 +33,8 @@
     "verify:normal-user": "node scripts/verify-normal-user-social.mjs",
     "verify:team-directory": "node scripts/verify-normal-user-team-directory.mjs",
     "db:seed:roles": "pnpm --dir packages/database run db:seed:roles",
-    "verify:role-demo": "node scripts/verify-role-demo-seed.mjs"
+    "verify:role-demo": "node scripts/verify-role-demo-seed.mjs",
+    "verify:role-dashboard": "node scripts/verify-role-dashboard.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
