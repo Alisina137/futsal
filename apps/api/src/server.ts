@@ -75,6 +75,7 @@ const app = createApp({
   teamService,
   competitionService,
   commercialService,
+  trustProxyHops: env.TRUST_PROXY_HOPS,
   corsOrigin: env.CORS_ORIGIN,
   appVersion: env.APP_VERSION,
   requestLogging: env.REQUEST_LOGGING,
