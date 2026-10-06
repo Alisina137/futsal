@@ -16,6 +16,10 @@ import { useLocale } from "../../../../src/providers/LocaleProvider";
 type Filter="ALL"|CompetitionStatus;
 const filters:Filter[]=["ALL","DRAFT","REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS","COMPLETED","ARCHIVED","CANCELLED"];
 
+function compactLabel(value:string){
+  return value.replace(/\s*\([^)]*\)\s*$/u,"");
+}
+
 export default function OwnerCompetitionListScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
@@ -93,44 +97,92 @@ export default function OwnerCompetitionListScreen(){
     {visible.map((item)=>{
       const starts=item.startsAt?formatLocalDateTimeParts(item.startsAt,language):null;
       const deadline=item.registrationClosesAt?formatLocalDateTimeParts(item.registrationClosesAt,language):null;
+      const feeLabel=compactLabel(t("competition.registrationFee"));
+      const deadlineLabel=compactLabel(t("competition.registrationDeadline"));
+      const startsLabel=compactLabel(t("competition.startsAt"));
       return <Pressable
         key={item.id}
         onPress={()=>router.push({pathname:"/owner/competitions/[competitionId]/manage",params:{competitionId:item.id}})}
-        style={({pressed})=>pressed?{opacity:.76}:undefined}
+        style={({pressed})=>[styles.cardPressable,pressed&&styles.cardPressed]}
       >
         <Card style={styles.competitionCard}>
-          <View style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"flex-start",gap:spacing.sm}}>
+          <View style={[styles.cardHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <View style={styles.icon}>
-              <Ionicons name="trophy-outline" size={22} color={colors.primary}/>
+              <Ionicons name="trophy-outline" size={23} color={colors.primary}/>
             </View>
-            <View style={{flex:1,gap:4,alignItems:isRTL?"flex-end":"flex-start"}}>
-              <AppText variant="bodyLarge" weight="bold">{item.name}</AppText>
-              <AppText variant="caption" muted>{t(`competition.format.${item.format}` as never)}</AppText>
+
+            <View style={[styles.titleBlock,{alignItems:isRTL?"flex-end":"flex-start"}]}>
+              <AppText variant="bodyLarge" weight="bold" numberOfLines={2} style={{textAlign:isRTL?"right":"left"}}>
+                {item.name}
+              </AppText>
+              <View style={styles.formatBadge}>
+                <AppText variant="caption" weight="semibold" style={{color:colors.textMuted}}>
+                  {t(`competition.format.${item.format}` as never)}
+                </AppText>
+              </View>
             </View>
+
             <View style={styles.statusBadge}>
-              <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+              <AppText variant="caption" weight="bold" numberOfLines={1} style={{color:colors.primary}}>
                 {t(`competition.status.${item.status}` as never)}
               </AppText>
             </View>
           </View>
 
-          <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
-            <View style={{flex:1}}>
-              <AppText variant="caption" muted>{t("competition.control.teams")}</AppText>
-              <AppText weight="semibold">{item.acceptedTeams}/{item.maxTeams}</AppText>
+          <View style={styles.cardDivider}/>
+
+          <View style={[styles.metricsRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={[styles.metricItem,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <View style={styles.metricIcon}>
+                <Ionicons name="people-outline" size={18} color={colors.primary}/>
+              </View>
+              <View style={[styles.metricText,{alignItems:isRTL?"flex-end":"flex-start"}]}>
+                <AppText variant="caption" muted>{t("competition.control.teams")}</AppText>
+                <AppText weight="bold" forceLtr>{item.acceptedTeams}/{item.maxTeams}</AppText>
+              </View>
             </View>
-            <View style={{flex:1}}>
-              <AppText variant="caption" muted>{t("competition.registrationFee")}</AppText>
-              <AppText weight="semibold">{item.registrationFeeAfn} AFN</AppText>
+
+            <View style={styles.metricSeparator}/>
+
+            <View style={[styles.metricItem,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <View style={styles.metricIcon}>
+                <Ionicons name="cash-outline" size={18} color={colors.primary}/>
+              </View>
+              <View style={[styles.metricText,{alignItems:isRTL?"flex-end":"flex-start"}]}>
+                <AppText variant="caption" muted>{feeLabel}</AppText>
+                <AppText weight="bold" forceLtr>{item.registrationFeeAfn} AFN</AppText>
+              </View>
             </View>
           </View>
 
-          {deadline?<AppText variant="caption" muted>{t("competition.registrationDeadline")}: {deadline.date} · {deadline.time}</AppText>:null}
-          {starts?<AppText variant="caption" muted>{t("competition.startsAt")}: {starts.date} · {starts.time}</AppText>:null}
+          {deadline||starts?<View style={styles.schedulePanel}>
+            {deadline?<View style={[styles.scheduleRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name="time-outline" size={18} color={colors.textMuted}/>
+              <View style={[styles.scheduleText,{alignItems:isRTL?"flex-end":"flex-start"}]}>
+                <AppText variant="caption" muted>{deadlineLabel}</AppText>
+                <AppText variant="caption" weight="semibold">{deadline.date} · {deadline.time}</AppText>
+              </View>
+            </View>:null}
 
-          <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",alignItems:"center"}}>
-            <AppText variant="caption" muted>{item.published?t("competition.control.public"):t("competition.control.private")}</AppText>
-            <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={20} color={colors.textMuted}/>
+            {starts?<View style={[styles.scheduleRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name="calendar-outline" size={18} color={colors.textMuted}/>
+              <View style={[styles.scheduleText,{alignItems:isRTL?"flex-end":"flex-start"}]}>
+                <AppText variant="caption" muted>{startsLabel}</AppText>
+                <AppText variant="caption" weight="semibold">{starts.date} · {starts.time}</AppText>
+              </View>
+            </View>:null}
+          </View>:null}
+
+          <View style={[styles.cardFooter,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={[styles.visibilityBadge,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name={item.published?"globe-outline":"lock-closed-outline"} size={15} color={item.published?colors.success:colors.textMuted}/>
+              <AppText variant="caption" weight="semibold" style={{color:item.published?colors.success:colors.textMuted}}>
+                {item.published?t("competition.control.public"):t("competition.control.private")}
+              </AppText>
+            </View>
+            <View style={styles.openIcon}>
+              <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={19} color={colors.primary}/>
+            </View>
           </View>
         </Card>
       </Pressable>;
@@ -160,7 +212,67 @@ const styles=StyleSheet.create({
     backgroundColor:colors.surface,
   },
   filterActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
-  competitionCard:{gap:spacing.md},
-  icon:{width:42,height:42,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
-  statusBadge:{paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill,backgroundColor:colors.primarySoft},
+  cardPressable:{borderRadius:radius.lg},
+  cardPressed:{opacity:.76},
+  competitionCard:{
+    gap:spacing.md,
+    padding:spacing.md,
+    borderWidth:1,
+    borderColor:colors.border,
+  },
+  cardHeader:{alignItems:"flex-start",gap:spacing.sm},
+  icon:{
+    width:44,
+    height:44,
+    borderRadius:14,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:colors.primarySoft,
+  },
+  titleBlock:{flex:1,minWidth:0,gap:6},
+  formatBadge:{
+    alignSelf:"flex-start",
+    paddingHorizontal:spacing.sm,
+    paddingVertical:3,
+    borderRadius:radius.pill,
+    backgroundColor:colors.surfaceMuted,
+  },
+  statusBadge:{
+    maxWidth:118,
+    paddingHorizontal:spacing.sm,
+    paddingVertical:6,
+    borderRadius:radius.pill,
+    backgroundColor:colors.primarySoft,
+  },
+  cardDivider:{height:1,backgroundColor:colors.border},
+  metricsRow:{alignItems:"stretch",gap:spacing.sm},
+  metricItem:{flex:1,alignItems:"center",gap:spacing.sm,minWidth:0},
+  metricIcon:{
+    width:34,
+    height:34,
+    borderRadius:11,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:colors.primarySoft,
+  },
+  metricText:{flex:1,minWidth:0,gap:2},
+  metricSeparator:{width:1,backgroundColor:colors.border},
+  schedulePanel:{
+    gap:spacing.sm,
+    padding:spacing.sm,
+    borderRadius:radius.md,
+    backgroundColor:colors.surfaceMuted,
+  },
+  scheduleRow:{alignItems:"center",gap:spacing.sm},
+  scheduleText:{flex:1,minWidth:0,gap:2},
+  cardFooter:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  visibilityBadge:{alignItems:"center",gap:spacing.xs},
+  openIcon:{
+    width:34,
+    height:34,
+    borderRadius:17,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:colors.primarySoft,
+  },
 });
