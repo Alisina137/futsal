@@ -61,9 +61,11 @@ Exercise each journey on the preview APK against a pilot API/database:
 
 ## Resilience / low connectivity
 
-- Start offline with a previously stored authenticated session: network failure must not clear the session.
-- Verify the offline banner is announced and visible.
-- Reconnect and verify the back-online state.
+> Expo Go is a development shell that depends on Metro/Expo CLI. Its own developer warning can appear when the device loses the development connection, and a true cold start with no network cannot be treated as a standalone-app offline test. Use the preview APK for the authoritative close-app → reopen-offline validation.
+
+- While the Expo development app is already running, disconnect the device and verify the app-owned offline banner appears instead of an Expo CLI LogBox warning.
+- Reconnect and verify the localized back-online state.
+- On the preview APK, start offline with a previously stored authenticated session: network failure must not clear the session.
 - Force a GET timeout/503 and confirm the client performs at most one bounded read retry.
 - Force a booking/write timeout and confirm the client does not automatically replay the write.
 - Verify Support & diagnostics reports only safe information and a request ID when available.
