@@ -312,8 +312,8 @@ export const platformSettings = pgTable(
   "platform_settings",
   {
     id: varchar("id", { length: 20 }).primaryKey().default("default"),
-    monthlyPriceAfn: integer("monthly_price_afn").notNull().default(1500),
-    annualPriceAfn: integer("annual_price_afn").notNull().default(15000),
+    monthlyPriceAfn: integer("monthly_price_afn").notNull().default(1000),
+    annualPriceAfn: integer("annual_price_afn").notNull().default(12000),
     trialDurationHours: integer("trial_duration_hours").notNull().default(72),
     featureFlags: jsonb("feature_flags").$type<Record<string, boolean>>().notNull().default({}),
     notificationTemplates: jsonb("notification_templates").$type<Record<string, string>>().notNull().default({}),
