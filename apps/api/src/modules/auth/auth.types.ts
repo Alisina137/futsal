@@ -75,7 +75,7 @@ export interface AuthRepository {
   createUser(input: CreateUserInput): Promise<AuthUserRecord>;
   addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord>;
   getRoleSubscriptionOffers(userId: string, prices: Record<PaidRole, number>, now: Date): Promise<RoleSubscriptionOfferDto[]>;
-  requestRoleSubscription(userId: string, role: PaidRole, monthlyPriceAfn: number, now: Date): Promise<RoleSubscriptionOfferDto>;
+  requestRoleSubscription(userId: string, role: PaidRole, monthlyPriceAfn: number, paymentReference: string | null, now: Date): Promise<RoleSubscriptionOfferDto>;
   listAdminRoleSubscriptions(now: Date): Promise<AdminRoleSubscriptionDto[]>;
   activateRoleSubscription(input: {
     actorUserId: string;
