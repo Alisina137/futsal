@@ -48,3 +48,9 @@ CREATE TABLE IF NOT EXISTS "venue_referees" (
 );
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "venue_referees_user_idx" ON "venue_referees" ("user_id");
+--> statement-breakpoint
+UPDATE "platform_settings"
+SET "monthly_price_afn" = 1000,
+    "annual_price_afn" = 12000,
+    "updated_at" = now()
+WHERE "id" = 'default';
