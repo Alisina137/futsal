@@ -62,4 +62,11 @@ export interface NotificationPublisher {
     teamId: string;
     teamName: string;
   }): Promise<void>;
+  competitionUpdate(input: {
+    competitionId: string;
+    title: string;
+    body: string;
+    userIds: string[];
+    dedupeKey: string;
+  }): Promise<void>;
 }
