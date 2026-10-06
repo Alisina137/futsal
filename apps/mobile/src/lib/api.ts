@@ -45,9 +45,11 @@ import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
   TeamCreateRequest,
+  TeamDirectoryItemDto,
   TeamDto,
   TeamInvitationDto,
   TeamInviteRequest,
+  TeamJoinRequestDto,
   TeamListItemDto,
   TeamUpdateRequest,
   PlayerProfileUpdateRequest,
@@ -346,8 +348,14 @@ export const teamApi = {
     request<{ player: OwnPlayerProfileDto }>("/api/v1/players/me", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
   publicPlayer: (playerId: string) =>
     request<{ player: PublicPlayerProfileDto }>(`/api/v1/players/${playerId}`),
+  directory: (accessToken: string) =>
+    request<{ teams: TeamDirectoryItemDto[] }>("/api/v1/teams", {}, accessToken),
   mine: (accessToken: string) =>
     request<{ teams: TeamListItemDto[] }>("/api/v1/teams/mine", {}, accessToken),
+  joinRequest: (accessToken: string, teamId: string) =>
+    request<{ request: TeamJoinRequestDto | null }>(`/api/v1/teams/${teamId}/join-request`, {}, accessToken),
+  requestJoin: (accessToken: string, teamId: string) =>
+    request<{ request: TeamJoinRequestDto }>(`/api/v1/teams/${teamId}/join-request`, { method: "POST" }, accessToken),
   create: (accessToken: string, input: TeamCreateRequest) =>
     request<{ team: TeamDto }>("/api/v1/teams", { method: "POST", body: JSON.stringify(input) }, accessToken),
   publicTeam: (teamId: string) =>
