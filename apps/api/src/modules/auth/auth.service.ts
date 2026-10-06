@@ -9,8 +9,10 @@ import type {
   PasswordResetRequestResponse,
   PasswordResetVerifyRequest,
   PasswordResetVerifyResponse,
+  AdminRoleSubscriptionActivationRequest,
+  PaidRole,
   RegisterRequest,
-  SelfAssignableRole,
+  RoleSubscriptionOfferDto,
 } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone, normalizeUsername } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
@@ -120,15 +122,52 @@ export class AuthService {
     return this.createAuthResponse(user, deviceLabel);
   }
 
-  async activateSelfRole(userId: string, role: SelfAssignableRole) {
+  private readonly paidRolePrices: Record<PaidRole, number> = {
+    VENUE_OWNER: 1000,
+    TEAM_MANAGER: 300,
+  };
+
+  async roleSubscriptions(userId: string): Promise<RoleSubscriptionOfferDto[]> {
     const user = await this.repository.getUserById(userId);
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
     this.ensureActive(user);
+    return this.repository.getRoleSubscriptionOffers(userId, this.paidRolePrices, new Date());
+  }
 
-    const roles = role === "TEAM_MANAGER"
-      ? (["PLAYER", "TEAM_MANAGER"] as const)
-      : ([role] as const);
-    return toUserDto(await this.repository.addRoles(userId, [...roles]));
+  async requestRoleSubscription(userId: string, role: PaidRole): Promise<RoleSubscriptionOfferDto> {
+    const user = await this.repository.getUserById(userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    this.ensureActive(user);
+    return this.repository.requestRoleSubscription(userId, role, this.paidRolePrices[role], new Date());
+  }
+
+  async adminRoleSubscriptions() {
+    return this.repository.listAdminRoleSubscriptions(new Date());
+  }
+
+  async activatePaidRoleSubscription(
+    actorUserId: string,
+    userId: string,
+    role: PaidRole,
+    input: AdminRoleSubscriptionActivationRequest,
+  ) {
+    const actor = await this.repository.getUserById(actorUserId);
+    if (!actor || !actor.roles.includes("PLATFORM_ADMIN")) {
+      throw errors.forbidden("ROLE_REQUIRED", "Platform admin access is required.");
+    }
+    const target = await this.repository.getUserById(userId);
+    if (!target) throw errors.badRequest("USER_NOT_FOUND", "User not found.");
+    this.ensureActive(target);
+
+    return toUserDto(await this.repository.activateRoleSubscription({
+      actorUserId,
+      userId,
+      role,
+      monthlyPriceAfn: this.paidRolePrices[role],
+      months: input.months,
+      paymentReference: input.paymentReference?.trim() || null,
+      now: new Date(),
+    }));
   }
 
   async updateProfile(userId: string, input: AccountProfileUpdateRequest) {
