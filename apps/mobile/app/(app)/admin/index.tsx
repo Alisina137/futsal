@@ -3,6 +3,7 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type {
   AdminAuditLogDto,
   AdminDashboardResponse,
+  AdminRoleSubscriptionDto,
   AdminUserDto,
   AdminVenueDto,
   PlatformSettingsDto,
@@ -57,6 +58,7 @@ export default function AdminScreen() {
   const [audit, setAudit] = useState<AdminAuditLogDto[]>([]);
   const [settings, setSettings] = useState<PlatformSettingsDto | null>(null);
   const [payments, setPayments] = useState<SubscriptionPaymentDto[]>([]);
+  const [roleSubscriptions, setRoleSubscriptions] = useState<AdminRoleSubscriptionDto[]>([]);
   const [paymentVenueId, setPaymentVenueId] = useState("");
 
   const [query, setQuery] = useState("");
@@ -107,6 +109,7 @@ export default function AdminScreen() {
     await Promise.all([
       loadPart("dashboard", () => adminApi.dashboard(token), setDashboard),
       loadPart("users", () => adminApi.users(token, query), (data) => setUsers(data.users)),
+      loadPart("role subscriptions", () => adminApi.roleSubscriptions(token), (data) => setRoleSubscriptions(data.subscriptions)),
       loadPart("venues", () => adminApi.venues(token, query), (data) => setVenues(data.venues)),
       loadPart("duplicates", () => adminApi.duplicateVenues(token), (data) => setDuplicates(data.groups)),
       loadPart("audit", () => adminApi.audit(token), (data) => setAudit(data.logs)),
@@ -119,7 +122,7 @@ export default function AdminScreen() {
     ]);
 
     setLoadIssues(failures);
-    if (failures.length === 6) setMessage(t("phase7.admin.loadError"));
+    if (failures.length === 7) setMessage(t("phase7.admin.loadError"));
     setLoading(false);
   }, [isAdmin, query, t, token]);
 
@@ -196,7 +199,7 @@ export default function AdminScreen() {
         {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={setSection} t={t} /> : null}
         {section === "users" ? <UsersSection users={users} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
         {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
-        {section === "subscriptions" ? <SubscriptionsSection venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+        {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
         {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}
         {section === "support" ? <SupportSection targetType={supportTargetType} setTargetType={setSupportTargetType} targetId={supportTargetId} setTargetId={setSupportTargetId} note={supportNote} setNote={setSupportNote} busy={busy} action={action} token={token!} t={t} /> : null}
         {section === "moderation" ? <ModerationSection postId={postId} setPostId={setPostId} promotionId={promotionId} setPromotionId={setPromotionId} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} /> : null}
@@ -388,8 +391,39 @@ function VenuesSection({ venues, duplicates, query, setQuery, reason, setReason,
   </>;
 }
 
-function SubscriptionsSection({ venues, payments, paymentVenueId, setPayments, setPaymentVenueId, months, setMonths, amountAfn, setAmountAfn, paymentRef, setPaymentRef, trialHours, setTrialHours, reason, setReason, busy, action, token, t, isRTL }: any) {
+function SubscriptionsSection({ roleSubscriptions, venues, payments, paymentVenueId, setPayments, setPaymentVenueId, months, setMonths, amountAfn, setAmountAfn, paymentRef, setPaymentRef, trialHours, setTrialHours, reason, setReason, busy, action, token, t, isRTL }: any) {
   return <>
+    <Card style={styles.panel}>
+      <View style={styles.tableHeader}>
+        <View style={{flex:1}}>
+          <AppText variant="bodyLarge" weight="bold">{t("roles.paidRoleRequests")}</AppText>
+          <AppText muted>{t("roles.paidRoleRequestsBody")}</AppText>
+        </View>
+        <View style={styles.countBadge}><AppText variant="caption" weight="bold">{roleSubscriptions.length}</AppText></View>
+      </View>
+      {roleSubscriptions.length===0?<AppText muted>{t("roles.noPaidRoleRequests")}</AppText>:roleSubscriptions.map((subscription:AdminRoleSubscriptionDto)=><View key={`${subscription.userId}:${subscription.role}`} style={[styles.dataRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={{flex:1,minWidth:240}}>
+          <AppText weight="bold">{subscription.displayName}</AppText>
+          {subscription.username?<AppText variant="caption" muted forceLtr>@{subscription.username}</AppText>:null}
+          <AppText variant="caption" muted>{t(subscription.role==="VENUE_OWNER"?"roles.venueOwner":"roles.teamOwner")} · {subscription.monthlyPriceAfn} AFN/{t("roles.month")}</AppText>
+          {subscription.paymentReference?<AppText variant="caption" muted forceLtr>{t("roles.paymentReference")}: {subscription.paymentReference}</AppText>:null}
+        </View>
+        <View style={subscription.status==="ACTIVE"?styles.statusSuccess:styles.statusDanger}>
+          <AppText variant="caption" weight="bold" style={{color:subscription.status==="ACTIVE"?colors.success:colors.warning}}>{t(`roles.subscription.${subscription.status}` as never)}</AppText>
+        </View>
+        {subscription.status!=="ACTIVE"?<Button
+          label={t("roles.confirmPaymentActivate")}
+          onPress={()=>void action(
+            ()=>adminApi.activateRoleSubscription(token,subscription.userId,subscription.role,{
+              months:Number(months)||1,
+              paymentReference:subscription.paymentReference||paymentRef,
+            }),
+            t("phase7.admin.activated"),
+          )}
+          disabled={busy}
+        />:null}
+      </View>)}
+    </Card>
     <Card style={styles.panel}>
       <AppText variant="bodyLarge" weight="bold">{t("phase7.admin.payments")}</AppText>
       <TextField label={t("phase7.admin.reason")} value={reason} onChangeText={setReason}/>
