@@ -5,6 +5,7 @@ import { bookingApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -16,6 +17,8 @@ export default function MyBookingsScreen(){
   useEffect(()=>{void load();},[load]);
 
   async function cancel(id:string){if(!session)return;try{await bookingApi.cancel(session.accessToken,id);await load();}catch{setError(t("booking.cancelError"));}}
+
+  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={460}/></Screen>;
 
   return <Screen showHeader>
     <AppText variant="title" weight="bold">{t("booking.myBookings")}</AppText>
