@@ -34,8 +34,9 @@ export function AppHeader(){
       href:"/home",
     },
     {key:"venues",label:t("booking.venuesTitle"),icon:"football-outline",href:"/venues"},
+    {key:"teams",label:t("teams.title"),icon:"people-outline",href:"/teams"},
+    {key:"competitions",label:t("competition.title"),icon:"trophy-outline",href:"/competitions"},
     {key:"bookings",label:t("booking.myBookings"),icon:"calendar-outline",href:"/bookings"},
-    {key:"feed",label:t("feed.title"),icon:"newspaper-outline",href:"/feed"},
     ...(owner?[{key:"schedule",label:t("schedule.title"),icon:"time-outline" as IconName,href:"/schedule"}]:[]),
     {key:"profile",label:t("profile.title"),icon:"person-circle-outline",href:"/settings"},
   ];
