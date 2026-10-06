@@ -22,7 +22,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 ## Core architecture decisions
 - Structured monolith; no microservices.
 - Mobile is the primary customer interface.
-- Primary mobile navigation uses the shared header: hamburger drawer fixed at top-left, profile image/avatar fixed at top-right, and the previous bottom tab bar is hidden while its routes remain intact. Normal User hamburger order is Home → Venues → Teams → Competitions → My Bookings → Profile; Feed is not a separate menu item.
+- Primary mobile navigation uses the shared header: hamburger drawer fixed at top-left, profile image/avatar fixed at top-right, and the previous bottom tab bar is hidden. Shared order is Home → Dashboard (only for Player, Venue Owner, Team Owner, Referee, Platform Admin) → Venues → Teams → Competitions → My Reserves → Profile. Normal User omits Dashboard. Home is the shared social feed for every role; role-specific operations live under `/dashboard`.
 - Authentication identity is separate from product roles: signup creates a role-free base user with required username + phone + password confirmation; roles are activated later.
 - Usernames are unique, 3–12 characters, and use letters/numbers/underscore.
 - Login accepts either normalized Afghanistan phone or normalized username with the same password and returns one generic invalid-credentials message.
@@ -33,7 +33,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Normal authenticated accounts can discover and reserve venues without buying a role. The only self-service paid management subscriptions are Venue Owner (1000 AFN/month) and Team Owner / `TEAM_MANAGER` (300 AFN/month); payment confirmation gates role activation.
 - Profile is the single mobile surface for account identity and the two paid management subscriptions. Venue referees are scoped to one venue, while team players are scoped through team membership rather than global paid account roles.
 - Account Profile supports optional full name, HTTPS profile image, age, email, city and short bio; these remain private account fields and do not automatically become public Player Profile data.
-- Normal User Home is the personalized social feed: it shows posts from followed Venues, Teams, and Competitions, supports author/profile navigation, Like, inline Comments, and native Share. The separate Feed hamburger item is removed. Venue Owner Home remains its operational dashboard until that role is revised.
+- Home is the shared personalized social feed for all account types: it shows posts from followed Venues, Teams, and Competitions and supports author/profile navigation, Like, inline Comments, and native Share. Role-specific operational content is accessed from Dashboard instead of replacing Home.
 - Normal User Teams is a directory of all ACTIVE teams, not a "My Teams" workspace. Users can open any team profile and send one pending join request; membership/Player access is granted only after the Team Owner accepts.
 - Six role-demo accounts are standardized by `pnpm db:seed:roles`: `shams` Normal User, `abdul` Player, `mahdi` Venue Owner, `alisina` Team Owner, `Saeed` Referee, and `ali` Platform Admin. The seeder requires those login accounts to already exist and never changes passwords.
 - Normal User `Teams` page is an all-active-team directory, not “My Teams”. Each team can be opened for its public/profile information; non-members can send a join request and see a pending state until the Team Owner responds.
