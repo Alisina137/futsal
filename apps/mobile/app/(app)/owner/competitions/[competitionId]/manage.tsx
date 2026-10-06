@@ -240,7 +240,7 @@ export default function ManageCompetitionScreen(){
     }
     setBusy(`seed:${teamId}`);setError(null);
     try{
-      await competitionApi.decideRegistration(session.accessToken,competitionId,teamId,{status:"ACCEPTED",seed});
+      await competitionApi.updateSeed(session.accessToken,competitionId,teamId,{seed});
       setSeedTeamId(null);setSeedDraft("");
       await load();
     }catch{setError(t("competition.control.seedError"));}
