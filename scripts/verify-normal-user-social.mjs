@@ -14,6 +14,7 @@ const repository = read("apps/api/src/modules/marketing/marketing.repository.ts"
 const service = read("apps/api/src/modules/marketing/marketing.service.ts");
 const routes = read("apps/api/src/modules/marketing/marketing.routes.ts");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
+const teamsDirectory = read("apps/mobile/app/(app)/teams/index.tsx");
 const team = read("apps/mobile/app/(app)/teams/[teamId].tsx");
 const competition = read("apps/mobile/app/(app)/competitions/[competitionId].tsx");
 const header = read("apps/mobile/src/components/ui/AppHeader.tsx");
@@ -31,7 +32,10 @@ assert(routes.includes('"/social/posts/:postId/like"') && routes.includes('"/soc
 assert(home.includes("marketingApi.socialFeed") && home.includes("Share.share"), "Home must be the personalized feed with native sharing");
 assert(home.includes("likeSocialPost") && home.includes("unlikeSocialPost") && home.includes("addSocialComment"), "Home Like/Comment interactions missing");
 assert(home.includes('pathname:"/venues/[venueId]"') && home.includes('pathname:"/teams/[teamId]"') && home.includes('pathname:"/competitions/[competitionId]"'), "post author navigation must support venue/team/competition");
+assert(teamsDirectory.includes("teamApi.directory"), "Teams navigation page must list all active teams instead of only My Teams");
+assert(teamsDirectory.includes("teamApi.requestJoin") && teamsDirectory.includes('t("teams.viewTeam")'), "Teams directory must support join requests and opening team profiles");
 assert(team.includes('"TEAM"') && team.includes("socialFollowState"), "Team follow control missing");
+assert(team.includes("teamApi.requestJoin") && team.includes("joinRequestStatus"), "Team profile must expose join-request state");
 assert(competition.includes('"COMPETITION"') && competition.includes("socialFollowState"), "Competition follow control missing");
 assert(!header.includes('href:"/feed"'), "Feed must not be a separate hamburger option");
 const v=header.indexOf('href:"/venues"');
