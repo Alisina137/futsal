@@ -7,6 +7,7 @@ import { Image, Pressable, Share, StyleSheet, View } from "react-native";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { marketingApi } from "../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
@@ -42,6 +43,8 @@ function SocialHome(){
   function updatePost(next:SocialFeedPostDto){
     setItems((current)=>current.map((item)=>item.id===next.id?next:item));
   }
+
+  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
 
   return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
