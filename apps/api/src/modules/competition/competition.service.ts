@@ -28,6 +28,8 @@ import {
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
 
+const REGISTRATION_MIN_WINDOW_MS = 72 * 60 * 60 * 1000;
+
 export class CompetitionService {
   constructor(
     private readonly repository: CompetitionRepository,
@@ -156,6 +158,48 @@ export class CompetitionService {
     return { venue, competition };
   }
 
+  private assertCompetitionSchedule(input: {
+    registrationClosesAt: Date | null;
+    startsAt: Date | null;
+    endsAt: Date | null;
+  }) {
+    if (
+      input.registrationClosesAt
+      && input.startsAt
+      && input.startsAt.getTime() <= input.registrationClosesAt.getTime()
+    ) {
+      throw errors.badRequest(
+        "COMPETITION_START_BEFORE_REGISTRATION_CLOSE",
+        "Competition start must be after the registration deadline.",
+      );
+    }
+    if (input.startsAt && input.endsAt && input.endsAt.getTime() <= input.startsAt.getTime()) {
+      throw errors.badRequest(
+        "COMPETITION_END_BEFORE_START",
+        "Competition end must be after the competition start.",
+      );
+    }
+  }
+
+  private assertRegistrationReleaseWindow(competition: Pick<
+    CompetitionRecord,
+    "registrationClosesAt" | "startsAt" | "endsAt"
+  >, releaseAt: Date) {
+    if (!competition.registrationClosesAt) {
+      throw errors.badRequest(
+        "REGISTRATION_DEADLINE_REQUIRED",
+        "Choose a registration deadline before opening registration.",
+      );
+    }
+    if (competition.registrationClosesAt.getTime() < releaseAt.getTime() + REGISTRATION_MIN_WINDOW_MS) {
+      throw errors.badRequest(
+        "REGISTRATION_WINDOW_TOO_SHORT",
+        "Registration must remain open for at least 72 hours after release.",
+      );
+    }
+    this.assertCompetitionSchedule(competition);
+  }
+
   private assertRegistrationMutable(competition: CompetitionRecord) {
     if (!["DRAFT", "REGISTRATION_OPEN", "REGISTRATION_CLOSED"].includes(competition.status)) {
       throw errors.conflict("COMPETITION_ALREADY_SCHEDULED", "Registration can no longer be changed.");
@@ -212,6 +256,12 @@ export class CompetitionService {
         throw errors.badRequest("INVALID_GROUP_COUNT", "Group count cannot exceed the team limit.");
       }
     }
+
+    this.assertCompetitionSchedule({
+      registrationClosesAt: input.registrationClosesAt ? new Date(input.registrationClosesAt) : null,
+      startsAt: input.startsAt ? new Date(input.startsAt) : null,
+      endsAt: input.endsAt ? new Date(input.endsAt) : null,
+    });
 
     return this.repository.createCompetition({
       venueId: venue.id,
@@ -281,6 +331,33 @@ export class CompetitionService {
     const accepted = await this.repository.countAcceptedTeams(competitionId);
     if (input.maxTeams !== undefined && input.maxTeams < accepted) {
       throw errors.conflict("TEAM_LIMIT_BELOW_ACCEPTED", "Team limit cannot be lower than accepted registrations.");
+    }
+
+    const nextRegistrationClosesAt = input.registrationClosesAt !== undefined
+      ? (input.registrationClosesAt ? new Date(input.registrationClosesAt) : null)
+      : competition.registrationClosesAt;
+    const nextStartsAt = input.startsAt !== undefined
+      ? (input.startsAt ? new Date(input.startsAt) : null)
+      : competition.startsAt;
+    const nextEndsAt = input.endsAt !== undefined
+      ? (input.endsAt ? new Date(input.endsAt) : null)
+      : competition.endsAt;
+
+    this.assertCompetitionSchedule({
+      registrationClosesAt: nextRegistrationClosesAt,
+      startsAt: nextStartsAt,
+      endsAt: nextEndsAt,
+    });
+
+    if (competition.status === "REGISTRATION_OPEN") {
+      this.assertRegistrationReleaseWindow(
+        {
+          registrationClosesAt: nextRegistrationClosesAt,
+          startsAt: nextStartsAt,
+          endsAt: nextEndsAt,
+        },
+        competition.publishedAt ?? this.now(),
+      );
     }
 
     const updated = await this.repository.updateCompetition(competitionId, {
@@ -467,6 +544,7 @@ export class CompetitionService {
       if (competition.status !== "DRAFT" && competition.status !== "REGISTRATION_CLOSED") {
         throw errors.conflict("INVALID_COMPETITION_STATE", "Registration cannot be opened from the current state.");
       }
+      this.assertRegistrationReleaseWindow(competition, now);
       const updated = await this.repository.setCompetitionState(competitionId, {
         status: "REGISTRATION_OPEN",
         published: true,
