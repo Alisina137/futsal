@@ -20,8 +20,8 @@ import type {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_SETTINGS = {
-  monthlyPriceAfn: 1500,
-  annualPriceAfn: 15000,
+  monthlyPriceAfn: 1000,
+  annualPriceAfn: 12000,
   trialDurationHours: 72,
   featureFlags: {},
   notificationTemplates: {},
