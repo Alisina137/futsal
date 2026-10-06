@@ -3,6 +3,7 @@ import {
   auditLogs,
   bookings,
   platformSettings,
+  socialPosts,
   subscriptionPayments,
   userRoles,
   users,
@@ -625,6 +626,11 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       updatedAt: now,
     }).where(eq(venuePosts.id, postId)).returning({ id: venuePosts.id });
     if (!updated) throw errors.badRequest("POST_NOT_FOUND", "Post not found.");
+    await this.db.update(socialPosts).set({
+      status: "UNPUBLISHED",
+      unpublishedAt: now,
+      updatedAt: now,
+    }).where(eq(socialPosts.legacyVenuePostId, postId));
     await this.db.insert(auditLogs).values({
       actorUserId,
       action: "POST_MODERATED_UNPUBLISHED",
