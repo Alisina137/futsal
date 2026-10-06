@@ -31,6 +31,7 @@ export const venueStatusEnum = pgEnum("venue_status", ["DRAFT", "READY", "ACTIVE
 export const subscriptionStatusEnum = pgEnum("subscription_status", ["TRIAL", "ACTIVE", "EXPIRED", "CANCELLED"]);
 export const venueVerificationStatusEnum = pgEnum("venue_verification_status", ["PENDING", "VERIFIED", "REJECTED"]);
 export const subscriptionPaymentStatusEnum = pgEnum("subscription_payment_status", ["RECORDED", "VOIDED"]);
+export const paidRoleSubscriptionStatusEnum = pgEnum("paid_role_subscription_status", ["PENDING", "ACTIVE", "EXPIRED", "CANCELLED"]);
 export const bookingModeEnum = pgEnum("booking_mode", ["INSTANT", "APPROVAL"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["PENDING", "CONFIRMED", "CANCELLED"]);
 export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
@@ -93,6 +94,27 @@ export const userRoles = pgTable(
     assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.role] }), index("user_roles_role_idx").on(table.role)],
+);
+
+export const roleSubscriptions = pgTable(
+  "role_subscriptions",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    role: userRoleEnum("role").notNull(),
+    status: paidRoleSubscriptionStatusEnum("status").notNull().default("PENDING"),
+    monthlyPriceAfn: integer("monthly_price_afn").notNull(),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    activeUntil: timestamp("active_until", { withTimezone: true }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    activatedByUserId: uuid("activated_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    paymentReference: varchar("payment_reference", { length: 120 }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.role] }),
+    index("role_subscriptions_status_idx").on(table.status, table.requestedAt),
+    index("role_subscriptions_active_until_idx").on(table.activeUntil),
+  ],
 );
 
 export const sessions = pgTable(
