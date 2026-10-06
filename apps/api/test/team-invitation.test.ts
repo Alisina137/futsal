@@ -24,12 +24,13 @@ function setup() {
     notificationService: notifications,
     teamService: teams,
   });
-  return { app, teamRepository, notificationRepository, clock };
+  return { app, teamRepository, notificationRepository, authRepository, clock };
 }
 
 async function register(
   app: ReturnType<typeof createApp>,
   teamRepository: FakeTeamRepository,
+  authRepository: FakeAuthRepository,
   input: { phone: string; username: string; displayName: string },
 ) {
   const password = "strong-pass-5!";
@@ -42,12 +43,17 @@ async function register(
   });
   expect(registration.status).toBe(201);
 
-  const activated = await request(app)
-    .post("/api/v1/auth/roles/activate")
-    .set("Authorization", `Bearer ${registration.body.accessToken}`)
-    .send({ role: "PLAYER" });
-  expect(activated.status).toBe(200);
-
+  // This invitation-focused suite gives its fixtures an active Team Owner
+  // entitlement so team-management assertions remain isolated from billing.
+  await authRepository.activateRoleSubscription({
+    actorUserId: registration.body.user.id,
+    userId: registration.body.user.id,
+    role: "TEAM_MANAGER",
+    monthlyPriceAfn: 300,
+    months: 1,
+    paymentReference: "test-paid",
+    now: new Date("2026-10-04T00:00:00.000Z"),
+  });
   const refreshed = await request(app)
     .post("/api/v1/auth/refresh")
     .send({ refreshToken: registration.body.refreshToken });
@@ -58,7 +64,7 @@ async function register(
     displayName: input.displayName,
     username: refreshed.body.user.username,
     phoneE164: refreshed.body.user.phone,
-    roles: ["PLAYER"],
+    roles: ["TEAM_MANAGER"],
   });
   return refreshed.body as { accessToken: string; user: { id: string; phone: string } };
 }
@@ -73,13 +79,13 @@ async function createTeam(app: ReturnType<typeof createApp>, token: string) {
 
 describe("Phase 5 team invitations", () => {
   it("creates one pending invite, notifies the invitee and accepts atomically into the roster", async () => {
-    const { app, teamRepository, notificationRepository } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, notificationRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705560001",
       username: "inv_manager",
       displayName: "Invite Manager",
     });
-    const player = await register(app, teamRepository, {
+    const player = await register(app, teamRepository, authRepository, {
       phone: "0705560002",
       username: "inv_player",
       displayName: "Invite Player",
@@ -116,13 +122,13 @@ describe("Phase 5 team invitations", () => {
   });
 
   it("respects team-invite notification preference without blocking the invitation", async () => {
-    const { app, teamRepository, notificationRepository } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, notificationRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705560011",
       username: "q_manager",
       displayName: "Quiet Manager",
     });
-    const player = await register(app, teamRepository, {
+    const player = await register(app, teamRepository, authRepository, {
       phone: "0705560012",
       username: "q_player",
       displayName: "Quiet Player",
@@ -147,13 +153,13 @@ describe("Phase 5 team invitations", () => {
   });
 
   it("expires old invitations and prevents acceptance after expiry", async () => {
-    const { app, teamRepository, clock } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository, clock } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705560021",
       username: "exp_manager",
       displayName: "Expiry Manager",
     });
-    const player = await register(app, teamRepository, {
+    const player = await register(app, teamRepository, authRepository, {
       phone: "0705560022",
       username: "exp_player",
       displayName: "Expiry Player",
@@ -178,13 +184,13 @@ describe("Phase 5 team invitations", () => {
   });
 
   it("revokes old-manager authority immediately after a successful transfer", async () => {
-    const { app, teamRepository } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705560041",
       username: "tr_manager",
       displayName: "Transfer Manager",
     });
-    const player = await register(app, teamRepository, {
+    const player = await register(app, teamRepository, authRepository, {
       phone: "0705560042",
       username: "tr_player",
       displayName: "Transfer Player",
@@ -217,18 +223,18 @@ describe("Phase 5 team invitations", () => {
   });
 
   it("allows only the current manager to revoke a pending invitation", async () => {
-    const { app, teamRepository } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705560031",
       username: "rv_manager",
       displayName: "Revoke Manager",
     });
-    const outsider = await register(app, teamRepository, {
+    const outsider = await register(app, teamRepository, authRepository, {
       phone: "0705560032",
       username: "rv_outsider",
       displayName: "Revoke Outsider",
     });
-    const player = await register(app, teamRepository, {
+    const player = await register(app, teamRepository, authRepository, {
       phone: "0705560033",
       username: "rv_player",
       displayName: "Revoke Player",
