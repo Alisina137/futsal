@@ -15,6 +15,7 @@ import { adminApi, ApiRequestError } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -196,14 +197,16 @@ export default function AdminScreen() {
           </View>
         </View> : null}
 
-        {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={setSection} t={t} /> : null}
-        {section === "users" ? <UsersSection users={users} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
-        {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
-        {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
-        {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}
-        {section === "support" ? <SupportSection targetType={supportTargetType} setTargetType={setSupportTargetType} targetId={supportTargetId} setTargetId={setSupportTargetId} note={supportNote} setNote={setSupportNote} busy={busy} action={action} token={token!} t={t} /> : null}
-        {section === "moderation" ? <ModerationSection postId={postId} setPostId={setPostId} promotionId={promotionId} setPromotionId={setPromotionId} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} /> : null}
-        {section === "audit" ? <AuditSection audit={audit} t={t} /> : null}
+        {loading?<DataLoadingState variant="dashboard" minHeight={520}/>:<>
+          {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={setSection} t={t} /> : null}
+          {section === "users" ? <UsersSection users={users} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}
+          {section === "support" ? <SupportSection targetType={supportTargetType} setTargetType={setTargetType} targetId={supportTargetId} setTargetId={setSupportTargetId} note={supportNote} setNote={setSupportNote} busy={busy} action={action} token={token!} t={t} /> : null}
+          {section === "moderation" ? <ModerationSection postId={postId} setPostId={setPostId} promotionId={promotionId} setPromotionId={setPromotionId} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} /> : null}
+          {section === "audit" ? <AuditSection audit={audit} t={t} /> : null}
+        </>}
       </ScrollView>
     </View>
   </View>;
