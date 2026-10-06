@@ -11,6 +11,7 @@ import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { DataLoadingState } from "../ui/DataLoadingState";
 import { Screen } from "../ui/Screen";
 
 function remainingLabel(seconds: number | null) {
@@ -45,7 +46,7 @@ export function OwnerDashboard() {
   useEffect(() => { void load(); }, [load]);
 
   if (loading) {
-    return <Screen showHeader><AppText>{t("common.loading")}</AppText></Screen>;
+    return <Screen showHeader><DataLoadingState variant="dashboard" minHeight={520}/></Screen>;
   }
 
   return <Screen showHeader>
