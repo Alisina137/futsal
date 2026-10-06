@@ -685,6 +685,11 @@ export const socialPostCommentCreateRequestSchema = z.object({
 });
 export type SocialPostCommentCreateRequest = z.infer<typeof socialPostCommentCreateRequestSchema>;
 
+export const socialPostCommentUpdateRequestSchema = z.object({
+  body: z.string().trim().min(1).max(1_000),
+});
+export type SocialPostCommentUpdateRequest = z.infer<typeof socialPostCommentUpdateRequestSchema>;
+
 export const socialPostCommentDtoSchema = z.object({
   id: z.string().uuid(),
   postId: z.string().uuid(),
@@ -693,6 +698,10 @@ export const socialPostCommentDtoSchema = z.object({
   profileImageUrl: z.string().nullable(),
   body: z.string(),
   createdAt: isoDateTimeSchema,
+  editedAt: isoDateTimeSchema.nullable(),
+  likedByMe: z.boolean(),
+  likeCount: z.number().int().min(0),
+  canManage: z.boolean(),
 });
 export type SocialPostCommentDto = z.infer<typeof socialPostCommentDtoSchema>;
 
