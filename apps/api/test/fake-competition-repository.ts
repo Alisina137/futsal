@@ -54,6 +54,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
     const registrations=[...this.registrations.values()].filter((item)=>item.competitionId===competitionId);
     const teams:CompetitionTeamDto[]=registrations.map((item)=>({
       teamId:item.teamId,teamName:item.teamName,logoUrl:item.logoUrl,status:item.status,seed:item.seed,groupId:item.groupId,groupName:item.groupName,
+      feeStatus:item.feeStatus,feePaymentReference:item.feePaymentReference,feeConfirmedAt:item.feeConfirmedAt?.toISOString()??null,
     }));
     const matches=[...this.matches.values()].filter((item)=>item.competitionId===competitionId);
     const final=matches.find((item)=>item.stage==="KNOCKOUT"&&item.roundNumber===1);
@@ -141,7 +142,10 @@ export class FakeCompetitionRepository implements CompetitionRepository {
 
   private registration(competitionId:string,teamId:string,status:CompetitionTeamRecord["status"],seed:number|null):CompetitionTeamRecord{
     const team=this.teams.get(teamId)!;
-    return {competitionId,teamId,teamName:team.name,logoUrl:team.logoUrl,managerUserId:team.managerUserId,teamPrivacy:team.privacy,status,seed,groupId:null,groupName:null};
+    return {
+      competitionId,teamId,teamName:team.name,logoUrl:team.logoUrl,managerUserId:team.managerUserId,teamPrivacy:team.privacy,
+      status,seed,groupId:null,groupName:null,feeStatus:"UNPAID",feePaymentReference:null,feeConfirmedAt:null,
+    };
   }
 
   async applyTeam(input:Parameters<CompetitionRepository["applyTeam"]>[0]){
