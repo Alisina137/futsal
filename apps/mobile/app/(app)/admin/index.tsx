@@ -64,11 +64,11 @@ export default function AdminScreen() {
   const [query, setQuery] = useState("");
   const [reason, setReason] = useState("");
   const [months, setMonths] = useState("1");
-  const [amountAfn, setAmountAfn] = useState("1500");
+  const [amountAfn, setAmountAfn] = useState("1000");
   const [paymentRef, setPaymentRef] = useState("");
   const [trialHours, setTrialHours] = useState("72");
-  const [monthly, setMonthly] = useState("1500");
-  const [annual, setAnnual] = useState("15000");
+  const [monthly, setMonthly] = useState("1000");
+  const [annual, setAnnual] = useState("12000");
   const [configTrialHours, setConfigTrialHours] = useState("72");
   const [supportTargetType, setSupportTargetType] = useState<"USER" | "VENUE">("VENUE");
   const [supportTargetId, setSupportTargetId] = useState("");
