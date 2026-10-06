@@ -3,6 +3,7 @@ import type {
   CompetitionDto,
   CompetitionListItemDto,
   CompetitionMatchDto,
+  CompetitionMediaPostDto,
   CompetitionTeamDto,
 } from "@leaguekick/contracts";
 import type {
@@ -18,6 +19,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   teams = new Map<string, { id:string;name:string;managerUserId:string;status:"ACTIVE"|"ARCHIVED";logoUrl:string|null;privacy:"PUBLIC"|"PRIVATE" }>();
   registrations = new Map<string, CompetitionTeamRecord>();
   matches = new Map<string, CompetitionMatchDto>();
+  mediaPosts = new Map<string, CompetitionMediaPostDto>();
 
   seedVenue(ownerUserId:string, options?:{activeUntil?:Date|null;trialEndsAt?:Date|null;subscriptionStatus?:"TRIAL"|"ACTIVE"|"EXPIRED"|"CANCELLED";status?:CompetitionVenueRecord["status"]}) {
     const venue:CompetitionVenueRecord={
@@ -172,6 +174,76 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   async hasCompletedMatch(competitionId:string){
     return [...this.matches.values()].some((item)=>item.competitionId===competitionId&&["COMPLETED","CORRECTED"].includes(item.status));
   }
+
+  async removeTeamByOwner(input:Parameters<CompetitionRepository["removeTeamByOwner"]>[0]){
+    this.registrations.delete(this.key(input.competitionId,input.teamId));
+  }
+
+  async deleteCompetition(competitionId:string){
+    const deleted=this.competitions.delete(competitionId);
+    for(const key of [...this.registrations.keys()]){
+      if(key.startsWith(`${competitionId}:`))this.registrations.delete(key);
+    }
+    for(const [id,match] of [...this.matches]){
+      if(match.competitionId===competitionId)this.matches.delete(id);
+    }
+    for(const [id,post] of [...this.mediaPosts]){
+      if(post.competitionId===competitionId)this.mediaPosts.delete(id);
+    }
+    return deleted;
+  }
+
+  async updateTeamFee(input:Parameters<CompetitionRepository["updateTeamFee"]>[0]){
+    const key=this.key(input.competitionId,input.teamId);
+    const current=this.registrations.get(key);
+    if(!current)return null;
+    const next={
+      ...current,
+      feeStatus:input.status,
+      feePaymentReference:input.paymentReference,
+      feeConfirmedAt:input.status==="PAID"||input.status==="WAIVED"?input.now:null,
+    };
+    this.registrations.set(key,next);
+    return next;
+  }
+
+  async listCompetitionMedia(competitionId:string,includeUnpublished:boolean){
+    return [...this.mediaPosts.values()]
+      .filter((post)=>post.competitionId===competitionId&&(includeUnpublished||post.status==="PUBLISHED"))
+      .sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
+  }
+
+  async createCompetitionMediaPost(input:Parameters<CompetitionRepository["createCompetitionMediaPost"]>[0]){
+    const post:CompetitionMediaPostDto={
+      id:randomUUID(),
+      competitionId:input.competitionId,
+      body:input.body,
+      imageUrl:input.imageUrl,
+      status:"PUBLISHED",
+      publishedAt:input.now.toISOString(),
+      unpublishedAt:null,
+    };
+    this.mediaPosts.set(post.id,post);
+    return post;
+  }
+
+  async setCompetitionMediaStatus(input:Parameters<CompetitionRepository["setCompetitionMediaStatus"]>[0]){
+    const current=this.mediaPosts.get(input.postId);
+    if(!current||current.competitionId!==input.competitionId)return null;
+    const next:CompetitionMediaPostDto={
+      ...current,
+      status:input.published?"PUBLISHED":"UNPUBLISHED",
+      publishedAt:input.published?input.now.toISOString():current.publishedAt,
+      unpublishedAt:input.published?null:input.now.toISOString(),
+    };
+    this.mediaPosts.set(next.id,next);
+    return next;
+  }
+
+  async listCompetitionFollowerUserIds(_competitionId:string){
+    return [];
+  }
+
   async replaceGroupStage(
     competitionId:string,
     groups:Array<{
