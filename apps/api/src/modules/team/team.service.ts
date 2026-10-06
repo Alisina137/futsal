@@ -101,6 +101,52 @@ export class TeamService {
     return { teams: await this.repository.listUserTeams(userId) };
   }
 
+  async listTeamsDirectory(userId: string) {
+    await this.identity(userId);
+    return { teams: await this.repository.listDirectoryTeams(userId) };
+  }
+
+  async getMyJoinRequest(userId: string, teamId: string) {
+    await this.identity(userId);
+    const team = await this.team(teamId);
+    if (team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
+    return { request: await this.repository.getJoinRequest(teamId, userId) };
+  }
+
+  async requestToJoin(userId: string, teamId: string) {
+    const user = await this.identity(userId);
+    const team = await this.team(teamId);
+    if (team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
+    if (team.managerUserId === userId) {
+      throw errors.conflict("ALREADY_TEAM_MEMBER", "You already manage this team.");
+    }
+
+    const membership = await this.repository.getMembership(teamId, userId);
+    if (membership?.status === "ACTIVE") {
+      throw errors.conflict("ALREADY_TEAM_MEMBER", "You are already a member of this team.");
+    }
+
+    const pending = await this.repository.getJoinRequest(teamId, userId);
+    if (pending) return pending;
+
+    await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
+    return this.repository.createJoinRequest(teamId, userId, this.now());
+  }
+
+  async listTeamJoinRequests(userId: string, teamId: string) {
+    await this.manager(teamId, userId);
+    return { requests: await this.repository.listJoinRequestsForTeam(teamId) };
+  }
+
+  async respondToJoinRequest(userId: string, teamId: string, requestId: string, accept: boolean) {
+    await this.manager(teamId, userId);
+    const request = await this.repository.respondJoinRequest(teamId, requestId, userId, accept, this.now());
+    if (!request) {
+      throw errors.conflict("TEAM_JOIN_REQUEST_UNAVAILABLE", "This join request is no longer available.");
+    }
+    return request;
+  }
+
   async getRoster(userId: string, teamId: string): Promise<TeamDto> {
     await this.playerIdentity(userId);
     const membership = await this.repository.getMembership(teamId, userId);
