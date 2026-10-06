@@ -26,9 +26,9 @@ const checks = [
   [contracts.includes('publicPlayerProfileDtoSchema') && !contracts.includes('publicPlayerProfileDtoSchema.extend({ phone'), "public player contract excludes contact data"],
   [teamRepository.includes('eq(playerProfiles.visibility, "PUBLIC")') && teamRepository.includes('.innerJoin(users'), "public player requires persisted public profile"],
   [teamRepository.includes('pg_advisory_xact_lock(hashtext') && teamRepository.includes('transferManager'), "serialized manager/captain mutations"],
-  [teamService.includes('PLAYER_ACCOUNT_REQUIRED') && teamService.includes('roles.includes("PLAYER")'), "player-only team participation"],
-  [!teamService.includes("TEAM_ELIGIBLE_ROLES") && !teamService.includes("PLAYER_ROLE_REQUIRED"), "single canonical player-role guard"],
-  [teamService.includes('target.roles.includes("PLAYER")'), "team invitations target PLAYER accounts only"],
+  [teamService.includes("return this.identity(userId)") && !teamService.includes("PLAYER_ACCOUNT_REQUIRED"), "free base-account player participation"],
+  [teamService.includes('user.roles.includes("TEAM_MANAGER")') && teamService.includes("TEAM_OWNER_SUBSCRIPTION_REQUIRED"), "paid Team Owner management entitlement"],
+  [teamService.includes('"No active account matches that username or phone number."') && !teamService.includes('target.roles.includes("PLAYER")'), "team invitations grant scoped Player membership to normal accounts"],
   [teamService.includes('TEAM_MANAGER_REQUIRED') && teamRoutes.includes('/teams/:teamId/manager'), "object-scoped manager authority"],
   [teamService.includes('7 * 24 * 60 * 60 * 1000') && teamRepository.includes('"EXPIRED"'), "expiring single-use invitations"],
   [notificationService.includes('type: "TEAM_INVITATION"') && notificationService.includes('teamInvitesEnabled'), "team invitation preference/dedupe delivery"],
@@ -45,4 +45,4 @@ if (failed.length) {
   throw new Error(`Phase 5 invariant(s) missing: ${failed.map(([, name]) => name).join(", ")}`);
 }
 
-console.log("Phase 5 team identity verified: persistent profiles/teams, multi-team membership, object-scoped manager authority, private-contact protection, expiring invitations, and mobile team workflows are present.");
+console.log("Phase 5 team identity verified: free base-account players, paid Team Owner management, team-scoped Player grants, persistent profiles/teams, object authority, privacy, and invitation workflows are present.");
