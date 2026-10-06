@@ -1,11 +1,15 @@
 import type { AccountProfileUpdateRequest, AuthResponse, LoginRequest, RegisterRequest, SelfAssignableRole } from "@leaguekick/contracts";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ApiRequestError, authApi } from "../lib/api";
+import { AppState } from "react-native";
+import { ApiRequestError, authApi, setAccountAccessListener } from "../lib/api";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "../lib/auth-storage";
 
 type AuthStatus = "hydrating" | "anonymous" | "authenticated";
+type AccountAccessState = "active" | "suspended";
+
 type AuthContextValue = {
   status: AuthStatus;
+  accessState: AccountAccessState;
   session: AuthResponse | null;
   signIn: (input: LoginRequest) => Promise<AuthResponse>;
   register: (input: RegisterRequest) => Promise<AuthResponse>;
@@ -16,16 +20,37 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const ACCOUNT_CHECK_INTERVAL_MS = 10_000;
+
+function isSuspendedError(error: unknown) {
+  return error instanceof ApiRequestError && error.code === "ACCOUNT_SUSPENDED";
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("hydrating");
+  const [accessState, setAccessState] = useState<AccountAccessState>("active");
   const [session, setSession] = useState<AuthResponse | null>(null);
 
   const adopt = useCallback(async (next: AuthResponse) => {
     setSession(next);
     setStatus("authenticated");
+    setAccessState("active");
     await writeStoredSession(next);
     return next;
+  }, []);
+
+  const clearSession = useCallback(async () => {
+    setSession(null);
+    setStatus("anonymous");
+    setAccessState("active");
+    await clearStoredSession();
+  }, []);
+
+  useEffect(() => {
+    setAccountAccessListener((event) => {
+      if (event === "ACCOUNT_SUSPENDED") setAccessState("suspended");
+    });
+    return () => setAccountAccessListener(null);
   }, []);
 
   useEffect(() => {
@@ -33,25 +58,87 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const stored = await readStoredSession();
       if (!active) return;
-      if (!stored) { setStatus("anonymous"); return; }
+      if (!stored) {
+        setStatus("anonymous");
+        return;
+      }
+
       setSession(stored);
       setStatus("authenticated");
+
       try {
         const refreshed = await authApi.refresh(stored.refreshToken);
         if (active) await adopt(refreshed);
       } catch (error) {
         if (!active) return;
         if (error instanceof ApiRequestError && error.isNetworkError) return;
-        setSession(null);
-        setStatus("anonymous");
-        await clearStoredSession();
+        if (isSuspendedError(error)) {
+          setAccessState("suspended");
+          return;
+        }
+        await clearSession();
       }
     })();
-    return () => { active = false; };
-  }, [adopt]);
+
+    return () => {
+      active = false;
+    };
+  }, [adopt, clearSession]);
+
+  const refreshSession = useCallback(async () => {
+    if (!session) return;
+    try {
+      await adopt(await authApi.refresh(session.refreshToken));
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.isNetworkError) return;
+      if (isSuspendedError(error)) {
+        setAccessState("suspended");
+        return;
+      }
+      await clearSession();
+    }
+  }, [adopt, clearSession, session]);
+
+  const checkAccount = useCallback(async () => {
+    if (!session) return;
+
+    try {
+      await authApi.me(session.accessToken);
+      setAccessState("active");
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.isNetworkError) return;
+      if (isSuspendedError(error)) {
+        setAccessState("suspended");
+        return;
+      }
+      if (error instanceof ApiRequestError && error.code === "INVALID_ACCESS_TOKEN") {
+        await refreshSession();
+        return;
+      }
+      if (error instanceof ApiRequestError && error.code === "ACCOUNT_UNAVAILABLE") {
+        await clearSession();
+      }
+    }
+  }, [clearSession, refreshSession, session]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !session) return;
+
+    void checkAccount();
+    const timer = setInterval(() => void checkAccount(), ACCOUNT_CHECK_INTERVAL_MS);
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") void checkAccount();
+    });
+
+    return () => {
+      clearInterval(timer);
+      appStateSubscription.remove();
+    };
+  }, [checkAccount, session, status]);
 
   const signIn = useCallback(async (input: LoginRequest) => adopt(await authApi.login(input)), [adopt]);
   const register = useCallback(async (input: RegisterRequest) => adopt(await authApi.register(input)), [adopt]);
+
   const activateRole = useCallback(async (role: SelfAssignableRole) => {
     if (!session) throw new Error("Authentication is required.");
     await authApi.activateRole(session.accessToken, role);
@@ -66,25 +153,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const current = session;
-    setSession(null);
-    setStatus("anonymous");
-    await clearStoredSession();
+    await clearSession();
     if (current) authApi.logout(current.refreshToken).catch(() => undefined);
-  }, [session]);
-
-  const revalidate = useCallback(async () => {
-    if (!session) return;
-    try { await adopt(await authApi.refresh(session.refreshToken)); }
-    catch (error) {
-      if (error instanceof ApiRequestError && error.isNetworkError) return;
-      setSession(null); setStatus("anonymous"); await clearStoredSession();
-    }
-  }, [adopt, session]);
+  }, [clearSession, session]);
 
   const value = useMemo(
-    () => ({ status, session, signIn, register, activateRole, updateProfile, signOut, revalidate }),
-    [status, session, signIn, register, activateRole, updateProfile, signOut, revalidate],
+    () => ({
+      status,
+      accessState,
+      session,
+      signIn,
+      register,
+      activateRole,
+      updateProfile,
+      signOut,
+      revalidate: checkAccount,
+    }),
+    [status, accessState, session, signIn, register, activateRole, updateProfile, signOut, checkAccount],
   );
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
