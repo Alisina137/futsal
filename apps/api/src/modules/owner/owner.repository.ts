@@ -4,10 +4,12 @@ import {
   venueAreas,
   venueOpeningHours,
   venueSubscriptions,
+  venueReferees,
   venueTrialClaims,
   venues,
+  users,
 } from "@leaguekick/database";
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { OwnerAggregate, OwnerOnboardingRepository, OwnerSubscriptionRecord, OwnerVenueRecord } from "./owner.types.js";
 
@@ -201,5 +203,46 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
 
   async markExpired(venueId: string, expiredAt: Date): Promise<void> {
     await this.db.update(venueSubscriptions).set({ status: "EXPIRED", updatedAt: expiredAt }).where(eq(venueSubscriptions.venueId, venueId));
+  }
+
+  async resolveActiveUser(input: { usernameNormalized?: string; phoneE164?: string }) {
+    if (!input.usernameNormalized && !input.phoneE164) return null;
+    const condition = input.usernameNormalized && input.phoneE164
+      ? or(eq(users.usernameNormalized, input.usernameNormalized), eq(users.phoneE164, input.phoneE164))
+      : input.usernameNormalized
+        ? eq(users.usernameNormalized, input.usernameNormalized)
+        : eq(users.phoneE164, input.phoneE164!);
+    const [row] = await this.db.select({
+      id: users.id,
+      displayName: users.displayName,
+      username: users.username,
+      phoneE164: users.phoneE164,
+    }).from(users).where(and(eq(users.status, "ACTIVE"), condition)).limit(1);
+    return row ?? null;
+  }
+
+  async listVenueReferees(venueId: string) {
+    const rows = await this.db.select({
+      venueId: venueReferees.venueId,
+      userId: venueReferees.userId,
+      displayName: users.displayName,
+      username: users.username,
+      phone: users.phoneE164,
+      assignedAt: venueReferees.assignedAt,
+    }).from(venueReferees)
+      .innerJoin(users, eq(venueReferees.userId, users.id))
+      .where(and(eq(venueReferees.venueId, venueId), eq(users.status, "ACTIVE")));
+    return rows.map((row) => ({ ...row, assignedAt: row.assignedAt.toISOString() }));
+  }
+
+  async grantVenueReferee(input: { venueId: string; userId: string; assignedByUserId: string; assignedAt: Date }) {
+    await this.db.insert(venueReferees).values(input).onConflictDoNothing();
+  }
+
+  async removeVenueReferee(venueId: string, userId: string) {
+    await this.db.delete(venueReferees).where(and(
+      eq(venueReferees.venueId, venueId),
+      eq(venueReferees.userId, userId),
+    ));
   }
 }
