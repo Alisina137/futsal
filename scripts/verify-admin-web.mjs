@@ -15,6 +15,8 @@ const authStorage = readFileSync("apps/mobile/src/lib/auth-storage.ts", "utf8");
 
 assert(packageJson.scripts?.["dev:admin"] === "node scripts/dev-admin.mjs", "dev:admin script is missing or changed.");
 assert(launcher.includes('EXPO_PUBLIC_ADMIN_MODE: "true"'), "Admin launcher must enable admin mode.");
+assert(launcher.includes('EXPO_PUBLIC_API_URL: adminApiUrl'), "Admin launcher must override the mobile/tunnel API URL.");
+assert(launcher.includes('http://localhost:'), "Admin launcher must default to the local API.");
 assert(launcher.includes('"--web"'), "Admin launcher must start the Expo web target.");
 assert(launcher.includes('"8082"'), "Admin launcher must default to the dedicated admin port 8082.");
 assert(index.includes('process.env.EXPO_PUBLIC_ADMIN_MODE === "true"'), "Root route must recognize admin mode.");
