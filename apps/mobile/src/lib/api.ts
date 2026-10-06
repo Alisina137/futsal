@@ -57,7 +57,11 @@ import type {
   TeamMemberUpdateRequest,
   CompetitionCreateRequest,
   CompetitionDto,
+  CompetitionFeeUpdateRequest,
   CompetitionListItemDto,
+  CompetitionMediaPostCreateRequest,
+  CompetitionMediaPostDto,
+  CompetitionMediaPostStatusRequest,
   CompetitionMatchResultRequest,
   CompetitionMatchScheduleRequest,
   CompetitionRegistrationDecisionRequest,
@@ -441,6 +445,8 @@ export const competitionApi = {
     request<{ generatedAt: string; competitions: CompetitionListItemDto[] }>("/api/v1/competitions"),
   get: (competitionId: string) =>
     request<{ competition: CompetitionDto }>(`/api/v1/competitions/${competitionId}`),
+  media: (competitionId: string) =>
+    request<{ posts: CompetitionMediaPostDto[] }>(`/api/v1/competitions/${competitionId}/media`),
   register: (accessToken: string, competitionId: string, teamId: string) =>
     request<{ registration: CompetitionTeamDto | null }>(
       `/api/v1/competitions/${competitionId}/register`,
@@ -469,6 +475,8 @@ export const competitionApi = {
     request<{ competitions: CompetitionListItemDto[] }>("/api/v1/owner/competitions", {}, accessToken),
   ownerGet: (accessToken: string, competitionId: string) =>
     request<{ competition: CompetitionDto }>(`/api/v1/owner/competitions/${competitionId}`, {}, accessToken),
+  ownerMedia: (accessToken: string, competitionId: string) =>
+    request<{ posts: CompetitionMediaPostDto[] }>(`/api/v1/owner/competitions/${competitionId}/media`, {}, accessToken),
   create: (accessToken: string, input: CompetitionCreateRequest) =>
     request<{ competition: CompetitionDto }>(
       "/api/v1/owner/competitions",
@@ -478,6 +486,24 @@ export const competitionApi = {
   update: (accessToken: string, competitionId: string, input: CompetitionUpdateRequest) =>
     request<{ competition: CompetitionDto }>(
       `/api/v1/owner/competitions/${competitionId}`,
+      { method: "PATCH", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  remove: (accessToken: string, competitionId: string) =>
+    request<{ deleted: boolean }>(
+      `/api/v1/owner/competitions/${competitionId}`,
+      { method: "DELETE" },
+      accessToken,
+    ),
+  createMediaPost: (accessToken: string, competitionId: string, input: CompetitionMediaPostCreateRequest) =>
+    request<{ post: CompetitionMediaPostDto }>(
+      `/api/v1/owner/competitions/${competitionId}/media`,
+      { method: "POST", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  setMediaStatus: (accessToken: string, competitionId: string, postId: string, input: CompetitionMediaPostStatusRequest) =>
+    request<{ post: CompetitionMediaPostDto }>(
+      `/api/v1/owner/competitions/${competitionId}/media/${postId}`,
       { method: "PATCH", body: JSON.stringify(input) },
       accessToken,
     ),
@@ -527,6 +553,17 @@ export const competitionApi = {
   ) =>
     request<{ registration: CompetitionTeamDto | null }>(
       `/api/v1/owner/competitions/${competitionId}/registrations/${teamId}`,
+      { method: "PATCH", body: JSON.stringify(input) },
+      accessToken,
+    ),
+  updateFee: (
+    accessToken: string,
+    competitionId: string,
+    teamId: string,
+    input: CompetitionFeeUpdateRequest,
+  ) =>
+    request<{ registration: CompetitionTeamDto | null }>(
+      `/api/v1/owner/competitions/${competitionId}/registrations/${teamId}/fee`,
       { method: "PATCH", body: JSON.stringify(input) },
       accessToken,
     ),
