@@ -1,8 +1,10 @@
 import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
+  TeamDirectoryItemDto,
   TeamDto,
   TeamInvitationDto,
+  TeamJoinRequestDto,
   TeamListItemDto,
   TeamMemberDto,
   TeamMemberRole,
@@ -11,13 +13,14 @@ import type { Database } from "@leaguekick/database";
 import {
   playerProfiles,
   teamInvitations,
+  teamJoinRequests,
   teamMemberships,
   roleSubscriptions,
   teams,
   userRoles,
   users,
 } from "@leaguekick/database";
-import { and, count, desc, eq, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, lte, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   TeamIdentityUser,
@@ -305,6 +308,153 @@ export class DrizzleTeamRepository implements TeamRepository {
       members: includeRoster ? await this.listMembers(record.id) : [],
       createdAt: record.createdAt.toISOString(),
     };
+  }
+
+  private async joinRequestDto(requestId: string): Promise<TeamJoinRequestDto | null> {
+    const [row] = await this.db.select({
+      id: teamJoinRequests.id,
+      teamId: teamJoinRequests.teamId,
+      teamName: teams.name,
+      requesterUserId: teamJoinRequests.requesterUserId,
+      requesterDisplayName: users.displayName,
+      status: teamJoinRequests.status,
+      createdAt: teamJoinRequests.createdAt,
+      respondedAt: teamJoinRequests.respondedAt,
+    }).from(teamJoinRequests)
+      .innerJoin(teams, eq(teamJoinRequests.teamId, teams.id))
+      .innerJoin(users, eq(teamJoinRequests.requesterUserId, users.id))
+      .where(eq(teamJoinRequests.id, requestId))
+      .limit(1);
+
+    return row ? {
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+      respondedAt: row.respondedAt?.toISOString() ?? null,
+    } : null;
+  }
+
+  async listDirectoryTeams(userId: string): Promise<TeamDirectoryItemDto[]> {
+    const rows = await this.db.select({ id: teams.id }).from(teams)
+      .where(eq(teams.status, "ACTIVE"))
+      .orderBy(asc(teams.name));
+
+    const result: TeamDirectoryItemDto[] = [];
+    for (const row of rows) {
+      const team = await this.getTeam(row.id, false);
+      if (!team) continue;
+      const [membership, pendingRequest] = await Promise.all([
+        this.getMembership(row.id, userId),
+        this.db.select({ status: teamJoinRequests.status }).from(teamJoinRequests)
+          .where(and(
+            eq(teamJoinRequests.teamId, row.id),
+            eq(teamJoinRequests.requesterUserId, userId),
+            eq(teamJoinRequests.status, "PENDING"),
+          ))
+          .limit(1),
+      ]);
+      const { members: _members, ...summary } = team;
+      result.push({
+        ...summary,
+        myMembershipRole: membership?.status === "ACTIVE" ? membership.role : null,
+        joinRequestStatus: pendingRequest[0]?.status ?? null,
+      });
+    }
+    return result;
+  }
+
+  async getJoinRequest(teamId: string, requesterUserId: string): Promise<TeamJoinRequestDto | null> {
+    const [row] = await this.db.select({ id: teamJoinRequests.id }).from(teamJoinRequests)
+      .where(and(
+        eq(teamJoinRequests.teamId, teamId),
+        eq(teamJoinRequests.requesterUserId, requesterUserId),
+        eq(teamJoinRequests.status, "PENDING"),
+      ))
+      .orderBy(desc(teamJoinRequests.createdAt))
+      .limit(1);
+    return row ? this.joinRequestDto(row.id) : null;
+  }
+
+  async createJoinRequest(teamId: string, requesterUserId: string, now: Date): Promise<TeamJoinRequestDto> {
+    try {
+      const [created] = await this.db.insert(teamJoinRequests).values({
+        teamId,
+        requesterUserId,
+        status: "PENDING",
+        createdAt: now,
+        updatedAt: now,
+      }).returning({ id: teamJoinRequests.id });
+      if (!created) throw new Error("Join request could not be created.");
+      const dto = await this.joinRequestDto(created.id);
+      if (!dto) throw new Error("Join request could not be loaded.");
+      return dto;
+    } catch (error) {
+      if ((error as { code?: string }).code === "23505") {
+        throw errors.conflict("TEAM_JOIN_REQUEST_PENDING", "You already have a pending request for this team.");
+      }
+      throw error;
+    }
+  }
+
+  async listJoinRequestsForTeam(teamId: string): Promise<TeamJoinRequestDto[]> {
+    const rows = await this.db.select({ id: teamJoinRequests.id }).from(teamJoinRequests)
+      .where(eq(teamJoinRequests.teamId, teamId))
+      .orderBy(desc(teamJoinRequests.createdAt));
+    const result: TeamJoinRequestDto[] = [];
+    for (const row of rows) {
+      const dto = await this.joinRequestDto(row.id);
+      if (dto) result.push(dto);
+    }
+    return result;
+  }
+
+  async respondJoinRequest(
+    teamId: string,
+    requestId: string,
+    managerUserId: string,
+    accept: boolean,
+    now: Date,
+  ): Promise<TeamJoinRequestDto | null> {
+    const changed = await this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${teamId}))`);
+      const [team] = await tx.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+      if (!team || team.status !== "ACTIVE" || team.managerUserId !== managerUserId) return false;
+
+      const [request] = await tx.select().from(teamJoinRequests).where(and(
+        eq(teamJoinRequests.id, requestId),
+        eq(teamJoinRequests.teamId, teamId),
+      )).limit(1);
+      if (!request || request.status !== "PENDING") return false;
+
+      if (accept) {
+        await tx.insert(teamMemberships).values({
+          teamId,
+          userId: request.requesterUserId,
+          role: "PLAYER",
+          status: "ACTIVE",
+          joinedAt: now,
+          updatedAt: now,
+        }).onConflictDoUpdate({
+          target: [teamMemberships.teamId, teamMemberships.userId],
+          set: {
+            role: "PLAYER",
+            status: "ACTIVE",
+            leftAt: null,
+            joinedAt: now,
+            updatedAt: now,
+          },
+        });
+      }
+
+      await tx.update(teamJoinRequests).set({
+        status: accept ? "ACCEPTED" : "REJECTED",
+        respondedByUserId: managerUserId,
+        respondedAt: now,
+        updatedAt: now,
+      }).where(eq(teamJoinRequests.id, requestId));
+      return true;
+    });
+
+    return changed ? this.joinRequestDto(requestId) : null;
   }
 
   async listUserTeams(userId: string): Promise<TeamListItemDto[]> {
