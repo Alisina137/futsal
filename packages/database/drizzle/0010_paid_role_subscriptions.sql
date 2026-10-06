@@ -38,3 +38,13 @@ SELECT
 FROM "user_roles" ur
 WHERE ur."role" IN ('VENUE_OWNER','TEAM_MANAGER')
 ON CONFLICT ("user_id","role") DO NOTHING;
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "venue_referees" (
+  "venue_id" uuid NOT NULL REFERENCES "venues"("id") ON DELETE cascade,
+  "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE cascade,
+  "assigned_by_user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE restrict,
+  "assigned_at" timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "venue_referees_pk" PRIMARY KEY ("venue_id","user_id")
+);
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "venue_referees_user_idx" ON "venue_referees" ("user_id");
