@@ -67,6 +67,8 @@ export default function VenueRefereesScreen() {
     }
   }
 
+  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
+
   return <Screen showHeader>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{t("roles.venueRefereesTitle")}</AppText>
@@ -91,7 +93,6 @@ export default function VenueRefereesScreen() {
     </Card>
 
     {message ? <Card><AppText accessibilityRole="alert">{message}</AppText></Card> : null}
-    {loading?<DataLoadingState variant="list"/>:null}
 
     {!loading && referees.length === 0 ? <Card>
       <AppText muted>{t("roles.noReferees")}</AppText>
