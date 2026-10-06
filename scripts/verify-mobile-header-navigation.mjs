@@ -23,7 +23,7 @@ assert(header.includes('href:"/feed"'), "Hamburger menu must include Feed.");
 assert(header.includes('href:"/schedule"'), "Hamburger menu must include owner Schedule.");
 assert(header.includes('href:"/settings"'), "Hamburger menu must include Profile.");
 assert(header.includes('width:272') && header.includes('maxWidth:"82%"'), "Hamburger navigation must use a compact bounded width.");
-assert(header.includes('marginTop:insets.top+spacing.sm'), "Hamburger navigation must sit slightly below the safe-area top while staying aligned with the header controls.");
+assert(header.includes('marginTop:insets.top+spacing.sm+20'), "Hamburger navigation must sit exactly 20px lower than the adjusted safe-area position.");
 assert(header.includes('maxHeight:Math.max(240,windowHeight-(insets.top+spacing.lg))'), "Hamburger navigation must remain within the visible app area.");
 assert(header.includes('paddingHorizontal:spacing.sm') && header.includes('marginLeft:spacing.sm'), "Drawer spacing must align the close button with the hamburger button.");
 assert(header.includes('style={styles.drawerHeader}') && header.includes('flexDirection:"row"'), "Drawer header must keep the close button on the physical left in every language.");
