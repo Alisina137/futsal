@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
+  TeamDirectoryItemDto,
   TeamDto,
   TeamInvitationDto,
+  TeamJoinRequestDto,
   TeamListItemDto,
   TeamMemberRole,
 } from "@leaguekick/contracts";
@@ -22,6 +24,7 @@ export class FakeTeamRepository implements TeamRepository {
   teams = new Map<string, TeamRecord>();
   memberships = new Map<string, TeamMembershipRecord>();
   invitations = new Map<string, TeamInvitationDto>();
+  joinRequests = new Map<string, TeamJoinRequestDto>();
 
   seedUser(input: {
     id: string;
@@ -210,6 +213,81 @@ export class FakeTeamRepository implements TeamRepository {
       members: includeRoster ? members : [],
       createdAt: team.createdAt.toISOString(),
     };
+  }
+
+  async listDirectoryTeams(userId:string):Promise<TeamDirectoryItemDto[]>{
+    const result:TeamDirectoryItemDto[]=[];
+    for(const team of this.teams.values()){
+      if(team.status!=="ACTIVE")continue;
+      const dto=await this.getTeam(team.id,false);
+      if(!dto)continue;
+      const {members:_members,...summary}=dto;
+      const membership=this.memberships.get(this.membershipKey(team.id,userId));
+      const pending=[...this.joinRequests.values()].find((request)=>
+        request.teamId===team.id&&request.requesterUserId===userId&&request.status==="PENDING"
+      );
+      result.push({
+        ...summary,
+        myMembershipRole:membership?.status==="ACTIVE"?membership.role:null,
+        joinRequestStatus:pending?.status??null,
+      });
+    }
+    return result.sort((a,b)=>a.name.localeCompare(b.name));
+  }
+
+  async getJoinRequest(teamId:string,requesterUserId:string){
+    return [...this.joinRequests.values()].find((request)=>
+      request.teamId===teamId&&request.requesterUserId===requesterUserId&&request.status==="PENDING"
+    )??null;
+  }
+
+  async createJoinRequest(teamId:string,requesterUserId:string,now:Date){
+    const team=this.teams.get(teamId);
+    const user=this.users.get(requesterUserId);
+    if(!team||!user)throw new Error("join request fixture missing");
+    const existing=await this.getJoinRequest(teamId,requesterUserId);
+    if(existing)return existing;
+    const request:TeamJoinRequestDto={
+      id:randomUUID(),
+      teamId,
+      teamName:team.name,
+      requesterUserId,
+      requesterDisplayName:this.profiles.get(requesterUserId)?.publicDisplayName??user.displayName,
+      status:"PENDING",
+      createdAt:now.toISOString(),
+      respondedAt:null,
+    };
+    this.joinRequests.set(request.id,request);
+    return request;
+  }
+
+  async listJoinRequestsForTeam(teamId:string){
+    return [...this.joinRequests.values()]
+      .filter((request)=>request.teamId===teamId)
+      .sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async respondJoinRequest(teamId:string,requestId:string,managerUserId:string,accept:boolean,now:Date){
+    const team=this.teams.get(teamId);
+    const request=this.joinRequests.get(requestId);
+    if(!team||team.managerUserId!==managerUserId||!request||request.teamId!==teamId||request.status!=="PENDING")return null;
+    const status=accept?"ACCEPTED" as const:"REJECTED" as const;
+    const next:TeamJoinRequestDto={...request,status,respondedAt:now.toISOString()};
+    this.joinRequests.set(requestId,next);
+    if(accept){
+      const key=this.membershipKey(teamId,request.requesterUserId);
+      const current=this.memberships.get(key);
+      this.memberships.set(key,{
+        teamId,
+        userId:request.requesterUserId,
+        role:"PLAYER",
+        shirtNumber:current?.shirtNumber??null,
+        status:"ACTIVE",
+        joinedAt:current?.joinedAt??now,
+        leftAt:null,
+      });
+    }
+    return next;
   }
 
   async listUserTeams(userId: string): Promise<TeamListItemDto[]> {
