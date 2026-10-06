@@ -28,6 +28,13 @@ assert(dashboard.includes("dashboard.normalUnavailableTitle"), "Normal-user dire
 
 assert(ownerDashboard.includes("<ScrollView") && ownerDashboard.includes("horizontal"), "Venue Owner dashboard top navigation must scroll horizontally.");
 assert(ownerDashboard.includes('flexWrap: "nowrap"'), "Venue Owner dashboard top navigation must stay on one line.");
+assert(
+  ownerDashboard.includes("borderTopWidth: 1")
+    && ownerDashboard.includes("borderBottomWidth: 1")
+    && ownerDashboard.includes("borderTopColor: colors.border")
+    && ownerDashboard.includes("borderBottomColor: colors.border"),
+  "Venue Owner dashboard navigation must have top and bottom divider lines.",
+);
 const ownerCompetition = ownerDashboard.indexOf('router.push("/owner/competitions")');
 const ownerSchedule = ownerDashboard.indexOf('router.push("/schedule")');
 const ownerPosts = ownerDashboard.indexOf('router.push("/owner/posts")');
