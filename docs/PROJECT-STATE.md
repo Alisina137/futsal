@@ -22,6 +22,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 ## Core architecture decisions
 - Structured monolith; no microservices.
 - Mobile is the primary customer interface.
+- Primary mobile navigation uses the shared header: hamburger drawer fixed at top-left, profile image/avatar fixed at top-right, and the previous bottom tab bar is hidden while its routes remain intact.
 - Authentication identity is separate from product roles: signup creates a role-free base user with required username + phone + password confirmation; roles are activated later.
 - Usernames are unique, 3–12 characters, and use letters/numbers/underscore.
 - Login accepts either normalized Afghanistan phone or normalized username with the same password and returns one generic invalid-credentials message.
@@ -29,8 +30,8 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Password recovery is phone-based but verification-gated: 6-digit short-lived code → short-lived reset token → username/password update → refresh sessions revoked; existing access tokens remain bounded by the 15-minute access-token TTL.
 - A successful phone/SMS credential reset starts a 72-hour cooldown; after verified phone ownership, attempts during the cooldown receive the exact next-allowed timestamp, and the final reset write enforces the same cooldown atomically.
 - Recovery requests do not reveal phone/account existence before code verification; production requires an HTTPS SMS delivery provider while local development may expose the code only in explicit non-production dev mode.
-- Self-service role activation is limited to PLAYER, VENUE_OWNER, TEAM_MANAGER and REFEREE; privileged staff/admin roles remain controlled.
-- Profile is the single mobile surface for account identity and role selection/activation; Home does not expose username/phone/role controls.
+- Normal authenticated accounts can discover and reserve venues without buying a role. The only self-service paid management subscriptions are Venue Owner (1000 AFN/month) and Team Owner / `TEAM_MANAGER` (300 AFN/month); payment confirmation gates role activation.
+- Profile is the single mobile surface for account identity and the two paid management subscriptions. Venue referees are scoped to one venue, while team players are scoped through team membership rather than global paid account roles.
 - Account Profile supports optional full name, HTTPS profile image, age, email, city and short bio; these remain private account fields and do not automatically become public Player Profile data.
 - Home remains discovery-oriented with venue discovery, Feed, and Competitions available to authenticated users; owner Home retains operational dashboard content plus these discovery entry points.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
@@ -53,7 +54,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Players can belong to multiple teams; membership uniqueness is scoped to one user + one team.
 - Team-manager authority is object-scoped to the team's current `managerUserId`; UI visibility is never an authorization boundary.
 - Team invitations expire after 7 days, are single-use, and are deduplicated while pending per team/player.
-- Venue-owner-only accounts cannot participate in player/team flows unless they also have the PLAYER role.
+- Every normal authenticated account can participate as a player and reserve venue time. Team creation/management requires an active paid Team Owner subscription; a Team Owner can add normal users as players scoped to that team. A Venue Owner can assign normal users as referees scoped to that venue.
 - Competition standings/brackets are derived from persisted match results, not editable totals.
 - Scheduled/in-progress competition matches occupy the same venue-area calendar used by bookings and blocks.
 - Competition scheduling and booking/block writes share the same playing-area advisory-lock conflict boundary.
