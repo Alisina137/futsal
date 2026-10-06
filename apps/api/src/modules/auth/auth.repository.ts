@@ -1,8 +1,8 @@
-import type { UserRole } from "@leaguekick/contracts";
+import type { AdminRoleSubscriptionDto, PaidRole, RoleSubscriptionOfferDto, UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { passwordResetChallenges, sessions, userRoles, users } from "@leaguekick/database";
-import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users } from "@leaguekick/database";
+import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
 
@@ -19,8 +19,22 @@ export class DrizzleAuthRepository implements AuthRepository {
   constructor(private readonly db: Database) {}
 
   private async rolesFor(userId: string): Promise<UserRole[]> {
-    const rows = await this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId));
-    return rows.map((row) => row.role as UserRole);
+    const [roleRows, paidRows] = await Promise.all([
+      this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId)),
+      this.db.select({
+        role: roleSubscriptions.role,
+        status: roleSubscriptions.status,
+        activeUntil: roleSubscriptions.activeUntil,
+      }).from(roleSubscriptions).where(eq(roleSubscriptions.userId, userId)),
+    ]);
+    const activePaid = new Set(
+      paidRows
+        .filter((row) => row.status === "ACTIVE" && row.activeUntil && row.activeUntil.getTime() > Date.now())
+        .map((row) => row.role),
+    );
+    return roleRows
+      .map((row) => row.role as UserRole)
+      .filter((role) => role !== "VENUE_OWNER" && role !== "TEAM_MANAGER" || activePaid.has(role));
   }
 
   private async hydrate(row: typeof users.$inferSelect): Promise<AuthUserRecord> {
@@ -115,6 +129,184 @@ export class DrizzleAuthRepository implements AuthRepository {
       await this.db.insert(userRoles).values(roles.map((role) => ({ userId, role }))).onConflictDoNothing();
     }
     const user = await this.getUserById(userId);
+    if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    return user;
+  }
+
+  private offerStatus(row: typeof roleSubscriptions.$inferSelect | undefined, now: Date) {
+    if (!row) return "NONE" as const;
+    if (row.status === "ACTIVE" && (!row.activeUntil || row.activeUntil.getTime() <= now.getTime())) return "EXPIRED" as const;
+    return row.status;
+  }
+
+  async getRoleSubscriptionOffers(
+    userId: string,
+    prices: Record<PaidRole, number>,
+    now: Date,
+  ): Promise<RoleSubscriptionOfferDto[]> {
+    const rows = await this.db.select().from(roleSubscriptions).where(eq(roleSubscriptions.userId, userId));
+    return (["VENUE_OWNER", "TEAM_MANAGER"] as PaidRole[]).map((role) => {
+      const row = rows.find((item) => item.role === role);
+      return {
+        role,
+        monthlyPriceAfn: prices[role],
+        status: this.offerStatus(row, now),
+        requestedAt: row?.requestedAt.toISOString() ?? null,
+        activeUntil: row?.activeUntil?.toISOString() ?? null,
+      };
+    });
+  }
+
+  async requestRoleSubscription(
+    userId: string,
+    role: PaidRole,
+    monthlyPriceAfn: number,
+    now: Date,
+  ): Promise<RoleSubscriptionOfferDto> {
+    const [current] = await this.db.select().from(roleSubscriptions).where(and(
+      eq(roleSubscriptions.userId, userId),
+      eq(roleSubscriptions.role, role),
+    )).limit(1);
+
+    if (current && this.offerStatus(current, now) === "ACTIVE") {
+      return {
+        role,
+        monthlyPriceAfn,
+        status: "ACTIVE",
+        requestedAt: current.requestedAt.toISOString(),
+        activeUntil: current.activeUntil?.toISOString() ?? null,
+      };
+    }
+
+    const [row] = await this.db.insert(roleSubscriptions).values({
+      userId,
+      role,
+      status: "PENDING",
+      monthlyPriceAfn,
+      requestedAt: now,
+      activeUntil: null,
+      activatedAt: null,
+      activatedByUserId: null,
+      paymentReference: null,
+      updatedAt: now,
+    }).onConflictDoUpdate({
+      target: [roleSubscriptions.userId, roleSubscriptions.role],
+      set: {
+        status: "PENDING",
+        monthlyPriceAfn,
+        requestedAt: now,
+        activeUntil: null,
+        activatedAt: null,
+        activatedByUserId: null,
+        paymentReference: null,
+        updatedAt: now,
+      },
+    }).returning();
+
+    if (!row) throw new Error("Role subscription request could not be saved.");
+    return {
+      role,
+      monthlyPriceAfn,
+      status: "PENDING",
+      requestedAt: row.requestedAt.toISOString(),
+      activeUntil: null,
+    };
+  }
+
+  async listAdminRoleSubscriptions(now: Date): Promise<AdminRoleSubscriptionDto[]> {
+    const rows = await this.db.select({
+      userId: roleSubscriptions.userId,
+      role: roleSubscriptions.role,
+      status: roleSubscriptions.status,
+      monthlyPriceAfn: roleSubscriptions.monthlyPriceAfn,
+      requestedAt: roleSubscriptions.requestedAt,
+      activeUntil: roleSubscriptions.activeUntil,
+      paymentReference: roleSubscriptions.paymentReference,
+      username: users.username,
+      displayName: users.displayName,
+    }).from(roleSubscriptions)
+      .innerJoin(users, eq(roleSubscriptions.userId, users.id))
+      .orderBy(desc(roleSubscriptions.requestedAt));
+
+    return rows.map((row) => ({
+      userId: row.userId,
+      username: row.username,
+      displayName: row.displayName,
+      role: row.role as PaidRole,
+      monthlyPriceAfn: row.monthlyPriceAfn,
+      status: row.status === "ACTIVE" && (!row.activeUntil || row.activeUntil.getTime() <= now.getTime())
+        ? "EXPIRED"
+        : row.status,
+      requestedAt: row.requestedAt.toISOString(),
+      activeUntil: row.activeUntil?.toISOString() ?? null,
+      paymentReference: row.paymentReference,
+    }));
+  }
+
+  async activateRoleSubscription(input: {
+    actorUserId: string;
+    userId: string;
+    role: PaidRole;
+    monthlyPriceAfn: number;
+    months: number;
+    paymentReference: string | null;
+    now: Date;
+  }): Promise<AuthUserRecord> {
+    await this.db.transaction(async (tx) => {
+      const [current] = await tx.select().from(roleSubscriptions).where(and(
+        eq(roleSubscriptions.userId, input.userId),
+        eq(roleSubscriptions.role, input.role),
+      )).limit(1);
+
+      const base = current?.status === "ACTIVE" && current.activeUntil && current.activeUntil.getTime() > input.now.getTime()
+        ? current.activeUntil
+        : input.now;
+      const activeUntil = new Date(base);
+      activeUntil.setUTCMonth(activeUntil.getUTCMonth() + input.months);
+
+      await tx.insert(roleSubscriptions).values({
+        userId: input.userId,
+        role: input.role,
+        status: "ACTIVE",
+        monthlyPriceAfn: input.monthlyPriceAfn,
+        requestedAt: current?.requestedAt ?? input.now,
+        activeUntil,
+        activatedAt: input.now,
+        activatedByUserId: input.actorUserId,
+        paymentReference: input.paymentReference,
+        updatedAt: input.now,
+      }).onConflictDoUpdate({
+        target: [roleSubscriptions.userId, roleSubscriptions.role],
+        set: {
+          status: "ACTIVE",
+          monthlyPriceAfn: input.monthlyPriceAfn,
+          activeUntil,
+          activatedAt: input.now,
+          activatedByUserId: input.actorUserId,
+          paymentReference: input.paymentReference,
+          updatedAt: input.now,
+        },
+      });
+
+      await tx.insert(userRoles).values({ userId: input.userId, role: input.role }).onConflictDoNothing();
+
+      await tx.insert(auditLogs).values({
+        actorUserId: input.actorUserId,
+        action: "PAID_ROLE_SUBSCRIPTION_ACTIVATED",
+        targetType: "USER",
+        targetId: input.userId,
+        metadata: {
+          role: input.role,
+          months: input.months,
+          monthlyPriceAfn: input.monthlyPriceAfn,
+          paymentReference: input.paymentReference,
+          activeUntil: activeUntil.toISOString(),
+        },
+        createdAt: input.now,
+      });
+    });
+
+    const user = await this.getUserById(input.userId);
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
     return user;
   }
