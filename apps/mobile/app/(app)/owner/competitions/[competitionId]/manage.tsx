@@ -20,6 +20,7 @@ import { formatLocalDateTimeParts } from "../../../../../src/lib/date-time";
 import { AppText } from "../../../../../src/components/ui/AppText";
 import { Button } from "../../../../../src/components/ui/Button";
 import { Card } from "../../../../../src/components/ui/Card";
+import { DateTimePickerField } from "../../../../../src/components/ui/DateTimePickerField";
 import { Screen } from "../../../../../src/components/ui/Screen";
 import { TextField } from "../../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../../src/providers/AuthProvider";
@@ -40,6 +41,12 @@ const tabs:Array<{key:ControlTab;icon:keyof typeof Ionicons.glyphMap}>=[
 ];
 const formats:CompetitionFormat[]=["LEAGUE","GROUP_KNOCKOUT","KNOCKOUT"];
 const feeStatuses:CompetitionFeeStatus[]=["UNPAID","PENDING","PAID","WAIVED"];
+const THREE_DAYS_MS=72*60*60*1000;
+
+function after(value:string,offsetMs:number){
+  const parsed=Date.parse(value);
+  return Number.isFinite(parsed)?new Date(parsed+offsetMs):undefined;
+}
 
 export default function ManageCompetitionScreen(){
   const {competitionId}=useLocalSearchParams<{competitionId:string}>();
@@ -162,6 +169,20 @@ export default function ManageCompetitionScreen(){
 
   async function action(action:CompetitionStateRequest["action"]){
     if(!session||!competitionId)return;
+    if(action==="OPEN_REGISTRATION"&&competition){
+      if(!competition.registrationClosesAt){
+        setError(t("competition.schedule.deadlineRequired"));return;
+      }
+      if(Date.parse(competition.registrationClosesAt)<Date.now()+THREE_DAYS_MS){
+        setError(t("competition.schedule.deadlineMin"));return;
+      }
+      if(competition.startsAt&&Date.parse(competition.startsAt)<=Date.parse(competition.registrationClosesAt)){
+        setError(t("competition.schedule.startAfterDeadline"));return;
+      }
+      if(competition.startsAt&&competition.endsAt&&Date.parse(competition.endsAt)<=Date.parse(competition.startsAt)){
+        setError(t("competition.schedule.endAfterStart"));return;
+      }
+    }
     setBusy(action);setError(null);setMessage(null);
     try{
       const {competition:next}=await competitionApi.changeState(session.accessToken,competitionId,{action});
@@ -380,6 +401,21 @@ export default function ManageCompetitionScreen(){
       ||!Number.isInteger(matchDurationMinutes)||matchDurationMinutes<20||matchDurationMinutes>180
       ||![winPoints,drawPoints,lossPoints].every((value)=>Number.isInteger(value)&&value>=0&&value<=20)
     ){setError(t("competition.control.settingsError"));return;}
+
+    const deadlineMs=settingsRegistrationDeadline?Date.parse(settingsRegistrationDeadline):null;
+    const startMs=settingsStartsAt?Date.parse(settingsStartsAt):null;
+    const endMs=settingsEndsAt?Date.parse(settingsEndsAt):null;
+    if(
+      (competition.status==="DRAFT"||competition.status==="REGISTRATION_CLOSED")
+      &&deadlineMs!==null
+      &&deadlineMs<Date.now()+THREE_DAYS_MS
+    ){setError(t("competition.schedule.deadlineMin"));return;}
+    if(deadlineMs!==null&&startMs!==null&&startMs<=deadlineMs){
+      setError(t("competition.schedule.startAfterDeadline"));return;
+    }
+    if(startMs!==null&&endMs!==null&&endMs<=startMs){
+      setError(t("competition.schedule.endAfterStart"));return;
+    }
 
     const input:CompetitionUpdateRequest={
       name:settingsName.trim(),
@@ -680,11 +716,15 @@ export default function ManageCompetitionScreen(){
               <AppText>{area.name}</AppText>
             </Pressable>)}
           </View>
-          <TextField label={t("competition.startsAt")} value={startsAt} onChangeText={setStartsAt} forceLtr placeholder="2026-10-10T18:00:00+04:30"/>
-          <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,alignItems:"flex-end"}}>
-            <TextField label={t("competition.endsAt")} value={endsAt} onChangeText={setEndsAt} forceLtr placeholder="2026-10-10T19:00:00+04:30" containerStyle={{flex:1}}/>
-            <Button label={t("competition.control.useDuration")} onPress={applyDuration} variant="ghost"/>
-          </View>
+          <DateTimePickerField label={t("competition.startsAt")} value={startsAt} onChange={setStartsAt}/>
+          <DateTimePickerField
+            label={t("competition.endsAt")}
+            value={endsAt}
+            onChange={setEndsAt}
+            minimumDate={startsAt?after(startsAt,60_000):undefined}
+            hint={t("competition.schedule.endAfterStart")}
+          />
+          <Button label={t("competition.control.useDuration")} onPress={applyDuration} variant="ghost"/>
           <AppText weight="semibold">{t("competition.referee")}</AppText>
           <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,flexWrap:"wrap"}}>
             <Pressable onPress={()=>setRefereeUserId(null)} style={[styles.choice,refereeUserId===null&&styles.choiceActive]}>
@@ -839,9 +879,27 @@ export default function ManageCompetitionScreen(){
 
           <TextField label={t("competition.maxTeams")} value={settingsMaxTeams} onChangeText={setSettingsMaxTeams} keyboardType="number-pad" forceLtr/>
           <TextField label={t("competition.registrationFee")} value={settingsFee} onChangeText={setSettingsFee} keyboardType="number-pad" forceLtr/>
-          <TextField label={t("competition.registrationDeadline")} value={settingsRegistrationDeadline} onChangeText={setSettingsRegistrationDeadline} forceLtr/>
-          <TextField label={t("competition.startsAt")} value={settingsStartsAt} onChangeText={setSettingsStartsAt} forceLtr/>
-          <TextField label={t("competition.endsAt")} value={settingsEndsAt} onChangeText={setSettingsEndsAt} forceLtr/>
+          <DateTimePickerField
+            label={t("competition.registrationDeadline")}
+            value={settingsRegistrationDeadline}
+            onChange={setSettingsRegistrationDeadline}
+            minimumDate={competition.status==="REGISTRATION_OPEN"?undefined:new Date(Date.now()+THREE_DAYS_MS)}
+            hint={t("competition.schedule.deadlineMin")}
+          />
+          <DateTimePickerField
+            label={t("competition.startsAt")}
+            value={settingsStartsAt}
+            onChange={setSettingsStartsAt}
+            minimumDate={settingsRegistrationDeadline?after(settingsRegistrationDeadline,60_000):undefined}
+            hint={t("competition.schedule.startAfterDeadline")}
+          />
+          <DateTimePickerField
+            label={t("competition.endsAt")}
+            value={settingsEndsAt}
+            onChange={setSettingsEndsAt}
+            minimumDate={settingsStartsAt?after(settingsStartsAt,60_000):undefined}
+            hint={t("competition.schedule.endAfterStart")}
+          />
           <TextField label={t("competition.matchDuration")} value={settingsDuration} onChangeText={setSettingsDuration} keyboardType="number-pad" forceLtr/>
 
           <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
