@@ -1,4 +1,4 @@
-import type { OwnerVenueSetupRequest, VenueOpeningHourInput } from "@leaguekick/contracts";
+import type { OwnerVenueSetupRequest, VenueOpeningHourInput, VenueRefereeDto } from "@leaguekick/contracts";
 
 export type OwnerAreaRecord = {
   id: string;
@@ -54,4 +54,13 @@ export interface OwnerOnboardingRepository {
     endsAt: Date;
   }): Promise<OwnerSubscriptionRecord>;
   markExpired(venueId: string, expiredAt: Date): Promise<void>;
+  resolveActiveUser(input: { usernameNormalized?: string; phoneE164?: string }): Promise<{
+    id: string;
+    displayName: string;
+    username: string | null;
+    phoneE164: string;
+  } | null>;
+  listVenueReferees(venueId: string): Promise<VenueRefereeDto[]>;
+  grantVenueReferee(input: { venueId: string; userId: string; assignedByUserId: string; assignedAt: Date }): Promise<void>;
+  removeVenueReferee(venueId: string, userId: string): Promise<void>;
 }
