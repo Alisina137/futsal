@@ -1,6 +1,6 @@
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { TeamPrivacy } from "@leaguekick/contracts";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { ApiRequestError, teamApi } from "../../../src/lib/api";
@@ -21,6 +21,10 @@ export default function CreateTeamScreen(){
   const [privacy,setPrivacy]=useState<TeamPrivacy>("PUBLIC");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
+
+  if(!session?.user.roles.includes("TEAM_MANAGER")){
+    return <Redirect href="/role-subscriptions/team-owner"/>;
+  }
 
   async function submit(){
     if(!session||name.trim().length<2||city.trim().length<2)return;
