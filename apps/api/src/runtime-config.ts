@@ -16,6 +16,7 @@ export const runtimeEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.string().min(1),
   API_PORT: z.coerce.number().int().positive().default(4000),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
   CORS_ORIGIN: z.string().default("*"),
   ACCESS_TOKEN_SECRET: z.string().min(32),
   ACCESS_TOKEN_ISSUER: z.string().default("leaguekick-api"),
