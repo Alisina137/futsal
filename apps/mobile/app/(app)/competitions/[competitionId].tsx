@@ -1,8 +1,8 @@
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { CompetitionDto, SocialFollowStateDto, TeamListItemDto } from "@leaguekick/contracts";
+import type { CompetitionDto, CompetitionMediaPostDto, SocialFollowStateDto, TeamListItemDto } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import { competitionApi, marketingApi, teamApi } from "../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -24,14 +24,19 @@ export default function CompetitionDetailScreen(){
   const [error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
   const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
+  const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
   const [followBusy,setFollowBusy]=useState(false);
 
   const load=useCallback(async()=>{
     if(!competitionId)return;
     setLoading(true);setError(null);
     try{
-      const {competition:next}=await competitionApi.get(competitionId);
+      const [{competition:next},mediaResult]=await Promise.all([
+        competitionApi.get(competitionId),
+        competitionApi.media(competitionId),
+      ]);
       setCompetition(next);
+      setMediaPosts(mediaResult.posts);
       if(session){
         try{
           const teams=(await teamApi.mine(session.accessToken)).teams.filter((team)=>team.managerUserId===session.user.id);
@@ -142,6 +147,24 @@ export default function CompetitionDetailScreen(){
         <Button label={t("competition.register")} onPress={()=>void register()} loading={busy} disabled={!selectedTeamId}/>
         {message?<AppText style={{color:colors.success}}>{message}</AppText>:null}
       </Card>:null}
+
+      <View style={{gap:spacing.xs}}>
+        <AppText variant="bodyLarge" weight="bold">{t("competition.control.media")}</AppText>
+        <AppText muted>{t("competition.publicMediaBody")}</AppText>
+      </View>
+
+      {mediaPosts.length===0?<Card><AppText muted>{t("competition.publicMediaEmpty")}</AppText></Card>:null}
+      {mediaPosts.slice(0,5).map((post)=>{
+        const published=formatLocalDateTimeParts(post.publishedAt,language);
+        return <Card key={post.id} style={{gap:spacing.sm}}>
+          <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",gap:spacing.sm}}>
+            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>{t("social.entity.COMPETITION")}</AppText>
+            <AppText variant="caption" muted>{published.date} · {published.time}</AppText>
+          </View>
+          <AppText>{post.body}</AppText>
+          {post.imageUrl?<Image source={{uri:post.imageUrl}} style={{width:"100%",height:220,borderRadius:radius.md,backgroundColor:colors.surfaceMuted}} resizeMode="cover"/>:null}
+        </Card>;
+      })}
 
       <View style={{gap:spacing.xs}}>
         <AppText variant="bodyLarge" weight="bold">{t("competition.fixtures")}</AppText>
