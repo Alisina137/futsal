@@ -50,7 +50,7 @@ export function ConnectivityBanner() {
 
   let title: string | null = null;
   let body: string | null = null;
-  let backgroundColor = colors.success;
+  let backgroundColor: string = colors.success;
 
   if (!isOnline) {
     title = t("network.offlineTitle");
