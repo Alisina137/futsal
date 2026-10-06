@@ -45,6 +45,7 @@ function toRecord(row: typeof competitions.$inferSelect): CompetitionRecord {
     format: row.format,
     status: row.status,
     published: row.published,
+    publishedAt: row.publishedAt,
     maxTeams: row.maxTeams,
     registrationFeeAfn: row.registrationFeeAfn,
     winPoints: row.winPoints,
