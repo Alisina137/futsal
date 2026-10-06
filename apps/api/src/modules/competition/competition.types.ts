@@ -139,6 +139,7 @@ export interface CompetitionRepository {
     now: Date;
   }): Promise<void>;
   withdrawTeam(input: { competitionId: string; teamId: string; managerUserId: string; now: Date }): Promise<void>;
+  removeTeamByOwner(input: { competitionId: string; teamId: string; ownerUserId: string; now: Date }): Promise<void>;
   countAcceptedTeams(competitionId: string): Promise<number>;
   hasCompletedMatch(competitionId: string): Promise<boolean>;
   deleteCompetition(competitionId: string): Promise<boolean>;
