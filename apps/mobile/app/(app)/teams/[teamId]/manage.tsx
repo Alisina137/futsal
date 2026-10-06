@@ -134,13 +134,13 @@ export default function ManageTeamScreen(){
 
   const pending=invitations.filter((item)=>item.status==="PENDING");
 
+  if(loading)return <Screen showHeader><DataLoadingState variant="form" minHeight={500}/></Screen>;
+
   return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("teams.manage")}</AppText>
       <AppText muted>{team?.name??""}</AppText>
     </View>
-
-    {loading?<DataLoadingState variant="form"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
 
     {team?<>
