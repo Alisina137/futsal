@@ -1,5 +1,5 @@
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { SocialFollowStateDto, TeamDto } from "@leaguekick/contracts";
+import type { SocialFollowStateDto, TeamDto, TeamJoinRequestStatus } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, View } from "react-native";
@@ -21,6 +21,8 @@ export default function TeamDetailScreen(){
   const [error,setError]=useState<string|null>(null);
   const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
   const [followBusy,setFollowBusy]=useState(false);
+  const [joinRequestStatus,setJoinRequestStatus]=useState<TeamJoinRequestStatus|null>(null);
+  const [joinBusy,setJoinBusy]=useState(false);
 
   const load=useCallback(async()=>{
     if(!teamId)return;
@@ -31,7 +33,12 @@ export default function TeamDetailScreen(){
         try{
           const mine=(await teamApi.mine(session.accessToken)).teams.some((item)=>item.id===teamId);
           setMember(mine);
-          if(mine)next=(await teamApi.roster(session.accessToken,teamId)).team;
+          if(mine){
+            setJoinRequestStatus(null);
+            next=(await teamApi.roster(session.accessToken,teamId)).team;
+          }else{
+            setJoinRequestStatus((await teamApi.joinRequest(session.accessToken,teamId)).request?.status??null);
+          }
         }catch{}
       }
       setTeam(next);
@@ -57,6 +64,17 @@ export default function TeamDetailScreen(){
     }catch{
       setError(t("social.followError"));
     }finally{setFollowBusy(false);}
+  }
+
+  async function requestJoin(){
+    if(!session||!teamId||member||joinRequestStatus==="PENDING")return;
+    setJoinBusy(true);setError(null);
+    try{
+      const result=await teamApi.requestJoin(session.accessToken,teamId);
+      setJoinRequestStatus(result.request.status);
+    }catch{
+      setError(t("teams.joinRequestError"));
+    }finally{setJoinBusy(false);}
   }
 
   const myRole=team&&session
@@ -95,6 +113,17 @@ export default function TeamDetailScreen(){
           variant={followState.following?"secondary":"primary"}
         />
         <AppText variant="caption" muted>{t("social.followers",{count:followState.followerCount})}</AppText>
+      </View>:null}
+
+      {!member&&myRole!=="MANAGER"?<View style={{gap:spacing.xs}}>
+        <Button
+          label={joinRequestStatus==="PENDING"?t("teams.joinRequestPending"):t("teams.requestToJoin")}
+          onPress={()=>void requestJoin()}
+          loading={joinBusy}
+          disabled={joinRequestStatus==="PENDING"}
+          variant={joinRequestStatus==="PENDING"?"secondary":"primary"}
+        />
+        {joinRequestStatus==="PENDING"?<AppText variant="caption" muted>{t("teams.joinRequestPendingBody")}</AppText>:null}
       </View>:null}
 
       {myRole==="MANAGER"?<Button
