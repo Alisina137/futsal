@@ -93,22 +93,12 @@ export default function VenueDetailScreen(){
         </View>
       </View>
 
-      <View style={[styles.actionRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {followState?<Button
-          label={followState.following?t("social.unfollow"):t("social.follow")}
-          onPress={()=>void toggleFollow()}
-          loading={followBusy}
-          variant={followState.following?"secondary":"primary"}
-          style={{flex:1}}
-        />:null}
-        <Button
-          label={t("publicProfile.reserve")}
-          onPress={()=>{}}
-          variant="secondary"
-          style={{flex:1}}
-          disabled
-        />
-      </View>
+      {followState?<Button
+        label={followState.following?t("social.unfollow"):t("social.follow")}
+        onPress={()=>void toggleFollow()}
+        loading={followBusy}
+        variant={followState.following?"secondary":"primary"}
+      />:null}
 
       <View style={styles.statGrid}>
         <ProfileStat icon="grid-outline" value={String(venue.areas.length)} label={t("publicProfile.playingAreas")}/>
@@ -217,7 +207,6 @@ const styles=StyleSheet.create({
   typeBadge:{paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill,backgroundColor:"rgba(255,255,255,0.16)"},
   typeBadgeText:{color:"#FFFFFF"},
   inline:{alignItems:"center",gap:4},
-  actionRow:{gap:spacing.sm},
   statGrid:{flexDirection:"row",gap:spacing.sm},
   statCard:{flex:1,alignItems:"center",gap:spacing.xs,padding:spacing.md},
   statIcon:{width:36,height:36,borderRadius:18,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
