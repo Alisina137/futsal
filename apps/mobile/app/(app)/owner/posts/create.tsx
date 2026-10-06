@@ -7,6 +7,7 @@ import { ApiRequestError, ownerApi } from "../../../../src/lib/api";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
@@ -24,13 +25,16 @@ export default function CreatePostScreen(){
   const [promotions,setPromotions]=useState<PromotionDto[]>([]);
   const [notifyFollowers,setNotifyFollowers]=useState(false);
   const [busy,setBusy]=useState(false);
+  const [promotionsLoading,setPromotionsLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
 
   useEffect(()=>{
-    if(!session)return;
+    if(!session){setPromotionsLoading(false);return;}
+    setPromotionsLoading(true);
     ownerApi.promotions(session.accessToken)
       .then((result)=>setPromotions(result.promotions.filter((item)=>item.status==="ACTIVE")))
-      .catch(()=>setPromotions([]));
+      .catch(()=>setPromotions([]))
+      .finally(()=>setPromotionsLoading(false));
   },[session]);
 
   async function submit(){
@@ -76,14 +80,16 @@ export default function CreatePostScreen(){
 
     {ctaType==="PROMOTION"?<Card>
       <AppText weight="bold">{t("ownerMarketing.choosePromotion")}</AppText>
-      {promotions.length===0?<AppText>{t("ownerMarketing.noActivePromotions")}</AppText>:null}
-      {promotions.map((item)=><Pressable key={item.id} onPress={()=>setPromotionId(item.id)}>
-        <View style={{padding:spacing.md,borderRadius:radius.md,borderWidth:1,borderColor:promotionId===item.id?colors.primary:colors.border,backgroundColor:promotionId===item.id?colors.primarySoft:colors.surface,gap:spacing.xs}}>
-          <AppText weight="bold">{item.title}</AppText>
-          <AppText>{item.discountedPriceAfn} AFN · {item.areaName}</AppText>
-          <AppText variant="caption" forceLtr>{item.startsAt}</AppText>
-        </View>
-      </Pressable>)}
+      {promotionsLoading?<DataLoadingState variant="list" minHeight={260}/>:<>
+        {promotions.length===0?<AppText>{t("ownerMarketing.noActivePromotions")}</AppText>:null}
+        {promotions.map((item)=><Pressable key={item.id} onPress={()=>setPromotionId(item.id)}>
+          <View style={{padding:spacing.md,borderRadius:radius.md,borderWidth:1,borderColor:promotionId===item.id?colors.primary:colors.border,backgroundColor:promotionId===item.id?colors.primarySoft:colors.surface,gap:spacing.xs}}>
+            <AppText weight="bold">{item.title}</AppText>
+            <AppText>{item.discountedPriceAfn} AFN · {item.areaName}</AppText>
+            <AppText variant="caption" forceLtr>{item.startsAt}</AppText>
+          </View>
+        </Pressable>)}
+      </>}
     </Card>:null}
 
     <Card>
