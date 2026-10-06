@@ -88,6 +88,14 @@ export class ApiRequestError extends Error {
   get isTransient() { return this.isNetworkError || this.retryable; }
 }
 
+export type AccountAccessEvent = "ACCOUNT_SUSPENDED";
+
+let accountAccessListener: ((event: AccountAccessEvent) => void) | null = null;
+
+export function setAccountAccessListener(listener: ((event: AccountAccessEvent) => void) | null) {
+  accountAccessListener = listener;
+}
+
 function isSafeRead(init: RequestInit) {
   const method = (init.method ?? "GET").toUpperCase();
   return method === "GET" || method === "HEAD";
@@ -129,6 +137,9 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
           RETRYABLE_HTTP_STATUSES.has(response.status),
           errorBody?.error?.details,
         );
+        if (error.code === "ACCOUNT_SUSPENDED") {
+          accountAccessListener?.("ACCOUNT_SUSPENDED");
+        }
         if (safeRead && error.retryable && attempt + 1 < maxAttempts) {
           await delay(READ_RETRY_DELAY_MS);
           continue;
