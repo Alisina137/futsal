@@ -7,6 +7,7 @@ import { teamApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -66,7 +67,7 @@ export default function EditPlayerProfileScreen(){
       <AppText muted>{t("teams.profileSubtitle")}</AppText>
     </View>
 
-    {loading?<AppText>{t("common.loading")}</AppText>:null}
+    {loading?<DataLoadingState variant="form"/>:null}
     {profile?<Card style={{alignItems:"center",paddingVertical:spacing.lg}}>
       {imageUrl?<Image source={{uri:imageUrl}} style={{width:92,height:92,borderRadius:46}}/>:
         <View style={{width:92,height:92,borderRadius:46,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"}}>
