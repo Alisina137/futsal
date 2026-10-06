@@ -8,6 +8,7 @@ import type {
   CompetitionMatchScheduleRequest,
   CompetitionRegistrationDecisionRequest,
   CompetitionRegistrationResponseRequest,
+  CompetitionSeedUpdateRequest,
   CompetitionStateRequest,
   CompetitionTeamRegisterRequest,
   CompetitionUpdateRequest,
@@ -335,6 +336,29 @@ export class CompetitionService {
       now: this.now(),
     });
     return { registration: await this.repository.getRegistration(competitionId, teamId) };
+  }
+
+  async updateSeed(
+    ownerUserId: string,
+    competitionId: string,
+    teamId: string,
+    input: CompetitionSeedUpdateRequest,
+  ) {
+    const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
+    this.assertRegistrationMutable(competition);
+    const registration = await this.repository.getRegistration(competitionId, teamId);
+    if (!registration || registration.status !== "ACCEPTED") {
+      throw errors.badRequest("ACCEPTED_TEAM_REQUIRED", "Only an accepted competition team can be seeded.");
+    }
+    await this.repository.decideRegistration({
+      competitionId,
+      teamId,
+      ownerUserId,
+      status: "ACCEPTED",
+      seed: input.seed,
+      now: this.now(),
+    });
+    return this.repository.getRegistration(competitionId, teamId);
   }
 
   async updateFee(
