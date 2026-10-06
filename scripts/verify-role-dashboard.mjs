@@ -8,6 +8,7 @@ function assert(value, message) {
 }
 
 const dashboard = read("apps/mobile/app/(app)/dashboard.tsx");
+const ownerDashboard = read("apps/mobile/src/components/owner/OwnerDashboard.tsx");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const header = read("apps/mobile/src/components/ui/AppHeader.tsx");
 const localization = read("packages/localization/src/index.ts");
@@ -25,6 +26,22 @@ assert(dashboard.includes('role === "REFEREE"'), "Referee dashboard shell missin
 assert(dashboard.includes('PLATFORM_ADMIN'), "Platform Admin dashboard shell missing.");
 assert(dashboard.includes("dashboard.normalUnavailableTitle"), "Normal-user direct dashboard fallback missing.");
 
+assert(ownerDashboard.includes("<ScrollView") && ownerDashboard.includes("horizontal"), "Venue Owner dashboard top navigation must scroll horizontally.");
+assert(ownerDashboard.includes('flexWrap: "nowrap"'), "Venue Owner dashboard top navigation must stay on one line.");
+const ownerCompetition = ownerDashboard.indexOf('router.push("/owner/competitions")');
+const ownerSchedule = ownerDashboard.indexOf('router.push("/schedule")');
+const ownerPosts = ownerDashboard.indexOf('router.push("/owner/posts")');
+const ownerAnalysis = ownerDashboard.indexOf('router.push("/owner/analytics")');
+const ownerSettings = ownerDashboard.indexOf('router.push("/owner/onboarding")');
+assert(
+  ownerCompetition >= 0
+    && ownerCompetition < ownerSchedule
+    && ownerSchedule < ownerPosts
+    && ownerPosts < ownerAnalysis
+    && ownerAnalysis < ownerSettings,
+  "Venue Owner dashboard navigation order must be Competitions → Manage Schedule → Posts → Analysis → Venue Settings.",
+);
+
 assert(home.includes("marketingApi.socialFeed"), "Home must remain the shared social feed.");
 assert(!home.includes("OwnerDashboard"), "Venue Owner dashboard must no longer replace Home.");
 assert(!header.includes('href:"/schedule"'), "Role-specific Schedule must not be in the shared hamburger.");
@@ -36,4 +53,15 @@ assert((localization.match(/"dashboard\.playerTitle"/g) ?? []).length === 3, "Pl
 assert((localization.match(/"dashboard\.refereeTitle"/g) ?? []).length === 3, "Referee dashboard copy missing in one or more languages.");
 assert((localization.match(/"dashboard\.adminTitle"/g) ?? []).length === 3, "Admin dashboard copy missing in one or more languages.");
 
-console.log("Role dashboards verified: Normal User has no menu Dashboard; five role types share /dashboard with role-aware content.");
+for (const key of [
+  "owner.dashboardNav.competitions",
+  "owner.dashboardNav.schedule",
+  "owner.dashboardNav.posts",
+  "owner.dashboardNav.analysis",
+  "owner.dashboardNav.settings",
+]) {
+  const count = localization.split(`"${key}"`).length - 1;
+  assert(count === 3, `Venue Owner dashboard navigation localization missing for ${key}; found ${count}.`);
+}
+
+console.log("Role dashboards verified: shared role dashboard routing plus Venue Owner horizontal quick navigation.");
