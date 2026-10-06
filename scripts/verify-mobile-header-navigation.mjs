@@ -18,19 +18,26 @@ assert(header.includes('router.navigate("/settings")'), "Top-right profile contr
 assert(header.includes('user?.profileImageUrl'), "Header profile control must render the profile image when available.");
 assert(header.includes('href:"/home"'), "Hamburger menu must include Home.");
 assert(header.includes('label:t("home.title")') && header.includes('icon:"home-outline"'), "Home menu item must use the Home label and home icon for every account type.");
-assert(!header.includes('owner?t("owner.dashboardTitle"):t("home.title")'), "Venue Owner menu must not rename Home to Venue Dashboard.");
+assert(header.includes('href:"/dashboard"') && header.includes('label:t("dashboard.title")'), "Role users must receive the shared Dashboard item.");
+assert(header.includes('...(hasDashboard?['), "Dashboard must be conditional instead of appearing for Normal User.");
+assert(header.includes('["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE","PLATFORM_ADMIN"]'), "Dashboard eligibility must cover the five non-normal roles.");
+assert(!header.includes('owner?t("owner.dashboardTitle"):t("home.title")'), "Home must remain Home for every role.");
 assert(header.includes('href:"/venues"'), "Hamburger menu must include Venues.");
 assert(header.includes('label:t("booking.venuesTitle"),icon:"football-outline",href:"/venues"'), "Venues menu item must use a futsal/playground-related icon instead of a building icon.");
 assert(header.includes('href:"/teams"'), "Hamburger menu must include Teams.");
 assert(header.includes('href:"/competitions"'), "Hamburger menu must include Competitions.");
-assert(header.includes('href:"/bookings"'), "Hamburger menu must include My Bookings.");
+assert(header.includes('href:"/bookings"'), "Hamburger menu must include My Reserves.");
 assert(!header.includes('href:"/feed"'), "Feed must not remain a separate hamburger option after Home becomes the social feed.");
-assert(header.includes('href:"/schedule"'), "Hamburger menu must include owner Schedule.");
+assert(!header.includes('href:"/schedule"'), "Role-specific Schedule must not appear in the shared hamburger.");
+const homeIndex = header.indexOf('href:"/home"');
+const dashboardIndex = header.indexOf('href:"/dashboard"');
 const venuesIndex = header.indexOf('href:"/venues"');
 const teamsIndex = header.indexOf('href:"/teams"');
 const competitionsIndex = header.indexOf('href:"/competitions"');
 const bookingsIndex = header.indexOf('href:"/bookings"');
-assert(venuesIndex < teamsIndex && teamsIndex < competitionsIndex && competitionsIndex < bookingsIndex, "Hamburger order must be Venues, Teams, Competitions, then My Bookings.");
+const profileIndex = header.indexOf('href:"/settings"');
+assert(homeIndex < dashboardIndex && dashboardIndex < venuesIndex, "Conditional Dashboard must be directly after Home for role users.");
+assert(venuesIndex < teamsIndex && teamsIndex < competitionsIndex && competitionsIndex < bookingsIndex && bookingsIndex < profileIndex, "Shared order must be Venues, Teams, Competitions, My Reserves, Profile.");
 assert(header.includes('href:"/settings"'), "Hamburger menu must include Profile.");
 assert(header.includes('width:272') && header.includes('maxWidth:"82%"'), "Hamburger navigation must use a compact bounded width.");
 assert(header.includes('marginTop:insets.top+spacing.sm+20'), "Hamburger navigation must sit exactly 20px lower than the adjusted safe-area position.");
@@ -45,4 +52,4 @@ assert(tabs.includes('tabBarStyle:{display:"none"}'), "Bottom tab bar must remai
 assert((localization.match(/"navigation\.openMenu"/g) ?? []).length === 3, "Open-menu label must exist in all three languages.");
 assert((localization.match(/"navigation\.closeMenu"/g) ?? []).length === 3, "Close-menu label must exist in all three languages.");
 
-console.log("Mobile header navigation verified: Home feed navigation uses Venues, Teams, Competitions, My Bookings, and no separate Feed item.");
+console.log("Mobile header navigation verified: shared Home → optional Dashboard → Venues → Teams → Competitions → My Reserves → Profile.");
