@@ -6,7 +6,7 @@
 **Primary market:** Afghanistan  
 **Primary platform:** Mobile (Android first; iOS later)  
 **Languages:** Dari, Pashto, English  
-**Business model:** Free player experience + paid venue SaaS with a 3-day Premium trial  
+**Business model:** Free normal/player experience + paid management subscriptions (Venue Owner 1000 AFN/month; Team Owner 300 AFN/month)  
 
 > **Naming note:** The product owner explicitly renamed the application to **Futsal**. Futsal is the canonical product name from this revision forward.
 
@@ -35,11 +35,14 @@ Futsal uses one account identity independently from product roles.
 - A successful phone/SMS credential reset starts a **72-hour (3-day) credential-reset cooldown**. The cooldown is enforced server-side and atomically at the database boundary. A user who verifies their phone again during the cooldown is told the exact Kabul date/time when credential reset becomes available again. A previously verified reset token cannot bypass the cooldown.
 - Production password reset requires an HTTPS SMS delivery provider; development may expose a reset code only under an explicit non-production development mode.
 - The signup form avoids role-model explanatory copy; it uses a concise sports-oriented signup title and keeps role education for the post-signup role flow.
-- **Profile is the single account/role surface:** username, phone, configured full name, current roles, and self-service role activation live in Profile rather than Home.
+- **Profile is the single account/subscription surface:** username, phone, configured full name, active management roles, and the Venue Owner / Team Owner subscription choices live in Profile rather than Home.
 - Account Profile supports optional private personal details: profile image, age, email, city, and short bio. Full name also remains optional after signup. These fields are account data and are not automatically exposed through the public Player Profile.
 - Profile-image entry currently uses an HTTPS image URL with preview because production media storage/upload infrastructure is not yet configured; direct device upload must use the future media-storage pipeline rather than storing local device paths.
 - **Home is discovery-oriented:** it must retain direct access to venue discovery, Feed, and Competitions without showing account identity or role-selection controls. Venue owners may keep operational dashboard content while retaining these discovery entry points.
-- A user may later add participation roles to the same identity. The initial self-service roles are Player, Venue Owner, Team Manager, and Referee.
+- A normal authenticated account already has the free player experience and does not need to activate a global Player role.
+- Profile exposes only two self-service management subscriptions: **Venue Owner (1000 AFN/month)** and **Team Owner (300 AFN/month)**. Submitting a payment confirmation creates a pending request; only platform-admin payment confirmation activates the management role.
+- Player and Referee are not self-service global roles. A Team Owner grants **team-scoped Player** membership through team invitations. A Venue Owner grants **venue-scoped Referee** access for that owner’s venue, and only those granted referees may be assigned to that venue’s competition matches.
+- Privileged operational roles such as Venue Staff, Competition Admin, and Platform Admin remain controlled assignments.
 - Activating Team Manager also enables Player capability because team participation is built on player identity; actual authority over a team remains object-scoped to that team's manager.
 - Venue Staff, Competition Admin, and Platform Admin are controlled roles and must be assigned through authorized operational workflows rather than self-service.
 - Roles are additive capabilities; they do not create a second login identity or change the user's username/phone credentials.
@@ -60,11 +63,14 @@ Around that loop, Futsal adds a venue-specific social presence and competition s
 
 The defining business rule is:
 
-**One venue-owner account = one venue = one subscription.**
+**One Venue Owner account = one venue = one paid Venue Owner subscription.**
 
-A new venue-owner account may start one **72-hour / 3-day Premium trial** after completing venue setup and explicitly starting the trial. When the trial ends, an active paid subscription is required for ongoing Premium venue-management capability. If the same human owns another distinct venue, that second venue requires another venue-owner account and another subscription. The second legitimate venue may receive its own trial, but creating a duplicate account for the same venue must not reset trial eligibility.
+A normal authenticated account can discover venues, reserve available venue time, keep booking history, participate in teams, and use the public competition/community experience without buying a role. Management subscriptions are optional and additive:
 
-Players use the core marketplace, bookings, teams, competitions, standings, and public community content for free. Venue subscription pricing should be configurable and validated with local owners before launch rather than hard-coded into the product specification.
+- **Venue Owner — 1000 AFN/month.** Payment must be confirmed before the Venue Owner role becomes active. The subscription unlocks one-venue management, schedule/manual-booking controls, promotions/posts, competitions, analytics, and the ability to grant a normal user a **venue-scoped Referee** assignment. A referee grant applies only to that venue and must not create global referee authority.
+- **Team Owner — 300 AFN/month.** Payment must be confirmed before the internal `TEAM_MANAGER` role becomes active. The subscription unlocks team creation/management, roster controls, competition participation, and the ability to invite a normal user into a **team-scoped Player** membership. Player membership applies to that team and does not require a global self-selected Player role.
+
+The previous 72-hour venue trial model is superseded for new role activation. Legacy venue-subscription records may remain for migration/operational continuity, but the active paid Venue Owner subscription is the authoritative entitlement and synchronizes the venue management expiry so the owner is not charged twice.
 
 The MVP should emphasize four measurable outcomes:
 
