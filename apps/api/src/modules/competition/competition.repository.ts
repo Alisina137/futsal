@@ -19,6 +19,7 @@ import {
   users,
   venueAreas,
   venueBlocks,
+  venueReferees,
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
@@ -90,6 +91,19 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     };
   }
 
+  async isVenueReferee(venueId: string, userId: string) {
+    const [row] = await this.db.select({ userId: venueReferees.userId })
+      .from(venueReferees)
+      .innerJoin(users, eq(venueReferees.userId, users.id))
+      .where(and(
+        eq(venueReferees.venueId, venueId),
+        eq(venueReferees.userId, userId),
+        eq(users.status, "ACTIVE"),
+      ))
+      .limit(1);
+    return Boolean(row);
+  }
+
   async getCompetitionRecord(competitionId: string) {
     const [row] = await this.db.select().from(competitions)
       .where(eq(competitions.id, competitionId))
@@ -157,6 +171,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       winnerTeamId: match.winnerTeamId,
       nextMatchId: match.nextMatchId,
       nextMatchSide: match.nextMatchSide === "HOME" || match.nextMatchSide === "AWAY" ? match.nextMatchSide : null,
+      refereeUserId: match.refereeUserId,
     }));
   }
 
@@ -823,6 +838,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         areaId: input.areaId,
         startsAt: input.startsAt,
         endsAt: input.endsAt,
+        refereeUserId: input.refereeUserId,
         status: "SCHEDULED",
         updatedAt: input.updatedAt,
       }).where(eq(competitionMatches.id, input.matchId));
