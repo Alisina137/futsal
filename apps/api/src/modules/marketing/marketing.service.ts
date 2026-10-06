@@ -3,6 +3,10 @@ import type {
   FollowStateDto,
   PromotionCreateRequest,
   PromotionDto,
+  SocialEntityType,
+  SocialFeedResponse,
+  SocialFollowStateDto,
+  SocialPostCommentCreateRequest,
   VenuePostCreateRequest,
   VenuePostDto,
 } from "@leaguekick/contracts";
@@ -213,6 +217,70 @@ export class MarketingService {
       generatedAt: this.now().toISOString(),
       items: mergeFeed(promotions, posts).slice(0, 100),
     };
+  }
+
+  private async requireSocialEntity(entityType: SocialEntityType, entityId: string) {
+    const entity = await this.repository.getSocialEntity(entityType, entityId);
+    if (!entity) throw errors.badRequest("SOCIAL_ENTITY_NOT_FOUND", "This page is not available.");
+    return entity;
+  }
+
+  async socialFeed(userId: string): Promise<SocialFeedResponse> {
+    return {
+      generatedAt: this.now().toISOString(),
+      items: await this.repository.listSocialFeed(userId),
+    };
+  }
+
+  async socialFollowState(
+    userId: string,
+    entityType: SocialEntityType,
+    entityId: string,
+  ): Promise<SocialFollowStateDto> {
+    await this.requireSocialEntity(entityType, entityId);
+    const [following, followerCount] = await Promise.all([
+      this.repository.isFollowingEntity(userId, entityType, entityId),
+      this.repository.socialFollowerCount(entityType, entityId),
+    ]);
+    return { entityType, entityId, following, followerCount };
+  }
+
+  async socialFollow(userId: string, entityType: SocialEntityType, entityId: string) {
+    await this.requireSocialEntity(entityType, entityId);
+    await this.repository.followEntity(userId, entityType, entityId);
+    return this.socialFollowState(userId, entityType, entityId);
+  }
+
+  async socialUnfollow(userId: string, entityType: SocialEntityType, entityId: string) {
+    await this.requireSocialEntity(entityType, entityId);
+    await this.repository.unfollowEntity(userId, entityType, entityId);
+    return this.socialFollowState(userId, entityType, entityId);
+  }
+
+  async likeSocialPost(userId: string, postId: string) {
+    const post = await this.repository.likeSocialPost(userId, postId);
+    if (!post) throw errors.badRequest("SOCIAL_POST_NOT_FOUND", "This post is no longer available.");
+    return post;
+  }
+
+  async unlikeSocialPost(userId: string, postId: string) {
+    const post = await this.repository.unlikeSocialPost(userId, postId);
+    if (!post) throw errors.badRequest("SOCIAL_POST_NOT_FOUND", "This post is no longer available.");
+    return post;
+  }
+
+  async socialComments(userId: string, postId: string) {
+    const post = await this.repository.getSocialPost(userId, postId);
+    if (!post) throw errors.badRequest("SOCIAL_POST_NOT_FOUND", "This post is no longer available.");
+    return { comments: await this.repository.listSocialComments(postId) };
+  }
+
+  async addSocialComment(userId: string, postId: string, input: SocialPostCommentCreateRequest) {
+    const post = await this.repository.getSocialPost(userId, postId);
+    if (!post) throw errors.badRequest("SOCIAL_POST_NOT_FOUND", "This post is no longer available.");
+    const comment = await this.repository.addSocialComment(userId, postId, input.body.trim(), this.now());
+    if (!comment) throw errors.badRequest("SOCIAL_POST_NOT_FOUND", "This post is no longer available.");
+    return comment;
   }
 
   async followState(userId: string, venueId: string): Promise<FollowStateDto> {
