@@ -5,10 +5,11 @@ import { SignJWT, jwtVerify } from "jose";
 import { errors } from "../../lib/errors.js";
 
 export type AccessClaims = { userId: string; roles: UserRole[] };
+export type AccessAccountStatus = "ACTIVE" | "SUSPENDED" | "DELETED" | null;
 
 export class TokenService {
   private readonly key: Uint8Array;
-  private accessValidator: ((userId: string) => Promise<boolean>) | null = null;
+  private accessValidator: ((userId: string) => Promise<AccessAccountStatus>) | null = null;
 
   constructor(
     secret: string,
@@ -32,21 +33,34 @@ export class TokenService {
   }
 
   async verifyAccessToken(token: string): Promise<AccessClaims> {
+    let userId: string;
+    let roles: UserRole[];
+
     try {
       const { payload } = await jwtVerify(token, this.key, { issuer: this.issuer, audience: this.audience });
       if (!payload.sub) throw new Error("missing sub");
-      const roles = userRoleSchema.array().safeParse(payload.roles);
-      if (!roles.success) throw new Error("invalid roles");
-      if (this.accessValidator && !(await this.accessValidator(payload.sub))) {
-        throw new Error("account inactive");
-      }
-      return { userId: payload.sub, roles: roles.data };
+      const parsedRoles = userRoleSchema.array().safeParse(payload.roles);
+      if (!parsedRoles.success) throw new Error("invalid roles");
+      userId = payload.sub;
+      roles = parsedRoles.data;
     } catch {
       throw errors.unauthorized("INVALID_ACCESS_TOKEN", "The access token is invalid or expired.");
     }
+
+    if (this.accessValidator) {
+      const status = await this.accessValidator(userId);
+      if (status === "SUSPENDED") {
+        throw errors.forbidden("ACCOUNT_SUSPENDED", "This account is suspended. Contact the platform administrator.");
+      }
+      if (status !== "ACTIVE") {
+        throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+      }
+    }
+
+    return { userId, roles };
   }
 
-  setAccessValidator(validator: (userId: string) => Promise<boolean>) {
+  setAccessValidator(validator: (userId: string) => Promise<AccessAccountStatus>) {
     this.accessValidator = validator;
   }
 
