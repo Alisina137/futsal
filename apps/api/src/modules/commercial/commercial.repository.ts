@@ -3,7 +3,6 @@ import {
   auditLogs,
   bookings,
   platformSettings,
-  sessions,
   subscriptionPayments,
   userRoles,
   users,
@@ -21,7 +20,6 @@ import {
   gte,
   ilike,
   inArray,
-  isNull,
   lt,
   or,
 } from "drizzle-orm";
@@ -351,13 +349,6 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       .where(eq(users.id, userId))
       .returning({ id: users.id });
     if (!updated) throw errors.badRequest("USER_NOT_FOUND", "User not found.");
-
-    if (status === "SUSPENDED") {
-      await this.db
-        .update(sessions)
-        .set({ revokedAt: now, lastSeenAt: now })
-        .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
-    }
 
     await this.db.insert(auditLogs).values({
       actorUserId,
