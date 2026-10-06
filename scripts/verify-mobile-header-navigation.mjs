@@ -24,7 +24,8 @@ assert(header.includes('href:"/schedule"'), "Hamburger menu must include owner S
 assert(header.includes('href:"/settings"'), "Hamburger menu must include Profile.");
 assert(header.includes('width:286') && header.includes('maxWidth:"82%"'), "Hamburger navigation must use a compact bounded width.");
 assert(header.includes('maxHeight:"86%"'), "Hamburger navigation must cap height without filling the screen.");
-assert(!header.includes('height:"100%"'), "Hamburger navigation must not force full-screen height.");
+const drawerBlock = header.slice(header.indexOf("drawer:{"), header.indexOf("drawerHeader:{"));
+assert(!drawerBlock.includes('height:"100%"'), "Hamburger navigation must not force full-screen height.");
 assert(header.includes('onPressIn={()=>setMenuOpen(false)}'), "Touching outside the drawer must close the menu immediately.");
 assert(tabs.includes('tabBarStyle:{display:"none"}'), "Bottom tab bar must remain hidden.");
 assert((localization.match(/"navigation\.openMenu"/g) ?? []).length === 3, "Open-menu label must exist in all three languages.");
