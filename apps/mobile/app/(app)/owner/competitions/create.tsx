@@ -7,12 +7,19 @@ import { competitionApi } from "../../../../src/lib/api";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
+import { DateTimePickerField } from "../../../../src/components/ui/DateTimePickerField";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
 
 const formats:CompetitionFormat[]=["LEAGUE","KNOCKOUT","GROUP_KNOCKOUT"];
+const THREE_DAYS_MS=72*60*60*1000;
+
+function after(value:string,offsetMs:number){
+  const parsed=Date.parse(value);
+  return Number.isFinite(parsed)?new Date(parsed+offsetMs):undefined;
+}
 
 export default function CreateCompetitionScreen(){
   const {session}=useAuth();
@@ -53,6 +60,19 @@ export default function CreateCompetitionScreen(){
       ||(format==="GROUP_KNOCKOUT"&&(!Number.isInteger(groups)||groups<2||!Number.isInteger(qualified)||qualified<1))
     ){
       setError(t("competition.createError"));return;
+    }
+
+    const deadlineMs=registrationClosesAt?Date.parse(registrationClosesAt):null;
+    const startMs=startsAt?Date.parse(startsAt):null;
+    const endMs=endsAt?Date.parse(endsAt):null;
+    if(deadlineMs!==null&&deadlineMs<Date.now()+THREE_DAYS_MS){
+      setError(t("competition.schedule.deadlineMin"));return;
+    }
+    if(deadlineMs!==null&&startMs!==null&&startMs<=deadlineMs){
+      setError(t("competition.schedule.startAfterDeadline"));return;
+    }
+    if(startMs!==null&&endMs!==null&&endMs<=startMs){
+      setError(t("competition.schedule.endAfterStart"));return;
     }
 
     const input:CompetitionCreateRequest={
@@ -120,15 +140,27 @@ export default function CreateCompetitionScreen(){
 
     <Card style={{gap:spacing.md}}>
       <AppText variant="bodyLarge" weight="bold">{t("competition.control.scheduleRules")}</AppText>
-      <TextField
+      <DateTimePickerField
         label={t("competition.registrationDeadline")}
         value={registrationClosesAt}
-        onChangeText={setRegistrationClosesAt}
-        placeholder="2026-10-20T18:00:00+04:30"
-        forceLtr
+        onChange={setRegistrationClosesAt}
+        minimumDate={new Date(Date.now()+THREE_DAYS_MS)}
+        hint={t("competition.schedule.deadlineMin")}
       />
-      <TextField label={t("competition.startsAt")} value={startsAt} onChangeText={setStartsAt} placeholder="2026-10-21T18:00:00+04:30" forceLtr/>
-      <TextField label={t("competition.endsAt")} value={endsAt} onChangeText={setEndsAt} placeholder="2026-10-30T21:00:00+04:30" forceLtr/>
+      <DateTimePickerField
+        label={t("competition.startsAt")}
+        value={startsAt}
+        onChange={setStartsAt}
+        minimumDate={registrationClosesAt?after(registrationClosesAt,60_000):undefined}
+        hint={t("competition.schedule.startAfterDeadline")}
+      />
+      <DateTimePickerField
+        label={t("competition.endsAt")}
+        value={endsAt}
+        onChange={setEndsAt}
+        minimumDate={startsAt?after(startsAt,60_000):undefined}
+        hint={t("competition.schedule.endAfterStart")}
+      />
       <TextField label={t("competition.matchDuration")} value={matchDuration} onChangeText={setMatchDuration} keyboardType="number-pad" forceLtr/>
 
       <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
