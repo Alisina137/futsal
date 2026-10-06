@@ -66,6 +66,7 @@ import type {
   CompetitionMatchScheduleRequest,
   CompetitionRegistrationDecisionRequest,
   CompetitionRegistrationResponseRequest,
+  CompetitionSeedUpdateRequest,
   CompetitionStateRequest,
   CompetitionTeamDto,
   CompetitionUpdateRequest,
@@ -566,6 +567,17 @@ export const competitionApi = {
     request<{ registration: CompetitionTeamDto | null }>(
       `/api/v1/owner/competitions/${competitionId}/registrations/${teamId}`,
       { method: "DELETE" },
+      accessToken,
+    ),
+  updateSeed: (
+    accessToken: string,
+    competitionId: string,
+    teamId: string,
+    input: CompetitionSeedUpdateRequest,
+  ) =>
+    request<{ registration: CompetitionTeamDto | null }>(
+      `/api/v1/owner/competitions/${competitionId}/registrations/${teamId}/seed`,
+      { method: "PATCH", body: JSON.stringify(input) },
       accessToken,
     ),
   updateFee: (
