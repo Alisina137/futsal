@@ -79,8 +79,12 @@ export interface MarketingRepository {
   getSocialPost(userId: string, postId: string): Promise<SocialFeedPostDto | null>;
   likeSocialPost(userId: string, postId: string): Promise<SocialFeedPostDto | null>;
   unlikeSocialPost(userId: string, postId: string): Promise<SocialFeedPostDto | null>;
-  listSocialComments(postId: string): Promise<SocialPostCommentDto[]>;
+  listSocialComments(userId: string, postId: string): Promise<SocialPostCommentDto[]>;
   addSocialComment(userId: string, postId: string, body: string, createdAt: Date): Promise<SocialPostCommentDto | null>;
+  updateSocialComment(userId: string, postId: string, commentId: string, body: string, editedAt: Date): Promise<SocialPostCommentDto | null>;
+  deleteSocialComment(userId: string, postId: string, commentId: string): Promise<boolean>;
+  likeSocialComment(userId: string, postId: string, commentId: string): Promise<SocialPostCommentDto | null>;
+  unlikeSocialComment(userId: string, postId: string, commentId: string): Promise<SocialPostCommentDto | null>;
 }
 
 export function mergeFeed(promotions: PromotionDto[], posts: VenuePostDto[]): FeedItemDto[] {
