@@ -29,8 +29,8 @@ export function AppHeader(){
   const items:Array<{key:string;label:string;icon:IconName;href:string}>= [
     {
       key:"home",
-      label:owner?t("owner.dashboardTitle"):t("home.title"),
-      icon:owner?"speedometer-outline":"home-outline",
+      label:t("home.title"),
+      icon:"home-outline",
       href:"/home",
     },
     {key:"venues",label:t("booking.venuesTitle"),icon:"business-outline",href:"/venues"},
