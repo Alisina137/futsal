@@ -203,6 +203,20 @@ export const venues = pgTable(
   ],
 );
 
+export const venueReferees = pgTable(
+  "venue_referees",
+  {
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    assignedByUserId: uuid("assigned_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.venueId, table.userId] }),
+    index("venue_referees_user_idx").on(table.userId),
+  ],
+);
+
 export const venueAreas = pgTable(
   "venue_areas",
   {
