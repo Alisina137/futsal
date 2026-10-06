@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { competitionApi } from "../../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
+import { OwnerTopNav } from "../../../../src/components/owner/OwnerTopNav";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
@@ -15,7 +16,7 @@ import { useAuth } from "../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
 
 type Filter="ALL"|CompetitionStatus;
-const filters:Filter[]=["ALL","DRAFT","REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS","COMPLETED","ARCHIVED","CANCELLED"];
+const filters:Filter[]=["ALL","IN_PROGRESS","REGISTRATION_OPEN","REGISTRATION_CLOSED","COMPLETED","DRAFT","SCHEDULED","ARCHIVED","CANCELLED"];
 
 function compactLabel(value:string){
   return value.replace(/\s*\([^)]*\)\s*$/u,"");
@@ -45,13 +46,13 @@ export default function OwnerCompetitionListScreen(){
   );
   const activeCount=items.filter((item)=>["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS"].includes(item.status)).length;
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="dashboard" minHeight={500}/></Screen>;
+  if(loading)return <Screen showHeader>
+    <OwnerTopNav/>
+    <DataLoadingState variant="dashboard" minHeight={500}/>
+  </Screen>;
 
   return <Screen showHeader>
-    <View style={{gap:spacing.xs}}>
-      <AppText variant="title" weight="bold">{t("competition.ownerTitle")}</AppText>
-      <AppText muted>{t("competition.control.listSubtitle")}</AppText>
-    </View>
+    <OwnerTopNav/>
 
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
       <Card style={styles.summaryCard}>
