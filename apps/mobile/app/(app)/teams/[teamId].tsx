@@ -1,9 +1,9 @@
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { TeamDto } from "@leaguekick/contracts";
+import type { SocialFollowStateDto, TeamDto } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, View } from "react-native";
-import { teamApi } from "../../../src/lib/api";
+import { marketingApi, teamApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -19,6 +19,8 @@ export default function TeamDetailScreen(){
   const [member,setMember]=useState(false);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
+  const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
+  const [followBusy,setFollowBusy]=useState(false);
 
   const load=useCallback(async()=>{
     if(!teamId)return;
@@ -39,6 +41,23 @@ export default function TeamDetailScreen(){
   },[session,t,teamId]);
 
   useEffect(()=>{void load();},[load]);
+
+  useEffect(()=>{
+    if(!session||!teamId)return;
+    marketingApi.socialFollowState(session.accessToken,"TEAM",teamId).then(setFollowState).catch(()=>{});
+  },[session,teamId]);
+
+  async function toggleFollow(){
+    if(!session||!teamId||!followState)return;
+    setFollowBusy(true);setError(null);
+    try{
+      setFollowState(followState.following
+        ?await marketingApi.socialUnfollow(session.accessToken,"TEAM",teamId)
+        :await marketingApi.socialFollow(session.accessToken,"TEAM",teamId));
+    }catch{
+      setError(t("social.followError"));
+    }finally{setFollowBusy(false);}
+  }
 
   const myRole=team&&session
     ?team.managerUserId===session.user.id
@@ -67,6 +86,16 @@ export default function TeamDetailScreen(){
           </View>
         </View>
       </Card>
+
+      {followState?<View style={{gap:spacing.xs}}>
+        <Button
+          label={followState.following?t("social.unfollow"):t("social.follow")}
+          onPress={()=>void toggleFollow()}
+          loading={followBusy}
+          variant={followState.following?"secondary":"primary"}
+        />
+        <AppText variant="caption" muted>{t("social.followers",{count:followState.followerCount})}</AppText>
+      </View>:null}
 
       {myRole==="MANAGER"?<Button
         label={t("teams.manage")}
