@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { SocialFeedPostDto, SocialPostCommentDto } from "@leaguekick/contracts";
+import type { SocialFeedPostDto } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, Share, StyleSheet, View } from "react-native";
@@ -8,7 +8,6 @@ import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { Screen } from "../../../src/components/ui/Screen";
-import { TextField } from "../../../src/components/ui/TextField";
 import { marketingApi } from "../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -108,12 +107,6 @@ function SocialPostCard({
   t:(key:any,params?:Record<string,string|number>)=>string;
   onUpdate:(post:SocialFeedPostDto)=>void;
 }){
-  const [commentsOpen,setCommentsOpen]=useState(false);
-  const [comments,setComments]=useState<SocialPostCommentDto[]>([]);
-  const [commentsLoaded,setCommentsLoaded]=useState(false);
-  const [commentsLoading,setCommentsLoading]=useState(false);
-  const [commentDraft,setCommentDraft]=useState("");
-  const [commentBusy,setCommentBusy]=useState(false);
   const [likeBusy,setLikeBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
 
@@ -146,37 +139,8 @@ function SocialPostCard({
     }
   }
 
-  async function toggleComments(){
-    const next=!commentsOpen;
-    setCommentsOpen(next);
-    if(!next||commentsLoaded||!token)return;
-    setCommentsLoading(true);setError(null);
-    try{
-      setComments((await marketingApi.socialComments(token,post.id)).comments);
-      setCommentsLoaded(true);
-    }catch{
-      setError(t("social.commentsLoadError"));
-    }finally{
-      setCommentsLoading(false);
-    }
-  }
-
-  async function addComment(){
-    const body=commentDraft.trim();
-    if(!token||!body||commentBusy)return;
-    setCommentBusy(true);setError(null);
-    try{
-      const {comment}=await marketingApi.addSocialComment(token,post.id,{body});
-      setComments((current)=>[...current,comment]);
-      setCommentsLoaded(true);
-      setCommentsOpen(true);
-      setCommentDraft("");
-      onUpdate({...post,commentCount:post.commentCount+1});
-    }catch{
-      setError(t("social.commentError"));
-    }finally{
-      setCommentBusy(false);
-    }
+  function openComments(){
+    router.push({pathname:"/posts/[postId]/comments",params:{postId:post.id}});
   }
 
   async function sharePost(){
@@ -238,8 +202,7 @@ function SocialPostCard({
       <SocialAction
         icon="chatbubble-outline"
         label={t("social.comment")}
-        active={commentsOpen}
-        onPress={()=>void toggleComments()}
+        onPress={openComments}
       />
       <SocialAction
         icon="share-social-outline"
@@ -250,44 +213,7 @@ function SocialPostCard({
 
     {error?<AppText variant="caption" style={{color:colors.danger}}>{error}</AppText>:null}
 
-    {commentsOpen?<View style={styles.commentsSection}>
-      {commentsLoading?<AppText variant="caption" muted>{t("common.loading")}</AppText>:null}
 
-      {!commentsLoading&&commentsLoaded&&comments.length===0
-        ?<AppText variant="caption" muted>{t("social.noComments")}</AppText>
-        :null}
-
-      {comments.map((comment)=><View
-        key={comment.id}
-        style={[styles.commentRow,{flexDirection:isRTL?"row-reverse":"row"}]}
-      >
-        {comment.profileImageUrl
-          ?<Image source={{uri:comment.profileImageUrl}} style={styles.commentAvatar}/>
-          :<View style={styles.commentFallback}>
-            <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
-              {comment.displayName.trim().slice(0,2).toUpperCase()||"U"}
-            </AppText>
-          </View>}
-        <View style={styles.commentBubble}>
-          <AppText variant="caption" weight="bold">{comment.displayName}</AppText>
-          <AppText variant="caption">{comment.body}</AppText>
-        </View>
-      </View>)}
-
-      <TextField
-        label={t("social.addComment")}
-        value={commentDraft}
-        onChangeText={setCommentDraft}
-        placeholder={t("social.commentPlaceholder")}
-        multiline
-      />
-      <Button
-        label={t("social.postComment")}
-        onPress={()=>void addComment()}
-        loading={commentBusy}
-        disabled={!commentDraft.trim()}
-      />
-    </View>:null}
   </Card>;
 }
 
@@ -399,36 +325,5 @@ const styles=StyleSheet.create({
   },
   socialActionBusy:{
     opacity:0.55,
-  },
-  commentsSection:{
-    gap:spacing.sm,
-    borderTopWidth:1,
-    borderTopColor:colors.border,
-    paddingTop:spacing.md,
-  },
-  commentRow:{
-    alignItems:"flex-start",
-    gap:spacing.sm,
-  },
-  commentAvatar:{
-    width:34,
-    height:34,
-    borderRadius:17,
-  },
-  commentFallback:{
-    width:34,
-    height:34,
-    borderRadius:17,
-    alignItems:"center",
-    justifyContent:"center",
-    backgroundColor:colors.primarySoft,
-  },
-  commentBubble:{
-    flex:1,
-    gap:2,
-    paddingHorizontal:spacing.sm,
-    paddingVertical:spacing.xs,
-    borderRadius:radius.md,
-    backgroundColor:colors.surfaceMuted,
   },
 });
