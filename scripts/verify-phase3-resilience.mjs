@@ -9,6 +9,8 @@ const service = read("apps/api/src/modules/booking/booking.service.ts");
 const playerAvailability = read("apps/mobile/app/(app)/venues/[venueId].tsx");
 const cache = read("apps/mobile/src/lib/availability-cache.ts");
 const tests = read("apps/api/test/booking.test.ts");
+const rootLayout = read("apps/mobile/app/_layout.tsx");
+const connectivityBanner = read("apps/mobile/src/components/ConnectivityBanner.tsx");
 
 const checks = [
   [repository.includes("pg_advisory_xact_lock"), "database advisory lock"],
@@ -20,10 +22,12 @@ const checks = [
   [tests.includes("exactly one winner"), "concurrent winner test"],
   [tests.includes("tenant-scoped"), "tenant isolation test"],
   [tests.includes("idempotency key"), "idempotency retry test"],
+  [rootLayout.includes('LogBox.ignoreLogs(["Cannot connect to Expo CLI."])'), "Expo CLI disconnect warning suppression"],
+  [connectivityBanner.includes('t("network.offlineTitle")') && connectivityBanner.includes('t("network.backOnline")'), "localized offline/back-online banner"],
 ];
 
 const failed = checks.filter(([ok]) => !ok);
 if (failed.length) {
   throw new Error(`Phase 3 resilience invariant(s) missing: ${failed.map(([,name]) => name).join(", ")}`);
 }
-console.log("Phase 3 resilience verified: atomic area lock, server revalidation, actor-scoped idempotency, tenant isolation, and non-bookable cached availability.");
+console.log("Phase 3 resilience verified: booking integrity, cached availability, and app-owned offline/back-online UX are present.");
