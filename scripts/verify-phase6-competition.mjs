@@ -41,6 +41,10 @@ const checks = [
   [mobileApi.includes('export const competitionApi'), "competition mobile API client"],
   [mobilePublic.includes('competitionApi.register') && mobilePublic.includes('/standings') && mobilePublic.includes('/bracket'), "public competition mobile hub"],
   [mobileOwner.includes('competitionApi.scheduleMatch') && mobileOwner.includes('competitionApi.enterResult'), "owner competition mobile operations"],
+  [mobileOwner.includes('type ControlTab="OVERVIEW"|"TEAMS"|"FIXTURES"|"STANDINGS"|"REFEREES"|"STATISTICS"|"MEDIA"|"SETTINGS"'), "owner competition eight-section control center"],
+  [mobileOwner.includes("competitionApi.duplicate") && mobileOwner.includes("competitionApi.removeTeam") && mobileOwner.includes("competitionApi.updateSeed"), "owner duplicate/remove/reseed controls"],
+  [competitionService.includes("async duplicate(") && competitionService.includes("async removeTeam(") && competitionService.includes("async updateSeed("), "competition duplicate/remove/reseed service rules"],
+  [competitionRoutes.includes('/duplicate"') && competitionRoutes.includes('/registrations/:teamId/seed"') && competitionRoutes.includes('router.delete("/competitions/:competitionId/registrations/:teamId"'), "competition duplicate/remove/reseed routes"],
   [localization.includes('"competition.title"') && localization.includes('"competition.matchStatus.CORRECTED"'), "competition localization"],
 ];
 
@@ -49,4 +53,4 @@ if (failed.length) {
   throw new Error(`Phase 6 invariant(s) missing: ${failed.map(([, name]) => name).join(", ")}`);
 }
 
-console.log("Phase 6 competition engine verified: deterministic league/group/knockout engines, atomic venue-calendar occupancy, result correction safeguards, public/owner APIs, and mobile competition workflows are present.");
+console.log("Phase 6 competition engine verified: full Venue Owner control center, league/group+knockout/knockout engines, team/seed/fee controls, referee-aware scheduling, standings/brackets/stats/media, lifecycle, safe delete/archive, and public competition workflows are present.");
