@@ -3,9 +3,10 @@ import type {
   OwnerOnboardingStatus,
   OwnerVenueDto,
   OwnerVenueSetupRequest,
+  VenueRefereeGrantRequest,
   VenueSubscriptionDto,
 } from "@leaguekick/contracts";
-import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
+import { normalizeAfghanistanPhone, normalizeUsername } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import { evaluateVenueEntitlement } from "../billing/entitlement.js";
 import type { OwnerAggregate, OwnerOnboardingRepository, OwnerSubscriptionRecord, OwnerVenueRecord } from "./owner.types.js";
@@ -175,6 +176,43 @@ export class OwnerOnboardingService {
       subscription,
     });
   }
+
+  async listReferees(ownerUserId: string) {
+    const aggregate = await this.repository.getByOwnerId(ownerUserId);
+    if (!aggregate) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
+    return { referees: await this.repository.listVenueReferees(aggregate.venue.id) };
+  }
+
+  async grantReferee(ownerUserId: string, input: VenueRefereeGrantRequest) {
+    const aggregate = await this.repository.getByOwnerId(ownerUserId);
+    if (!aggregate) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
+
+    const raw = input.identifier.trim();
+    let phoneE164: string | undefined;
+    try { phoneE164 = normalizeAfghanistanPhone(raw); } catch { phoneE164 = undefined; }
+    const usernameNormalized = phoneE164 ? undefined : normalizeUsername(raw) || undefined;
+    const target = await this.repository.resolveActiveUser({ usernameNormalized, phoneE164 });
+    if (!target) throw errors.badRequest("REFEREE_USER_NOT_FOUND", "No active user matches that username or phone number.");
+    if (target.id === ownerUserId) {
+      throw errors.badRequest("OWNER_CANNOT_BE_REFEREE", "The venue owner already has venue management access.");
+    }
+
+    await this.repository.grantVenueReferee({
+      venueId: aggregate.venue.id,
+      userId: target.id,
+      assignedByUserId: ownerUserId,
+      assignedAt: this.now(),
+    });
+    return { referees: await this.repository.listVenueReferees(aggregate.venue.id) };
+  }
+
+  async removeReferee(ownerUserId: string, userId: string) {
+    const aggregate = await this.repository.getByOwnerId(ownerUserId);
+    if (!aggregate) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
+    await this.repository.removeVenueReferee(aggregate.venue.id, userId);
+    return { referees: await this.repository.listVenueReferees(aggregate.venue.id) };
+  }
+
 }
 
 export { TRIAL_DURATION_MS };
