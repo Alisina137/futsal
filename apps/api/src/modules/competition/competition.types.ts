@@ -1,7 +1,9 @@
 import type {
   CompetitionDto,
+  CompetitionFeeStatus,
   CompetitionFormat,
   CompetitionListItemDto,
+  CompetitionMediaPostDto,
   CompetitionMatchDto,
   CompetitionRegistrationStatus,
   PlayerMatchStatInput,
@@ -39,6 +41,8 @@ export type CompetitionRecord = {
   tieBreakOrder: CompetitionTieBreak[];
   groupCount: number | null;
   qualifiersPerGroup: number | null;
+  registrationClosesAt: Date | null;
+  matchDurationMinutes: number;
   startsAt: Date | null;
   endsAt: Date | null;
   materialPlayStartedAt: Date | null;
@@ -55,6 +59,9 @@ export type CompetitionTeamRecord = {
   seed: number | null;
   groupId: string | null;
   groupName: string | null;
+  feeStatus: CompetitionFeeStatus;
+  feePaymentReference: string | null;
+  feeConfirmedAt: Date | null;
 };
 
 export interface CompetitionRepository {
@@ -78,6 +85,8 @@ export interface CompetitionRepository {
     tieBreakOrder: CompetitionTieBreak[];
     groupCount: number | null;
     qualifiersPerGroup: number | null;
+    registrationClosesAt: Date | null;
+    matchDurationMinutes: number;
     startsAt: Date | null;
     endsAt: Date | null;
     now: Date;
@@ -94,6 +103,8 @@ export interface CompetitionRepository {
     tieBreakOrder?: CompetitionTieBreak[];
     groupCount?: number | null;
     qualifiersPerGroup?: number | null;
+    registrationClosesAt?: Date | null;
+    matchDurationMinutes?: number;
     startsAt?: Date | null;
     endsAt?: Date | null;
     updatedAt: Date;
@@ -130,6 +141,30 @@ export interface CompetitionRepository {
   withdrawTeam(input: { competitionId: string; teamId: string; managerUserId: string; now: Date }): Promise<void>;
   countAcceptedTeams(competitionId: string): Promise<number>;
   hasCompletedMatch(competitionId: string): Promise<boolean>;
+  deleteCompetition(competitionId: string): Promise<boolean>;
+  updateTeamFee(input: {
+    competitionId: string;
+    teamId: string;
+    ownerUserId: string;
+    status: CompetitionFeeStatus;
+    paymentReference: string | null;
+    now: Date;
+  }): Promise<CompetitionTeamRecord | null>;
+  listCompetitionMedia(competitionId: string, includeUnpublished: boolean): Promise<CompetitionMediaPostDto[]>;
+  createCompetitionMediaPost(input: {
+    competitionId: string;
+    ownerUserId: string;
+    body: string;
+    imageUrl: string | null;
+    now: Date;
+  }): Promise<CompetitionMediaPostDto>;
+  setCompetitionMediaStatus(input: {
+    competitionId: string;
+    postId: string;
+    published: boolean;
+    now: Date;
+  }): Promise<CompetitionMediaPostDto | null>;
+  listCompetitionFollowerUserIds(competitionId: string): Promise<string[]>;
   replaceLeagueFixtures(competitionId: string, fixtures: Array<{
     roundNumber: number;
     slotNumber: number;
