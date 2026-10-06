@@ -1,5 +1,7 @@
 import type {
   AccountProfileUpdateRequest,
+  AdminRoleSubscriptionActivationRequest,
+  AdminRoleSubscriptionDto,
   ApiErrorBody,
   AuthResponse,
   LoginRequest,
@@ -7,13 +9,14 @@ import type {
   OwnerVenueSetupRequest,
   PublicVenueDto,
   PublicVenueListResponse,
+  PaidRole,
   RegisterRequest,
+  RoleSubscriptionOfferDto,
   PasswordResetRequest,
   PasswordResetRequestResponse,
   PasswordResetVerifyRequest,
   PasswordResetVerifyResponse,
   PasswordResetCompleteRequest,
-  SelfAssignableRole,
   UserDto,
   VenueAvailabilityResponse,
   BookingDto,
@@ -208,8 +211,10 @@ export const authApi = {
     request<void>("/api/v1/auth/password-reset/complete", { method: "POST", body: JSON.stringify(input) }),
   refresh: (refreshToken: string) => request<AuthResponse>("/api/v1/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   logout: (refreshToken: string) => request<void>("/api/v1/auth/logout", { method: "POST", body: JSON.stringify({ refreshToken }) }),
-  activateRole: (accessToken: string, role: SelfAssignableRole) =>
-    request<{ user: UserDto }>("/api/v1/auth/roles/activate", { method: "POST", body: JSON.stringify({ role }) }, accessToken),
+  roleSubscriptions: (accessToken: string) =>
+    request<{ offers: RoleSubscriptionOfferDto[] }>("/api/v1/auth/role-subscriptions", {}, accessToken),
+  requestRoleSubscription: (accessToken: string, role: PaidRole) =>
+    request<{ offer: RoleSubscriptionOfferDto }>(`/api/v1/auth/role-subscriptions/${role}/request`, { method: "POST" }, accessToken),
   updateProfile: (accessToken: string, input: AccountProfileUpdateRequest) =>
     request<{ user: UserDto }>("/api/v1/users/me", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
   me: (accessToken: string) => request<{ user: UserDto }>("/api/v1/users/me", {}, accessToken),
@@ -351,6 +356,10 @@ export const adminApi = {
     request<{ users: AdminUserDto[] }>(`/api/v1/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, accessToken),
   setUserStatus: (accessToken: string, userId: string, input: AdminUserStatusRequest) =>
     request<{ updated: boolean }>(`/api/v1/admin/users/${userId}/status`, { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+  roleSubscriptions: (accessToken: string) =>
+    request<{ subscriptions: AdminRoleSubscriptionDto[] }>("/api/v1/admin/role-subscriptions", {}, accessToken),
+  activateRoleSubscription: (accessToken: string, userId: string, role: PaidRole, input: AdminRoleSubscriptionActivationRequest) =>
+    request<{ user: UserDto }>(`/api/v1/admin/role-subscriptions/${userId}/${role}/activate`, { method: "POST", body: JSON.stringify(input) }, accessToken),
   venues: (accessToken: string, q = "") =>
     request<{ venues: AdminVenueDto[] }>(`/api/v1/admin/venues${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, accessToken),
   duplicateVenues: (accessToken: string) =>
