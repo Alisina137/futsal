@@ -1,4 +1,4 @@
-import type { AccountProfileUpdateRequest, AuthResponse, LoginRequest, RegisterRequest, SelfAssignableRole } from "@leaguekick/contracts";
+import type { AccountProfileUpdateRequest, AuthResponse, LoginRequest, RegisterRequest } from "@leaguekick/contracts";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 import { ApiRequestError, authApi, setAccountAccessListener } from "../lib/api";
@@ -14,7 +14,6 @@ type AuthContextValue = {
   session: AuthResponse | null;
   signIn: (input: LoginRequest) => Promise<AuthResponse>;
   register: (input: RegisterRequest) => Promise<AuthResponse>;
-  activateRole: (role: SelfAssignableRole) => Promise<AuthResponse>;
   updateProfile: (input: AccountProfileUpdateRequest) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
   revalidate: () => Promise<AccountCheckResult>;
@@ -106,8 +105,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!session) return "signed_out";
 
     try {
-      await authApi.me(session.accessToken);
+      const { user } = await authApi.me(session.accessToken);
       setAccessState("active");
+      const currentRoles = [...session.user.roles].sort().join(",");
+      const nextRoles = [...user.roles].sort().join(",");
+      if (currentRoles !== nextRoles) return refreshSession();
+      if (JSON.stringify(session.user) !== JSON.stringify(user)) {
+        await adopt({ ...session, user });
+      }
       return "active";
     } catch (error) {
       if (error instanceof ApiRequestError && error.isNetworkError) return "offline";
@@ -124,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return "unchanged";
     }
-  }, [clearSession, refreshSession, session]);
+  }, [adopt, clearSession, refreshSession, session]);
 
   useEffect(() => {
     if (status !== "authenticated" || !session) return;
@@ -143,12 +148,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (input: LoginRequest) => adopt(await authApi.login(input)), [adopt]);
   const register = useCallback(async (input: RegisterRequest) => adopt(await authApi.register(input)), [adopt]);
-
-  const activateRole = useCallback(async (role: SelfAssignableRole) => {
-    if (!session) throw new Error("Authentication is required.");
-    await authApi.activateRole(session.accessToken, role);
-    return adopt(await authApi.refresh(session.refreshToken));
-  }, [adopt, session]);
 
   const updateProfile = useCallback(async (input: AccountProfileUpdateRequest) => {
     if (!session) throw new Error("Authentication is required.");
@@ -169,12 +168,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       signIn,
       register,
-      activateRole,
       updateProfile,
       signOut,
       revalidate: checkAccount,
     }),
-    [status, accessState, session, signIn, register, activateRole, updateProfile, signOut, checkAccount],
+    [status, accessState, session, signIn, register, updateProfile, signOut, checkAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
