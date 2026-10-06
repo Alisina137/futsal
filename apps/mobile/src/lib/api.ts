@@ -170,8 +170,26 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   throw new ApiRequestError("NETWORK_ERROR", "Cannot reach the server.", null, null, true);
 }
 
+async function probeApi(timeoutMs = 2_500) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${baseUrl}/health`, {
+      method: "GET",
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export const systemApi = {
   health: () => request<{ status: "ok"; service: string; version: string }>("/health"),
+  probe: () => probeApi(),
   get apiHost() {
     try { return new URL(baseUrl).host; }
     catch { return "unavailable"; }
