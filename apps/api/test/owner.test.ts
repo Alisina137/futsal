@@ -93,6 +93,11 @@ class FakeOwnerRepository implements OwnerOnboardingRepository {
       }
     }
   }
+
+  async resolveActiveUser() { return null; }
+  async listVenueReferees() { return []; }
+  async grantVenueReferee() {}
+  async removeVenueReferee() {}
 }
 
 const completeSetup = {
@@ -132,7 +137,12 @@ function setup(
   };
 }
 
-async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VENUE_OWNER", phone: string) {
+async function register(
+  app: ReturnType<typeof createApp>,
+  authRepository: FakeAuthRepository,
+  role: "PLAYER" | "VENUE_OWNER",
+  phone: string,
+) {
   const username = `o${phone.replace(/\D/g, "").slice(-10)}`;
   const password = "strong-pass-2!";
   const registration = await request(app).post("/api/v1/auth/register").send({
@@ -144,12 +154,17 @@ async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VEN
   });
   expect(registration.status).toBe(201);
 
-  const activated = await request(app)
-    .post("/api/v1/auth/roles/activate")
-    .set("Authorization", `Bearer ${registration.body.accessToken}`)
-    .send({ role });
-  expect(activated.status).toBe(200);
+  if (role === "PLAYER") return registration;
 
+  await authRepository.activateRoleSubscription({
+    actorUserId: registration.body.user.id,
+    userId: registration.body.user.id,
+    role: "VENUE_OWNER",
+    monthlyPriceAfn: 1000,
+    months: 1,
+    paymentReference: "test-paid",
+    now: new Date("2026-10-04T00:00:00.000Z"),
+  });
   const refreshed = await request(app)
     .post("/api/v1/auth/refresh")
     .send({ refreshToken: registration.body.refreshToken });
@@ -159,8 +174,8 @@ async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VEN
 
 describe("Phase 2 owner onboarding API", () => {
   it("rejects owner routes for ordinary players", async () => {
-    const { app } = setup();
-    const player = await register(app, "PLAYER", "0701112233");
+    const { app, authRepository } = setup();
+    const player = await register(app, authRepository, "PLAYER", "0701112233");
     const response = await request(app)
       .get("/api/v1/owner/onboarding")
       .set("Authorization", `Bearer ${player.body.accessToken}`);
@@ -169,8 +184,8 @@ describe("Phase 2 owner onboarding API", () => {
   });
 
   it("does not start a trial before venue setup is complete", async () => {
-    const { app } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0701112244");
+    const { app, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0701112244");
     const response = await request(app)
       .post("/api/v1/owner/trial/start")
       .set("Authorization", `Bearer ${owner.body.accessToken}`);
@@ -180,8 +195,8 @@ describe("Phase 2 owner onboarding API", () => {
 
   it("saves one venue per owner and starts an exact 72-hour trial explicitly", async () => {
     const now = new Date("2026-10-04T03:00:00.000Z");
-    const { app } = setup({ now });
-    const owner = await register(app, "VENUE_OWNER", "0701112255");
+    const { app, authRepository } = setup({ now });
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0701112255");
     const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
 
     const before = await request(app).get("/api/v1/owner/onboarding").set(auth);
@@ -217,8 +232,8 @@ describe("Phase 2 owner onboarding API", () => {
   it("uses the configured trial duration for new trials", async () => {
     const clock = { now: new Date("2026-10-04T03:00:00.000Z") };
     const configuredDurationMs = 96 * 60 * 60 * 1000;
-    const { app } = setup(clock, configuredDurationMs);
-    const owner = await register(app, "VENUE_OWNER", "0701112287");
+    const { app, authRepository } = setup(clock, configuredDurationMs);
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0701112287");
     const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
 
     await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
@@ -231,8 +246,8 @@ describe("Phase 2 owner onboarding API", () => {
 
   it("expires the trial server-side after exactly 72 hours", async () => {
     const clock = { now: new Date("2026-10-04T03:00:00.000Z") };
-    const { app } = setup(clock);
-    const owner = await register(app, "VENUE_OWNER", "0701112288");
+    const { app, authRepository } = setup(clock);
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0701112288");
     const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
 
     await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
@@ -251,8 +266,8 @@ describe("Phase 2 owner onboarding API", () => {
 
   it("normalizes an ended paid subscription into continuity mode", async () => {
     const clock = { now: new Date("2026-10-04T03:00:00.000Z") };
-    const { app, ownerRepository } = setup(clock);
-    const owner = await register(app, "VENUE_OWNER", "0701112289");
+    const { app, ownerRepository, authRepository } = setup(clock);
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0701112289");
     const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
 
     await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
@@ -275,8 +290,8 @@ describe("Phase 2 owner onboarding API", () => {
   });
 
   it("locks the physical venue identity after a trial has started", async () => {
-    const { app } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0701112299");
+    const { app, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0701112299");
     const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
 
     await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
@@ -291,9 +306,9 @@ describe("Phase 2 owner onboarding API", () => {
   });
 
   it("prevents a second account from claiming a new trial for the same physical venue", async () => {
-    const { app } = setup();
-    const first = await register(app, "VENUE_OWNER", "0701112266");
-    const second = await register(app, "VENUE_OWNER", "0701112277");
+    const { app, authRepository } = setup();
+    const first = await register(app, authRepository, "VENUE_OWNER", "0701112266");
+    const second = await register(app, authRepository, "VENUE_OWNER", "0701112277");
     const firstAuth = { Authorization: `Bearer ${first.body.accessToken}` };
     const secondAuth = { Authorization: `Bearer ${second.body.accessToken}` };
 
