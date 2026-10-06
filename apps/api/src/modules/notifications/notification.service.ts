@@ -162,6 +162,25 @@ export class NotificationService implements NotificationPublisher {
       marketing: false,
     });
   }
+
+  async competitionUpdate(input: {
+    competitionId: string;
+    title: string;
+    body: string;
+    userIds: string[];
+    dedupeKey: string;
+  }) {
+    await Promise.allSettled(input.userIds.map((userId) => this.publish({
+      userId,
+      type: "COMPETITION_UPDATE",
+      title: input.title,
+      body: input.body,
+      deepLink: `/competitions/${input.competitionId}`,
+      data: { competitionId: input.competitionId },
+      dedupeKey: `${input.dedupeKey}:${userId}`,
+      marketing: false,
+    })));
+  }
 }
 
 export { MARKETING_LIMIT_PER_24H };
