@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { SelfAssignableRole } from "@leaguekick/contracts";
+import type { PaidRole } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
@@ -16,15 +16,12 @@ import { useNetwork } from "../../../src/providers/NetworkProvider";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 export default function ProfileScreen(){
-  const {session,signOut,revalidate,activateRole}=useAuth();
+  const {session,signOut,revalidate}=useAuth();
   const {t,isRTL,language}=useLocale();
   const {isOnline,hasResolved}=useNetwork();
   const [refreshing,setRefreshing]=useState(false);
-  const [busyRole,setBusyRole]=useState<SelfAssignableRole|null>(null);
-  const [roleError,setRoleError]=useState<string|null>(null);
   const user=session?.user;
   const owner=user?.roles.includes("VENUE_OWNER")??false;
-  const player=user?.roles.includes("PLAYER")??false;
   const admin=user?.roles.includes("PLATFORM_ADMIN")??false;
 
   const initials=useMemo(()=>{
@@ -48,17 +45,8 @@ export default function ProfileScreen(){
     finally{setRefreshing(false);}
   }
 
-  async function selectRole(role:SelfAssignableRole){
-    if(user?.roles.includes(role)) return;
-    setBusyRole(role);
-    setRoleError(null);
-    try{
-      await activateRole(role);
-    }catch{
-      setRoleError(t("roles.error"));
-    }finally{
-      setBusyRole(null);
-    }
+  function selectRole(role:PaidRole){
+    router.push(role==="VENUE_OWNER"?"/role-subscriptions/venue-owner":"/role-subscriptions/team-owner");
   }
 
   const direction={flexDirection:isRTL?"row-reverse":"row"} as const;
@@ -112,11 +100,9 @@ export default function ProfileScreen(){
     <Card style={styles.sectionCard}>
       <RoleSelector
         activeRoles={user?.roles??[]}
-        busyRole={busyRole}
-        error={roleError}
         rtl={isRTL}
         t={t}
-        onSelect={(role)=>void selectRole(role)}
+        onSelect={selectRole}
       />
     </Card>
 
@@ -176,10 +162,14 @@ export default function ProfileScreen(){
         <Divider/>
         <ActionRow icon="trophy-outline" title={t("competition.ownerTitle")} subtitle={t("competition.ownerQuickAccessBody")} rtl={isRTL} onPress={()=>router.push("/owner/competitions")}/>
         <Divider/>
-        <ActionRow icon="pricetag-outline" title={t("ownerMarketing.promotionsTitle")} subtitle={t("settings.ownerPromotionsBody")} rtl={isRTL} onPress={()=>router.push("/owner/promotions")}/>
+        <ActionRow icon="flag-outline" title={t("roles.venueRefereesTitle")} subtitle={t("roles.venueRefereesBody")} rtl={isRTL} onPress={()=>router.push("/owner/referees")}/>
         <Divider/>
-        <ActionRow icon="megaphone-outline" title={t("ownerMarketing.postsTitle")} subtitle={t("settings.ownerPostsBody")} rtl={isRTL} onPress={()=>router.push("/owner/posts")}/>
-      </>:player?<>
+        <ActionRow icon="business-outline" title={t("booking.venuesTitle")} subtitle={t("settings.playerVenuesBody")} rtl={isRTL} onPress={()=>router.push("/venues")}/>
+        <Divider/>
+        <ActionRow icon="calendar-outline" title={t("booking.myBookings")} subtitle={t("settings.playerBookingsBody")} rtl={isRTL} onPress={()=>router.push("/bookings")}/>
+        <Divider/>
+        <ActionRow icon="newspaper-outline" title={t("feed.title")} subtitle={t("settings.playerFeedBody")} rtl={isRTL} onPress={()=>router.push("/feed")}/>
+      </>:<>
         <ActionRow icon="people-outline" title={t("teams.title")} subtitle={t("teams.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/teams")}/>
         <Divider/>
         <ActionRow icon="trophy-outline" title={t("competition.title")} subtitle={t("competition.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/competitions")}/>
@@ -189,12 +179,6 @@ export default function ProfileScreen(){
         <ActionRow icon="business-outline" title={t("booking.venuesTitle")} subtitle={t("settings.playerVenuesBody")} rtl={isRTL} onPress={()=>router.push("/venues")}/>
         <Divider/>
         <ActionRow icon="calendar-outline" title={t("booking.myBookings")} subtitle={t("settings.playerBookingsBody")} rtl={isRTL} onPress={()=>router.push("/bookings")}/>
-        <Divider/>
-        <ActionRow icon="newspaper-outline" title={t("feed.title")} subtitle={t("settings.playerFeedBody")} rtl={isRTL} onPress={()=>router.push("/feed")}/>
-      </>:<>
-        <ActionRow icon="business-outline" title={t("booking.venuesTitle")} subtitle={t("settings.playerVenuesBody")} rtl={isRTL} onPress={()=>router.push("/venues")}/>
-        <Divider/>
-        <ActionRow icon="trophy-outline" title={t("competition.title")} subtitle={t("competition.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/competitions")}/>
         <Divider/>
         <ActionRow icon="newspaper-outline" title={t("feed.title")} subtitle={t("settings.playerFeedBody")} rtl={isRTL} onPress={()=>router.push("/feed")}/>
       </>}
@@ -228,24 +212,18 @@ export default function ProfileScreen(){
 
 function RoleSelector({
   activeRoles,
-  busyRole,
-  error,
   rtl,
   t,
   onSelect,
 }:{
   activeRoles:string[];
-  busyRole:SelfAssignableRole|null;
-  error:string|null;
   rtl:boolean;
   t:(key:any,params?:Record<string,string|number>)=>string;
-  onSelect:(role:SelfAssignableRole)=>void;
+  onSelect:(role:PaidRole)=>void;
 }){
-  const options:Array<{role:SelfAssignableRole;icon:IconName;body:any}>=[
-    {role:"PLAYER",icon:"football-outline",body:"roles.playerBody"},
-    {role:"VENUE_OWNER",icon:"business-outline",body:"roles.ownerBody"},
-    {role:"TEAM_MANAGER",icon:"people-outline",body:"roles.managerBody"},
-    {role:"REFEREE",icon:"flag-outline",body:"roles.refereeBody"},
+  const options:Array<{role:PaidRole;icon:IconName;body:any;price:number}>=[
+    {role:"VENUE_OWNER",icon:"business-outline",body:"roles.ownerPaidBody",price:1000},
+    {role:"TEAM_MANAGER",icon:"people-outline",body:"roles.teamOwnerPaidBody",price:300},
   ];
 
   return <View style={styles.roleList}>
@@ -257,25 +235,23 @@ function RoleSelector({
           <IconBox name={option.icon} positive={active}/>
           <View style={styles.roleCopy}>
             <View style={[styles.roleTitleRow,{flexDirection:rtl?"row-reverse":"row"}]}>
-              <AppText weight="semibold">{t(("role."+option.role) as any)}</AppText>
+              <AppText weight="semibold">{t(option.role==="VENUE_OWNER"?"roles.venueOwner":"roles.teamOwner")}</AppText>
               {active?<View style={styles.activeRoleBadge}>
                 <Ionicons name="checkmark-circle" size={14} color={colors.success}/>
                 <AppText variant="caption" weight="semibold" style={{color:colors.success}}>{t("roles.active")}</AppText>
               </View>:null}
             </View>
             <AppText variant="caption" muted>{t(option.body)}</AppText>
+            <AppText variant="caption" weight="bold" style={{color:colors.primary}} forceLtr>{option.price} AFN / {t("roles.month")}</AppText>
           </View>
         </View>
         <Button
-          label={active?t("roles.active"):t("roles.activate")}
+          label={active?t("roles.manageSubscription"):t("roles.viewSubscription")}
           onPress={()=>onSelect(option.role)}
-          loading={busyRole===option.role}
-          disabled={active||busyRole!==null}
           variant={active?"secondary":"primary"}
         />
       </View>;
     })}
-    {error?<AppText accessibilityRole="alert" style={styles.roleError}>{error}</AppText>:null}
   </View>;
 }
 
