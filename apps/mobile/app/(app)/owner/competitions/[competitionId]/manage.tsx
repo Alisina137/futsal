@@ -465,6 +465,7 @@ export default function ManageCompetitionScreen(){
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.tabScroller}
         contentContainerStyle={[styles.tabs,{flexDirection:isRTL?"row-reverse":"row"}]}
       >
         {tabs.map((tab)=><Pressable
@@ -920,19 +921,26 @@ const styles=StyleSheet.create({
   hero:{backgroundColor:colors.primary,gap:spacing.md},
   heroIcon:{width:48,height:48,borderRadius:16,alignItems:"center",justifyContent:"center",backgroundColor:"#FFFFFF"},
   publicBadge:{paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill},
+  tabScroller:{
+    flexGrow:0,
+    flexShrink:0,
+  },
   tabs:{
     gap:spacing.sm,
     paddingVertical:spacing.xs,
     borderTopWidth:1,
     borderBottomWidth:1,
     borderColor:colors.border,
+    alignItems:"center",
   },
   tab:{
-    minHeight:42,
+    height:42,
+    alignSelf:"flex-start",
     paddingHorizontal:spacing.md,
     borderRadius:radius.pill,
     flexDirection:"row",
     alignItems:"center",
+    justifyContent:"center",
     gap:spacing.xs,
   },
   tabActive:{backgroundColor:colors.primarySoft},
