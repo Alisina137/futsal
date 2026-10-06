@@ -55,13 +55,14 @@ export const registerRequestSchema = z.object({
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 
-export const selfAssignableRoleSchema = z.enum(["PLAYER", "VENUE_OWNER", "TEAM_MANAGER", "REFEREE"]);
-export type SelfAssignableRole = z.infer<typeof selfAssignableRoleSchema>;
+export const paidRoleSchema = z.enum(["VENUE_OWNER", "TEAM_MANAGER"]);
+export type PaidRole = z.infer<typeof paidRoleSchema>;
 
-export const selfRoleActivationRequestSchema = z.object({
-  role: selfAssignableRoleSchema,
-});
-export type SelfRoleActivationRequest = z.infer<typeof selfRoleActivationRequestSchema>;
+export const selfAssignableRoleSchema = paidRoleSchema;
+export type SelfAssignableRole = PaidRole;
+
+export const roleSubscriptionStatusSchema = z.enum(["NONE", "PENDING", "ACTIVE", "EXPIRED", "CANCELLED"]);
+export type RoleSubscriptionStatus = z.infer<typeof roleSubscriptionStatusSchema>;
 
 export const accountProfileUpdateRequestSchema = z.object({
   displayName: z.string().trim().max(80).optional().or(z.literal("")),
@@ -252,6 +253,34 @@ export const dateOnlySchema = z.string()
   }, "Use a real calendar date.");
 export const isoDateTimeSchema = z.string()
   .refine((value) => /(Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)), "Use an ISO datetime with timezone.");
+
+export const roleSubscriptionOfferDtoSchema = z.object({
+  role: paidRoleSchema,
+  monthlyPriceAfn: z.number().int().positive(),
+  status: roleSubscriptionStatusSchema,
+  requestedAt: isoDateTimeSchema.nullable(),
+  activeUntil: isoDateTimeSchema.nullable(),
+});
+export type RoleSubscriptionOfferDto = z.infer<typeof roleSubscriptionOfferDtoSchema>;
+
+export const adminRoleSubscriptionDtoSchema = z.object({
+  userId: z.string().uuid(),
+  username: z.string().nullable(),
+  displayName: z.string(),
+  role: paidRoleSchema,
+  monthlyPriceAfn: z.number().int().positive(),
+  status: roleSubscriptionStatusSchema,
+  requestedAt: isoDateTimeSchema.nullable(),
+  activeUntil: isoDateTimeSchema.nullable(),
+  paymentReference: z.string().nullable(),
+});
+export type AdminRoleSubscriptionDto = z.infer<typeof adminRoleSubscriptionDtoSchema>;
+
+export const adminRoleSubscriptionActivationRequestSchema = z.object({
+  months: z.number().int().min(1).max(24).default(1),
+  paymentReference: z.string().trim().max(120).optional().or(z.literal("")),
+});
+export type AdminRoleSubscriptionActivationRequest = z.infer<typeof adminRoleSubscriptionActivationRequestSchema>;
 
 export const venueVerificationStatusSchema = z.enum(["PENDING", "VERIFIED", "REJECTED"]);
 export type VenueVerificationStatus = z.infer<typeof venueVerificationStatusSchema>;
