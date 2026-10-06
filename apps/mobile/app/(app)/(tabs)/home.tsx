@@ -4,7 +4,6 @@ import type { SocialFeedPostDto, SocialPostCommentDto } from "@leaguekick/contra
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, Share, StyleSheet, View } from "react-native";
-import { OwnerDashboard } from "../../../src/components/owner/OwnerDashboard";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -16,15 +15,10 @@ import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
 export default function HomeScreen(){
-  const {session}=useAuth();
-  const owner=session?.user.roles.includes("VENUE_OWNER")??false;
-
-  if(owner) return <OwnerDashboard/>;
-
-  return <NormalUserHome/>;
+  return <SocialHome/>;
 }
 
-function NormalUserHome(){
+function SocialHome(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const [items,setItems]=useState<SocialFeedPostDto[]>([]);
