@@ -274,6 +274,107 @@ export class CompetitionService {
     return updated;
   }
 
+  async remove(ownerUserId: string, competitionId: string) {
+    const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
+    if (!["DRAFT", "CANCELLED"].includes(competition.status)) {
+      throw errors.conflict("COMPETITION_DELETE_BLOCKED", "Only draft or cancelled competitions can be deleted.");
+    }
+    if (await this.repository.hasCompletedMatch(competitionId)) {
+      throw errors.conflict("COMPETITION_HISTORY_REQUIRED", "A competition with completed matches must be kept for history.");
+    }
+    const deleted = await this.repository.deleteCompetition(competitionId);
+    if (!deleted) throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
+    return { deleted: true };
+  }
+
+  async updateFee(
+    ownerUserId: string,
+    competitionId: string,
+    teamId: string,
+    input: CompetitionFeeUpdateRequest,
+  ) {
+    await this.ownerCompetition(ownerUserId, competitionId);
+    const registration = await this.repository.getRegistration(competitionId, teamId);
+    if (!registration) throw errors.badRequest("REGISTRATION_NOT_FOUND", "Competition team registration not found.");
+
+    const next = await this.repository.updateTeamFee({
+      competitionId,
+      teamId,
+      ownerUserId,
+      status: input.status,
+      paymentReference: input.paymentReference?.trim() || null,
+      now: this.now(),
+    });
+    if (!next) throw errors.badRequest("REGISTRATION_NOT_FOUND", "Competition team registration not found.");
+
+    const team = await this.repository.getTeam(teamId);
+    if (team) {
+      await this.notifyCompetition(
+        competitionId,
+        "Competition payment updated",
+        `${team.name}: ${input.status.toLowerCase()} fee status.`,
+        `competition-fee:${competitionId}:${teamId}:${input.status}`,
+        [team.managerUserId],
+      );
+    }
+    return next;
+  }
+
+  async listOwnerMedia(ownerUserId: string, competitionId: string) {
+    await this.ownerCompetition(ownerUserId, competitionId);
+    return { posts: await this.repository.listCompetitionMedia(competitionId, true) };
+  }
+
+  async listPublicMedia(competitionId: string) {
+    const competition = await this.repository.getCompetitionRecord(competitionId);
+    if (!competition || !competition.published || competition.status === "DRAFT") {
+      throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
+    }
+    return { posts: await this.repository.listCompetitionMedia(competitionId, false) };
+  }
+
+  async createMediaPost(
+    ownerUserId: string,
+    competitionId: string,
+    input: CompetitionMediaPostCreateRequest,
+  ) {
+    const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
+    if (competition.status === "ARCHIVED" || competition.status === "CANCELLED") {
+      throw errors.conflict("COMPETITION_MEDIA_LOCKED", "Archived or cancelled competitions cannot publish new media.");
+    }
+    const post = await this.repository.createCompetitionMediaPost({
+      competitionId,
+      ownerUserId,
+      body: input.body.trim(),
+      imageUrl: input.imageUrl?.trim() || null,
+      now: this.now(),
+    });
+    await this.notifyCompetition(
+      competitionId,
+      competition.name,
+      "A competition you follow published a new update.",
+      `competition-media:${post.id}`,
+    );
+    return post;
+  }
+
+  async setMediaStatus(
+    ownerUserId: string,
+    competitionId: string,
+    postId: string,
+    input: CompetitionMediaPostStatusRequest,
+  ) {
+    await this.ownerCompetition(ownerUserId, competitionId);
+    const post = await this.repository.setCompetitionMediaStatus({
+      competitionId,
+      postId,
+      published: input.published,
+      now: this.now(),
+    });
+    if (!post) throw errors.badRequest("COMPETITION_MEDIA_NOT_FOUND", "Competition media post not found.");
+    return post;
+  }
+
   async changeState(ownerUserId: string, competitionId: string, input: CompetitionStateRequest) {
     const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
     const now = this.now();
