@@ -186,6 +186,26 @@ describe("Phase 7 commercial SaaS API", () => {
     expect(allowed.body.pendingVenueVerifications).toBe(1);
   });
 
+  it("blocks an already-issued access token as soon as the account is suspended", async () => {
+    const { app, tokens } = setup();
+    let accountStatus: "ACTIVE" | "SUSPENDED" = "ACTIVE";
+    tokens.setAccessValidator(async () => accountStatus);
+
+    const admin = await tokens.createAccessToken("44444444-4444-4444-8444-444444444444", ["PLATFORM_ADMIN"]);
+    const before = await request(app)
+      .get("/api/v1/admin/dashboard")
+      .set("Authorization", `Bearer ${admin.token}`);
+    expect(before.status).toBe(200);
+
+    accountStatus = "SUSPENDED";
+
+    const after = await request(app)
+      .get("/api/v1/admin/dashboard")
+      .set("Authorization", `Bearer ${admin.token}`);
+    expect(after.status).toBe(403);
+    expect(after.body.error.code).toBe("ACCOUNT_SUSPENDED");
+  });
+
   it("allows an admin to activate a venue subscription", async () => {
     const { app, tokens, repository } = setup();
     const admin = await tokens.createAccessToken("44444444-4444-4444-8444-444444444444", ["PLATFORM_ADMIN"]);
