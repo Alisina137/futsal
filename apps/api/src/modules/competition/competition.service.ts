@@ -221,6 +221,8 @@ export class CompetitionService {
       tieBreakOrder: input.tieBreakOrder,
       groupCount: input.format === "GROUP_KNOCKOUT" ? input.groupCount ?? null : null,
       qualifiersPerGroup: input.format === "GROUP_KNOCKOUT" ? input.qualifiersPerGroup ?? null : null,
+      registrationClosesAt: input.registrationClosesAt ? new Date(input.registrationClosesAt) : null,
+      matchDurationMinutes: input.matchDurationMinutes,
       startsAt: input.startsAt ? new Date(input.startsAt) : null,
       endsAt: input.endsAt ? new Date(input.endsAt) : null,
       now: this.now(),
@@ -262,6 +264,8 @@ export class CompetitionService {
       ...(input.tieBreakOrder !== undefined ? { tieBreakOrder: input.tieBreakOrder } : {}),
       ...(input.groupCount !== undefined ? { groupCount: nextFormat === "GROUP_KNOCKOUT" ? input.groupCount : null } : {}),
       ...(input.qualifiersPerGroup !== undefined ? { qualifiersPerGroup: nextFormat === "GROUP_KNOCKOUT" ? input.qualifiersPerGroup : null } : {}),
+      ...(input.registrationClosesAt !== undefined ? { registrationClosesAt: input.registrationClosesAt ? new Date(input.registrationClosesAt) : null } : {}),
+      ...(input.matchDurationMinutes !== undefined ? { matchDurationMinutes: input.matchDurationMinutes } : {}),
       ...(input.startsAt !== undefined ? { startsAt: input.startsAt ? new Date(input.startsAt) : null } : {}),
       ...(input.endsAt !== undefined ? { endsAt: input.endsAt ? new Date(input.endsAt) : null } : {}),
       updatedAt: this.now(),
@@ -450,6 +454,9 @@ export class CompetitionService {
     const competition = await this.repository.getCompetitionRecord(competitionId);
     if (!competition || !competition.published || competition.status !== "REGISTRATION_OPEN") {
       throw errors.conflict("REGISTRATION_CLOSED", "Competition registration is not open.");
+    }
+    if (competition.registrationClosesAt && competition.registrationClosesAt.getTime() <= this.now().getTime()) {
+      throw errors.conflict("REGISTRATION_DEADLINE_PASSED", "The competition registration deadline has passed.");
     }
     const team = await this.repository.getTeam(input.teamId);
     if (!team || team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
