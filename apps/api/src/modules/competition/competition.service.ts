@@ -178,7 +178,12 @@ export class CompetitionService {
     if (!competition) throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
     return {
       ...competition,
-      teams: competition.teams.filter((team) => team.status === "ACCEPTED"),
+      teams: competition.teams
+        .filter((team) => team.status === "ACCEPTED")
+        .map((team) => ({
+          ...team,
+          feePaymentReference: null,
+        })),
     };
   }
 
