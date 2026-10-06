@@ -12,6 +12,7 @@ import type {
   PaidRole,
   RegisterRequest,
   RoleSubscriptionOfferDto,
+  RoleSubscriptionRequest,
   PasswordResetRequest,
   PasswordResetRequestResponse,
   PasswordResetVerifyRequest,
@@ -213,8 +214,8 @@ export const authApi = {
   logout: (refreshToken: string) => request<void>("/api/v1/auth/logout", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   roleSubscriptions: (accessToken: string) =>
     request<{ offers: RoleSubscriptionOfferDto[] }>("/api/v1/auth/role-subscriptions", {}, accessToken),
-  requestRoleSubscription: (accessToken: string, role: PaidRole) =>
-    request<{ offer: RoleSubscriptionOfferDto }>(`/api/v1/auth/role-subscriptions/${role}/request`, { method: "POST" }, accessToken),
+  requestRoleSubscription: (accessToken: string, role: PaidRole, input: RoleSubscriptionRequest) =>
+    request<{ offer: RoleSubscriptionOfferDto }>(`/api/v1/auth/role-subscriptions/${role}/request`, { method: "POST", body: JSON.stringify(input) }, accessToken),
   updateProfile: (accessToken: string, input: AccountProfileUpdateRequest) =>
     request<{ user: UserDto }>("/api/v1/users/me", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
   me: (accessToken: string) => request<{ user: UserDto }>("/api/v1/users/me", {}, accessToken),
