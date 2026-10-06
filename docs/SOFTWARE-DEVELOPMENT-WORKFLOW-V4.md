@@ -897,6 +897,8 @@ Actual source takes precedence over stale summaries.
 
 # 31. GIT PRACTICES
 
+For this repository, use **main-only delivery** unless I explicitly change this rule later.
+
 When Git is available:
 
 * inspect current changes first,
@@ -904,10 +906,17 @@ When Git is available:
 * stage only intended changes,
 * avoid secrets,
 * use meaningful commits,
-* prefer phase-level milestones,
+* push authorized implementation and fixes directly to `main`,
+* do not create a new feature/fix/phase branch for routine development,
+* do not open a pull request for routine development unless I explicitly request one,
 * do not rewrite history without explicit reason,
-* do not push without authorization,
 * do not claim commits that did not happen.
+
+After each delivered change, give me the PowerShell pull command for the main branch:
+
+```powershell
+git pull origin main
+```
 
 I should not need to manually commit every internal task.
 
