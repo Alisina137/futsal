@@ -1,6 +1,9 @@
 import type {
   CompetitionCreateRequest,
+  CompetitionFeeUpdateRequest,
   CompetitionInviteTeamRequest,
+  CompetitionMediaPostCreateRequest,
+  CompetitionMediaPostStatusRequest,
   CompetitionMatchResultRequest,
   CompetitionMatchScheduleRequest,
   CompetitionRegistrationDecisionRequest,
@@ -22,12 +25,38 @@ import {
   qualifiedTeams,
 } from "./competition.engine.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
+import type { NotificationPublisher } from "../notifications/notification.types.js";
 
 export class CompetitionService {
   constructor(
     private readonly repository: CompetitionRepository,
     private readonly now: () => Date = () => new Date(),
+    private readonly notifications?: NotificationPublisher,
   ) {}
+
+  private async notifyCompetition(
+    competitionId: string,
+    title: string,
+    body: string,
+    dedupeKey: string,
+    extraUserIds: string[] = [],
+  ) {
+    if (!this.notifications) return;
+    const followerUserIds = await this.repository.listCompetitionFollowerUserIds(competitionId);
+    const userIds = [...new Set([...followerUserIds, ...extraUserIds])];
+    if (userIds.length === 0) return;
+    try {
+      await this.notifications.competitionUpdate({
+        competitionId,
+        title,
+        body,
+        userIds,
+        dedupeKey,
+      });
+    } catch {
+      // Competition operations must not fail because notification delivery failed.
+    }
+  }
 
   private derive(competition: Awaited<ReturnType<CompetitionRepository["getCompetitionDto"]>>) {
     if (!competition) return null;
