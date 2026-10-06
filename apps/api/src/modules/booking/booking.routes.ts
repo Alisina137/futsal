@@ -43,7 +43,7 @@ export function createPublicVenueRouter(booking: BookingService) {
 
 export function createPlayerBookingRouter(booking: BookingService, tokens: TokenService) {
   const router = Router();
-  router.use(requireAuth(tokens), requireRole("PLAYER"));
+  router.use(requireAuth(tokens));
   const writeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
 
   router.get("/me", async (request, response, next) => {
