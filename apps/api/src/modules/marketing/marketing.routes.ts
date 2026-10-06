@@ -5,6 +5,7 @@ import {
   promotionCreateRequestSchema,
   socialEntityTypeSchema,
   socialPostCommentCreateRequestSchema,
+  socialPostCommentUpdateRequestSchema,
   venuePostCreateRequestSchema,
 } from "@leaguekick/contracts";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
@@ -96,6 +97,39 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
       const postId = routeIdSchema.parse(request.params.postId);
       const input = socialPostCommentCreateRequestSchema.parse(request.body);
       response.status(201).json({ comment: await marketing.addSocialComment(request.auth!.userId, postId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.patch("/social/posts/:postId/comments/:commentId", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId = routeIdSchema.parse(request.params.postId);
+      const commentId = routeIdSchema.parse(request.params.commentId);
+      const input = socialPostCommentUpdateRequestSchema.parse(request.body);
+      response.json({ comment: await marketing.updateSocialComment(request.auth!.userId, postId, commentId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/social/posts/:postId/comments/:commentId", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId = routeIdSchema.parse(request.params.postId);
+      const commentId = routeIdSchema.parse(request.params.commentId);
+      response.json(await marketing.deleteSocialComment(request.auth!.userId, postId, commentId));
+    } catch (error) { next(error); }
+  });
+
+  router.post("/social/posts/:postId/comments/:commentId/like", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId = routeIdSchema.parse(request.params.postId);
+      const commentId = routeIdSchema.parse(request.params.commentId);
+      response.json({ comment: await marketing.likeSocialComment(request.auth!.userId, postId, commentId) });
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/social/posts/:postId/comments/:commentId/like", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId = routeIdSchema.parse(request.params.postId);
+      const commentId = routeIdSchema.parse(request.params.commentId);
+      response.json({ comment: await marketing.unlikeSocialComment(request.auth!.userId, postId, commentId) });
     } catch (error) { next(error); }
   });
 
