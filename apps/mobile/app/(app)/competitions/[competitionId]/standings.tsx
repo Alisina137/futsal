@@ -6,6 +6,7 @@ import { Pressable, View } from "react-native";
 import { competitionApi } from "../../../../src/lib/api";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Card } from "../../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
 
@@ -17,7 +18,7 @@ export default function CompetitionStandingsScreen(){
 
   return <Screen showHeader>
     <AppText variant="title" weight="bold">{t("competition.standings")}</AppText>
-    {!competition?<AppText>{t("common.loading")}</AppText>:null}
+    {!competition?<DataLoadingState variant="list"/>:null}
     {competition&&competition.standings.length===0?<Card><AppText>{t("competition.noStandings")}</AppText></Card>:null}
     {competition?.standings.map((row)=><Pressable
       key={`${row.groupId??"all"}:${row.teamId}`}
