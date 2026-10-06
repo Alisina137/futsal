@@ -1,8 +1,9 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { SocialFollowStateDto, TeamDto, TeamJoinRequestStatus } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Image, Pressable, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { marketingApi, teamApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -90,46 +91,77 @@ export default function TeamDetailScreen(){
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
 
     {team?<>
-      <Card style={{backgroundColor:colors.primary}}>
-        <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.md,alignItems:"center"}}>
-          {team.logoUrl?<Image source={{uri:team.logoUrl}} style={{width:72,height:72,borderRadius:radius.lg}}/>:
-            <View style={{width:72,height:72,borderRadius:radius.lg,backgroundColor:"#FFFFFF",alignItems:"center",justifyContent:"center"}}>
-              <AppText variant="title" weight="bold" style={{color:colors.primary}}>{team.name.slice(0,2).toUpperCase()}</AppText>
-            </View>}
-          <View style={{flex:1,gap:spacing.xs}}>
-            <AppText variant="title" weight="bold" style={{color:"#FFFFFF"}}>{team.name}</AppText>
-            <AppText style={{color:"#DCE8FF"}}>{team.city}</AppText>
-            <AppText variant="caption" style={{color:"#DCE8FF"}}>{t("teams.members",{count:team.rosterCount})}</AppText>
-            {myRole?<AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>{t("teams.myRole")}: {t(`teams.role.${myRole}` as never)}</AppText>:null}
-          </View>
+      <View style={styles.hero}>
+        {team.logoUrl
+          ?<Image source={{uri:team.logoUrl}} style={styles.logo}/>
+          :<View style={styles.logoFallback}>
+            <AppText variant="title" weight="bold" style={{color:colors.primary}}>{team.name.slice(0,2).toUpperCase()}</AppText>
+          </View>}
+        <View style={styles.typeBadge}>
+          <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>{t("social.entity.TEAM")}</AppText>
         </View>
-      </Card>
+        <AppText variant="title" weight="bold" style={styles.heroTitle}>{team.name}</AppText>
+        <View style={[styles.inline,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="location-outline" size={16} color="#DCE8FF"/>
+          <AppText style={styles.heroMuted}>{team.city}</AppText>
+        </View>
+        {myRole?<View style={styles.roleBadge}>
+          <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
+            {t("teams.myRole")}: {t(`teams.role.${myRole}` as never)}
+          </AppText>
+        </View>:null}
+      </View>
 
-      {followState?<View style={{gap:spacing.xs}}>
-        <Button
+      <View style={styles.statGrid}>
+        <ProfileStat
+          icon="people-outline"
+          value={String(team.rosterCount)}
+          label={t("publicProfile.members")}
+        />
+        <ProfileStat
+          icon={team.privacy==="PUBLIC"?"globe-outline":"lock-closed-outline"}
+          value={t(`teams.privacy.${team.privacy}` as never)}
+          label={t("publicProfile.privacy")}
+        />
+        <ProfileStat
+          icon="heart-outline"
+          value={String(followState?.followerCount??0)}
+          label={t("publicProfile.followers")}
+        />
+      </View>
+
+      <View style={[styles.actionRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {followState?<Button
           label={followState.following?t("social.unfollow"):t("social.follow")}
           onPress={()=>void toggleFollow()}
           loading={followBusy}
           variant={followState.following?"secondary":"primary"}
-        />
-        <AppText variant="caption" muted>{t("social.followers",{count:followState.followerCount})}</AppText>
-      </View>:null}
+          style={{flex:1}}
+        />:null}
 
-      {!member&&myRole!=="MANAGER"?<View style={{gap:spacing.xs}}>
-        <Button
+        {!member&&myRole!=="MANAGER"?<Button
           label={joinRequestStatus==="PENDING"?t("teams.joinRequestPending"):t("teams.requestToJoin")}
           onPress={()=>void requestJoin()}
           loading={joinBusy}
           disabled={joinRequestStatus==="PENDING"}
           variant={joinRequestStatus==="PENDING"?"secondary":"primary"}
-        />
-        {joinRequestStatus==="PENDING"?<AppText variant="caption" muted>{t("teams.joinRequestPendingBody")}</AppText>:null}
-      </View>:null}
+          style={{flex:1}}
+        />:null}
 
-      {myRole==="MANAGER"?<Button
-        label={t("teams.manage")}
-        onPress={()=>router.push({pathname:"/teams/[teamId]/manage",params:{teamId}})}
-      />:null}
+        {myRole==="MANAGER"?<Button
+          label={t("teams.manage")}
+          onPress={()=>router.push({pathname:"/teams/[teamId]/manage",params:{teamId}})}
+          style={{flex:1}}
+        />:null}
+      </View>
+
+      {joinRequestStatus==="PENDING"&&!member?<Card style={{backgroundColor:colors.surfaceMuted}}>
+        <View style={[styles.inline,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="time-outline" size={18} color={colors.warning}/>
+          <AppText weight="semibold" style={{color:colors.warning}}>{t("teams.joinRequestPending")}</AppText>
+        </View>
+        <AppText muted>{t("teams.joinRequestPendingBody")}</AppText>
+      </Card>:null}
 
       <View style={{gap:spacing.xs}}>
         <AppText variant="bodyLarge" weight="bold">{t("teams.roster")}</AppText>
@@ -138,28 +170,73 @@ export default function TeamDetailScreen(){
 
       {team.members.map((player)=><Pressable
         key={player.userId}
+        accessibilityRole="button"
         onPress={()=>router.push({pathname:"/players/[playerId]",params:{playerId:player.userId}})}
+        style={({pressed})=>pressed?{opacity:0.76}:undefined}
       >
-        <Card>
+        <Card style={styles.memberCard}>
           <View style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"center",gap:spacing.md}}>
-            {player.imageUrl?<Image source={{uri:player.imageUrl}} style={{width:48,height:48,borderRadius:24}}/>:
-              <View style={{width:48,height:48,borderRadius:24,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"}}>
+            {player.imageUrl
+              ?<Image source={{uri:player.imageUrl}} style={styles.memberAvatar}/>
+              :<View style={styles.memberFallback}>
                 <AppText weight="bold" style={{color:colors.primary}}>{player.publicDisplayName.slice(0,2).toUpperCase()}</AppText>
               </View>}
-            <View style={{flex:1,gap:2}}>
+            <View style={{flex:1,gap:3,alignItems:isRTL?"flex-end":"flex-start"}}>
               <AppText weight="bold">{player.publicDisplayName}</AppText>
-              <AppText variant="caption" muted>{t(`teams.role.${player.role}` as never)} · {t(`teams.position.${player.position}` as never)}</AppText>
+              <View style={[styles.inline,{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap"}]}>
+                <View style={styles.smallBadge}>
+                  <AppText variant="caption" weight="semibold">{t(`teams.role.${player.role}` as never)}</AppText>
+                </View>
+                <AppText variant="caption" muted>{t(`teams.position.${player.position}` as never)}</AppText>
+              </View>
               {player.shirtNumber?<AppText variant="caption" style={{color:colors.primary}}>{t("teams.shirtNumberValue",{number:player.shirtNumber})}</AppText>:null}
             </View>
+            <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.textMuted}/>
           </View>
         </Card>
       </Pressable>)}
 
       {!loading&&team.members.length===0&&team.privacy==="PRIVATE"&&!member?<Card>
-        <AppText>{t("teams.privateRoster")}</AppText>
+        <View style={{alignItems:"center",gap:spacing.sm}}>
+          <Ionicons name="lock-closed-outline" size={26} color={colors.textMuted}/>
+          <AppText muted style={{textAlign:"center"}}>{t("teams.privateRoster")}</AppText>
+        </View>
       </Card>:null}
 
-      <Button label={t("common.retry")} onPress={()=>void load()} variant="secondary"/>
+      <Button label={t("common.retry")} onPress={()=>void load()} variant="ghost"/>
     </>:null}
   </Screen>;
 }
+
+function ProfileStat({icon,value,label}:{icon:keyof typeof Ionicons.glyphMap;value:string;label:string}){
+  return <Card style={styles.statCard}>
+    <View style={styles.statIcon}><Ionicons name={icon} size={19} color={colors.primary}/></View>
+    <AppText weight="bold" style={{textAlign:"center"}}>{value}</AppText>
+    <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText>
+  </Card>;
+}
+
+const styles=StyleSheet.create({
+  hero:{
+    borderRadius:radius.lg,
+    padding:spacing.lg,
+    backgroundColor:colors.primary,
+    alignItems:"center",
+    gap:spacing.sm,
+  },
+  logo:{width:88,height:88,borderRadius:44,borderWidth:4,borderColor:"#DCE8FF"},
+  logoFallback:{width:88,height:88,borderRadius:44,backgroundColor:"#FFFFFF",borderWidth:4,borderColor:"#DCE8FF",alignItems:"center",justifyContent:"center"},
+  typeBadge:{paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill,backgroundColor:"rgba(255,255,255,0.16)"},
+  heroTitle:{color:"#FFFFFF",textAlign:"center"},
+  heroMuted:{color:"#DCE8FF"},
+  roleBadge:{paddingHorizontal:spacing.sm,paddingVertical:spacing.xs,borderRadius:radius.pill,backgroundColor:"#FFFFFF"},
+  inline:{alignItems:"center",gap:5},
+  statGrid:{flexDirection:"row",gap:spacing.xs},
+  statCard:{flex:1,minWidth:0,alignItems:"center",gap:spacing.xs,paddingHorizontal:spacing.xs,paddingVertical:spacing.md},
+  statIcon:{width:34,height:34,borderRadius:17,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
+  actionRow:{gap:spacing.sm},
+  memberCard:{padding:spacing.md},
+  memberAvatar:{width:52,height:52,borderRadius:26},
+  memberFallback:{width:52,height:52,borderRadius:26,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  smallBadge:{paddingHorizontal:spacing.sm,paddingVertical:3,borderRadius:radius.pill,backgroundColor:colors.surfaceMuted},
+});
