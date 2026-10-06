@@ -7,6 +7,7 @@ import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -20,9 +21,9 @@ export default function ManualBookingScreen(){
   const [owner,setOwner]=useState<OwnerOnboardingStatus|null>(null);
   const [areaId,setAreaId]=useState(""); const [date,setDate]=useState(todayKabul()); const [start,setStart]=useState("18:00"); const [end,setEnd]=useState("19:30");
   const [name,setName]=useState(""); const [phone,setPhone]=useState(""); const [price,setPrice]=useState(""); const [note,setNote]=useState("");
-  const [busy,setBusy]=useState(false); const [error,setError]=useState<string|null>(null);
+  const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
 
-  useEffect(()=>{if(!session)return;ownerApi.getStatus(session.accessToken).then((next)=>{setOwner(next);setAreaId(next.venue?.areas[0]?.id??"");}).catch(()=>setError(t("owner.loadError")));},[session,t]);
+  useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((next)=>{setOwner(next);setAreaId(next.venue?.areas[0]?.id??"");}).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[session,t]);
 
   async function submit(){if(!session||!areaId)return;setBusy(true);setError(null);try{
     await ownerApi.createManualBooking(session.accessToken,{areaId,startsAt:afghanistanIso(date,start),endsAt:afghanistanIso(date,end),customerName:name,customerPhone:phone, ...(price.trim()?{priceAfn:Number(price)}:{}),note});
@@ -32,6 +33,8 @@ export default function ManualBookingScreen(){
     else if(cause instanceof ApiRequestError&&cause.code==="SUBSCRIPTION_REQUIRED")setError(t("schedule.subscriptionRequired"));
     else setError(t("schedule.manualError"));
   }finally{setBusy(false);}}
+
+  if(loading)return <Screen><DataLoadingState variant="form" minHeight={500}/></Screen>;
 
   return <Screen>
     <AppText variant="title" weight="bold">{t("schedule.manualTitle")}</AppText>
