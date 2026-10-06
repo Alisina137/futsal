@@ -100,6 +100,13 @@ export function createOwnerCompetitionRouter(service: CompetitionService, tokens
     } catch (error) { next(error); }
   });
 
+  router.post("/competitions/:competitionId/duplicate", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      response.status(201).json({ competition: await service.duplicate(request.auth!.userId, competitionId) });
+    } catch (error) { next(error); }
+  });
+
   router.get("/competitions/:competitionId", auth, async (request, response, next) => {
     try {
       const competitionId = idSchema.parse(request.params.competitionId);
@@ -186,6 +193,14 @@ export function createOwnerCompetitionRouter(service: CompetitionService, tokens
       const teamId = idSchema.parse(request.params.teamId);
       const input = competitionRegistrationDecisionRequestSchema.parse(request.body);
       response.json({ registration: await service.decideRegistration(request.auth!.userId, competitionId, teamId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/competitions/:competitionId/registrations/:teamId", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      const teamId = idSchema.parse(request.params.teamId);
+      response.json(await service.removeTeam(request.auth!.userId, competitionId, teamId));
     } catch (error) { next(error); }
   });
 
