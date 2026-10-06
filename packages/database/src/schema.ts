@@ -38,6 +38,7 @@ export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
 export const promotionStatusEnum = pgEnum("promotion_status", ["ACTIVE", "CLOSED", "EXPIRED"]);
 export const postStatusEnum = pgEnum("post_status", ["PUBLISHED", "UNPUBLISHED"]);
 export const postCtaTypeEnum = pgEnum("post_cta_type", ["NONE", "VENUE", "PROMOTION", "COMPETITION"]);
+export const socialEntityTypeEnum = pgEnum("social_entity_type", ["VENUE", "TEAM", "COMPETITION"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION"]);
 export const notificationChannelEnum = pgEnum("notification_channel", ["IN_APP", "PUSH"]);
 export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", ["PENDING", "SENT", "SKIPPED", "FAILED"]);
@@ -436,6 +437,73 @@ export const venueFollows = pgTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.venueId] }),
     index("venue_follows_venue_idx").on(table.venueId),
+  ],
+);
+
+
+export const socialFollows = pgTable(
+  "social_follows",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    entityType: socialEntityTypeEnum("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.entityType, table.entityId] }),
+    index("social_follows_entity_idx").on(table.entityType, table.entityId),
+    index("social_follows_user_idx").on(table.userId),
+  ],
+);
+
+export const socialPosts = pgTable(
+  "social_posts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    entityType: socialEntityTypeEnum("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    legacyVenuePostId: uuid("legacy_venue_post_id").references(() => venuePosts.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    imageUrl: text("image_url"),
+    status: postStatusEnum("status").notNull().default("PUBLISHED"),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+    unpublishedAt: timestamp("unpublished_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("social_posts_legacy_venue_post_uq").on(table.legacyVenuePostId),
+    index("social_posts_entity_status_idx").on(table.entityType, table.entityId, table.status),
+    index("social_posts_published_at_idx").on(table.publishedAt),
+  ],
+);
+
+export const socialPostLikes = pgTable(
+  "social_post_likes",
+  {
+    postId: uuid("post_id").notNull().references(() => socialPosts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.postId, table.userId] }),
+    index("social_post_likes_user_idx").on(table.userId),
+  ],
+);
+
+export const socialPostComments = pgTable(
+  "social_post_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    postId: uuid("post_id").notNull().references(() => socialPosts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("social_post_comments_post_created_idx").on(table.postId, table.createdAt),
+    index("social_post_comments_user_idx").on(table.userId),
   ],
 );
 
