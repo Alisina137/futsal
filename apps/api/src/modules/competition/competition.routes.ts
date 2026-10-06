@@ -3,7 +3,10 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import {
   competitionCreateRequestSchema,
+  competitionFeeUpdateRequestSchema,
   competitionInviteTeamRequestSchema,
+  competitionMediaPostCreateRequestSchema,
+  competitionMediaPostStatusRequestSchema,
   competitionMatchResultRequestSchema,
   competitionMatchScheduleRequestSchema,
   competitionRegistrationDecisionRequestSchema,
@@ -58,6 +61,13 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
     } catch (error) { next(error); }
   });
 
+  router.get("/competitions/:competitionId/media", async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      response.json(await service.listPublicMedia(competitionId));
+    } catch (error) { next(error); }
+  });
+
   router.get("/competitions/:competitionId", async (request, response, next) => {
     try {
       const competitionId = idSchema.parse(request.params.competitionId);
@@ -105,6 +115,37 @@ export function createOwnerCompetitionRouter(service: CompetitionService, tokens
     } catch (error) { next(error); }
   });
 
+  router.delete("/competitions/:competitionId", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      response.json(await service.remove(request.auth!.userId, competitionId));
+    } catch (error) { next(error); }
+  });
+
+  router.get("/competitions/:competitionId/media", auth, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      response.json(await service.listOwnerMedia(request.auth!.userId, competitionId));
+    } catch (error) { next(error); }
+  });
+
+  router.post("/competitions/:competitionId/media", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      const input = competitionMediaPostCreateRequestSchema.parse(request.body);
+      response.status(201).json({ post: await service.createMediaPost(request.auth!.userId, competitionId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.patch("/competitions/:competitionId/media/:postId", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      const postId = idSchema.parse(request.params.postId);
+      const input = competitionMediaPostStatusRequestSchema.parse(request.body);
+      response.json({ post: await service.setMediaStatus(request.auth!.userId, competitionId, postId, input) });
+    } catch (error) { next(error); }
+  });
+
   router.post("/competitions/:competitionId/state", auth, writeLimiter, async (request, response, next) => {
     try {
       const competitionId = idSchema.parse(request.params.competitionId);
@@ -145,6 +186,15 @@ export function createOwnerCompetitionRouter(service: CompetitionService, tokens
       const teamId = idSchema.parse(request.params.teamId);
       const input = competitionRegistrationDecisionRequestSchema.parse(request.body);
       response.json({ registration: await service.decideRegistration(request.auth!.userId, competitionId, teamId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.patch("/competitions/:competitionId/registrations/:teamId/fee", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      const teamId = idSchema.parse(request.params.teamId);
+      const input = competitionFeeUpdateRequestSchema.parse(request.body);
+      response.json({ registration: await service.updateFee(request.auth!.userId, competitionId, teamId, input) });
     } catch (error) { next(error); }
   });
 
