@@ -1,8 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { SocialFeedPostDto } from "@leaguekick/contracts";
-import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { Image, Pressable, Share, StyleSheet, View } from "react-native";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -37,7 +37,7 @@ function SocialHome(){
     }
   },[session,t]);
 
-  useEffect(()=>{void load();},[load]);
+  useFocusEffect(useCallback(()=>{void load();},[load]));
 
   function updatePost(next:SocialFeedPostDto){
     setItems((current)=>current.map((item)=>item.id===next.id?next:item));
