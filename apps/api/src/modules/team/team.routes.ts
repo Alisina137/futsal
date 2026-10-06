@@ -79,6 +79,41 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     } catch (error) { next(error); }
   });
 
+  router.get("/teams", auth, async (request, response, next) => {
+    try { response.json(await teams.listTeamsDirectory(request.auth!.userId)); }
+    catch (error) { next(error); }
+  });
+
+  router.get("/teams/:teamId/join-request", auth, async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      response.json(await teams.getMyJoinRequest(request.auth!.userId, teamId));
+    } catch (error) { next(error); }
+  });
+
+  router.post("/teams/:teamId/join-request", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      response.status(201).json({ request: await teams.requestToJoin(request.auth!.userId, teamId) });
+    } catch (error) { next(error); }
+  });
+
+  router.get("/teams/:teamId/join-requests", auth, async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      response.json(await teams.listTeamJoinRequests(request.auth!.userId, teamId));
+    } catch (error) { next(error); }
+  });
+
+  router.patch("/teams/:teamId/join-requests/:requestId", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      const requestId = routeIdSchema.parse(request.params.requestId);
+      const input = z.object({ accept: z.boolean() }).parse(request.body);
+      response.json({ request: await teams.respondToJoinRequest(request.auth!.userId, teamId, requestId, input.accept) });
+    } catch (error) { next(error); }
+  });
+
   router.get("/teams/mine", auth, async (request, response, next) => {
     try { response.json(await teams.listMyTeams(request.auth!.userId)); }
     catch (error) { next(error); }
