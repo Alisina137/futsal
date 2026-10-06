@@ -1,13 +1,13 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, radius, spacing } from "@leaguekick/design-tokens";
+import { colors, spacing } from "@leaguekick/design-tokens";
 import type { OwnerOnboardingStatus } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { View } from "react-native";
 import { ownerApi, ApiRequestError } from "../../lib/api";
 import { formatLocalDateTimeParts } from "../../lib/date-time";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
+import { OwnerTopNav } from "./OwnerTopNav";
 import { AppText } from "../ui/AppText";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -46,45 +46,14 @@ export function OwnerDashboard() {
   useEffect(() => { void load(); }, [load]);
 
   if (loading) {
-    return <Screen showHeader><DataLoadingState variant="dashboard" minHeight={520}/></Screen>;
+    return <Screen showHeader>
+      <OwnerTopNav/>
+      <DataLoadingState variant="dashboard" minHeight={520}/>
+    </Screen>;
   }
 
   return <Screen showHeader>
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.dashboardNavContent,
-        { flexDirection: isRTL ? "row-reverse" : "row" },
-      ]}
-      style={styles.dashboardNav}
-    >
-      <DashboardNavItem
-        icon="trophy-outline"
-        label={t("owner.dashboardNav.competitions")}
-        onPress={() => router.push("/owner/competitions")}
-      />
-      <DashboardNavItem
-        icon="calendar-outline"
-        label={t("owner.dashboardNav.schedule")}
-        onPress={() => router.push("/schedule")}
-      />
-      <DashboardNavItem
-        icon="newspaper-outline"
-        label={t("owner.dashboardNav.posts")}
-        onPress={() => router.push("/owner/posts")}
-      />
-      <DashboardNavItem
-        icon="stats-chart-outline"
-        label={t("owner.dashboardNav.analysis")}
-        onPress={() => router.push("/owner/analytics")}
-      />
-      <DashboardNavItem
-        icon="settings-outline"
-        label={t("owner.dashboardNav.settings")}
-        onPress={() => router.push("/owner/onboarding")}
-      />
-    </ScrollView>
+    <OwnerTopNav/>
 
     <Card>
       <AppText variant="bodyLarge" weight="bold">{t("home.discoveryTitle")}</AppText>
@@ -147,29 +116,6 @@ export function OwnerDashboard() {
   </Screen>;
 }
 
-function DashboardNavItem({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-}) {
-  return <Pressable
-    accessibilityRole="button"
-    accessibilityLabel={label}
-    onPress={onPress}
-    style={({ pressed }) => [
-      styles.dashboardNavItem,
-      pressed && styles.dashboardNavItemPressed,
-    ]}
-  >
-    <Ionicons name={icon} size={18} color={colors.primary} />
-    <AppText variant="caption" weight="semibold">{label}</AppText>
-  </Pressable>;
-}
-
 function InfoRow({ label, value, rtl, ltr = false }: { label: string; value: string; rtl: boolean; ltr?: boolean }) {
   return <View style={{ flexDirection: rtl ? "row-reverse" : "row", justifyContent: "space-between", gap: spacing.md }}>
     <AppText muted>{label}</AppText>
@@ -199,35 +145,3 @@ function TrialEndBlock({
     </View>
   </View>;
 }
-
-
-const styles = StyleSheet.create({
-  dashboardNav: {
-    marginHorizontal: -spacing.xs,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderTopColor: colors.border,
-    borderBottomColor: colors.border,
-  },
-  dashboardNavContent: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs,
-    flexWrap: "nowrap",
-  },
-  dashboardNavItem: {
-    minHeight: 44,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  dashboardNavItemPressed: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-  },
-});
