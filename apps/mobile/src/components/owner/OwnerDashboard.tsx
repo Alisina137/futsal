@@ -49,11 +49,6 @@ export function OwnerDashboard() {
   }
 
   return <Screen showHeader>
-    <View style={{ gap: spacing.xs }}>
-      <AppText variant="title" weight="bold">{t("owner.dashboardTitle")}</AppText>
-      <AppText muted>{t("owner.dashboardSubtitle")}</AppText>
-    </View>
-
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
