@@ -843,6 +843,27 @@ export type TeamDto = z.infer<typeof teamDtoSchema>;
 export const teamListItemDtoSchema = teamDtoSchema.omit({ members: true });
 export type TeamListItemDto = z.infer<typeof teamListItemDtoSchema>;
 
+export const teamJoinRequestStatusSchema = z.enum(["PENDING", "ACCEPTED", "REJECTED", "CANCELLED"]);
+export type TeamJoinRequestStatus = z.infer<typeof teamJoinRequestStatusSchema>;
+
+export const teamDirectoryItemDtoSchema = teamListItemDtoSchema.extend({
+  myMembershipRole: teamMemberRoleSchema.nullable(),
+  joinRequestStatus: teamJoinRequestStatusSchema.nullable(),
+});
+export type TeamDirectoryItemDto = z.infer<typeof teamDirectoryItemDtoSchema>;
+
+export const teamJoinRequestDtoSchema = z.object({
+  id: z.string().uuid(),
+  teamId: z.string().uuid(),
+  teamName: z.string(),
+  requesterUserId: z.string().uuid(),
+  requesterDisplayName: z.string(),
+  status: teamJoinRequestStatusSchema,
+  createdAt: isoDateTimeSchema,
+  respondedAt: isoDateTimeSchema.nullable(),
+});
+export type TeamJoinRequestDto = z.infer<typeof teamJoinRequestDtoSchema>;
+
 export const teamInviteRequestSchema = z.object({
   identifier: z.string().trim().min(3).max(80),
   role: z.enum(["CAPTAIN", "PLAYER"]).default("PLAYER"),
