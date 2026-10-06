@@ -43,7 +43,7 @@ function partsFromDate(value:string|Date):DateParts{
     minute:"2-digit",
     hourCycle:"h23",
   }).formatToParts(date);
-  const take=(type:Intl.DateTimeFormatPartTypes)=>Number(parts.find((part)=>part.type===type)?.value??0);
+  const take=(type:string)=>Number(parts.find((part)=>part.type===type)?.value??0);
   return {
     year:take("year"),
     month:take("month"),
