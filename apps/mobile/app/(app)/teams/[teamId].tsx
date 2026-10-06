@@ -8,6 +8,7 @@ import { marketingApi, teamApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -87,7 +88,7 @@ export default function TeamDetailScreen(){
     :null;
 
   return <Screen showHeader>
-    {loading?<AppText>{t("common.loading")}</AppText>:null}
+    {loading?<DataLoadingState variant="detail"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
 
     {team?<>
