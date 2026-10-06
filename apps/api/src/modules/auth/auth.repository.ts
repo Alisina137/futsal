@@ -1,7 +1,7 @@
 import type { AdminRoleSubscriptionDto, PaidRole, RoleSubscriptionOfferDto, UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users } from "@leaguekick/database";
+import { auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueSubscriptions, venues } from "@leaguekick/database";
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
@@ -290,6 +290,31 @@ export class DrizzleAuthRepository implements AuthRepository {
       });
 
       await tx.insert(userRoles).values({ userId: input.userId, role: input.role }).onConflictDoNothing();
+
+      if (input.role === "VENUE_OWNER") {
+        const [venue] = await tx.select({ id: venues.id }).from(venues).where(eq(venues.ownerUserId, input.userId)).limit(1);
+        if (venue) {
+          await tx.insert(venueSubscriptions).values({
+            venueId: venue.id,
+            status: "ACTIVE",
+            trialStartedAt: null,
+            trialEndsAt: null,
+            activeUntil,
+            cancelledAt: null,
+            updatedAt: input.now,
+          }).onConflictDoUpdate({
+            target: venueSubscriptions.venueId,
+            set: {
+              status: "ACTIVE",
+              trialStartedAt: null,
+              trialEndsAt: null,
+              activeUntil,
+              cancelledAt: null,
+              updatedAt: input.now,
+            },
+          });
+        }
+      }
 
       await tx.insert(auditLogs).values({
         actorUserId: input.actorUserId,
