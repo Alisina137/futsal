@@ -3,6 +3,7 @@ import type {
   CompetitionDto,
   CompetitionMatchDto,
   CompetitionStateRequest,
+  VenueRefereeDto,
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -25,6 +26,7 @@ export default function ManageCompetitionScreen(){
   const {t,isRTL,language}=useLocale();
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
+  const [referees,setReferees]=useState<VenueRefereeDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState<string|null>(null);
   const [error,setError]=useState<string|null>(null);
@@ -37,6 +39,7 @@ export default function ManageCompetitionScreen(){
   const [areaId,setAreaId]=useState("");
   const [startsAt,setStartsAt]=useState("");
   const [endsAt,setEndsAt]=useState("");
+  const [refereeUserId,setRefereeUserId]=useState<string|null>(null);
   const [homeScore,setHomeScore]=useState("");
   const [awayScore,setAwayScore]=useState("");
   const [correctionReason,setCorrectionReason]=useState("");
@@ -46,11 +49,13 @@ export default function ManageCompetitionScreen(){
     if(!session||!competitionId)return;
     setLoading(true);setError(null);
     try{
-      const [{competition:next},status]=await Promise.all([
+      const [{competition:next},status,refereeResult]=await Promise.all([
         competitionApi.ownerGet(session.accessToken,competitionId),
         ownerApi.getStatus(session.accessToken),
+        ownerApi.referees(session.accessToken),
       ]);
       setCompetition(next);
+      setReferees(refereeResult.referees);
       const venueAreas=status.venue?.areas.map((item)=>({id:item.id,name:item.name}))??[];
       setAreas(venueAreas);
       setAreaId((current)=>current||venueAreas[0]?.id||"");
@@ -105,6 +110,7 @@ export default function ManageCompetitionScreen(){
     setAreaId(match.areaId??areas[0]?.id??"");
     setStartsAt(match.startsAt??"");
     setEndsAt(match.endsAt??"");
+    setRefereeUserId(match.refereeUserId??null);
   }
 
   function openResult(match:CompetitionMatchDto){
@@ -119,7 +125,7 @@ export default function ManageCompetitionScreen(){
     if(!session||!competitionId||!activeMatch||!areaId||!startsAt||!endsAt)return;
     setBusy("schedule");setError(null);
     try{
-      const {competition:next}=await competitionApi.scheduleMatch(session.accessToken,competitionId,activeMatch.id,{areaId,startsAt,endsAt});
+      const {competition:next}=await competitionApi.scheduleMatch(session.accessToken,competitionId,activeMatch.id,{areaId,startsAt,endsAt,refereeUserId});
       setCompetition(next);setActiveMatch(null);setEditMode(null);
     }catch{setError(t("competition.scheduleError"));}
     finally{setBusy(null);}
@@ -247,6 +253,19 @@ export default function ManageCompetitionScreen(){
         </View>
         <TextField label={t("competition.startsAt")} value={startsAt} onChangeText={setStartsAt} forceLtr placeholder="2026-10-10T18:00:00+04:30"/>
         <TextField label={t("competition.endsAt")} value={endsAt} onChangeText={setEndsAt} forceLtr placeholder="2026-10-10T19:30:00+04:30"/>
+        <AppText weight="semibold">{t("competition.referee")}</AppText>
+        <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,flexWrap:"wrap"}}>
+          <Pressable
+            onPress={()=>setRefereeUserId(null)}
+            style={{padding:spacing.sm,borderRadius:radius.md,borderWidth:1,borderColor:refereeUserId===null?colors.primary:colors.border,backgroundColor:refereeUserId===null?colors.primarySoft:colors.surface}}
+          ><AppText>{t("competition.noReferee")}</AppText></Pressable>
+          {referees.map((referee)=><Pressable
+            key={referee.userId}
+            onPress={()=>setRefereeUserId(referee.userId)}
+            style={{padding:spacing.sm,borderRadius:radius.md,borderWidth:1,borderColor:refereeUserId===referee.userId?colors.primary:colors.border,backgroundColor:refereeUserId===referee.userId?colors.primarySoft:colors.surface}}
+          ><AppText>{referee.displayName}</AppText></Pressable>)}
+        </View>
+
         <Button label={t("common.save")} onPress={()=>void saveSchedule()} loading={busy==="schedule"}/>
         <Button label={t("teams.cancelAction")} onPress={()=>{setActiveMatch(null);setEditMode(null);}} variant="secondary"/>
       </Card>:null}
