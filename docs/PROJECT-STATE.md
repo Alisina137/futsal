@@ -474,3 +474,5 @@ Pilot signoff still requires a real preview APK/device run of the critical E2E m
 Pilot release / launch signoff after the Phase 8 live-device and operations checklist passes.
 
 - Public Venue and Team pages use profile-style presentation for social-post author navigation, with clearer identity, follower/member facts, actions, and structured content sections.
+
+- Venue Owner Dashboard top navigation is a single horizontally scrollable, non-wrapping row: Competitions → Manage Schedule → Posts → Analysis → Venue Settings. Destinations are `/owner/competitions`, `/schedule`, `/owner/posts`, `/owner/analytics`, and `/owner/onboarding`.
