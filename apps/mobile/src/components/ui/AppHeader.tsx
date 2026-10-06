@@ -86,9 +86,17 @@ export function AppHeader(){
           accessibilityRole="button"
           accessibilityLabel={t("navigation.closeMenu")}
           style={styles.scrim}
-          onPress={()=>setMenuOpen(false)}
+          onPressIn={()=>setMenuOpen(false)}
         />
-        <View style={[styles.drawer,{paddingTop:Math.max(insets.top,spacing.md)}]}>
+        <View
+          style={[
+            styles.drawer,
+            {
+              marginTop:Math.max(insets.top,spacing.sm),
+              marginLeft:spacing.sm,
+            },
+          ]}
+        >
           <View style={[styles.drawerHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <View style={styles.drawerBrandIcon}>
               <Ionicons name="football" size={22} color="#FFFFFF"/>
@@ -213,22 +221,23 @@ const styles=StyleSheet.create({
     backgroundColor:"rgba(7,26,43,0.46)",
   },
   drawer:{
-    width:"82%",
-    maxWidth:340,
-    height:"100%",
+    width:286,
+    maxWidth:"82%",
+    maxHeight:"86%",
+    alignSelf:"flex-start",
     paddingHorizontal:spacing.md,
-    paddingBottom:spacing.xl,
+    paddingTop:spacing.sm,
+    paddingBottom:spacing.md,
     backgroundColor:colors.surface,
-    borderTopRightRadius:radius.lg,
-    borderBottomRightRadius:radius.lg,
+    borderRadius:radius.lg,
     shadowColor:"#071A2B",
     shadowOpacity:0.2,
     shadowRadius:20,
-    shadowOffset:{width:6,height:0},
+    shadowOffset:{width:6,height:4},
     elevation:16,
   },
   drawerHeader:{
-    minHeight:72,
+    minHeight:62,
     alignItems:"center",
     gap:spacing.sm,
     borderBottomWidth:1,
@@ -252,10 +261,10 @@ const styles=StyleSheet.create({
   },
   menuList:{
     gap:spacing.xs,
-    paddingBottom:spacing.xl,
+    paddingBottom:spacing.xs,
   },
   menuItem:{
-    minHeight:58,
+    minHeight:52,
     alignItems:"center",
     gap:spacing.sm,
     paddingHorizontal:spacing.sm,
