@@ -14,7 +14,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
-    "verify": "pnpm verify:admin-web && pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:mobile-rtl && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
+    "verify": "pnpm verify:admin-web && pnpm verify:suspension && pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:mobile-rtl && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "pnpm --filter @leaguekick/database db:generate",
     "db:migrate": "pnpm --dir packages/database run db:migrate",
     "verify:phase3": "node scripts/verify-phase3-resilience.mjs",
@@ -27,7 +27,8 @@
     "verify:phase8": "node scripts/verify-phase8-release.mjs",
     "release:check": "pnpm verify",
     "verify:auth-model": "node scripts/verify-auth-identity-role-model.mjs",
-    "verify:admin-web": "node scripts/verify-admin-web.mjs"
+    "verify:admin-web": "node scripts/verify-admin-web.mjs",
+    "verify:suspension": "node scripts/verify-account-suspension.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
