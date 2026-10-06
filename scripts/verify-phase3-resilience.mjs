@@ -11,6 +11,8 @@ const cache = read("apps/mobile/src/lib/availability-cache.ts");
 const tests = read("apps/api/test/booking.test.ts");
 const rootLayout = read("apps/mobile/app/_layout.tsx");
 const connectivityBanner = read("apps/mobile/src/components/ConnectivityBanner.tsx");
+const networkProvider = read("apps/mobile/src/providers/NetworkProvider.tsx");
+const mobileApi = read("apps/mobile/src/lib/api.ts");
 
 const checks = [
   [repository.includes("pg_advisory_xact_lock"), "database advisory lock"],
@@ -24,10 +26,13 @@ const checks = [
   [tests.includes("idempotency key"), "idempotency retry test"],
   [rootLayout.includes('LogBox.ignoreLogs(["Cannot connect to Expo CLI."])'), "Expo CLI disconnect warning suppression"],
   [connectivityBanner.includes('t("network.offlineTitle")') && connectivityBanner.includes('t("network.backOnline")'), "localized offline/back-online banner"],
+  [mobileApi.includes("probeApi") && mobileApi.includes("systemApi") && mobileApi.includes("probe: () => probeApi()"), "bounded API health probe"],
+  [networkProvider.includes("API_PROBE_INTERVAL_MS = 3_000") && networkProvider.includes("apiReconnectVersion"), "global API availability monitor"],
+  [connectivityBanner.includes('t("network.serverUnavailableTitle")') && connectivityBanner.includes('t("network.serverBackOnline")'), "server unavailable/recovered banner"],
 ];
 
 const failed = checks.filter(([ok]) => !ok);
 if (failed.length) {
   throw new Error(`Phase 3 resilience invariant(s) missing: ${failed.map(([,name]) => name).join(", ")}`);
 }
-console.log("Phase 3 resilience verified: booking integrity, cached availability, and app-owned offline/back-online UX are present.");
+console.log("Phase 3 resilience verified: booking integrity, cached availability, internet-state UX, and API server unavailable/recovered UX are present.");
