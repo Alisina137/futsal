@@ -11,6 +11,7 @@ import {
   competitionMatchScheduleRequestSchema,
   competitionRegistrationDecisionRequestSchema,
   competitionRegistrationResponseRequestSchema,
+  competitionSeedUpdateRequestSchema,
   competitionStateRequestSchema,
   competitionTeamRegisterRequestSchema,
   competitionUpdateRequestSchema,
@@ -201,6 +202,15 @@ export function createOwnerCompetitionRouter(service: CompetitionService, tokens
       const competitionId = idSchema.parse(request.params.competitionId);
       const teamId = idSchema.parse(request.params.teamId);
       response.json(await service.removeTeam(request.auth!.userId, competitionId, teamId));
+    } catch (error) { next(error); }
+  });
+
+  router.patch("/competitions/:competitionId/registrations/:teamId/seed", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const competitionId = idSchema.parse(request.params.competitionId);
+      const teamId = idSchema.parse(request.params.teamId);
+      const input = competitionSeedUpdateRequestSchema.parse(request.body);
+      response.json({ registration: await service.updateSeed(request.auth!.userId, competitionId, teamId, input) });
     } catch (error) { next(error); }
   });
 
