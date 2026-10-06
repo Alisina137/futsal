@@ -17,6 +17,8 @@ assert(header.includes('style={styles.header}'), "Header must use the fixed phys
 assert(header.includes('router.navigate("/settings")'), "Top-right profile control must open Profile.");
 assert(header.includes('user?.profileImageUrl'), "Header profile control must render the profile image when available.");
 assert(header.includes('href:"/home"'), "Hamburger menu must include Home.");
+assert(header.includes('label:t("home.title")') && header.includes('icon:"home-outline"'), "Home menu item must use the Home label and home icon for every account type.");
+assert(!header.includes('owner?t("owner.dashboardTitle"):t("home.title")'), "Venue Owner menu must not rename Home to Venue Dashboard.");
 assert(header.includes('href:"/venues"'), "Hamburger menu must include Venues.");
 assert(header.includes('href:"/bookings"'), "Hamburger menu must include My Bookings.");
 assert(header.includes('href:"/feed"'), "Hamburger menu must include Feed.");
