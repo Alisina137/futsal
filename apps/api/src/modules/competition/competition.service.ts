@@ -626,6 +626,13 @@ export class CompetitionService {
       seed: input.seed ?? null,
       now: this.now(),
     });
+    await this.notifyCompetition(
+      competitionId,
+      competition.name,
+      `${team.name} was invited to the competition.`,
+      `competition-invite:${competitionId}:${team.id}`,
+      [team.managerUserId],
+    );
     return this.repository.getRegistration(competitionId, input.teamId);
   }
 
@@ -655,6 +662,16 @@ export class CompetitionService {
       seed: input.seed ?? registration.seed,
       now: this.now(),
     });
+    const team = await this.repository.getTeam(teamId);
+    if (team) {
+      await this.notifyCompetition(
+        competitionId,
+        competition.name,
+        `${team.name} registration was ${input.status.toLowerCase()}.`,
+        `competition-registration:${competitionId}:${teamId}:${input.status}`,
+        [team.managerUserId],
+      );
+    }
     return this.repository.getRegistration(competitionId, teamId);
   }
 
@@ -730,6 +747,19 @@ export class CompetitionService {
       refereeUserId: input.refereeUserId ?? null,
       updatedAt: this.now(),
     });
+    const homeTeam = await this.repository.getTeam(match.homeTeamId);
+    const awayTeam = await this.repository.getTeam(match.awayTeamId);
+    await this.notifyCompetition(
+      competitionId,
+      competition.name,
+      `${match.homeTeamName ?? "Home team"} vs ${match.awayTeamName ?? "Away team"} was scheduled.`,
+      `competition-match-scheduled:${matchId}:${startsAt.toISOString()}`,
+      [
+        ...(homeTeam ? [homeTeam.managerUserId] : []),
+        ...(awayTeam ? [awayTeam.managerUserId] : []),
+        ...(input.refereeUserId ? [input.refereeUserId] : []),
+      ],
+    );
     return this.getOwner(ownerUserId, competitionId);
   }
 
@@ -841,6 +871,20 @@ export class CompetitionService {
         updatedAt: now,
       });
     }
+
+    const homeTeam = await this.repository.getTeam(match.homeTeamId);
+    const awayTeam = await this.repository.getTeam(match.awayTeamId);
+    await this.notifyCompetition(
+      competitionId,
+      competition.name,
+      `${match.homeTeamName ?? "Home team"} ${input.homeScore} - ${input.awayScore} ${match.awayTeamName ?? "Away team"}.`,
+      `competition-match-result:${matchId}:${saved.status}:${now.getTime()}`,
+      [
+        ...(homeTeam ? [homeTeam.managerUserId] : []),
+        ...(awayTeam ? [awayTeam.managerUserId] : []),
+        ...(match.refereeUserId ? [match.refereeUserId] : []),
+      ],
+    );
 
     return {
       match: saved,
