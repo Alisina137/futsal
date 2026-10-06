@@ -144,44 +144,74 @@ describe("Authentication identity and role model", () => {
     expect(byPhone.body.user.id).toBe(byUsername.body.user.id);
   });
 
-  it("activates safe roles after signup and keeps team-manager authority additive", async () => {
-    const { app } = setup();
+  it("keeps management roles payment-gated and admin-activated", async () => {
+    const { app, repository } = setup();
     const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);
     const accessToken = registration.body.accessToken;
 
-    const player = await request(app)
-      .post("/api/v1/auth/roles/activate")
-      .set("Authorization", `Bearer ${accessToken}`)
-      .send({ role: "PLAYER" });
-    expect(player.status).toBe(200);
-    expect(player.body.user.roles).toEqual(["PLAYER"]);
+    const offers = await request(app)
+      .get("/api/v1/auth/role-subscriptions")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(offers.status).toBe(200);
+    expect(offers.body.offers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ role: "VENUE_OWNER", monthlyPriceAfn: 1000, status: "NONE" }),
+      expect.objectContaining({ role: "TEAM_MANAGER", monthlyPriceAfn: 300, status: "NONE" }),
+    ]));
 
-    const manager = await request(app)
-      .post("/api/v1/auth/roles/activate")
+    const pending = await request(app)
+      .post("/api/v1/auth/role-subscriptions/TEAM_MANAGER/request")
       .set("Authorization", `Bearer ${accessToken}`)
-      .send({ role: "TEAM_MANAGER" });
-    expect(manager.status).toBe(200);
-    expect(new Set(manager.body.user.roles)).toEqual(new Set(["PLAYER", "TEAM_MANAGER"]));
+      .send({ paymentReference: "receipt-team-1" });
+    expect(pending.status).toBe(202);
+    expect(pending.body.offer.status).toBe("PENDING");
 
-    const repeat = await request(app)
-      .post("/api/v1/auth/roles/activate")
-      .set("Authorization", `Bearer ${accessToken}`)
-      .send({ role: "TEAM_MANAGER" });
-    expect(repeat.status).toBe(200);
-    expect(repeat.body.user.roles.filter((role: string) => role === "TEAM_MANAGER")).toHaveLength(1);
+    const beforeApproval = await request(app)
+      .get("/api/v1/users/me")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(beforeApproval.body.user.roles).toEqual([]);
+
+    const adminRegistration = await request(app).post("/api/v1/auth/register").send({
+      ...baseRegistration,
+      username: "admin01",
+      phone: "0791234599",
+    });
+    await repository.addRoles(adminRegistration.body.user.id, ["PLATFORM_ADMIN"]);
+    const adminSession = await request(app).post("/api/v1/auth/refresh").send({
+      refreshToken: adminRegistration.body.refreshToken,
+    });
+    expect(adminSession.status).toBe(200);
+    expect(adminSession.body.user.roles).toContain("PLATFORM_ADMIN");
+
+    const activated = await request(app)
+      .post(`/api/v1/admin/role-subscriptions/${registration.body.user.id}/TEAM_MANAGER/activate`)
+      .set("Authorization", `Bearer ${adminSession.body.accessToken}`)
+      .send({ months: 1, paymentReference: "receipt-team-1" });
+    expect(activated.status).toBe(200);
+    expect(activated.body.user.roles).toContain("TEAM_MANAGER");
+
+    const refreshed = await request(app).post("/api/v1/auth/refresh").send({
+      refreshToken: registration.body.refreshToken,
+    });
+    expect(refreshed.status).toBe(200);
+    expect(refreshed.body.user.roles).toContain("TEAM_MANAGER");
   });
 
-  it("does not allow privileged roles to be self-assigned", async () => {
+  it("removes free role self-activation and protects paid activation with platform-admin authority", async () => {
     const { app } = setup();
     const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);
 
-    const response = await request(app)
+    const removedEndpoint = await request(app)
       .post("/api/v1/auth/roles/activate")
       .set("Authorization", `Bearer ${registration.body.accessToken}`)
-      .send({ role: "PLATFORM_ADMIN" });
+      .send({ role: "TEAM_MANAGER" });
+    expect(removedEndpoint.status).toBe(404);
 
-    expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    const denied = await request(app)
+      .post(`/api/v1/admin/role-subscriptions/${registration.body.user.id}/TEAM_MANAGER/activate`)
+      .set("Authorization", `Bearer ${registration.body.accessToken}`)
+      .send({ months: 1 });
+    expect(denied.status).toBe(403);
+    expect(denied.body.error.code).toBe("ROLE_REQUIRED");
   });
 
   it("rotates refresh tokens and rejects the previous token", async () => {
