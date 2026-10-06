@@ -29,11 +29,7 @@ export class TeamService {
   }
 
   private async playerIdentity(userId: string) {
-    const user = await this.identity(userId);
-    if (!user.roles.includes("PLAYER")) {
-      throw errors.forbidden("PLAYER_ACCOUNT_REQUIRED", "A player account is required for team participation.");
-    }
-    return user;
+    return this.identity(userId);
   }
 
   private async team(teamId: string) {
@@ -76,6 +72,9 @@ export class TeamService {
 
   async createTeam(userId: string, input: TeamCreateRequest): Promise<TeamDto> {
     const user = await this.playerIdentity(userId);
+    if (!user.roles.includes("TEAM_MANAGER")) {
+      throw errors.forbidden("TEAM_OWNER_SUBSCRIPTION_REQUIRED", "An active Team Owner subscription is required to create a team.");
+    }
     await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
     return this.repository.createTeam({
       name: input.name.trim(),
@@ -174,8 +173,8 @@ export class TeamService {
   async createInvitation(userId: string, teamId: string, input: TeamInviteRequest) {
     const team = await this.manager(teamId, userId);
     const target = await this.resolveInviteTarget(input.identifier);
-    if (!target || !target.roles.includes("PLAYER")) {
-      throw errors.badRequest("INVITEE_NOT_FOUND", "No active player account matches that username or phone number.");
+    if (!target) {
+      throw errors.badRequest("INVITEE_NOT_FOUND", "No active account matches that username or phone number.");
     }
     if (target.id === userId) {
       throw errors.badRequest("CANNOT_INVITE_SELF", "You are already the manager of this team.");
