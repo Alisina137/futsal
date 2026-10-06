@@ -25,7 +25,15 @@ assert(seed.includes('normalizeRole(users.ali.id, "PLATFORM_ADMIN")'), "Ali must
 assert(seed.includes('monthlyPriceAfn: 1000') && seed.includes('role: "VENUE_OWNER"'), "Mahdi paid Venue Owner demo entitlement missing.");
 assert(seed.includes('monthlyPriceAfn: 300') && seed.includes('role: "TEAM_MANAGER"'), "Alisina paid Team Owner demo entitlement missing.");
 assert(seed.includes("venue_referees") && seed.includes("users.saeed.id"), "Saeed venue-scoped referee assignment missing.");
-assert(seed.includes('"PLAYER", 7') && seed.includes("users.abdul.id"), "Abdul team-scoped Player membership missing.");
+const abdulMembershipAnchor = seed.indexOf("[team.id, users.abdul.id]");
+assert(abdulMembershipAnchor >= 0, "Abdul team membership seed parameters missing.");
+const abdulMembershipBlock = seed.slice(Math.max(0, abdulMembershipAnchor - 1_000), abdulMembershipAnchor + 120);
+assert(
+  abdulMembershipBlock.includes("team_memberships")
+    && abdulMembershipBlock.includes("'PLAYER', 7")
+    && abdulMembershipBlock.includes("status = 'ACTIVE'"),
+  "Abdul team-scoped Player membership missing.",
+);
 assert(seed.includes("social_follows") && seed.includes('["VENUE", venue.id]') && seed.includes('["TEAM", team.id]') && seed.includes('["COMPETITION", competition.id]'), "Shams mixed Home feed follows missing.");
 assert(seed.includes("role-demo-shams-booking"), "Shams sample booking missing.");
 assert(seed.includes("LeagueKick Demo Cup"), "Demo competition missing.");
