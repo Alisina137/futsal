@@ -20,6 +20,7 @@ assert(header.includes('href:"/home"'), "Hamburger menu must include Home.");
 assert(header.includes('label:t("home.title")') && header.includes('icon:"home-outline"'), "Home menu item must use the Home label and home icon for every account type.");
 assert(!header.includes('owner?t("owner.dashboardTitle"):t("home.title")'), "Venue Owner menu must not rename Home to Venue Dashboard.");
 assert(header.includes('href:"/venues"'), "Hamburger menu must include Venues.");
+assert(header.includes('label:t("booking.venuesTitle"),icon:"football-outline",href:"/venues"'), "Venues menu item must use a futsal/playground-related icon instead of a building icon.");
 assert(header.includes('href:"/bookings"'), "Hamburger menu must include My Bookings.");
 assert(header.includes('href:"/feed"'), "Hamburger menu must include Feed.");
 assert(header.includes('href:"/schedule"'), "Hamburger menu must include owner Schedule.");
