@@ -28,10 +28,15 @@ function setup() {
   };
   const marketing = new MarketingService(marketingRepository, booking, () => clock.now);
   const app = createApp({ authService: auth, tokenService: tokens, bookingService: booking, marketingService: marketing });
-  return { app, bookingRepository, marketingRepository, clock };
+  return { app, bookingRepository, marketingRepository, authRepository, clock };
 }
 
-async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VENUE_OWNER", phone: string) {
+async function register(
+  app: ReturnType<typeof createApp>,
+  authRepository: FakeAuthRepository,
+  role: "PLAYER" | "VENUE_OWNER",
+  phone: string,
+) {
   const username = `u${phone.replace(/\D/g, "").slice(-10)}`;
   const registration = await request(app).post("/api/v1/auth/register").send({
     username,
@@ -42,12 +47,17 @@ async function register(app: ReturnType<typeof createApp>, role: "PLAYER" | "VEN
   });
   expect(registration.status).toBe(201);
 
-  const activated = await request(app)
-    .post("/api/v1/auth/roles/activate")
-    .set("Authorization", `Bearer ${registration.body.accessToken}`)
-    .send({ role });
-  expect(activated.status).toBe(200);
+  if (role === "PLAYER") return registration;
 
+  await authRepository.activateRoleSubscription({
+    actorUserId: registration.body.user.id,
+    userId: registration.body.user.id,
+    role: "VENUE_OWNER",
+    monthlyPriceAfn: 1000,
+    months: 1,
+    paymentReference: "test-paid",
+    now: new Date("2026-10-04T00:00:00.000Z"),
+  });
   const refreshed = await request(app)
     .post("/api/v1/auth/refresh")
     .send({ refreshToken: registration.body.refreshToken });
@@ -68,8 +78,8 @@ function seedMarketingFromBooking(marketingRepository: FakeMarketingRepository, 
 
 describe("Phase 4 marketing API", () => {
   it("creates a promotion only for a live available slot and exposes it in feed", async () => {
-    const { app, bookingRepository, marketingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0703334400");
+    const { app, bookingRepository, marketingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334400");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
     seedMarketingFromBooking(marketingRepository, venue);
 
@@ -98,9 +108,9 @@ describe("Phase 4 marketing API", () => {
   });
 
   it("books a promoted slot at the discounted server price", async () => {
-    const { app, bookingRepository, marketingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0703334455");
-    const player = await register(app, "PLAYER", "0703334466");
+    const { app, bookingRepository, marketingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334455");
+    const player = await register(app, authRepository, "PLAYER", "0703334466");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
     seedMarketingFromBooking(marketingRepository, venue);
 
@@ -137,8 +147,8 @@ describe("Phase 4 marketing API", () => {
   });
 
   it("rejects a promotion price that is not a discount", async () => {
-    const { app, bookingRepository, marketingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0703334411");
+    const { app, bookingRepository, marketingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334411");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
     seedMarketingFromBooking(marketingRepository, venue);
     const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
@@ -153,9 +163,9 @@ describe("Phase 4 marketing API", () => {
   });
 
   it("follows and unfollows a venue idempotently", async () => {
-    const { app, bookingRepository, marketingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0703334422");
-    const player = await register(app, "PLAYER", "0703334433");
+    const { app, bookingRepository, marketingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334422");
+    const player = await register(app, authRepository, "PLAYER", "0703334433");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
     seedMarketingFromBooking(marketingRepository, venue);
 
@@ -174,8 +184,8 @@ describe("Phase 4 marketing API", () => {
   });
 
   it("publishes and unpublishes a venue post with a structured venue CTA", async () => {
-    const { app, bookingRepository, marketingRepository } = setup();
-    const owner = await register(app, "VENUE_OWNER", "0703334444");
+    const { app, bookingRepository, marketingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334444");
     const { venue } = bookingRepository.seedVenue(owner.body.user.id);
     seedMarketingFromBooking(marketingRepository, venue);
 
