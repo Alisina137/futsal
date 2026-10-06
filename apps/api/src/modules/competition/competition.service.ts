@@ -546,6 +546,9 @@ export class CompetitionService {
     if (startsAt.getTime() <= this.now().getTime()) {
       throw errors.badRequest("MATCH_IN_PAST", "Schedule the match in the future.");
     }
+    if (input.refereeUserId && !await this.repository.isVenueReferee(venue.id, input.refereeUserId)) {
+      throw errors.forbidden("VENUE_REFEREE_REQUIRED", "That user is not an active referee for this venue.");
+    }
 
     await this.repository.scheduleMatchAtomic({
       competitionId,
@@ -554,6 +557,7 @@ export class CompetitionService {
       areaId: input.areaId,
       startsAt,
       endsAt,
+      refereeUserId: input.refereeUserId ?? null,
       updatedAt: this.now(),
     });
     return this.getOwner(ownerUserId, competitionId);
