@@ -42,7 +42,7 @@ const v=header.indexOf('href:"/venues"');
 const tm=header.indexOf('href:"/teams"');
 const cp=header.indexOf('href:"/competitions"');
 const b=header.indexOf('href:"/bookings"');
-assert(v >= 0 && v < tm && tm < cp && cp < b, "hamburger order must be Venues → Teams → Competitions → My Bookings");
+assert(v >= 0 && v < tm && tm < cp && cp < b, "hamburger order must be Venues → Teams → Competitions → My Reserves");
 assert((localization.match(/"social\.homeSubtitle"/g) ?? []).length === 3, "social Home copy must exist in all languages");
 assert((localization.match(/"social\.like"/g) ?? []).length === 3, "Like copy must exist in all languages");
 assert((localization.match(/"social\.comment"/g) ?? []).length === 3, "Comment copy must exist in all languages");
