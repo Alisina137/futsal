@@ -58,6 +58,8 @@ export default function ManageCompetitionScreen(){
 
   const [feeTeamId,setFeeTeamId]=useState<string|null>(null);
   const [feeReference,setFeeReference]=useState("");
+  const [seedTeamId,setSeedTeamId]=useState<string|null>(null);
+  const [seedDraft,setSeedDraft]=useState("");
 
   const [mediaBody,setMediaBody]=useState("");
   const [mediaImageUrl,setMediaImageUrl]=useState("");
@@ -142,8 +144,12 @@ export default function ManageCompetitionScreen(){
     a.stage.localeCompare(b.stage)||b.roundNumber-a.roundNumber||a.slotNumber-b.slotNumber
   )??[],[competition]);
   const availableTeams=useMemo(()=>{
-    const registered=new Set(competition?.teams.map((team)=>team.teamId)??[]);
-    return directoryTeams.filter((team)=>!registered.has(team.id));
+    const represented=new Set(
+      competition?.teams
+        .filter((team)=>!["REJECTED","WITHDRAWN"].includes(team.status))
+        .map((team)=>team.teamId)??[],
+    );
+    return directoryTeams.filter((team)=>!represented.has(team.id));
   },[competition?.teams,directoryTeams]);
   const completedMatches=matches.filter((match)=>match.status==="COMPLETED"||match.status==="CORRECTED");
   const paidTeams=accepted.filter((team)=>team.feeStatus==="PAID"||team.feeStatus==="WAIVED");
@@ -217,6 +223,48 @@ export default function ManageCompetitionScreen(){
       await competitionApi.inviteTeam(session.accessToken,competitionId,{teamId,seed:null});
       await load();
     }catch{setError(t("competition.inviteError"));}
+    finally{setBusy(null);}
+  }
+
+  function beginSeed(team:CompetitionTeamDto){
+    setSeedTeamId(team.teamId);
+    setSeedDraft(team.seed===null?"":String(team.seed));
+  }
+
+  async function saveSeed(teamId:string){
+    if(!session||!competitionId)return;
+    const seed=seedDraft.trim()===""?null:Number(seedDraft);
+    if(seed!==null&&(!Number.isInteger(seed)||seed<1||seed>128)){
+      setError(t("competition.control.seedError"));
+      return;
+    }
+    setBusy(`seed:${teamId}`);setError(null);
+    try{
+      await competitionApi.decideRegistration(session.accessToken,competitionId,teamId,{status:"ACCEPTED",seed});
+      setSeedTeamId(null);setSeedDraft("");
+      await load();
+    }catch{setError(t("competition.control.seedError"));}
+    finally{setBusy(null);}
+  }
+
+  function confirmRemoveTeam(team:CompetitionTeamDto){
+    Alert.alert(
+      t("competition.control.removeTeamTitle"),
+      t("competition.control.removeTeamBody",{name:team.teamName}),
+      [
+        {text:t("common.cancel"),style:"cancel"},
+        {text:t("competition.control.removeTeam"),style:"destructive",onPress:()=>void removeTeam(team.teamId)},
+      ],
+    );
+  }
+
+  async function removeTeam(teamId:string){
+    if(!session||!competitionId)return;
+    setBusy(`remove-team:${teamId}`);setError(null);
+    try{
+      await competitionApi.removeTeam(session.accessToken,competitionId,teamId);
+      await load();
+    }catch{setError(t("competition.control.removeTeamError"));}
     finally{setBusy(null);}
   }
 
@@ -353,6 +401,16 @@ export default function ManageCompetitionScreen(){
       const {competition:next}=await competitionApi.update(session.accessToken,competitionId,input);
       setCompetition(next);syncSettings(next);setMessage(t("competition.control.saved"));
     }catch{setError(t("competition.control.settingsError"));}
+    finally{setBusy(null);}
+  }
+
+  async function duplicateCompetition(){
+    if(!session||!competitionId)return;
+    setBusy("duplicate");setError(null);
+    try{
+      const {competition:copy}=await competitionApi.duplicate(session.accessToken,competitionId);
+      router.replace({pathname:"/owner/competitions/[competitionId]/manage",params:{competitionId:copy.id}});
+    }catch{setError(t("competition.control.duplicateError"));}
     finally{setBusy(null);}
   }
 
@@ -521,8 +579,46 @@ export default function ManageCompetitionScreen(){
           {team.status==="ACCEPTED"?<>
             <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",gap:spacing.sm}}>
               <AppText variant="caption" muted>{t("competition.registrationFee")}: {competition.registrationFeeAfn} AFN</AppText>
-              {team.feePaymentReference?<AppText variant="caption" muted>{team.feePaymentReference}</AppText>:null}
+              <AppText variant="caption" muted>{t("competition.seed")}: {team.seed??"—"}</AppText>
             </View>
+            {team.feePaymentReference?<AppText variant="caption" muted>{t("competition.control.paymentReference")}: {team.feePaymentReference}</AppText>:null}
+
+            {canManageRegistration?<View style={{gap:spacing.sm}}>
+              {seedTeamId===team.teamId?<View style={{gap:spacing.sm}}>
+                <TextField
+                  label={t("competition.seed")}
+                  value={seedDraft}
+                  onChangeText={setSeedDraft}
+                  keyboardType="number-pad"
+                  forceLtr
+                  placeholder={t("competition.control.seedPlaceholder")}
+                />
+                <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
+                  <Button
+                    label={t("common.save")}
+                    onPress={()=>void saveSeed(team.teamId)}
+                    loading={busy===`seed:${team.teamId}`}
+                    style={{flex:1}}
+                  />
+                  <Button
+                    label={t("common.cancel")}
+                    onPress={()=>{setSeedTeamId(null);setSeedDraft("");}}
+                    variant="secondary"
+                    style={{flex:1}}
+                  />
+                </View>
+              </View>:<View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
+                <Button label={t("competition.control.editSeed")} onPress={()=>beginSeed(team)} variant="secondary" style={{flex:1}}/>
+                <Button
+                  label={t("competition.control.removeTeam")}
+                  onPress={()=>confirmRemoveTeam(team)}
+                  loading={busy===`remove-team:${team.teamId}`}
+                  variant="ghost"
+                  style={{flex:1}}
+                />
+              </View>}
+            </View>:null}
+
             {feeTeamId===team.teamId?<View style={{gap:spacing.sm}}>
               <TextField label={t("competition.control.paymentReference")} value={feeReference} onChangeText={setFeeReference}/>
               <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.xs,flexWrap:"wrap"}}>
@@ -759,6 +855,17 @@ export default function ManageCompetitionScreen(){
           </>:null}
 
           <Button label={t("common.save")} onPress={()=>void saveSettings()} loading={busy==="settings"}/>
+        </Card>
+
+        <Card style={{gap:spacing.md}}>
+          <AppText variant="bodyLarge" weight="bold">{t("competition.control.duplicateTitle")}</AppText>
+          <AppText muted>{t("competition.control.duplicateBody")}</AppText>
+          <Button
+            label={t("competition.control.duplicate")}
+            onPress={()=>void duplicateCompetition()}
+            loading={busy==="duplicate"}
+            variant="secondary"
+          />
         </Card>
 
         <Card style={{gap:spacing.md,borderColor:colors.danger}}>
