@@ -354,6 +354,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       tieBreakOrder: input.tieBreakOrder,
       groupCount: input.groupCount,
       qualifiersPerGroup: input.qualifiersPerGroup,
+      registrationClosesAt: input.registrationClosesAt,
+      matchDurationMinutes: input.matchDurationMinutes,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       createdAt: input.now,
@@ -376,6 +378,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     if (input.tieBreakOrder !== undefined) patch.tieBreakOrder = input.tieBreakOrder;
     if (input.groupCount !== undefined) patch.groupCount = input.groupCount;
     if (input.qualifiersPerGroup !== undefined) patch.qualifiersPerGroup = input.qualifiersPerGroup;
+    if (input.registrationClosesAt !== undefined) patch.registrationClosesAt = input.registrationClosesAt;
+    if (input.matchDurationMinutes !== undefined) patch.matchDurationMinutes = input.matchDurationMinutes;
     if (input.startsAt !== undefined) patch.startsAt = input.startsAt;
     if (input.endsAt !== undefined) patch.endsAt = input.endsAt;
     await this.db.update(competitions).set(patch).where(eq(competitions.id, competitionId));
