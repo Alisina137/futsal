@@ -26,8 +26,9 @@ export default function PublicPlayerProfileScreen(){
       .finally(()=>setLoading(false));
   },[playerId,t]);
 
+  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={500}/></Screen>;
+
   return <Screen showHeader>
-    {loading?<DataLoadingState variant="detail"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {player?<>
       <Card style={{alignItems:"center",paddingVertical:spacing.lg}}>
