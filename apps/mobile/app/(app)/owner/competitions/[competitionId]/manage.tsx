@@ -20,6 +20,7 @@ import { formatLocalDateTimeParts } from "../../../../../src/lib/date-time";
 import { AppText } from "../../../../../src/components/ui/AppText";
 import { Button } from "../../../../../src/components/ui/Button";
 import { Card } from "../../../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../../../src/components/ui/DataLoadingState";
 import { DateTimePickerField } from "../../../../../src/components/ui/DateTimePickerField";
 import { Screen } from "../../../../../src/components/ui/Screen";
 import { TextField } from "../../../../../src/components/ui/TextField";
@@ -471,7 +472,7 @@ export default function ManageCompetitionScreen(){
     finally{setBusy(null);}
   }
 
-  if(loading)return <Screen showHeader><AppText>{t("common.loading")}</AppText></Screen>;
+  if(loading)return <Screen showHeader><DataLoadingState variant="dashboard" minHeight={520}/></Screen>;
 
   return <Screen showHeader>
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
