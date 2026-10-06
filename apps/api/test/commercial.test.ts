@@ -212,7 +212,7 @@ describe("Phase 7 commercial SaaS API", () => {
     const response = await request(app)
       .post(`/api/v1/admin/venues/${repository.venue.id}/subscription/activate`)
       .set("Authorization", `Bearer ${admin.token}`)
-      .send({ months: 1, amountAfn: 1500, provider: "MANUAL", providerReference: "cash-001", note: "Paid at office" });
+      .send({ months: 1, amountAfn: 1000, provider: "MANUAL", providerReference: "cash-001", note: "Paid at office" });
 
     expect(response.status).toBe(201);
     expect(repository.activated).toBe(true);
