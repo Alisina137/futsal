@@ -123,7 +123,6 @@ export function DateTimePickerField({
     const day=index-firstWeekday+1;
     return day>=1&&day<=count?day:null;
   });
-  const minParts=minimumDate?partsFromDate(minimumDate):null;
   const monthTitle=new Intl.DateTimeFormat(locale,{
     calendar:"gregory",
     timeZone:"UTC",
