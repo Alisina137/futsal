@@ -9,6 +9,12 @@ function assert(value, message) {
 
 const dashboard = read("apps/mobile/app/(app)/dashboard.tsx");
 const ownerDashboard = read("apps/mobile/src/components/owner/OwnerDashboard.tsx");
+const ownerTopNav = read("apps/mobile/src/components/owner/OwnerTopNav.tsx");
+const ownerCompetition = read("apps/mobile/app/(app)/owner/competitions/index.tsx");
+const ownerSchedulePage = read("apps/mobile/app/(app)/(tabs)/schedule.tsx");
+const ownerMediaPage = read("apps/mobile/app/(app)/owner/posts/index.tsx");
+const ownerAnalyticsPage = read("apps/mobile/app/(app)/owner/analytics.tsx");
+const ownerSettingsPage = read("apps/mobile/app/(app)/owner/onboarding.tsx");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const header = read("apps/mobile/src/components/ui/AppHeader.tsx");
 const localization = read("packages/localization/src/index.ts");
@@ -28,27 +34,50 @@ assert(dashboard.includes("dashboard.normalUnavailableTitle"), "Normal-user dire
 
 assert(!ownerDashboard.includes('t("owner.dashboardTitle")'), "Venue Owner dashboard must not render the dashboard title.");
 assert(!ownerDashboard.includes('t("owner.dashboardSubtitle")'), "Venue Owner dashboard must not render the old dashboard subtitle.");
-assert(ownerDashboard.includes("<ScrollView") && ownerDashboard.includes("horizontal"), "Venue Owner dashboard top navigation must scroll horizontally.");
-assert(ownerDashboard.includes('flexWrap: "nowrap"'), "Venue Owner dashboard top navigation must stay on one line.");
+assert(ownerDashboard.includes("<OwnerTopNav"), "Venue Owner dashboard must render the shared top navigation.");
+
+assert(ownerTopNav.includes("<ScrollView") && ownerTopNav.includes("horizontal"), "Venue Owner top navigation must scroll horizontally.");
+assert(ownerTopNav.includes('flexWrap:"nowrap"'), "Venue Owner top navigation must stay on one line.");
 assert(
-  ownerDashboard.includes("borderTopWidth: 1")
-    && ownerDashboard.includes("borderBottomWidth: 1")
-    && ownerDashboard.includes("borderTopColor: colors.border")
-    && ownerDashboard.includes("borderBottomColor: colors.border"),
-  "Venue Owner dashboard navigation must have top and bottom divider lines.",
+  ownerTopNav.includes("borderTopWidth:1")
+    && ownerTopNav.includes("borderBottomWidth:1")
+    && ownerTopNav.includes("borderTopColor:colors.border")
+    && ownerTopNav.includes("borderBottomColor:colors.border"),
+  "Venue Owner navigation must keep top and bottom divider lines.",
 );
-const ownerCompetition = ownerDashboard.indexOf('router.push("/owner/competitions")');
-const ownerSchedule = ownerDashboard.indexOf('router.push("/schedule")');
-const ownerPosts = ownerDashboard.indexOf('router.push("/owner/posts")');
-const ownerAnalysis = ownerDashboard.indexOf('router.push("/owner/analytics")');
-const ownerSettings = ownerDashboard.indexOf('router.push("/owner/onboarding")');
+assert(ownerTopNav.includes("usePathname"), "Venue Owner navigation must derive the current section from the route.");
+assert(ownerTopNav.includes("itemActive") && ownerTopNav.includes("accessibilityState={{selected}}"), "Venue Owner navigation must visibly and accessibly highlight the active tab.");
+assert(ownerTopNav.includes("router.replace(item.href)"), "Venue Owner navigation must switch sections as tab-like navigation.");
+
+const ownerCompetitionRoute = ownerTopNav.indexOf('href:"/owner/competitions"');
+const ownerScheduleRoute = ownerTopNav.indexOf('href:"/schedule"');
+const ownerPostsRoute = ownerTopNav.indexOf('href:"/owner/posts"');
+const ownerAnalysisRoute = ownerTopNav.indexOf('href:"/owner/analytics"');
+const ownerSettingsRoute = ownerTopNav.indexOf('href:"/owner/onboarding"');
 assert(
-  ownerCompetition >= 0
-    && ownerCompetition < ownerSchedule
-    && ownerSchedule < ownerPosts
-    && ownerPosts < ownerAnalysis
-    && ownerAnalysis < ownerSettings,
-  "Venue Owner dashboard navigation order must be Competitions → Venue Time Table → Media → Analysis → Venue Settings.",
+  ownerCompetitionRoute >= 0
+    && ownerCompetitionRoute < ownerScheduleRoute
+    && ownerScheduleRoute < ownerPostsRoute
+    && ownerPostsRoute < ownerAnalysisRoute
+    && ownerAnalysisRoute < ownerSettingsRoute,
+  "Venue Owner navigation order must be Competitions → Venue Time Table → Media → Analysis → Venue Settings.",
+);
+
+for (const [name, source] of [
+  ["Competitions", ownerCompetition],
+  ["Venue Time Table", ownerSchedulePage],
+  ["Media", ownerMediaPage],
+  ["Analysis", ownerAnalyticsPage],
+  ["Venue Settings", ownerSettingsPage],
+]) {
+  assert(source.includes("<OwnerTopNav"), `Venue Owner ${name} page must keep the shared top navigation visible.`);
+}
+
+assert(!ownerCompetition.includes('t("competition.ownerTitle")'), "Venue Owner competition page title must be removed.");
+assert(!ownerCompetition.includes('t("competition.control.listSubtitle")'), "Venue Owner competition page subtitle must be removed.");
+assert(
+  ownerCompetition.includes('["ALL","IN_PROGRESS","REGISTRATION_OPEN","REGISTRATION_CLOSED","COMPLETED","DRAFT","SCHEDULED","ARCHIVED","CANCELLED"]'),
+  "Competition filters must be ordered All → In Progress → Registration Open → Registration Closed → Completed → Draft → Scheduled → Archived → Cancelled.",
 );
 
 assert(home.includes("marketingApi.socialFeed"), "Home must remain the shared social feed.");
@@ -73,4 +102,4 @@ for (const key of [
   assert(count === 3, `Venue Owner dashboard navigation localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Role dashboards verified: shared role dashboard routing plus Venue Owner horizontal quick navigation.");
+console.log("Role dashboards verified: shared role routing plus persistent, active Venue Owner top navigation and competition filter order.");
