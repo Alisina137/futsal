@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing, touchTarget } from "@leaguekick/design-tokens";
 import { router, usePathname } from "expo-router";
 import { useMemo, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
@@ -10,10 +10,13 @@ import { AppText } from "./AppText";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
+const APP_HEADER_HEIGHT=68;
+
 export function AppHeader(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const insets=useSafeAreaInsets();
+  const {height:windowHeight}=useWindowDimensions();
   const pathname=usePathname();
   const [menuOpen,setMenuOpen]=useState(false);
   const user=session?.user;
@@ -81,19 +84,20 @@ export function AppHeader(){
       statusBarTranslucent
       onRequestClose={()=>setMenuOpen(false)}
     >
-      <View style={styles.modalRoot}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("navigation.closeMenu")}
+        style={styles.modalRoot}
+        onPress={()=>setMenuOpen(false)}
+      >
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("navigation.closeMenu")}
-          style={styles.scrim}
-          onPressIn={()=>setMenuOpen(false)}
-        />
-        <View
+          onPress={(event)=>event.stopPropagation()}
           style={[
             styles.drawer,
             {
-              marginTop:Math.max(insets.top,spacing.sm),
+              marginTop:insets.top+APP_HEADER_HEIGHT+spacing.xs,
               marginLeft:spacing.sm,
+              maxHeight:Math.max(240,windowHeight-(insets.top+APP_HEADER_HEIGHT+spacing.lg)),
             },
           ]}
         >
@@ -147,8 +151,8 @@ export function AppHeader(){
               </Pressable>;
             })}
           </ScrollView>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   </>;
 }
@@ -214,16 +218,12 @@ const styles=StyleSheet.create({
   },
   modalRoot:{
     flex:1,
-    flexDirection:"row",
-  },
-  scrim:{
-    ...StyleSheet.absoluteFillObject,
+    alignItems:"flex-start",
     backgroundColor:"rgba(7,26,43,0.46)",
   },
   drawer:{
-    width:286,
+    width:272,
     maxWidth:"82%",
-    maxHeight:"86%",
     alignSelf:"flex-start",
     paddingHorizontal:spacing.md,
     paddingTop:spacing.sm,
