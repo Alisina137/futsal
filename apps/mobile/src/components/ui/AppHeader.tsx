@@ -95,20 +95,13 @@ export function AppHeader(){
           style={[
             styles.drawer,
             {
-              marginTop:insets.top+APP_HEADER_HEIGHT+spacing.xs,
+              marginTop:insets.top+spacing.xs,
               marginLeft:spacing.sm,
-              maxHeight:Math.max(240,windowHeight-(insets.top+APP_HEADER_HEIGHT+spacing.lg)),
+              maxHeight:Math.max(240,windowHeight-(insets.top+spacing.lg)),
             },
           ]}
         >
-          <View style={[styles.drawerHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <View style={styles.drawerBrandIcon}>
-              <Ionicons name="football" size={22} color="#FFFFFF"/>
-            </View>
-            <View style={{flex:1,gap:2}}>
-              <AppText variant="bodyLarge" weight="bold">{t("common.appName")}</AppText>
-              <AppText variant="caption" muted>{user?.displayName??""}</AppText>
-            </View>
+          <View style={styles.drawerHeader}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("navigation.closeMenu")}
@@ -117,6 +110,13 @@ export function AppHeader(){
             >
               <Ionicons name="close-outline" size={25} color={colors.text}/>
             </Pressable>
+            <View style={[styles.drawerIdentity,{alignItems:isRTL?"flex-end":"flex-start"}]}>
+              <AppText variant="bodyLarge" weight="bold">{t("common.appName")}</AppText>
+              <AppText variant="caption" muted>{user?.displayName??""}</AppText>
+            </View>
+            <View style={styles.drawerBrandIcon}>
+              <Ionicons name="football" size={22} color="#FFFFFF"/>
+            </View>
           </View>
 
           <ScrollView
@@ -225,8 +225,8 @@ const styles=StyleSheet.create({
     width:272,
     maxWidth:"82%",
     alignSelf:"flex-start",
-    paddingHorizontal:spacing.md,
-    paddingTop:spacing.sm,
+    paddingHorizontal:spacing.sm,
+    paddingTop:0,
     paddingBottom:spacing.md,
     backgroundColor:colors.surface,
     borderRadius:radius.lg,
@@ -238,16 +238,21 @@ const styles=StyleSheet.create({
   },
   drawerHeader:{
     minHeight:62,
+    flexDirection:"row",
     alignItems:"center",
     gap:spacing.sm,
     borderBottomWidth:1,
     borderBottomColor:colors.border,
     marginBottom:spacing.md,
   },
+  drawerIdentity:{
+    flex:1,
+    gap:2,
+  },
   drawerBrandIcon:{
-    width:42,
-    height:42,
-    borderRadius:13,
+    width:38,
+    height:38,
+    borderRadius:12,
     alignItems:"center",
     justifyContent:"center",
     backgroundColor:colors.primary,
