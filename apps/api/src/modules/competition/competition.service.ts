@@ -383,22 +383,36 @@ export class CompetitionService {
       if (competition.status !== "DRAFT" && competition.status !== "REGISTRATION_CLOSED") {
         throw errors.conflict("INVALID_COMPETITION_STATE", "Registration cannot be opened from the current state.");
       }
-      return this.repository.setCompetitionState(competitionId, {
+      const updated = await this.repository.setCompetitionState(competitionId, {
         status: "REGISTRATION_OPEN",
         published: true,
         publishedAt: now,
         updatedAt: now,
       });
+      await this.notifyCompetition(
+        competitionId,
+        competition.name,
+        "Registration is now open.",
+        `competition-registration-open:${competitionId}:${now.getTime()}`,
+      );
+      return updated;
     }
 
     if (input.action === "CLOSE_REGISTRATION") {
       if (competition.status !== "REGISTRATION_OPEN") {
         throw errors.conflict("INVALID_COMPETITION_STATE", "Registration is not open.");
       }
-      return this.repository.setCompetitionState(competitionId, {
+      const updated = await this.repository.setCompetitionState(competitionId, {
         status: "REGISTRATION_CLOSED",
         updatedAt: now,
       });
+      await this.notifyCompetition(
+        competitionId,
+        competition.name,
+        "Registration has closed.",
+        `competition-registration-closed:${competitionId}:${now.getTime()}`,
+      );
+      return updated;
     }
 
     if (input.action === "PUBLISH") {
@@ -472,6 +486,12 @@ export class CompetitionService {
         status: "SCHEDULED",
         updatedAt: now,
       });
+      await this.notifyCompetition(
+        competitionId,
+        competition.name,
+        "Fixtures have been generated.",
+        `competition-fixtures:${competitionId}:${now.getTime()}`,
+      );
       return this.getOwner(ownerUserId, competitionId);
     }
 
@@ -523,6 +543,12 @@ export class CompetitionService {
         completedAt: now,
         updatedAt: now,
       });
+      await this.notifyCompetition(
+        competitionId,
+        competition.name,
+        "The competition has been completed.",
+        `competition-completed:${competitionId}`,
+      );
       return this.getOwner(ownerUserId, competitionId);
     }
 
@@ -542,10 +568,17 @@ export class CompetitionService {
       if (competition.status === "COMPLETED" || competition.status === "ARCHIVED") {
         throw errors.conflict("INVALID_COMPETITION_STATE", "This competition can no longer be cancelled.");
       }
-      return this.repository.setCompetitionState(competitionId, {
+      const updated = await this.repository.setCompetitionState(competitionId, {
         status: "CANCELLED",
         updatedAt: now,
       });
+      await this.notifyCompetition(
+        competitionId,
+        competition.name,
+        "The competition has been cancelled.",
+        `competition-cancelled:${competitionId}`,
+      );
+      return updated;
     }
 
     throw errors.badRequest("ACTION_NOT_AVAILABLE_YET", "This competition action is handled after fixture generation.");
