@@ -234,6 +234,31 @@ export class CompetitionService {
     });
   }
 
+  async duplicate(ownerUserId: string, competitionId: string) {
+    const { venue, competition } = await this.ownerCompetition(ownerUserId, competitionId);
+    const duplicated = await this.repository.createCompetition({
+      venueId: venue.id,
+      createdByUserId: ownerUserId,
+      name: `${competition.name} Copy`.slice(0, 140),
+      description: competition.description,
+      format: competition.format,
+      maxTeams: competition.maxTeams,
+      registrationFeeAfn: competition.registrationFeeAfn,
+      winPoints: competition.winPoints,
+      drawPoints: competition.drawPoints,
+      lossPoints: competition.lossPoints,
+      tieBreakOrder: competition.tieBreakOrder,
+      groupCount: competition.format === "GROUP_KNOCKOUT" ? competition.groupCount : null,
+      qualifiersPerGroup: competition.format === "GROUP_KNOCKOUT" ? competition.qualifiersPerGroup : null,
+      registrationClosesAt: competition.registrationClosesAt,
+      matchDurationMinutes: competition.matchDurationMinutes,
+      startsAt: null,
+      endsAt: null,
+      now: this.now(),
+    });
+    return duplicated;
+  }
+
   async update(ownerUserId: string, competitionId: string, input: CompetitionUpdateRequest) {
     const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
     if (competition.materialPlayStartedAt || await this.repository.hasCompletedMatch(competitionId)) {
@@ -290,6 +315,26 @@ export class CompetitionService {
     const deleted = await this.repository.deleteCompetition(competitionId);
     if (!deleted) throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
     return { deleted: true };
+  }
+
+
+  async removeTeam(ownerUserId: string, competitionId: string, teamId: string) {
+    const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
+    if (!["DRAFT", "REGISTRATION_OPEN", "REGISTRATION_CLOSED"].includes(competition.status)) {
+      throw errors.conflict("COMPETITION_TEAM_LOCKED", "Teams cannot be removed after fixtures are generated.");
+    }
+    if (competition.materialPlayStartedAt || await this.repository.hasCompletedMatch(competitionId)) {
+      throw errors.conflict("COMPETITION_TEAM_HISTORY_REQUIRED", "Teams cannot be removed after competition play begins.");
+    }
+    const registration = await this.repository.getRegistration(competitionId, teamId);
+    if (!registration) throw errors.badRequest("REGISTRATION_NOT_FOUND", "Competition team registration not found.");
+    await this.repository.removeTeamByOwner({
+      competitionId,
+      teamId,
+      ownerUserId,
+      now: this.now(),
+    });
+    return { registration: await this.repository.getRegistration(competitionId, teamId) };
   }
 
   async updateFee(
