@@ -501,10 +501,24 @@ export const socialPostComments = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
   },
   (table) => [
     index("social_post_comments_post_created_idx").on(table.postId, table.createdAt),
     index("social_post_comments_user_idx").on(table.userId),
+  ],
+);
+
+export const socialPostCommentLikes = pgTable(
+  "social_post_comment_likes",
+  {
+    commentId: uuid("comment_id").notNull().references(() => socialPostComments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.commentId, table.userId] }),
+    index("social_post_comment_likes_user_idx").on(table.userId),
   ],
 );
 
