@@ -18,6 +18,8 @@ function input(format:"KNOCKOUT"|"GROUP_KNOCKOUT"):CompetitionCreateRequest{
     tieBreakOrder:["POINTS","GOAL_DIFFERENCE","GOALS_FOR","HEAD_TO_HEAD","ADMIN"],
     groupCount:format==="GROUP_KNOCKOUT"?2:null,
     qualifiersPerGroup:format==="GROUP_KNOCKOUT"?1:null,
+    registrationClosesAt:new Date(NOW.getTime()+4*24*60*60*1000).toISOString(),
+    matchDurationMinutes:60,
     startsAt:null,
     endsAt:null,
   };
