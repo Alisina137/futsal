@@ -22,7 +22,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 ## Core architecture decisions
 - Structured monolith; no microservices.
 - Mobile is the primary customer interface.
-- Primary mobile navigation uses the shared header: hamburger drawer fixed at top-left, profile image/avatar fixed at top-right, and the previous bottom tab bar is hidden while its routes remain intact.
+- Primary mobile navigation uses the shared header: hamburger drawer fixed at top-left, profile image/avatar fixed at top-right, and the previous bottom tab bar is hidden while its routes remain intact. Normal User hamburger order is Home → Venues → Teams → Competitions → My Bookings → Profile; Feed is not a separate menu item.
 - Authentication identity is separate from product roles: signup creates a role-free base user with required username + phone + password confirmation; roles are activated later.
 - Usernames are unique, 3–12 characters, and use letters/numbers/underscore.
 - Login accepts either normalized Afghanistan phone or normalized username with the same password and returns one generic invalid-credentials message.
@@ -33,7 +33,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Normal authenticated accounts can discover and reserve venues without buying a role. The only self-service paid management subscriptions are Venue Owner (1000 AFN/month) and Team Owner / `TEAM_MANAGER` (300 AFN/month); payment confirmation gates role activation.
 - Profile is the single mobile surface for account identity and the two paid management subscriptions. Venue referees are scoped to one venue, while team players are scoped through team membership rather than global paid account roles.
 - Account Profile supports optional full name, HTTPS profile image, age, email, city and short bio; these remain private account fields and do not automatically become public Player Profile data.
-- Home remains discovery-oriented with venue discovery, Feed, and Competitions available to authenticated users; owner Home retains operational dashboard content plus these discovery entry points.
+- Normal User Home is the personalized social feed: it shows posts from followed Venues, Teams, and Competitions, supports author/profile navigation, Like, inline Comments, and native Share. The separate Feed hamburger item is removed. Venue Owner Home remains its operational dashboard until that role is revised.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
 - `pnpm dev:admin` overrides the mobile/tunnel API URL and calls the local API at `http://localhost:4000` by default. Reverse-proxy/ngrok API traffic is supported through explicit `TRUST_PROXY_HOPS` configuration so Express rate limiting can safely interpret forwarded client IPs.
 - `pnpm db:migrate` now executes the runtime Drizzle migrator directly from the database package, normalizes Neon SSL modes to explicit `verify-full`, and prints the underlying PostgreSQL code/detail/hint instead of only a recursive pnpm failure.
@@ -46,7 +46,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Promotions reference exact live future inventory; they do not create separate capacity.
 - Promotion discounted price is applied server-side to live availability and persisted at booking confirmation.
 - Booking, blocking, expiry, suspension or entitlement loss invalidates active promotion inventory.
-- Venue follows are public user→venue relationships and do not expose private venue/customer data.
+- Social follows are scoped to `VENUE`, `TEAM`, or `COMPETITION`. Existing venue follows are backfilled into the generic follow model; follows do not expose private entity/customer data.
 - In-app notifications are persisted server-side and deduped by user + event key.
 - Marketing notifications are limited to 3 per user per rolling 24 hours.
 - Push foundation stores Expo push devices and PENDING delivery/outbox rows; no external push dispatch worker/provider is enabled yet.
@@ -80,6 +80,7 @@ Committed canonical migrations:
 - `0008_account_profile_fields` — optional private account profile image URL, age, city and bio fields; email uses the existing normalized unique column.
 - `0009_password_reset_cooldown`
 - `0010_paid_role_subscriptions` — paid Venue Owner/Team Owner entitlements, venue-scoped referees, existing paid-role grace backfill, and venue pricing alignment to 1000 AFN/month. — authoritative last successful credential-reset timestamp for the 72-hour cooldown.
+- `0011_normal_user_social_feed` — generic Venue/Team/Competition follows, unified social posts, likes/comments, and backfill of existing venue follows/posts for the Normal User Home feed.
 
 The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 itself had no database schema change. Pre-release authentication corrections add `0007_password_reset_challenges.sql`; it is committed but must not be marked applied until the user runs `pnpm db:migrate` successfully.
 
