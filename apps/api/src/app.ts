@@ -34,6 +34,7 @@ export type AppDependencies = {
   teamService?: TeamService;
   competitionService?: CompetitionService;
   commercialService?: CommercialService;
+  trustProxyHops?: number;
   corsOrigin?: string;
   appVersion?: string;
   requestLogging?: boolean;
@@ -78,6 +79,9 @@ export function createApp(deps: AppDependencies) {
   const allowAnyOrigin = allowedOrigins.includes("*");
 
   app.disable("x-powered-by");
+  if ((deps.trustProxyHops ?? 0) > 0) {
+    app.set("trust proxy", deps.trustProxyHops);
+  }
   app.use(helmet());
   app.use((request, response, next) => {
     const requestId = randomUUID();
