@@ -21,9 +21,16 @@ assert(header.includes('label:t("home.title")') && header.includes('icon:"home-o
 assert(!header.includes('owner?t("owner.dashboardTitle"):t("home.title")'), "Venue Owner menu must not rename Home to Venue Dashboard.");
 assert(header.includes('href:"/venues"'), "Hamburger menu must include Venues.");
 assert(header.includes('label:t("booking.venuesTitle"),icon:"football-outline",href:"/venues"'), "Venues menu item must use a futsal/playground-related icon instead of a building icon.");
+assert(header.includes('href:"/teams"'), "Hamburger menu must include Teams.");
+assert(header.includes('href:"/competitions"'), "Hamburger menu must include Competitions.");
 assert(header.includes('href:"/bookings"'), "Hamburger menu must include My Bookings.");
-assert(header.includes('href:"/feed"'), "Hamburger menu must include Feed.");
+assert(!header.includes('href:"/feed"'), "Feed must not remain a separate hamburger option after Home becomes the social feed.");
 assert(header.includes('href:"/schedule"'), "Hamburger menu must include owner Schedule.");
+const venuesIndex = header.indexOf('href:"/venues"');
+const teamsIndex = header.indexOf('href:"/teams"');
+const competitionsIndex = header.indexOf('href:"/competitions"');
+const bookingsIndex = header.indexOf('href:"/bookings"');
+assert(venuesIndex < teamsIndex && teamsIndex < competitionsIndex && competitionsIndex < bookingsIndex, "Hamburger order must be Venues, Teams, Competitions, then My Bookings.");
 assert(header.includes('href:"/settings"'), "Hamburger menu must include Profile.");
 assert(header.includes('width:272') && header.includes('maxWidth:"82%"'), "Hamburger navigation must use a compact bounded width.");
 assert(header.includes('marginTop:insets.top+spacing.sm+20'), "Hamburger navigation must sit exactly 20px lower than the adjusted safe-area position.");
@@ -38,4 +45,4 @@ assert(tabs.includes('tabBarStyle:{display:"none"}'), "Bottom tab bar must remai
 assert((localization.match(/"navigation\.openMenu"/g) ?? []).length === 3, "Open-menu label must exist in all three languages.");
 assert((localization.match(/"navigation\.closeMenu"/g) ?? []).length === 3, "Close-menu label must exist in all three languages.");
 
-console.log("Mobile header navigation verified: hamburger/close alignment, profile right, compact safe-area drawer, outside-touch dismissal, destinations present, and bottom tabs hidden.");
+console.log("Mobile header navigation verified: Home feed navigation uses Venues, Teams, Competitions, My Bookings, and no separate Feed item.");
