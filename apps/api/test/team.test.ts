@@ -15,13 +15,14 @@ function setup() {
   const auth = new AuthService(authRepository, tokens);
   const teams = new TeamService(teamRepository, () => new Date("2026-10-04T00:00:00.000Z"));
   const app = createApp({ authService: auth, tokenService: tokens, teamService: teams });
-  return { app, teamRepository };
+  return { app, teamRepository, authRepository };
 }
 
 async function register(
   app: ReturnType<typeof createApp>,
   teamRepository: FakeTeamRepository,
-  input: { phone: string; username: string; displayName: string; accountType?: "PLAYER" | "VENUE_OWNER" },
+  authRepository: FakeAuthRepository,
+  input: { phone: string; username: string; displayName: string; accountType?: "VENUE_OWNER" },
 ) {
   const password = "strong-pass-5!";
   const registration = await request(app).post("/api/v1/auth/register").send({
@@ -33,12 +34,16 @@ async function register(
   });
   expect(registration.status).toBe(201);
 
-  const role = input.accountType === "VENUE_OWNER" ? "VENUE_OWNER" : "PLAYER";
-  const activated = await request(app)
-    .post("/api/v1/auth/roles/activate")
-    .set("Authorization", `Bearer ${registration.body.accessToken}`)
-    .send({ role });
-  expect(activated.status).toBe(200);
+  const role = input.accountType === "VENUE_OWNER" ? "VENUE_OWNER" : "TEAM_MANAGER";
+  await authRepository.activateRoleSubscription({
+    actorUserId: registration.body.user.id,
+    userId: registration.body.user.id,
+    role,
+    monthlyPriceAfn: role === "VENUE_OWNER" ? 1000 : 300,
+    months: 1,
+    paymentReference: "test-paid",
+    now: new Date("2026-10-04T00:00:00.000Z"),
+  });
 
   const refreshed = await request(app)
     .post("/api/v1/auth/refresh")
@@ -50,15 +55,15 @@ async function register(
     displayName: input.displayName,
     username: refreshed.body.user.username,
     phoneE164: refreshed.body.user.phone,
-    roles: role === "VENUE_OWNER" ? ["VENUE_OWNER"] : ["PLAYER"],
+    roles: [role],
   });
   return refreshed.body as { accessToken: string; user: { id: string; phone: string } };
 }
 
 describe("Phase 5 teams and player identity API", () => {
   it("creates a team with creator as manager and never exposes private contact data publicly", async () => {
-    const { app, teamRepository } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705550001",
       username: "manager1",
       displayName: "Team Manager",
@@ -86,18 +91,18 @@ describe("Phase 5 teams and player identity API", () => {
   });
 
   it("allows one player to belong to multiple teams without duplicating membership inside a team", async () => {
-    const { app, teamRepository } = setup();
-    const firstManager = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository } = setup();
+    const firstManager = await register(app, teamRepository, authRepository, {
       phone: "0705550010",
       username: "manager10",
       displayName: "Manager Ten",
     });
-    const secondManager = await register(app, teamRepository, {
+    const secondManager = await register(app, teamRepository, authRepository, {
       phone: "0705550011",
       username: "manager11",
       displayName: "Manager Eleven",
     });
-    const player = await register(app, teamRepository, {
+    const player = await register(app, teamRepository, authRepository, {
       phone: "0705550012",
       username: "multiplayer",
       displayName: "Multi Team Player",
@@ -131,9 +136,9 @@ describe("Phase 5 teams and player identity API", () => {
     expect(new Set(mine.body.teams.map((team: { id: string }) => team.id)).size).toBe(2);
   });
 
-  it("rejects venue-owner-only accounts from player/team participation", async () => {
-    const { app, teamRepository } = setup();
-    const owner = await register(app, teamRepository, {
+  it("keeps venue-owner accounts in the free player experience but gates team creation", async () => {
+    const { app, teamRepository, authRepository } = setup();
+    const owner = await register(app, teamRepository, authRepository, {
       phone: "0705550013",
       username: "venue_owner",
       displayName: "Venue Owner Only",
@@ -142,28 +147,26 @@ describe("Phase 5 teams and player identity API", () => {
 
     const profile = await request(app).get("/api/v1/players/me")
       .set("Authorization", `Bearer ${owner.accessToken}`);
-    expect(profile.status).toBe(403);
-    expect(profile.body.error.code).toBe("PLAYER_ACCOUNT_REQUIRED");
+    expect(profile.status).toBe(200);
 
     const create = await request(app).post("/api/v1/teams")
       .set("Authorization", `Bearer ${owner.accessToken}`)
       .send({ name: "Owner Team", city: "Kabul", privacy: "PUBLIC" });
     expect(create.status).toBe(403);
-    expect(create.body.error.code).toBe("PLAYER_ACCOUNT_REQUIRED");
+    expect(create.body.error.code).toBe("TEAM_OWNER_SUBSCRIPTION_REQUIRED");
 
     const publicProfile = await request(app).get(`/api/v1/players/${owner.user.id}`);
-    expect(publicProfile.status).toBe(400);
-    expect(publicProfile.body.error.code).toBe("PLAYER_PROFILE_NOT_PUBLIC");
+    expect(publicProfile.status).toBe(200);
   });
 
-  it("does not allow a manager to invite a venue-owner-only account as a player", async () => {
-    const { app, teamRepository } = setup();
-    const manager = await register(app, teamRepository, {
+  it("allows a Team Owner to grant a normal or venue-owner account Player membership for that team", async () => {
+    const { app, teamRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705550014",
       username: "plyr_mgr14",
       displayName: "Player Manager",
     });
-    await register(app, teamRepository, {
+    await register(app, teamRepository, authRepository, {
       phone: "0705550015",
       username: "own_target15",
       displayName: "Owner Target",
@@ -179,18 +182,17 @@ describe("Phase 5 teams and player identity API", () => {
       .set("Authorization", `Bearer ${manager.accessToken}`)
       .send({ identifier: "own_target15", role: "PLAYER" });
 
-    expect(invited.status).toBe(400);
-    expect(invited.body.error.code).toBe("INVITEE_NOT_FOUND");
+    expect(invited.status).toBe(201);
   });
 
   it("blocks a non-manager from mutating another team's roster or identity", async () => {
-    const { app, teamRepository } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705550002",
       username: "manager2",
       displayName: "Manager Two",
     });
-    const outsider = await register(app, teamRepository, {
+    const outsider = await register(app, teamRepository, authRepository, {
       phone: "0705550003",
       username: "outsider",
       displayName: "Outsider",
@@ -216,8 +218,8 @@ describe("Phase 5 teams and player identity API", () => {
   });
 
   it("hides private team rosters publicly but keeps them available to active members", async () => {
-    const { app, teamRepository } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705550004",
       username: "manager4",
       displayName: "Private Manager",
@@ -240,8 +242,8 @@ describe("Phase 5 teams and player identity API", () => {
   });
 
   it("honors player-profile privacy independently of authentication contact fields", async () => {
-    const { app, teamRepository } = setup();
-    const player = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository } = setup();
+    const player = await register(app, teamRepository, authRepository, {
       phone: "0705550005",
       username: "priv_player",
       displayName: "Private Player",
@@ -269,13 +271,13 @@ describe("Phase 5 teams and player identity API", () => {
   });
 
   it("requires captain and transferred manager to be active roster members", async () => {
-    const { app, teamRepository } = setup();
-    const manager = await register(app, teamRepository, {
+    const { app, teamRepository, authRepository } = setup();
+    const manager = await register(app, teamRepository, authRepository, {
       phone: "0705550006",
       username: "manager6",
       displayName: "Manager Six",
     });
-    const other = await register(app, teamRepository, {
+    const other = await register(app, teamRepository, authRepository, {
       phone: "0705550007",
       username: "other6",
       displayName: "Other Six",
