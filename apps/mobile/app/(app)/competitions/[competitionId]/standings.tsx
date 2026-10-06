@@ -14,11 +14,20 @@ export default function CompetitionStandingsScreen(){
   const {competitionId}=useLocalSearchParams<{competitionId:string}>();
   const {t,isRTL}=useLocale();
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
-  useEffect(()=>{if(competitionId)competitionApi.get(competitionId).then(({competition})=>setCompetition(competition)).catch(()=>setCompetition(null));},[competitionId]);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    if(!competitionId){setLoading(false);return;}
+    setLoading(true);
+    competitionApi.get(competitionId)
+      .then(({competition})=>setCompetition(competition))
+      .catch(()=>setCompetition(null))
+      .finally(()=>setLoading(false));
+  },[competitionId]);
+
+  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
 
   return <Screen showHeader>
     <AppText variant="title" weight="bold">{t("competition.standings")}</AppText>
-    {!competition?<DataLoadingState variant="list"/>:null}
     {competition&&competition.standings.length===0?<Card><AppText>{t("competition.noStandings")}</AppText></Card>:null}
     {competition?.standings.map((row)=><Pressable
       key={`${row.groupId??"all"}:${row.teamId}`}
