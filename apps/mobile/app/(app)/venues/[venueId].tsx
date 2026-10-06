@@ -9,6 +9,7 @@ import { readAvailabilityCache, writeAvailabilityCache } from "../../../src/lib/
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -73,6 +74,8 @@ export default function VenueDetailScreen(){
       setError(t("feed.followError"));
     }finally{setFollowBusy(false);}
   }
+
+  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={520}/></Screen>;
 
   return <Screen showHeader>
     {venue?<>
