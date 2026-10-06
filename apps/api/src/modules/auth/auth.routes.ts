@@ -6,11 +6,12 @@ import {
   passwordResetCompleteSchema,
   passwordResetRequestSchema,
   passwordResetVerifySchema,
+  adminRoleSubscriptionActivationRequestSchema,
+  paidRoleSchema,
   refreshRequestSchema,
   registerRequestSchema,
-  selfRoleActivationRequestSchema,
 } from "@leaguekick/contracts";
-import { requireAuth } from "../../middleware/auth.js";
+import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { TokenService } from "./token.service.js";
 import type { AuthService } from "./auth.service.js";
 
@@ -27,10 +28,16 @@ export function createAuthRouter(auth: AuthService, tokens: TokenService) {
     } catch (error) { next(error); }
   });
 
-  router.post("/roles/activate", requireAuth(tokens), async (request, response, next) => {
+  router.get("/role-subscriptions", requireAuth(tokens), async (request, response, next) => {
     try {
-      const input = selfRoleActivationRequestSchema.parse(request.body);
-      response.json({ user: await auth.activateSelfRole(request.auth!.userId, input.role) });
+      response.json({ offers: await auth.roleSubscriptions(request.auth!.userId) });
+    } catch (error) { next(error); }
+  });
+
+  router.post("/role-subscriptions/:role/request", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const role = paidRoleSchema.parse(request.params.role);
+      response.status(202).json({ offer: await auth.requestRoleSubscription(request.auth!.userId, role) });
     } catch (error) { next(error); }
   });
 
@@ -75,6 +82,35 @@ export function createAuthRouter(auth: AuthService, tokens: TokenService) {
       const input = logoutRequestSchema.parse(request.body);
       await auth.logout(input.refreshToken);
       response.status(204).send();
+    } catch (error) { next(error); }
+  });
+
+  return router;
+}
+
+
+export function createRoleSubscriptionAdminRouter(auth: AuthService, tokens: TokenService) {
+  const router = Router();
+  router.use(requireAuth(tokens), requireRole("PLATFORM_ADMIN"));
+
+  router.get("/role-subscriptions", async (_request, response, next) => {
+    try {
+      response.json({ subscriptions: await auth.adminRoleSubscriptions() });
+    } catch (error) { next(error); }
+  });
+
+  router.post("/role-subscriptions/:userId/:role/activate", async (request, response, next) => {
+    try {
+      const role = paidRoleSchema.parse(request.params.role);
+      const input = adminRoleSubscriptionActivationRequestSchema.parse(request.body ?? {});
+      response.json({
+        user: await auth.activatePaidRoleSubscription(
+          request.auth!.userId,
+          request.params.userId!,
+          role,
+          input,
+        ),
+      });
     } catch (error) { next(error); }
   });
 
