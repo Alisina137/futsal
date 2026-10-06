@@ -27,6 +27,12 @@ import type {
   VenueBlockRequest,
   FeedResponse,
   FollowStateDto,
+  SocialEntityType,
+  SocialFeedPostDto,
+  SocialFeedResponse,
+  SocialFollowStateDto,
+  SocialPostCommentCreateRequest,
+  SocialPostCommentDto,
   NotificationDto,
   NotificationPreferences,
   NotificationPreferencesUpdate,
@@ -295,6 +301,22 @@ export const bookingApi = {
 export const marketingApi = {
   feed: (accessToken?: string, followingOnly = false) =>
     request<FeedResponse>(followingOnly ? "/api/v1/feed/following" : "/api/v1/feed", {}, followingOnly ? accessToken : undefined),
+  socialFeed: (accessToken: string) =>
+    request<SocialFeedResponse>("/api/v1/social/feed", {}, accessToken),
+  socialFollowState: (accessToken: string, entityType: SocialEntityType, entityId: string) =>
+    request<SocialFollowStateDto>(`/api/v1/social/follows/${entityType}/${entityId}`, {}, accessToken),
+  socialFollow: (accessToken: string, entityType: SocialEntityType, entityId: string) =>
+    request<SocialFollowStateDto>(`/api/v1/social/follows/${entityType}/${entityId}`, { method: "POST" }, accessToken),
+  socialUnfollow: (accessToken: string, entityType: SocialEntityType, entityId: string) =>
+    request<SocialFollowStateDto>(`/api/v1/social/follows/${entityType}/${entityId}`, { method: "DELETE" }, accessToken),
+  likeSocialPost: (accessToken: string, postId: string) =>
+    request<{ post: SocialFeedPostDto }>(`/api/v1/social/posts/${postId}/like`, { method: "POST" }, accessToken),
+  unlikeSocialPost: (accessToken: string, postId: string) =>
+    request<{ post: SocialFeedPostDto }>(`/api/v1/social/posts/${postId}/like`, { method: "DELETE" }, accessToken),
+  socialComments: (accessToken: string, postId: string) =>
+    request<{ comments: SocialPostCommentDto[] }>(`/api/v1/social/posts/${postId}/comments`, {}, accessToken),
+  addSocialComment: (accessToken: string, postId: string, input: SocialPostCommentCreateRequest) =>
+    request<{ comment: SocialPostCommentDto }>(`/api/v1/social/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(input) }, accessToken),
   followState: (accessToken: string, venueId: string) =>
     request<FollowStateDto>(`/api/v1/venues/${venueId}/follow`, {}, accessToken),
   follow: (accessToken: string, venueId: string) =>
