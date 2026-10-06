@@ -34,6 +34,7 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - Account Profile supports optional full name, HTTPS profile image, age, email, city and short bio; these remain private account fields and do not automatically become public Player Profile data.
 - Home remains discovery-oriented with venue discovery, Feed, and Competitions available to authenticated users; owner Home retains operational dashboard content plus these discovery entry points.
 - API runtime uses `DATABASE_URL`; Drizzle migration work prefers `DATABASE_DIRECT_URL`.
+- `pnpm dev:admin` overrides the mobile/tunnel API URL and calls the local API at `http://localhost:4000` by default. Reverse-proxy/ngrok API traffic is supported through explicit `TRUST_PROXY_HOPS` configuration so Express rate limiting can safely interpret forwarded client IPs.
 - `pnpm db:migrate` now executes the runtime Drizzle migrator directly from the database package, normalizes Neon SSL modes to explicit `verify-full`, and prints the underlying PostgreSQL code/detail/hint instead of only a recursive pnpm failure.
 - Server owns authorization, venue ownership, entitlement, live availability, confirmation price, promotion validity and notification fan-out.
 - One Venue Owner account maps to at most one venue.
