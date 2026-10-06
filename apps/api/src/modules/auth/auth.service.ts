@@ -13,6 +13,7 @@ import type {
   PaidRole,
   RegisterRequest,
   RoleSubscriptionOfferDto,
+  RoleSubscriptionRequest,
 } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone, normalizeUsername } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
@@ -134,11 +135,17 @@ export class AuthService {
     return this.repository.getRoleSubscriptionOffers(userId, this.paidRolePrices, new Date());
   }
 
-  async requestRoleSubscription(userId: string, role: PaidRole): Promise<RoleSubscriptionOfferDto> {
+  async requestRoleSubscription(userId: string, role: PaidRole, input: RoleSubscriptionRequest): Promise<RoleSubscriptionOfferDto> {
     const user = await this.repository.getUserById(userId);
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
     this.ensureActive(user);
-    return this.repository.requestRoleSubscription(userId, role, this.paidRolePrices[role], new Date());
+    return this.repository.requestRoleSubscription(
+      userId,
+      role,
+      this.paidRolePrices[role],
+      input.paymentReference?.trim() || null,
+      new Date(),
+    );
   }
 
   async adminRoleSubscriptions() {
