@@ -7,6 +7,7 @@ import { ApiRequestError, ownerApi, venueApi } from "../../../../src/lib/api";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
@@ -73,6 +74,8 @@ export default function CreatePromotionScreen(){
   }
 
   const selectedLabel=useMemo(()=>selected?`${selected.areaName} · ${selected.priceAfn} AFN`:null,[selected]);
+
+  if(loading)return <Screen><DataLoadingState variant="form" minHeight={500}/></Screen>;
 
   return <Screen>
     <AppText variant="title" weight="bold">{t("ownerMarketing.createPromotion")}</AppText>
