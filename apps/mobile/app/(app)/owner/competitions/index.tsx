@@ -115,7 +115,7 @@ export default function OwnerCompetitionListScreen(){
               <AppText variant="bodyLarge" weight="bold" numberOfLines={2} style={{textAlign:isRTL?"right":"left"}}>
                 {item.name}
               </AppText>
-              <View style={styles.formatBadge}>
+              <View style={[styles.formatBadge,{alignSelf:isRTL?"flex-end":"flex-start"}]}>
                 <AppText variant="caption" weight="semibold" style={{color:colors.textMuted}}>
                   {t(`competition.format.${item.format}` as never)}
                 </AppText>
@@ -231,7 +231,6 @@ const styles=StyleSheet.create({
   },
   titleBlock:{flex:1,minWidth:0,gap:6},
   formatBadge:{
-    alignSelf:"flex-start",
     paddingHorizontal:spacing.sm,
     paddingVertical:3,
     borderRadius:radius.pill,
