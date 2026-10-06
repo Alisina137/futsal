@@ -401,6 +401,11 @@ try {
       [venue.id, users.mahdi.id, venuePost.id, venuePostBody],
     );
     socialVenuePost = socialVenuePostResult.rows[0];
+  } else {
+    await client.query(
+      "update social_posts set status = 'PUBLISHED', unpublished_at = null, updated_at = now() where id = $1",
+      [socialVenuePost.id],
+    );
   }
 
   const teamPostBody = "Alisina United is preparing for the LeagueKick Demo Cup. Follow the team for roster and match updates.";
@@ -418,6 +423,11 @@ try {
       [team.id, users.alisina.id, teamPostBody],
     );
     teamPost = teamPostResult.rows[0];
+  } else {
+    await client.query(
+      "update social_posts set status = 'PUBLISHED', unpublished_at = null, updated_at = now() where id = $1",
+      [teamPost.id],
+    );
   }
 
   const competitionPostBody = "LeagueKick Demo Cup registration is open. Follow the competition for fixtures, results and standings.";
@@ -435,6 +445,11 @@ try {
       [competition.id, users.mahdi.id, competitionPostBody],
     );
     competitionPost = competitionPostResult.rows[0];
+  } else {
+    await client.query(
+      "update social_posts set status = 'PUBLISHED', unpublished_at = null, updated_at = now() where id = $1",
+      [competitionPost.id],
+    );
   }
 
   // Shams: normal-user Home feed follows all three demo entities.
@@ -525,7 +540,8 @@ try {
        ) values (
          $1, $2, $3, $4, 1200, 900, 'ACTIVE', $5,
          'Demo promotion for Venue Owner testing.', true, $6, now(), now()
-       )`,
+       )
+       on conflict do nothing`,
       [venue.id, area.id, promoStart, promoEnd, promotionTitle, users.mahdi.id],
     );
   }
