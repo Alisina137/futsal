@@ -33,6 +33,7 @@ export type CompetitionRecord = {
   format: CompetitionFormat;
   status: "DRAFT" | "REGISTRATION_OPEN" | "REGISTRATION_CLOSED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED" | "CANCELLED";
   published: boolean;
+  publishedAt: Date | null;
   maxTeams: number;
   registrationFeeAfn: number;
   winPoints: number;
