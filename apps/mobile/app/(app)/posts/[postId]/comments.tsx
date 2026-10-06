@@ -9,6 +9,7 @@ import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
@@ -131,7 +132,7 @@ export default function PostCommentsScreen(){
       <AppText muted>{t("social.commentsPageSubtitle")}</AppText>
     </View>
 
-    {loading?<AppText>{t("common.loading")}</AppText>:null}
+    {loading?<DataLoadingState variant="list"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
 
     {post?<Card style={{gap:spacing.md}}>
