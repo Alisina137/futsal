@@ -1,6 +1,9 @@
 import type {
   FeedItemDto,
   PromotionDto,
+  SocialEntityType,
+  SocialFeedPostDto,
+  SocialPostCommentDto,
   VenuePostDto,
 } from "@leaguekick/contracts";
 
@@ -15,6 +18,13 @@ export type MarketingVenueRecord = {
     trialEndsAt: Date | null;
     activeUntil: Date | null;
   } | null;
+};
+
+export type MarketingSocialEntityRecord = {
+  id: string;
+  type: SocialEntityType;
+  name: string;
+  imageUrl: string | null;
 };
 
 export interface MarketingRepository {
@@ -59,6 +69,18 @@ export interface MarketingRepository {
   followerCount(venueId: string): Promise<number>;
   listFollowedVenueIds(userId: string): Promise<string[]>;
   listFollowerUserIds(venueId: string): Promise<string[]>;
+
+  getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null>;
+  followEntity(userId: string, entityType: SocialEntityType, entityId: string): Promise<void>;
+  unfollowEntity(userId: string, entityType: SocialEntityType, entityId: string): Promise<void>;
+  isFollowingEntity(userId: string, entityType: SocialEntityType, entityId: string): Promise<boolean>;
+  socialFollowerCount(entityType: SocialEntityType, entityId: string): Promise<number>;
+  listSocialFeed(userId: string): Promise<SocialFeedPostDto[]>;
+  getSocialPost(userId: string, postId: string): Promise<SocialFeedPostDto | null>;
+  likeSocialPost(userId: string, postId: string): Promise<SocialFeedPostDto | null>;
+  unlikeSocialPost(userId: string, postId: string): Promise<SocialFeedPostDto | null>;
+  listSocialComments(postId: string): Promise<SocialPostCommentDto[]>;
+  addSocialComment(userId: string, postId: string, body: string, createdAt: Date): Promise<SocialPostCommentDto | null>;
 }
 
 export function mergeFeed(promotions: PromotionDto[], posts: VenuePostDto[]): FeedItemDto[] {
