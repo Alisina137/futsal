@@ -45,6 +45,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   private key(competitionId:string,teamId:string){return `${competitionId}:${teamId}`;}
 
   async getOwnerVenue(ownerUserId:string){return this.venues.get(ownerUserId)??null;}
+  async isVenueReferee(_venueId:string,_userId:string){return true;}
   async getCompetitionRecord(competitionId:string){return this.competitions.get(competitionId)??null;}
 
   private async dto(competitionId:string):Promise<CompetitionDto|null>{
@@ -192,6 +193,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
           awayTeamId:fixture.awayTeamId,awayTeamName:this.teams.get(fixture.awayTeamId)?.name??null,
           areaId:null,areaName:null,startsAt:null,endsAt:null,status:"UNSCHEDULED",
           homeScore:null,awayScore:null,winnerTeamId:null,nextMatchId:null,nextMatchSide:null,
+          refereeUserId:null,
         });
       }
     }
@@ -222,6 +224,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
         homeScore:null,awayScore:null,winnerTeamId:null,
         nextMatchId:plan.nextKey?ids.get(plan.nextKey)??null:null,
         nextMatchSide:plan.nextSide,
+        refereeUserId:null,
       });
     }
   }
@@ -319,6 +322,6 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   async scheduleMatchAtomic(input:Parameters<CompetitionRepository["scheduleMatchAtomic"]>[0]){
     const match=this.matches.get(input.matchId);
     if(!match||match.competitionId!==input.competitionId)throw new Error("MATCH_NOT_FOUND");
-    this.matches.set(input.matchId,{...match,venueId:input.venueId,areaId:input.areaId,areaName:"Pitch 1",startsAt:input.startsAt.toISOString(),endsAt:input.endsAt.toISOString(),status:"SCHEDULED"} as CompetitionMatchDto & {venueId:string});
+    this.matches.set(input.matchId,{...match,venueId:input.venueId,areaId:input.areaId,areaName:"Pitch 1",startsAt:input.startsAt.toISOString(),endsAt:input.endsAt.toISOString(),refereeUserId:input.refereeUserId,status:"SCHEDULED"} as CompetitionMatchDto & {venueId:string});
   }
 }
