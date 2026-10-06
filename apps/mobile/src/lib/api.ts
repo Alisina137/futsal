@@ -34,6 +34,8 @@ import type {
   PromotionDto,
   VenuePostCreateRequest,
   VenuePostDto,
+  VenueRefereeDto,
+  VenueRefereeGrantRequest,
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
   TeamCreateRequest,
@@ -223,6 +225,12 @@ export const authApi = {
 
 export const ownerApi = {
   getStatus: (accessToken: string) => request<OwnerOnboardingStatus>("/api/v1/owner/onboarding", {}, accessToken),
+  referees: (accessToken: string) =>
+    request<{ referees: VenueRefereeDto[] }>("/api/v1/owner/referees", {}, accessToken),
+  grantReferee: (accessToken: string, input: VenueRefereeGrantRequest) =>
+    request<{ referees: VenueRefereeDto[] }>("/api/v1/owner/referees", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  removeReferee: (accessToken: string, userId: string) =>
+    request<{ referees: VenueRefereeDto[] }>(`/api/v1/owner/referees/${userId}`, { method: "DELETE" }, accessToken),
   saveSetup: (accessToken: string, input: OwnerVenueSetupRequest) =>
     request<OwnerOnboardingStatus>("/api/v1/owner/onboarding", { method: "PUT", body: JSON.stringify(input) }, accessToken),
   preview: (accessToken: string) => request<OwnerOnboardingStatus>("/api/v1/owner/venue/preview", {}, accessToken),
