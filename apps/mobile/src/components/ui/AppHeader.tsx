@@ -10,7 +10,6 @@ import { AppText } from "./AppText";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-const APP_HEADER_HEIGHT=68;
 
 export function AppHeader(){
   const {session}=useAuth();
