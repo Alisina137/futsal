@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
+import { OwnerTopNav } from "../../../src/components/owner/OwnerTopNav";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -28,9 +29,10 @@ export default function OwnerScheduleScreen(){
   async function cancelBooking(id:string){if(!session)return;try{await ownerApi.cancelBooking(session.accessToken,id);await load();}catch{setError(t("schedule.cancelError"));}}
   async function unblock(id:string){if(!session)return;try{await ownerApi.deleteBlock(session.accessToken,id);await load();}catch{setError(t("schedule.unblockError"));}}
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={460}/></Screen>;
+  if(loading)return <Screen showHeader><OwnerTopNav/><DataLoadingState variant="list" minHeight={460}/></Screen>;
 
   return <Screen showHeader>
+    <OwnerTopNav/>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("schedule.title")}</AppText>
       <AppText muted>{t("schedule.subtitle")}</AppText>
