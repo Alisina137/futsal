@@ -6,6 +6,7 @@ import { clearStoredSession, readStoredSession, writeStoredSession } from "../li
 
 type AuthStatus = "hydrating" | "anonymous" | "authenticated";
 type AccountAccessState = "active" | "suspended";
+type AccountCheckResult = "active" | "suspended" | "offline" | "signed_out" | "unchanged";
 
 type AuthContextValue = {
   status: AuthStatus;
@@ -16,7 +17,7 @@ type AuthContextValue = {
   activateRole: (role: SelfAssignableRole) => Promise<AuthResponse>;
   updateProfile: (input: AccountProfileUpdateRequest) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
-  revalidate: () => Promise<void>;
+  revalidate: () => Promise<AccountCheckResult>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -85,39 +86,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [adopt, clearSession]);
 
-  const refreshSession = useCallback(async () => {
-    if (!session) return;
+  const refreshSession = useCallback(async (): Promise<AccountCheckResult> => {
+    if (!session) return "signed_out";
     try {
       await adopt(await authApi.refresh(session.refreshToken));
+      return "active";
     } catch (error) {
-      if (error instanceof ApiRequestError && error.isNetworkError) return;
+      if (error instanceof ApiRequestError && error.isNetworkError) return "offline";
       if (isSuspendedError(error)) {
         setAccessState("suspended");
-        return;
+        return "suspended";
       }
       await clearSession();
+      return "signed_out";
     }
   }, [adopt, clearSession, session]);
 
-  const checkAccount = useCallback(async () => {
-    if (!session) return;
+  const checkAccount = useCallback(async (): Promise<AccountCheckResult> => {
+    if (!session) return "signed_out";
 
     try {
       await authApi.me(session.accessToken);
       setAccessState("active");
+      return "active";
     } catch (error) {
-      if (error instanceof ApiRequestError && error.isNetworkError) return;
+      if (error instanceof ApiRequestError && error.isNetworkError) return "offline";
       if (isSuspendedError(error)) {
         setAccessState("suspended");
-        return;
+        return "suspended";
       }
       if (error instanceof ApiRequestError && error.code === "INVALID_ACCESS_TOKEN") {
-        await refreshSession();
-        return;
+        return refreshSession();
       }
       if (error instanceof ApiRequestError && error.code === "ACCOUNT_UNAVAILABLE") {
         await clearSession();
+        return "signed_out";
       }
+      return "unchanged";
     }
   }, [clearSession, refreshSession, session]);
 
