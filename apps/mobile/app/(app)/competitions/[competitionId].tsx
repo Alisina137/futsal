@@ -1,9 +1,9 @@
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { CompetitionDto, TeamListItemDto } from "@leaguekick/contracts";
+import type { CompetitionDto, SocialFollowStateDto, TeamListItemDto } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
-import { competitionApi, teamApi } from "../../../src/lib/api";
+import { competitionApi, marketingApi, teamApi } from "../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -23,6 +23,8 @@ export default function CompetitionDetailScreen(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
+  const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
+  const [followBusy,setFollowBusy]=useState(false);
 
   const load=useCallback(async()=>{
     if(!competitionId)return;
@@ -42,6 +44,23 @@ export default function CompetitionDetailScreen(){
   },[competitionId,session,t]);
 
   useEffect(()=>{void load();},[load]);
+
+  useEffect(()=>{
+    if(!session||!competitionId)return;
+    marketingApi.socialFollowState(session.accessToken,"COMPETITION",competitionId).then(setFollowState).catch(()=>{});
+  },[competitionId,session]);
+
+  async function toggleFollow(){
+    if(!session||!competitionId||!followState)return;
+    setFollowBusy(true);setError(null);
+    try{
+      setFollowState(followState.following
+        ?await marketingApi.socialUnfollow(session.accessToken,"COMPETITION",competitionId)
+        :await marketingApi.socialFollow(session.accessToken,"COMPETITION",competitionId));
+    }catch{
+      setError(t("social.followError"));
+    }finally{setFollowBusy(false);}
+  }
 
   const fixtures=useMemo(()=>competition?.matches.slice().sort((a,b)=>
     a.stage.localeCompare(b.stage)||b.roundNumber-a.roundNumber||a.slotNumber-b.slotNumber
@@ -86,6 +105,16 @@ export default function CompetitionDetailScreen(){
           {competition.championTeamId?<AppText weight="bold" style={{color:"#FFFFFF"}}>{t("competition.champion")}: {competition.teams.find((team)=>team.teamId===competition.championTeamId)?.teamName??"—"}</AppText>:null}
         </View>
       </Card>
+
+      {followState?<View style={{gap:spacing.xs}}>
+        <Button
+          label={followState.following?t("social.unfollow"):t("social.follow")}
+          onPress={()=>void toggleFollow()}
+          loading={followBusy}
+          variant={followState.following?"secondary":"primary"}
+        />
+        <AppText variant="caption" muted>{t("social.followers",{count:followState.followerCount})}</AppText>
+      </View>:null}
 
       <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,flexWrap:"wrap"}}>
         <Button label={t("competition.standings")} onPress={()=>router.push({pathname:"/competitions/[competitionId]/standings",params:{competitionId}})} variant="secondary"/>
