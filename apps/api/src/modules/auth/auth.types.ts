@@ -1,4 +1,4 @@
-import type { LanguageCode, UserDto, UserRole } from "@leaguekick/contracts";
+import type { AdminRoleSubscriptionDto, LanguageCode, PaidRole, RoleSubscriptionOfferDto, UserDto, UserRole } from "@leaguekick/contracts";
 
 export type AuthUserRecord = {
   id: string;
@@ -24,6 +24,17 @@ export type SessionRecord = {
   refreshTokenHash: string;
   expiresAt: Date;
   revokedAt: Date | null;
+};
+
+export type PaidRoleSubscriptionRecord = {
+  userId: string;
+  role: PaidRole;
+  status: "PENDING" | "ACTIVE" | "EXPIRED" | "CANCELLED";
+  monthlyPriceAfn: number;
+  requestedAt: Date;
+  activeUntil: Date | null;
+  activatedAt: Date | null;
+  paymentReference: string | null;
 };
 
 export type PasswordResetChallengeRecord = {
@@ -63,6 +74,18 @@ export interface AuthRepository {
   getUserById(userId: string): Promise<AuthUserRecord | null>;
   createUser(input: CreateUserInput): Promise<AuthUserRecord>;
   addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord>;
+  getRoleSubscriptionOffers(userId: string, prices: Record<PaidRole, number>, now: Date): Promise<RoleSubscriptionOfferDto[]>;
+  requestRoleSubscription(userId: string, role: PaidRole, monthlyPriceAfn: number, now: Date): Promise<RoleSubscriptionOfferDto>;
+  listAdminRoleSubscriptions(now: Date): Promise<AdminRoleSubscriptionDto[]>;
+  activateRoleSubscription(input: {
+    actorUserId: string;
+    userId: string;
+    role: PaidRole;
+    monthlyPriceAfn: number;
+    months: number;
+    paymentReference: string | null;
+    now: Date;
+  }): Promise<AuthUserRecord>;
   updateAccountProfile(userId: string, input: UpdateAccountProfileInput): Promise<AuthUserRecord>;
   createPasswordResetChallenge(input: {
     userId: string | null;
