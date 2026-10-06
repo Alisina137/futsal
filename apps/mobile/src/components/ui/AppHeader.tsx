@@ -94,7 +94,7 @@ export function AppHeader(){
           style={[
             styles.drawer,
             {
-              marginTop:insets.top+spacing.xs,
+              marginTop:insets.top+spacing.sm,
               marginLeft:spacing.sm,
               maxHeight:Math.max(240,windowHeight-(insets.top+spacing.lg)),
             },
