@@ -26,6 +26,8 @@ assert(dashboard.includes('role === "REFEREE"'), "Referee dashboard shell missin
 assert(dashboard.includes('PLATFORM_ADMIN'), "Platform Admin dashboard shell missing.");
 assert(dashboard.includes("dashboard.normalUnavailableTitle"), "Normal-user direct dashboard fallback missing.");
 
+assert(!ownerDashboard.includes('t("owner.dashboardTitle")'), "Venue Owner dashboard must not render the dashboard title.");
+assert(!ownerDashboard.includes('t("owner.dashboardSubtitle")'), "Venue Owner dashboard must not render the old dashboard subtitle.");
 assert(ownerDashboard.includes("<ScrollView") && ownerDashboard.includes("horizontal"), "Venue Owner dashboard top navigation must scroll horizontally.");
 assert(ownerDashboard.includes('flexWrap: "nowrap"'), "Venue Owner dashboard top navigation must stay on one line.");
 assert(
