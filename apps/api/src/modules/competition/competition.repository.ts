@@ -517,6 +517,19 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     return Boolean(row);
   }
 
+  async deleteCompetition(competitionId: string) {
+    const removed = await this.db.transaction(async (tx) => {
+      await tx.delete(socialPosts).where(and(
+        eq(socialPosts.entityType, "COMPETITION"),
+        eq(socialPosts.entityId, competitionId),
+      ));
+      return tx.delete(competitions)
+        .where(eq(competitions.id, competitionId))
+        .returning({ id: competitions.id });
+    });
+    return removed.length > 0;
+  }
+
   async updateTeamFee(input: Parameters<CompetitionRepository["updateTeamFee"]>[0]) {
     const confirmed = input.status === "PAID" || input.status === "WAIVED";
     await this.db.update(competitionTeams).set({
