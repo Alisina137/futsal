@@ -126,13 +126,13 @@ export default function PostCommentsScreen(){
     }finally{setBusyId(null);}
   }
 
+  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
+
   return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("social.commentsPageTitle")}</AppText>
       <AppText muted>{t("social.commentsPageSubtitle")}</AppText>
     </View>
-
-    {loading?<DataLoadingState variant="list"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
 
     {post?<Card style={{gap:spacing.md}}>
