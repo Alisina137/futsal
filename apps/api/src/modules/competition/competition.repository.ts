@@ -501,6 +501,19 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     ));
   }
 
+  async removeTeamByOwner(input: Parameters<CompetitionRepository["removeTeamByOwner"]>[0]) {
+    await this.db.update(competitionTeams).set({
+      status: "WITHDRAWN",
+      groupId: null,
+      respondedByUserId: input.ownerUserId,
+      respondedAt: input.now,
+      updatedAt: input.now,
+    }).where(and(
+      eq(competitionTeams.competitionId, input.competitionId),
+      eq(competitionTeams.teamId, input.teamId),
+    ));
+  }
+
   async countAcceptedTeams(competitionId: string) {
     const [row] = await this.db.select({ value: count() }).from(competitionTeams).where(and(
       eq(competitionTeams.competitionId, competitionId),
