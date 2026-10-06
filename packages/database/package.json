@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:migrate:kit": "drizzle-kit migrate --config drizzle.config.ts"
+    "db:migrate:kit": "drizzle-kit migrate --config drizzle.config.ts",
+    "db:seed:roles": "node scripts/seed-role-demos.mjs"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.3",
