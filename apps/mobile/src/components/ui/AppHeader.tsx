@@ -33,7 +33,7 @@ export function AppHeader(){
       icon:"home-outline",
       href:"/home",
     },
-    {key:"venues",label:t("booking.venuesTitle"),icon:"business-outline",href:"/venues"},
+    {key:"venues",label:t("booking.venuesTitle"),icon:"football-outline",href:"/venues"},
     {key:"bookings",label:t("booking.myBookings"),icon:"calendar-outline",href:"/bookings"},
     {key:"feed",label:t("feed.title"),icon:"newspaper-outline",href:"/feed"},
     ...(owner?[{key:"schedule",label:t("schedule.title"),icon:"time-outline" as IconName,href:"/schedule"}]:[]),
