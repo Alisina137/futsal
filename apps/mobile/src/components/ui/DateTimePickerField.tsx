@@ -19,9 +19,9 @@ type Props = {
   label:string;
   value:string;
   onChange:(value:string)=>void;
-  minimumDate?:Date;
-  hint?:string;
-  error?:string|null;
+  minimumDate?:Date|undefined;
+  hint?:string|undefined;
+  error?:string|null|undefined;
   disabled?:boolean;
 };
 
@@ -188,7 +188,7 @@ export function DateTimePickerField({
 
     <Modal visible={open} transparent animationType="fade" onRequestClose={()=>setOpen(false)} statusBarTranslucent>
       <View style={styles.modalRoot}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={()=>setOpen(false)}/>
+        <Pressable style={StyleSheet.absoluteFill} onPress={()=>setOpen(false)}/>
         <View style={styles.sheet}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
             <View style={[styles.sheetHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
