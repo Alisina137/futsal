@@ -32,6 +32,7 @@ import type {
   SocialFeedResponse,
   SocialFollowStateDto,
   SocialPostCommentCreateRequest,
+  SocialPostCommentUpdateRequest,
   SocialPostCommentDto,
   NotificationDto,
   NotificationPreferences,
@@ -316,9 +317,17 @@ export const marketingApi = {
   unlikeSocialPost: (accessToken: string, postId: string) =>
     request<{ post: SocialFeedPostDto }>(`/api/v1/social/posts/${postId}/like`, { method: "DELETE" }, accessToken),
   socialComments: (accessToken: string, postId: string) =>
-    request<{ comments: SocialPostCommentDto[] }>(`/api/v1/social/posts/${postId}/comments`, {}, accessToken),
+    request<{ post: SocialFeedPostDto; comments: SocialPostCommentDto[] }>(`/api/v1/social/posts/${postId}/comments`, {}, accessToken),
   addSocialComment: (accessToken: string, postId: string, input: SocialPostCommentCreateRequest) =>
     request<{ comment: SocialPostCommentDto }>(`/api/v1/social/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(input) }, accessToken),
+  updateSocialComment: (accessToken: string, postId: string, commentId: string, input: SocialPostCommentUpdateRequest) =>
+    request<{ comment: SocialPostCommentDto }>(`/api/v1/social/posts/${postId}/comments/${commentId}`, { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+  deleteSocialComment: (accessToken: string, postId: string, commentId: string) =>
+    request<{ deleted: boolean }>(`/api/v1/social/posts/${postId}/comments/${commentId}`, { method: "DELETE" }, accessToken),
+  likeSocialComment: (accessToken: string, postId: string, commentId: string) =>
+    request<{ comment: SocialPostCommentDto }>(`/api/v1/social/posts/${postId}/comments/${commentId}/like`, { method: "POST" }, accessToken),
+  unlikeSocialComment: (accessToken: string, postId: string, commentId: string) =>
+    request<{ comment: SocialPostCommentDto }>(`/api/v1/social/posts/${postId}/comments/${commentId}/like`, { method: "DELETE" }, accessToken),
   followState: (accessToken: string, venueId: string) =>
     request<FollowStateDto>(`/api/v1/venues/${venueId}/follow`, {}, accessToken),
   follow: (accessToken: string, venueId: string) =>
