@@ -48,9 +48,10 @@ export default function PostDetailScreen(){
     }
   }
 
+  if(loading)return <Screen><DataLoadingState variant="detail" minHeight={500}/></Screen>;
+
   return <Screen>
     <AppText variant="title" weight="bold">{t("feed.postTitle")}</AppText>
-    {loading?<DataLoadingState variant="detail"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {post?<Card>
       {post.imageUrl?<Image source={{uri:post.imageUrl}} style={{width:"100%",height:220,borderRadius:radius.md}} resizeMode="cover"/>:null}
