@@ -249,6 +249,12 @@ export const ownerOnboardingStatusSchema = z.object({
 });
 export type OwnerOnboardingStatus = z.infer<typeof ownerOnboardingStatusSchema>;
 
+export const venueRefereeGrantRequestSchema = z.object({
+  identifier: z.string().trim().min(3).max(80),
+});
+export type VenueRefereeGrantRequest = z.infer<typeof venueRefereeGrantRequestSchema>;
+
+
 
 export const dateOnlySchema = z.string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
@@ -258,6 +264,16 @@ export const dateOnlySchema = z.string()
   }, "Use a real calendar date.");
 export const isoDateTimeSchema = z.string()
   .refine((value) => /(Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)), "Use an ISO datetime with timezone.");
+
+export const venueRefereeDtoSchema = z.object({
+  venueId: z.string().uuid(),
+  userId: z.string().uuid(),
+  displayName: z.string(),
+  username: z.string().nullable(),
+  phone: z.string(),
+  assignedAt: isoDateTimeSchema,
+});
+export type VenueRefereeDto = z.infer<typeof venueRefereeDtoSchema>;
 
 export const roleSubscriptionOfferDtoSchema = z.object({
   role: paidRoleSchema,
@@ -906,6 +922,7 @@ export const competitionMatchScheduleRequestSchema = z.object({
   areaId: z.string().uuid(),
   startsAt: isoDateTimeSchema,
   endsAt: isoDateTimeSchema,
+  refereeUserId: z.string().uuid().nullable().optional(),
 }).superRefine((value, ctx) => {
   if (Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
     ctx.addIssue({ code: "custom", path: ["endsAt"], message: "Match end must be after start." });
@@ -968,6 +985,7 @@ export const competitionMatchDtoSchema = z.object({
   winnerTeamId: z.string().uuid().nullable(),
   nextMatchId: z.string().uuid().nullable(),
   nextMatchSide: z.enum(["HOME", "AWAY"]).nullable(),
+  refereeUserId: z.string().uuid().nullable(),
 });
 export type CompetitionMatchDto = z.infer<typeof competitionMatchDtoSchema>;
 
