@@ -3,6 +3,8 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import {
   promotionCreateRequestSchema,
+  socialEntityTypeSchema,
+  socialPostCommentCreateRequestSchema,
   venuePostCreateRequestSchema,
 } from "@leaguekick/contracts";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
@@ -37,6 +39,64 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
   router.get("/feed/following", requireAuth(tokens), async (request, response, next) => {
     try { response.json(await marketing.feed(request.auth!.userId, true)); }
     catch (error) { next(error); }
+  });
+
+  router.get("/social/feed", requireAuth(tokens), async (request, response, next) => {
+    try { response.json(await marketing.socialFeed(request.auth!.userId)); }
+    catch (error) { next(error); }
+  });
+
+  router.get("/social/follows/:entityType/:entityId", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const entityType = socialEntityTypeSchema.parse(String(request.params.entityType).toUpperCase());
+      const entityId = routeIdSchema.parse(request.params.entityId);
+      response.json(await marketing.socialFollowState(request.auth!.userId, entityType, entityId));
+    } catch (error) { next(error); }
+  });
+
+  router.post("/social/follows/:entityType/:entityId", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const entityType = socialEntityTypeSchema.parse(String(request.params.entityType).toUpperCase());
+      const entityId = routeIdSchema.parse(request.params.entityId);
+      response.json(await marketing.socialFollow(request.auth!.userId, entityType, entityId));
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/social/follows/:entityType/:entityId", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const entityType = socialEntityTypeSchema.parse(String(request.params.entityType).toUpperCase());
+      const entityId = routeIdSchema.parse(request.params.entityId);
+      response.json(await marketing.socialUnfollow(request.auth!.userId, entityType, entityId));
+    } catch (error) { next(error); }
+  });
+
+  router.post("/social/posts/:postId/like", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId = routeIdSchema.parse(request.params.postId);
+      response.json({ post: await marketing.likeSocialPost(request.auth!.userId, postId) });
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/social/posts/:postId/like", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId = routeIdSchema.parse(request.params.postId);
+      response.json({ post: await marketing.unlikeSocialPost(request.auth!.userId, postId) });
+    } catch (error) { next(error); }
+  });
+
+  router.get("/social/posts/:postId/comments", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId = routeIdSchema.parse(request.params.postId);
+      response.json(await marketing.socialComments(request.auth!.userId, postId));
+    } catch (error) { next(error); }
+  });
+
+  router.post("/social/posts/:postId/comments", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId = routeIdSchema.parse(request.params.postId);
+      const input = socialPostCommentCreateRequestSchema.parse(request.body);
+      response.status(201).json({ comment: await marketing.addSocialComment(request.auth!.userId, postId, input) });
+    } catch (error) { next(error); }
   });
 
   router.get("/venues/:venueId/follow", requireAuth(tokens), async (request, response, next) => {
