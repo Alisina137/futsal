@@ -6,6 +6,7 @@ import { Image, Pressable, View } from "react-native";
 import { teamApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -26,7 +27,7 @@ export default function PublicPlayerProfileScreen(){
   },[playerId,t]);
 
   return <Screen showHeader>
-    {loading?<AppText>{t("common.loading")}</AppText>:null}
+    {loading?<DataLoadingState variant="detail"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {player?<>
       <Card style={{alignItems:"center",paddingVertical:spacing.lg}}>
