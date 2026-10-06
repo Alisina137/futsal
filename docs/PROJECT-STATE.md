@@ -476,3 +476,5 @@ Pilot release / launch signoff after the Phase 8 live-device and operations chec
 - Public Venue and Team pages use profile-style presentation for social-post author navigation, with clearer identity, follower/member facts, actions, and structured content sections.
 
 - Venue Owner Dashboard top navigation is a single horizontally scrollable, non-wrapping row: Competitions → Venue Time Table → Media → Analysis → Venue Settings. Destinations are `/owner/competitions`, `/schedule`, `/owner/posts`, `/owner/analytics`, and `/owner/onboarding`.
+
+- Venue Owner Competition control center uses Overview → Teams → Fixtures → Standings/Bracket → Referees → Statistics → Media → Settings, with League, Group + Knockout, and Knockout formats; lifecycle/status actions; team invite/approval/removal/reseed; fee tracking; fixture generation/scheduling; venue-referee assignment; results/corrections; automatic standings/brackets; player statistics; competition media/follower notifications; safe Draft/Cancelled deletion; Completed archival; and clean Draft duplication.
