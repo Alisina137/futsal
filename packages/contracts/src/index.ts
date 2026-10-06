@@ -669,6 +669,55 @@ export const followStateDtoSchema = z.object({
 });
 export type FollowStateDto = z.infer<typeof followStateDtoSchema>;
 
+export const socialEntityTypeSchema = z.enum(["VENUE", "TEAM", "COMPETITION"]);
+export type SocialEntityType = z.infer<typeof socialEntityTypeSchema>;
+
+export const socialFollowStateDtoSchema = z.object({
+  entityType: socialEntityTypeSchema,
+  entityId: z.string().uuid(),
+  following: z.boolean(),
+  followerCount: z.number().int().min(0),
+});
+export type SocialFollowStateDto = z.infer<typeof socialFollowStateDtoSchema>;
+
+export const socialPostCommentCreateRequestSchema = z.object({
+  body: z.string().trim().min(1).max(1_000),
+});
+export type SocialPostCommentCreateRequest = z.infer<typeof socialPostCommentCreateRequestSchema>;
+
+export const socialPostCommentDtoSchema = z.object({
+  id: z.string().uuid(),
+  postId: z.string().uuid(),
+  userId: z.string().uuid(),
+  displayName: z.string(),
+  profileImageUrl: z.string().nullable(),
+  body: z.string(),
+  createdAt: isoDateTimeSchema,
+});
+export type SocialPostCommentDto = z.infer<typeof socialPostCommentDtoSchema>;
+
+export const socialFeedPostDtoSchema = z.object({
+  id: z.string().uuid(),
+  authorType: socialEntityTypeSchema,
+  authorId: z.string().uuid(),
+  authorName: z.string(),
+  authorImageUrl: z.string().nullable(),
+  body: z.string(),
+  imageUrl: z.string().nullable(),
+  publishedAt: isoDateTimeSchema,
+  deepLink: z.string(),
+  likedByMe: z.boolean(),
+  likeCount: z.number().int().min(0),
+  commentCount: z.number().int().min(0),
+});
+export type SocialFeedPostDto = z.infer<typeof socialFeedPostDtoSchema>;
+
+export const socialFeedResponseSchema = z.object({
+  generatedAt: isoDateTimeSchema,
+  items: z.array(socialFeedPostDtoSchema),
+});
+export type SocialFeedResponse = z.infer<typeof socialFeedResponseSchema>;
+
 export const feedItemDtoSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("PROMOTION"),
