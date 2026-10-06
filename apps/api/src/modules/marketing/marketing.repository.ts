@@ -1,7 +1,14 @@
-import type { PromotionDto, VenuePostDto } from "@leaguekick/contracts";
+import type { PromotionDto, SocialEntityType, SocialFeedPostDto, SocialPostCommentDto, VenuePostDto } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
 import {
   bookings,
+  competitions,
+  socialFollows,
+  socialPostComments,
+  socialPostLikes,
+  socialPosts,
+  teams,
+  users,
   venueAreas,
   venueBlocks,
   venueFollows,
@@ -10,9 +17,9 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, count, desc, eq, gt, inArray, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, lt } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
-import type { MarketingRepository, MarketingVenueRecord } from "./marketing.types.js";
+import type { MarketingRepository, MarketingSocialEntityRecord, MarketingVenueRecord } from "./marketing.types.js";
 
 function discountPercent(original: number, discounted: number) {
   if (original <= 0) return 0;
@@ -83,6 +90,12 @@ function postDto(row: {
     publishedAt: row.publishedAt.toISOString(),
     unpublishedAt: row.unpublishedAt?.toISOString() ?? null,
   };
+}
+
+function socialDeepLink(entityType: SocialEntityType, entityId: string) {
+  if (entityType === "VENUE") return `/venues/${entityId}`;
+  if (entityType === "TEAM") return `/teams/${entityId}`;
+  return `/competitions/${entityId}`;
 }
 
 export class DrizzleMarketingRepository implements MarketingRepository {
@@ -319,6 +332,18 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       updatedAt: input.publishedAt,
     }).returning({ id: venuePosts.id });
     if (!created) throw new Error("Post could not be created.");
+    await this.db.insert(socialPosts).values({
+      entityType: "VENUE",
+      entityId: input.venueId,
+      createdByUserId: input.createdByUserId,
+      legacyVenuePostId: created.id,
+      body: input.body,
+      imageUrl: input.imageUrl,
+      status: "PUBLISHED",
+      publishedAt: input.publishedAt,
+      createdAt: input.publishedAt,
+      updatedAt: input.publishedAt,
+    }).onConflictDoNothing();
     const post = await this.getPost(created.id);
     if (!post) throw new Error("Post could not be loaded.");
     return post;
@@ -365,36 +390,242 @@ export class DrizzleMarketingRepository implements MarketingRepository {
         updatedAt: changedAt,
       }).where(eq(venuePosts.id, postId));
     }
+
+    await this.db.update(socialPosts).set({
+      status,
+      unpublishedAt: status === "PUBLISHED" ? null : changedAt,
+      ...(status === "PUBLISHED" ? { publishedAt: changedAt } : {}),
+      updatedAt: changedAt,
+    }).where(eq(socialPosts.legacyVenuePostId, postId));
+
     return this.getPost(postId);
   }
 
-  async followVenue(userId: string, venueId: string) {
-    await this.db.insert(venueFollows).values({ userId, venueId }).onConflictDoNothing();
+  async getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null> {
+    if (entityType === "VENUE") {
+      const [row] = await this.db.select({ id: venues.id, name: venues.name }).from(venues)
+        .where(and(eq(venues.id, entityId), eq(venues.status, "ACTIVE")))
+        .limit(1);
+      return row ? { id: row.id, type: entityType, name: row.name, imageUrl: null } : null;
+    }
+    if (entityType === "TEAM") {
+      const [row] = await this.db.select({ id: teams.id, name: teams.name, imageUrl: teams.logoUrl }).from(teams)
+        .where(and(eq(teams.id, entityId), eq(teams.status, "ACTIVE")))
+        .limit(1);
+      return row ? { id: row.id, type: entityType, name: row.name, imageUrl: row.imageUrl } : null;
+    }
+    const [row] = await this.db.select({ id: competitions.id, name: competitions.name }).from(competitions)
+      .where(and(eq(competitions.id, entityId), eq(competitions.published, true)))
+      .limit(1);
+    return row ? { id: row.id, type: entityType, name: row.name, imageUrl: null } : null;
   }
 
-  async unfollowVenue(userId: string, venueId: string) {
-    await this.db.delete(venueFollows).where(and(eq(venueFollows.userId, userId), eq(venueFollows.venueId, venueId)));
+  async followEntity(userId: string, entityType: SocialEntityType, entityId: string) {
+    await this.db.insert(socialFollows).values({ userId, entityType, entityId }).onConflictDoNothing();
   }
 
-  async isFollowing(userId: string, venueId: string) {
-    const [row] = await this.db.select({ userId: venueFollows.userId }).from(venueFollows)
-      .where(and(eq(venueFollows.userId, userId), eq(venueFollows.venueId, venueId)))
+  async unfollowEntity(userId: string, entityType: SocialEntityType, entityId: string) {
+    await this.db.delete(socialFollows).where(and(
+      eq(socialFollows.userId, userId),
+      eq(socialFollows.entityType, entityType),
+      eq(socialFollows.entityId, entityId),
+    ));
+  }
+
+  async isFollowingEntity(userId: string, entityType: SocialEntityType, entityId: string) {
+    const [row] = await this.db.select({ userId: socialFollows.userId }).from(socialFollows)
+      .where(and(
+        eq(socialFollows.userId, userId),
+        eq(socialFollows.entityType, entityType),
+        eq(socialFollows.entityId, entityId),
+      ))
       .limit(1);
     return Boolean(row);
   }
 
-  async followerCount(venueId: string) {
-    const [row] = await this.db.select({ value: count() }).from(venueFollows).where(eq(venueFollows.venueId, venueId));
+  async socialFollowerCount(entityType: SocialEntityType, entityId: string) {
+    const [row] = await this.db.select({ value: count() }).from(socialFollows)
+      .where(and(eq(socialFollows.entityType, entityType), eq(socialFollows.entityId, entityId)));
     return Number(row?.value ?? 0);
   }
 
+  private async hydrateSocialPost(
+    userId: string,
+    row: typeof socialPosts.$inferSelect,
+    likes?: Array<{ postId: string; userId: string }>,
+    comments?: Array<{ postId: string }>,
+  ): Promise<SocialFeedPostDto | null> {
+    if (row.status !== "PUBLISHED") return null;
+    const author = await this.getSocialEntity(row.entityType as SocialEntityType, row.entityId);
+    if (!author) return null;
+
+    const likeRows = likes ?? await this.db.select({
+      postId: socialPostLikes.postId,
+      userId: socialPostLikes.userId,
+    }).from(socialPostLikes).where(eq(socialPostLikes.postId, row.id));
+    const commentRows = comments ?? await this.db.select({
+      postId: socialPostComments.postId,
+    }).from(socialPostComments).where(eq(socialPostComments.postId, row.id));
+
+    return {
+      id: row.id,
+      authorType: author.type,
+      authorId: author.id,
+      authorName: author.name,
+      authorImageUrl: author.imageUrl,
+      body: row.body,
+      imageUrl: row.imageUrl,
+      publishedAt: row.publishedAt.toISOString(),
+      deepLink: socialDeepLink(author.type, author.id),
+      likedByMe: likeRows.some((item) => item.postId === row.id && item.userId === userId),
+      likeCount: likeRows.filter((item) => item.postId === row.id).length,
+      commentCount: commentRows.filter((item) => item.postId === row.id).length,
+    };
+  }
+
+  async listSocialFeed(userId: string): Promise<SocialFeedPostDto[]> {
+    const follows = await this.db.select({
+      entityType: socialFollows.entityType,
+      entityId: socialFollows.entityId,
+    }).from(socialFollows).where(eq(socialFollows.userId, userId));
+    if (follows.length === 0) return [];
+
+    const followed = new Set(follows.map((item) => `${item.entityType}:${item.entityId}`));
+    const candidates = await this.db.select().from(socialPosts)
+      .where(eq(socialPosts.status, "PUBLISHED"))
+      .orderBy(desc(socialPosts.publishedAt))
+      .limit(250);
+    const rows = candidates
+      .filter((row) => followed.has(`${row.entityType}:${row.entityId}`))
+      .slice(0, 100);
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((row) => row.id);
+    const [likes, comments] = await Promise.all([
+      this.db.select({ postId: socialPostLikes.postId, userId: socialPostLikes.userId })
+        .from(socialPostLikes)
+        .where(inArray(socialPostLikes.postId, ids)),
+      this.db.select({ postId: socialPostComments.postId })
+        .from(socialPostComments)
+        .where(inArray(socialPostComments.postId, ids)),
+    ]);
+
+    const result: SocialFeedPostDto[] = [];
+    for (const row of rows) {
+      const post = await this.hydrateSocialPost(userId, row, likes, comments);
+      if (post) result.push(post);
+    }
+    return result;
+  }
+
+  async getSocialPost(userId: string, postId: string) {
+    const [row] = await this.db.select().from(socialPosts).where(eq(socialPosts.id, postId)).limit(1);
+    return row ? this.hydrateSocialPost(userId, row) : null;
+  }
+
+  async likeSocialPost(userId: string, postId: string) {
+    const current = await this.getSocialPost(userId, postId);
+    if (!current) return null;
+    await this.db.insert(socialPostLikes).values({ postId, userId }).onConflictDoNothing();
+    return this.getSocialPost(userId, postId);
+  }
+
+  async unlikeSocialPost(userId: string, postId: string) {
+    const current = await this.getSocialPost(userId, postId);
+    if (!current) return null;
+    await this.db.delete(socialPostLikes).where(and(
+      eq(socialPostLikes.postId, postId),
+      eq(socialPostLikes.userId, userId),
+    ));
+    return this.getSocialPost(userId, postId);
+  }
+
+  async listSocialComments(postId: string): Promise<SocialPostCommentDto[]> {
+    const [post] = await this.db.select({ id: socialPosts.id }).from(socialPosts)
+      .where(and(eq(socialPosts.id, postId), eq(socialPosts.status, "PUBLISHED")))
+      .limit(1);
+    if (!post) return [];
+
+    const rows = await this.db.select({
+      id: socialPostComments.id,
+      postId: socialPostComments.postId,
+      userId: socialPostComments.userId,
+      displayName: users.displayName,
+      profileImageUrl: users.profileImageUrl,
+      body: socialPostComments.body,
+      createdAt: socialPostComments.createdAt,
+    }).from(socialPostComments)
+      .innerJoin(users, eq(socialPostComments.userId, users.id))
+      .where(and(eq(socialPostComments.postId, postId), eq(users.status, "ACTIVE")))
+      .orderBy(asc(socialPostComments.createdAt));
+
+    return rows.map((row) => ({
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  }
+
+  async addSocialComment(userId: string, postId: string, body: string, createdAt: Date) {
+    const [post] = await this.db.select({ id: socialPosts.id }).from(socialPosts)
+      .where(and(eq(socialPosts.id, postId), eq(socialPosts.status, "PUBLISHED")))
+      .limit(1);
+    if (!post) return null;
+
+    const [created] = await this.db.insert(socialPostComments).values({
+      postId,
+      userId,
+      body,
+      createdAt,
+    }).returning({ id: socialPostComments.id });
+    if (!created) return null;
+
+    const [row] = await this.db.select({
+      id: socialPostComments.id,
+      postId: socialPostComments.postId,
+      userId: socialPostComments.userId,
+      displayName: users.displayName,
+      profileImageUrl: users.profileImageUrl,
+      body: socialPostComments.body,
+      createdAt: socialPostComments.createdAt,
+    }).from(socialPostComments)
+      .innerJoin(users, eq(socialPostComments.userId, users.id))
+      .where(eq(socialPostComments.id, created.id))
+      .limit(1);
+
+    return row ? { ...row, createdAt: row.createdAt.toISOString() } : null;
+  }
+
+  async followVenue(userId: string, venueId: string) {
+    await Promise.all([
+      this.db.insert(venueFollows).values({ userId, venueId }).onConflictDoNothing(),
+      this.followEntity(userId, "VENUE", venueId),
+    ]);
+  }
+
+  async unfollowVenue(userId: string, venueId: string) {
+    await Promise.all([
+      this.db.delete(venueFollows).where(and(eq(venueFollows.userId, userId), eq(venueFollows.venueId, venueId))),
+      this.unfollowEntity(userId, "VENUE", venueId),
+    ]);
+  }
+
+  isFollowing(userId: string, venueId: string) {
+    return this.isFollowingEntity(userId, "VENUE", venueId);
+  }
+
+  followerCount(venueId: string) {
+    return this.socialFollowerCount("VENUE", venueId);
+  }
+
   async listFollowedVenueIds(userId: string) {
-    const rows = await this.db.select({ venueId: venueFollows.venueId }).from(venueFollows).where(eq(venueFollows.userId, userId));
-    return rows.map((row) => row.venueId);
+    const rows = await this.db.select({ entityId: socialFollows.entityId }).from(socialFollows)
+      .where(and(eq(socialFollows.userId, userId), eq(socialFollows.entityType, "VENUE")));
+    return rows.map((row) => row.entityId);
   }
 
   async listFollowerUserIds(venueId: string) {
-    const rows = await this.db.select({ userId: venueFollows.userId }).from(venueFollows).where(eq(venueFollows.venueId, venueId));
+    const rows = await this.db.select({ userId: socialFollows.userId }).from(socialFollows)
+      .where(and(eq(socialFollows.entityType, "VENUE"), eq(socialFollows.entityId, venueId)));
     return rows.map((row) => row.userId);
   }
 }
