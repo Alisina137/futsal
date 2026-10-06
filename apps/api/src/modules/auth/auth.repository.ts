@@ -161,6 +161,7 @@ export class DrizzleAuthRepository implements AuthRepository {
     userId: string,
     role: PaidRole,
     monthlyPriceAfn: number,
+    paymentReference: string | null,
     now: Date,
   ): Promise<RoleSubscriptionOfferDto> {
     const [current] = await this.db.select().from(roleSubscriptions).where(and(
@@ -187,7 +188,7 @@ export class DrizzleAuthRepository implements AuthRepository {
       activeUntil: null,
       activatedAt: null,
       activatedByUserId: null,
-      paymentReference: null,
+      paymentReference,
       updatedAt: now,
     }).onConflictDoUpdate({
       target: [roleSubscriptions.userId, roleSubscriptions.role],
@@ -198,7 +199,7 @@ export class DrizzleAuthRepository implements AuthRepository {
         activeUntil: null,
         activatedAt: null,
         activatedByUserId: null,
-        paymentReference: null,
+        paymentReference,
         updatedAt: now,
       },
     }).returning();
