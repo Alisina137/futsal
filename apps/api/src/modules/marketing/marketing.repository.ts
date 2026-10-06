@@ -4,6 +4,7 @@ import {
   bookings,
   competitions,
   socialFollows,
+  socialPostCommentLikes,
   socialPostComments,
   socialPostLikes,
   socialPosts,
@@ -540,13 +541,8 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     return this.getSocialPost(userId, postId);
   }
 
-  async listSocialComments(postId: string): Promise<SocialPostCommentDto[]> {
-    const [post] = await this.db.select({ id: socialPosts.id }).from(socialPosts)
-      .where(and(eq(socialPosts.id, postId), eq(socialPosts.status, "PUBLISHED")))
-      .limit(1);
-    if (!post) return [];
-
-    const rows = await this.db.select({
+  private async hydrateSocialComment(viewerUserId: string, commentId: string): Promise<SocialPostCommentDto | null> {
+    const [row] = await this.db.select({
       id: socialPostComments.id,
       postId: socialPostComments.postId,
       userId: socialPostComments.userId,
@@ -554,15 +550,49 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       profileImageUrl: users.profileImageUrl,
       body: socialPostComments.body,
       createdAt: socialPostComments.createdAt,
+      editedAt: socialPostComments.editedAt,
     }).from(socialPostComments)
       .innerJoin(users, eq(socialPostComments.userId, users.id))
-      .where(and(eq(socialPostComments.postId, postId), eq(users.status, "ACTIVE")))
-      .orderBy(asc(socialPostComments.createdAt));
+      .innerJoin(socialPosts, eq(socialPostComments.postId, socialPosts.id))
+      .where(and(
+        eq(socialPostComments.id, commentId),
+        eq(users.status, "ACTIVE"),
+        eq(socialPosts.status, "PUBLISHED"),
+      ))
+      .limit(1);
+    if (!row) return null;
 
-    return rows.map((row) => ({
+    const likes = await this.db.select({
+      userId: socialPostCommentLikes.userId,
+    }).from(socialPostCommentLikes)
+      .where(eq(socialPostCommentLikes.commentId, commentId));
+
+    return {
       ...row,
       createdAt: row.createdAt.toISOString(),
-    }));
+      editedAt: row.editedAt?.toISOString() ?? null,
+      likedByMe: likes.some((item) => item.userId === viewerUserId),
+      likeCount: likes.length,
+      canManage: row.userId === viewerUserId,
+    };
+  }
+
+  async listSocialComments(userId: string, postId: string): Promise<SocialPostCommentDto[]> {
+    const [post] = await this.db.select({ id: socialPosts.id }).from(socialPosts)
+      .where(and(eq(socialPosts.id, postId), eq(socialPosts.status, "PUBLISHED")))
+      .limit(1);
+    if (!post) return [];
+
+    const rows = await this.db.select({ id: socialPostComments.id }).from(socialPostComments)
+      .where(eq(socialPostComments.postId, postId))
+      .orderBy(asc(socialPostComments.createdAt));
+
+    const result: SocialPostCommentDto[] = [];
+    for (const row of rows) {
+      const comment = await this.hydrateSocialComment(userId, row.id);
+      if (comment) result.push(comment);
+    }
+    return result;
   }
 
   async addSocialComment(userId: string, postId: string, body: string, createdAt: Date) {
@@ -578,21 +608,52 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       createdAt,
     }).returning({ id: socialPostComments.id });
     if (!created) return null;
+    return this.hydrateSocialComment(userId, created.id);
+  }
 
-    const [row] = await this.db.select({
-      id: socialPostComments.id,
-      postId: socialPostComments.postId,
-      userId: socialPostComments.userId,
-      displayName: users.displayName,
-      profileImageUrl: users.profileImageUrl,
-      body: socialPostComments.body,
-      createdAt: socialPostComments.createdAt,
-    }).from(socialPostComments)
-      .innerJoin(users, eq(socialPostComments.userId, users.id))
-      .where(eq(socialPostComments.id, created.id))
-      .limit(1);
+  async updateSocialComment(
+    userId: string,
+    postId: string,
+    commentId: string,
+    body: string,
+    editedAt: Date,
+  ) {
+    const [updated] = await this.db.update(socialPostComments).set({
+      body,
+      editedAt,
+    }).where(and(
+      eq(socialPostComments.id, commentId),
+      eq(socialPostComments.postId, postId),
+      eq(socialPostComments.userId, userId),
+    )).returning({ id: socialPostComments.id });
+    if (!updated) return null;
+    return this.hydrateSocialComment(userId, updated.id);
+  }
 
-    return row ? { ...row, createdAt: row.createdAt.toISOString() } : null;
+  async deleteSocialComment(userId: string, postId: string, commentId: string) {
+    const rows = await this.db.delete(socialPostComments).where(and(
+      eq(socialPostComments.id, commentId),
+      eq(socialPostComments.postId, postId),
+      eq(socialPostComments.userId, userId),
+    )).returning({ id: socialPostComments.id });
+    return rows.length > 0;
+  }
+
+  async likeSocialComment(userId: string, postId: string, commentId: string) {
+    const current = await this.hydrateSocialComment(userId, commentId);
+    if (!current || current.postId !== postId) return null;
+    await this.db.insert(socialPostCommentLikes).values({ commentId, userId }).onConflictDoNothing();
+    return this.hydrateSocialComment(userId, commentId);
+  }
+
+  async unlikeSocialComment(userId: string, postId: string, commentId: string) {
+    const current = await this.hydrateSocialComment(userId, commentId);
+    if (!current || current.postId !== postId) return null;
+    await this.db.delete(socialPostCommentLikes).where(and(
+      eq(socialPostCommentLikes.commentId, commentId),
+      eq(socialPostCommentLikes.userId, userId),
+    ));
+    return this.hydrateSocialComment(userId, commentId);
   }
 
   async followVenue(userId: string, venueId: string) {
