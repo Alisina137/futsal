@@ -64,6 +64,7 @@ export default function OwnerCompetitionListScreen(){
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.filterScroller}
       contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}
     >
       {filters.map((value)=><Pressable
@@ -139,10 +140,20 @@ export default function OwnerCompetitionListScreen(){
 
 const styles=StyleSheet.create({
   summaryCard:{flex:1,alignItems:"center",gap:spacing.xs,padding:spacing.md},
-  filters:{gap:spacing.sm,paddingVertical:spacing.xs},
+  filterScroller:{
+    flexGrow:0,
+    flexShrink:0,
+  },
+  filters:{
+    gap:spacing.sm,
+    paddingVertical:spacing.xs,
+    alignItems:"center",
+  },
   filter:{
+    height:42,
+    alignSelf:"flex-start",
+    justifyContent:"center",
     paddingHorizontal:spacing.md,
-    paddingVertical:spacing.sm,
     borderRadius:radius.pill,
     borderWidth:1,
     borderColor:colors.border,
