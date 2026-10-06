@@ -208,6 +208,10 @@ function TrialEndBlock({
 const styles = StyleSheet.create({
   dashboardNav: {
     marginHorizontal: -spacing.xs,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderTopColor: colors.border,
+    borderBottomColor: colors.border,
   },
   dashboardNavContent: {
     gap: spacing.sm,
