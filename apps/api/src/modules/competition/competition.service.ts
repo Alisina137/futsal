@@ -335,6 +335,16 @@ export class CompetitionService {
       ownerUserId,
       now: this.now(),
     });
+    const team = await this.repository.getTeam(teamId);
+    if (team) {
+      await this.notifyCompetition(
+        competitionId,
+        competition.name,
+        `${team.name} was removed from the competition.`,
+        `competition-team-removed:${competitionId}:${teamId}:${this.now().getTime()}`,
+        [team.managerUserId],
+      );
+    }
     return { registration: await this.repository.getRegistration(competitionId, teamId) };
   }
 
