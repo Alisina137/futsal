@@ -8,6 +8,7 @@ import {
   passwordResetVerifySchema,
   adminRoleSubscriptionActivationRequestSchema,
   paidRoleSchema,
+  roleSubscriptionRequestSchema,
   refreshRequestSchema,
   registerRequestSchema,
 } from "@leaguekick/contracts";
@@ -37,7 +38,8 @@ export function createAuthRouter(auth: AuthService, tokens: TokenService) {
   router.post("/role-subscriptions/:role/request", requireAuth(tokens), async (request, response, next) => {
     try {
       const role = paidRoleSchema.parse(request.params.role);
-      response.status(202).json({ offer: await auth.requestRoleSubscription(request.auth!.userId, role) });
+      const input = roleSubscriptionRequestSchema.parse(request.body ?? {});
+      response.status(202).json({ offer: await auth.requestRoleSubscription(request.auth!.userId, role, input) });
     } catch (error) { next(error); }
   });
 
