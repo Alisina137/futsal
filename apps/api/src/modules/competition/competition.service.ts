@@ -581,6 +581,9 @@ export class CompetitionService {
       if (competition.status === "DRAFT") {
         throw errors.conflict("DRAFT_IS_PRIVATE", "Open registration before publishing this competition.");
       }
+      if (competition.status === "REGISTRATION_OPEN") {
+        this.assertRegistrationReleaseWindow(competition, now);
+      }
       return this.repository.setCompetitionState(competitionId, {
         published: true,
         publishedAt: now,
