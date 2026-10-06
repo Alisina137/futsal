@@ -8,6 +8,7 @@ import { ApiRequestError, authApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -153,7 +154,7 @@ export default function PaidRoleSubscriptionScreen() {
       <AppText accessibilityRole="alert">{message}</AppText>
     </Card> : null}
 
-    {loading ? <AppText>{t("common.loading")}</AppText> : null}
+    {loading?<DataLoadingState variant="detail"/>:null}
 
     {!loading && !active && !pending ? <Card style={styles.subscribeCard}>
       <AppText variant="bodyLarge" weight="bold">{t("roles.subscribeTitle")}</AppText>
