@@ -19,7 +19,9 @@ export function AppHeader(){
   const pathname=usePathname();
   const [menuOpen,setMenuOpen]=useState(false);
   const user=session?.user;
-  const owner=user?.roles.includes("VENUE_OWNER")??false;
+  const hasDashboard=user?.roles.some((role)=>
+    ["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE","PLATFORM_ADMIN"].includes(role)
+  )??false;
 
   const initials=useMemo(()=>{
     const words=(user?.displayName??"LK").trim().split(/\s+/).filter(Boolean);
@@ -33,11 +35,16 @@ export function AppHeader(){
       icon:"home-outline",
       href:"/home",
     },
+    ...(hasDashboard?[{
+      key:"dashboard",
+      label:t("dashboard.title"),
+      icon:"grid-outline" as IconName,
+      href:"/dashboard",
+    }]:[]),
     {key:"venues",label:t("booking.venuesTitle"),icon:"football-outline",href:"/venues"},
     {key:"teams",label:t("teams.title"),icon:"people-outline",href:"/teams"},
     {key:"competitions",label:t("competition.title"),icon:"trophy-outline",href:"/competitions"},
     {key:"bookings",label:t("booking.myBookings"),icon:"calendar-outline",href:"/bookings"},
-    ...(owner?[{key:"schedule",label:t("schedule.title"),icon:"time-outline" as IconName,href:"/schedule"}]:[]),
     {key:"profile",label:t("profile.title"),icon:"person-circle-outline",href:"/settings"},
   ];
 
