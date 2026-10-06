@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { LogBox } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AccountSuspensionOverlay } from "../src/components/AccountSuspensionOverlay";
 import { AppCrashBoundary } from "../src/components/AppCrashBoundary";
@@ -10,6 +11,10 @@ import { ConnectivityBanner } from "../src/components/ConnectivityBanner";
 import { AuthProvider } from "../src/providers/AuthProvider";
 import { LocaleProvider } from "../src/providers/LocaleProvider";
 import { NetworkProvider } from "../src/providers/NetworkProvider";
+
+if (__DEV__) {
+  LogBox.ignoreLogs(["Cannot connect to Expo CLI."]);
+}
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
