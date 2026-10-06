@@ -1012,6 +1012,11 @@ export const competitionFeeUpdateRequestSchema = z.object({
 });
 export type CompetitionFeeUpdateRequest = z.infer<typeof competitionFeeUpdateRequestSchema>;
 
+export const competitionSeedUpdateRequestSchema = z.object({
+  seed: z.number().int().min(1).max(128).nullable(),
+});
+export type CompetitionSeedUpdateRequest = z.infer<typeof competitionSeedUpdateRequestSchema>;
+
 export const competitionMediaPostCreateRequestSchema = z.object({
   body: z.string().trim().min(1).max(2_000),
   imageUrl: z.string().url().max(2_000).nullable().optional(),
