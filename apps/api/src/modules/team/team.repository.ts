@@ -12,6 +12,7 @@ import {
   playerProfiles,
   teamInvitations,
   teamMemberships,
+  roleSubscriptions,
   teams,
   userRoles,
   users,
@@ -49,8 +50,21 @@ export class DrizzleTeamRepository implements TeamRepository {
       username: users.username,
     }).from(users).where(and(eq(users.id, userId), eq(users.status, "ACTIVE"))).limit(1);
     if (!row) return null;
-    const roles = await this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId));
-    return { ...row, roles: roles.map((item) => item.role) };
+    const [roles, subscriptions] = await Promise.all([
+      this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId)),
+      this.db.select({ role: roleSubscriptions.role, status: roleSubscriptions.status, activeUntil: roleSubscriptions.activeUntil })
+        .from(roleSubscriptions)
+        .where(eq(roleSubscriptions.userId, userId)),
+    ]);
+    const activePaid = new Set(subscriptions
+      .filter((item) => item.status === "ACTIVE" && item.activeUntil && item.activeUntil.getTime() > Date.now())
+      .map((item) => item.role));
+    return {
+      ...row,
+      roles: roles.map((item) => item.role).filter((role) =>
+        role !== "VENUE_OWNER" && role !== "TEAM_MANAGER" || activePaid.has(role),
+      ),
+    };
   }
 
   async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
@@ -75,8 +89,21 @@ export class DrizzleTeamRepository implements TeamRepository {
       identifierCondition,
     )).limit(1);
     if (!row) return null;
-    const roles = await this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, row.id));
-    return { ...row, roles: roles.map((item) => item.role) };
+    const [roles, subscriptions] = await Promise.all([
+      this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, row.id)),
+      this.db.select({ role: roleSubscriptions.role, status: roleSubscriptions.status, activeUntil: roleSubscriptions.activeUntil })
+        .from(roleSubscriptions)
+        .where(eq(roleSubscriptions.userId, row.id)),
+    ]);
+    const activePaid = new Set(subscriptions
+      .filter((item) => item.status === "ACTIVE" && item.activeUntil && item.activeUntil.getTime() > Date.now())
+      .map((item) => item.role));
+    return {
+      ...row,
+      roles: roles.map((item) => item.role).filter((role) =>
+        role !== "VENUE_OWNER" && role !== "TEAM_MANAGER" || activePaid.has(role),
+      ),
+    };
   }
 
   private async listPlayerTeams(userId: string, publicOnly: boolean): Promise<OwnPlayerProfileDto["teams"]> {
