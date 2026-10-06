@@ -7,6 +7,7 @@ import { marketingApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -49,7 +50,7 @@ export default function PostDetailScreen(){
 
   return <Screen>
     <AppText variant="title" weight="bold">{t("feed.postTitle")}</AppText>
-    {loading?<AppText>{t("common.loading")}</AppText>:null}
+    {loading?<DataLoadingState variant="detail"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {post?<Card>
       {post.imageUrl?<Image source={{uri:post.imageUrl}} style={{width:"100%",height:220,borderRadius:radius.md}} resizeMode="cover"/>:null}
