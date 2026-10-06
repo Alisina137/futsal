@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
-import type { PromotionDto, VenuePostDto } from "@leaguekick/contracts";
+import type {
+  PromotionDto,
+  SocialEntityType,
+  SocialFeedPostDto,
+  SocialPostCommentDto,
+  VenuePostDto,
+} from "@leaguekick/contracts";
 import type { MarketingRepository, MarketingVenueRecord } from "../src/modules/marketing/marketing.types.js";
 
 export class FakeMarketingRepository implements MarketingRepository {
@@ -142,4 +148,32 @@ export class FakeMarketingRepository implements MarketingRepository {
   async followerCount(venueId:string){return [...this.follows].filter((key)=>key.endsWith(`:${venueId}`)).length;}
   async listFollowedVenueIds(userId:string){return [...this.follows].filter((key)=>key.startsWith(`${userId}:`)).map((key)=>key.slice(userId.length+1));}
   async listFollowerUserIds(venueId:string){return [...this.follows].filter((key)=>key.endsWith(`:${venueId}`)).map((key)=>key.slice(0,key.length-venueId.length-1));}
+
+  async getSocialEntity(entityType:SocialEntityType,entityId:string){
+    if(entityType!=="VENUE")return null;
+    const venue=this.venues.get(entityId);
+    return venue?{id:venue.id,type:"VENUE" as const,name:venue.name,imageUrl:null}:null;
+  }
+  async followEntity(userId:string,entityType:SocialEntityType,entityId:string){
+    if(entityType==="VENUE")await this.followVenue(userId,entityId);
+  }
+  async unfollowEntity(userId:string,entityType:SocialEntityType,entityId:string){
+    if(entityType==="VENUE")await this.unfollowVenue(userId,entityId);
+  }
+  async isFollowingEntity(userId:string,entityType:SocialEntityType,entityId:string){
+    return entityType==="VENUE"?this.isFollowing(userId,entityId):false;
+  }
+  async socialFollowerCount(entityType:SocialEntityType,entityId:string){
+    return entityType==="VENUE"?this.followerCount(entityId):0;
+  }
+  async listSocialFeed(_userId:string):Promise<SocialFeedPostDto[]>{return [];}
+  async getSocialPost(_userId:string,_postId:string):Promise<SocialFeedPostDto|null>{return null;}
+  async likeSocialPost(_userId:string,_postId:string):Promise<SocialFeedPostDto|null>{return null;}
+  async unlikeSocialPost(_userId:string,_postId:string):Promise<SocialFeedPostDto|null>{return null;}
+  async listSocialComments(_userId:string,_postId:string):Promise<SocialPostCommentDto[]>{return [];}
+  async addSocialComment(_userId:string,_postId:string,_body:string,_createdAt:Date):Promise<SocialPostCommentDto|null>{return null;}
+  async updateSocialComment(_userId:string,_postId:string,_commentId:string,_body:string,_editedAt:Date):Promise<SocialPostCommentDto|null>{return null;}
+  async deleteSocialComment(_userId:string,_postId:string,_commentId:string){return false;}
+  async likeSocialComment(_userId:string,_postId:string,_commentId:string):Promise<SocialPostCommentDto|null>{return null;}
+  async unlikeSocialComment(_userId:string,_postId:string,_commentId:string):Promise<SocialPostCommentDto|null>{return null;}
 }
