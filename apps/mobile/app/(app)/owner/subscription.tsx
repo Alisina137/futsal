@@ -50,13 +50,14 @@ export default function OwnerSubscriptionScreen() {
     }
   }
 
+  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={500}/></Screen>;
+
   return <Screen showHeader>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{t("phase7.subscription.title")}</AppText>
       <AppText muted>{t("phase7.subscription.subtitle")}</AppText>
     </View>
 
-    {loading?<DataLoadingState variant="detail"/>:null}
     {error ? <AppText style={{ color: colors.danger }}>{error}</AppText> : null}
 
     {data ? <>
