@@ -918,6 +918,9 @@ export type CompetitionStatus = z.infer<typeof competitionStatusSchema>;
 export const competitionRegistrationStatusSchema = z.enum(["INVITED", "APPLIED", "PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN"]);
 export type CompetitionRegistrationStatus = z.infer<typeof competitionRegistrationStatusSchema>;
 
+export const competitionFeeStatusSchema = z.enum(["UNPAID", "PENDING", "PAID", "WAIVED"]);
+export type CompetitionFeeStatus = z.infer<typeof competitionFeeStatusSchema>;
+
 export const competitionMatchStageSchema = z.enum(["LEAGUE", "GROUP", "KNOCKOUT"]);
 export type CompetitionMatchStage = z.infer<typeof competitionMatchStageSchema>;
 
@@ -939,6 +942,8 @@ const competitionConfigSchema = z.object({
   tieBreakOrder: z.array(competitionTieBreakSchema).min(1).max(5).default(["POINTS", "GOAL_DIFFERENCE", "GOALS_FOR"]),
   groupCount: z.number().int().min(2).max(16).nullable().optional(),
   qualifiersPerGroup: z.number().int().min(1).max(8).nullable().optional(),
+  registrationClosesAt: isoDateTimeSchema.nullable().optional(),
+  matchDurationMinutes: z.number().int().min(20).max(180).default(60),
   startsAt: isoDateTimeSchema.nullable().optional(),
   endsAt: isoDateTimeSchema.nullable().optional(),
 });
@@ -949,6 +954,7 @@ type CompetitionConfigRefinementInput = {
   format?: CompetitionFormat | undefined;
   groupCount?: number | null | undefined;
   qualifiersPerGroup?: number | null | undefined;
+  registrationClosesAt?: string | null | undefined;
 };
 
 function validateCompetitionConfig(
@@ -957,6 +963,9 @@ function validateCompetitionConfig(
 ) {
   if (value.startsAt && value.endsAt && Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
     ctx.addIssue({ code: "custom", path: ["endsAt"], message: "Competition end must be after start." });
+  }
+  if (value.registrationClosesAt && value.startsAt && Date.parse(value.registrationClosesAt) >= Date.parse(value.startsAt)) {
+    ctx.addIssue({ code: "custom", path: ["registrationClosesAt"], message: "Registration must close before the competition starts." });
   }
   if (value.format === "GROUP_KNOCKOUT") {
     if (!value.groupCount) ctx.addIssue({ code: "custom", path: ["groupCount"], message: "Group count is required." });
@@ -996,6 +1005,34 @@ export const competitionRegistrationResponseRequestSchema = z.object({
   status: z.enum(["ACCEPTED", "REJECTED"]),
 });
 export type CompetitionRegistrationResponseRequest = z.infer<typeof competitionRegistrationResponseRequestSchema>;
+
+export const competitionFeeUpdateRequestSchema = z.object({
+  status: competitionFeeStatusSchema,
+  paymentReference: z.string().trim().max(120).optional().or(z.literal("")),
+});
+export type CompetitionFeeUpdateRequest = z.infer<typeof competitionFeeUpdateRequestSchema>;
+
+export const competitionMediaPostCreateRequestSchema = z.object({
+  body: z.string().trim().min(1).max(2_000),
+  imageUrl: z.string().url().max(2_000).nullable().optional(),
+});
+export type CompetitionMediaPostCreateRequest = z.infer<typeof competitionMediaPostCreateRequestSchema>;
+
+export const competitionMediaPostStatusRequestSchema = z.object({
+  published: z.boolean(),
+});
+export type CompetitionMediaPostStatusRequest = z.infer<typeof competitionMediaPostStatusRequestSchema>;
+
+export const competitionMediaPostDtoSchema = z.object({
+  id: z.string().uuid(),
+  competitionId: z.string().uuid(),
+  body: z.string(),
+  imageUrl: z.string().nullable(),
+  status: z.enum(["PUBLISHED", "UNPUBLISHED"]),
+  publishedAt: isoDateTimeSchema,
+  unpublishedAt: isoDateTimeSchema.nullable(),
+});
+export type CompetitionMediaPostDto = z.infer<typeof competitionMediaPostDtoSchema>;
 
 export const competitionMatchScheduleRequestSchema = z.object({
   areaId: z.string().uuid(),
@@ -1039,6 +1076,9 @@ export const competitionTeamDtoSchema = z.object({
   seed: z.number().int().nullable(),
   groupId: z.string().uuid().nullable(),
   groupName: z.string().nullable(),
+  feeStatus: competitionFeeStatusSchema,
+  feePaymentReference: z.string().nullable(),
+  feeConfirmedAt: isoDateTimeSchema.nullable(),
 });
 export type CompetitionTeamDto = z.infer<typeof competitionTeamDtoSchema>;
 
@@ -1117,6 +1157,8 @@ export const competitionDtoSchema = z.object({
   tieBreakOrder: z.array(competitionTieBreakSchema),
   groupCount: z.number().int().nullable(),
   qualifiersPerGroup: z.number().int().nullable(),
+  registrationClosesAt: isoDateTimeSchema.nullable(),
+  matchDurationMinutes: z.number().int().min(20).max(180),
   startsAt: isoDateTimeSchema.nullable(),
   endsAt: isoDateTimeSchema.nullable(),
   teams: z.array(competitionTeamDtoSchema),
@@ -1138,7 +1180,7 @@ export const competitionListItemDtoSchema = competitionDtoSchema.omit({
 });
 export type CompetitionListItemDto = z.infer<typeof competitionListItemDtoSchema>;
 
-export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION"]);
+export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE"]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
 export const notificationDtoSchema = z.object({
