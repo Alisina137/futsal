@@ -7,6 +7,7 @@ import type {
   SocialFeedResponse,
   SocialFollowStateDto,
   SocialPostCommentCreateRequest,
+  SocialPostCommentUpdateRequest,
   VenuePostCreateRequest,
   VenuePostDto,
 } from "@leaguekick/contracts";
@@ -272,7 +273,10 @@ export class MarketingService {
   async socialComments(userId: string, postId: string) {
     const post = await this.repository.getSocialPost(userId, postId);
     if (!post) throw errors.badRequest("SOCIAL_POST_NOT_FOUND", "This post is no longer available.");
-    return { comments: await this.repository.listSocialComments(postId) };
+    return {
+      post,
+      comments: await this.repository.listSocialComments(userId, postId),
+    };
   }
 
   async addSocialComment(userId: string, postId: string, input: SocialPostCommentCreateRequest) {
@@ -280,6 +284,45 @@ export class MarketingService {
     if (!post) throw errors.badRequest("SOCIAL_POST_NOT_FOUND", "This post is no longer available.");
     const comment = await this.repository.addSocialComment(userId, postId, input.body.trim(), this.now());
     if (!comment) throw errors.badRequest("SOCIAL_POST_NOT_FOUND", "This post is no longer available.");
+    return comment;
+  }
+
+  async updateSocialComment(
+    userId: string,
+    postId: string,
+    commentId: string,
+    input: SocialPostCommentUpdateRequest,
+  ) {
+    const comment = await this.repository.updateSocialComment(
+      userId,
+      postId,
+      commentId,
+      input.body.trim(),
+      this.now(),
+    );
+    if (!comment) {
+      throw errors.forbidden("COMMENT_ACCESS_DENIED", "You can only edit your own comment.");
+    }
+    return comment;
+  }
+
+  async deleteSocialComment(userId: string, postId: string, commentId: string) {
+    const deleted = await this.repository.deleteSocialComment(userId, postId, commentId);
+    if (!deleted) {
+      throw errors.forbidden("COMMENT_ACCESS_DENIED", "You can only delete your own comment.");
+    }
+    return { deleted: true };
+  }
+
+  async likeSocialComment(userId: string, postId: string, commentId: string) {
+    const comment = await this.repository.likeSocialComment(userId, postId, commentId);
+    if (!comment) throw errors.badRequest("COMMENT_NOT_FOUND", "This comment is no longer available.");
+    return comment;
+  }
+
+  async unlikeSocialComment(userId: string, postId: string, commentId: string) {
+    const comment = await this.repository.unlikeSocialComment(userId, postId, commentId);
+    if (!comment) throw errors.badRequest("COMMENT_NOT_FOUND", "This comment is no longer available.");
     return comment;
   }
 
