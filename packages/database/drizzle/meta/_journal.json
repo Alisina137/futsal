@@ -92,6 +92,13 @@
       "when": 1791275400000,
       "tag": "0012_team_join_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791279000000,
+      "tag": "0013_social_comment_interactions",
+      "breakpoints": true
     }
   ]
 }
