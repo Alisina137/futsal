@@ -84,8 +84,9 @@ export default function CompetitionDetailScreen(){
 
   const starts=competition?.startsAt?formatLocalDateTimeParts(competition.startsAt,language):null;
 
+  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={500}/></Screen>;
+
   return <Screen showHeader>
-    {loading?<DataLoadingState variant="detail"/>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
 
     {competition?<>
