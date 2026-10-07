@@ -8,7 +8,7 @@ import type {
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
 import {
   formatCalendarDate,
@@ -434,7 +434,7 @@ function WeekView({
   </View>;
 }
 
-function WeekHeaderCell({label,style}:{label:string;style:object}){
+function WeekHeaderCell({label,style}:{label:string;style:ViewStyle}){
   return <View style={[styles.weekTableHeaderCell,style]}>
     <AppText variant="caption" weight="bold" style={styles.weekTableHeaderText} numberOfLines={1}>
       {label}
