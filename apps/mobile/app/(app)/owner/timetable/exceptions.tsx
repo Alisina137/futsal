@@ -156,8 +156,8 @@ function ExceptionSection({
           :<View style={styles.periodList}>
             {item.periods.map((period,index)=><View key={index} style={[styles.periodLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <AppText forceLtr weight="semibold">{period.startsAt}–{period.endsAt}</AppText>
-              <AppText style={{color:colors.primary}} weight="semibold" forceLtr>
-                {period.priceAfn??0} AFN
+              <AppText style={{color:colors.primary}} weight="semibold" forceLtr={period.priceAfn!==null}>
+                {period.priceAfn!==null?`${period.priceAfn} AFN`:t("schedule.specialRegularPrice")}
               </AppText>
             </View>)}
           </View>}
