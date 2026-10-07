@@ -346,7 +346,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
   private async hydrateProjectedPost(row: Awaited<ReturnType<ReturnType<DrizzleMarketingRepository["postProjection"]>["limit"]>>[number]) {
     const schedules = await this.db.select().from(venuePostScheduledActions)
       .where(eq(venuePostScheduledActions.postId, row.id))
-      .orderBy(asc(venuePostScheduledActions.executeAt));
+      .orderBy(asc(venuePostScheduledActions.executeAt), asc(venuePostScheduledActions.createdAt));
     return postDto(row, schedules);
   }
 
@@ -560,6 +560,21 @@ export class DrizzleMarketingRepository implements MarketingRepository {
         continue;
       }
       if(item.action==="PUBLISH"){
+        if(current.ctaType==="PROMOTION"&&current.ctaTargetId){
+          const promotion=await this.getPromotion(current.ctaTargetId);
+          if(!promotion||promotion.venueId!==current.venueId||promotion.status!=="ACTIVE"){
+            await this.db.update(venuePostScheduledActions).set({cancelledAt:now}).where(eq(venuePostScheduledActions.id,item.id));
+            continue;
+          }
+        }
+        if(
+          current.ctaType==="COMPETITION"
+          &&current.ctaTargetId
+          &&!(await this.competitionBelongsToVenue(current.ctaTargetId,current.venueId))
+        ){
+          await this.db.update(venuePostScheduledActions).set({cancelledAt:now}).where(eq(venuePostScheduledActions.id,item.id));
+          continue;
+        }
         await this.db.update(venuePosts).set({status:"PUBLISHED",publishedAt:now,unpublishedAt:null,updatedAt:now}).where(eq(venuePosts.id,item.postId));
         await this.db.update(socialPosts).set({status:"PUBLISHED",publishedAt:now,unpublishedAt:null,updatedAt:now}).where(eq(socialPosts.legacyVenuePostId,item.postId));
         const published=await this.getPost(item.postId);
@@ -638,7 +653,11 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     likes?: Array<{ postId: string; userId: string }>,
     comments?: Array<{ postId: string }>,
   ): Promise<SocialFeedPostDto | null> {
-    if (row.status !== "PUBLISHED") return null;
+    if (row.status !== "PUBLISHED" || row.visibility === "PRIVATE") return null;
+    if (
+      row.visibility === "FOLLOWERS"
+      && !(await this.isFollowingEntity(userId, row.entityType as SocialEntityType, row.entityId))
+    ) return null;
     const author = await this.getSocialEntity(row.entityType as SocialEntityType, row.entityId);
     if (!author) return null;
 
