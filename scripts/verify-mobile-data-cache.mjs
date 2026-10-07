@@ -48,6 +48,10 @@ requireText(
   "Private team reads must remain memory-only",
 );
 requireText(cache, "if (existing) return existing;", "Duplicate in-flight GET requests must be deduplicated");
+requireText(cache, "cacheEpoch", "Cache invalidation must guard against stale in-flight responses");
+requireText(cache, "if (cacheEpoch === requestEpoch)", "Stale pre-mutation responses must not repopulate cache");
+requireText(cache, "AsyncStorage.setItem(key, JSON.stringify(entry)).catch(() => undefined)", "Persistent cache writes must never break successful API reads");
+requireText(cache, "AsyncStorage.multiRemove(keys).catch(() => undefined)", "Cache invalidation storage failures must remain non-blocking");
 requireText(cache, "if (cached && isNetworkFailure(error)) return cached.value;", "Stale fallback must be network-only");
 requireText(cache, "await clearScope(scope);", "Successful writes must invalidate current-user cache");
 
