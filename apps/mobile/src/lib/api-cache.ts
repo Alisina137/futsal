@@ -89,9 +89,9 @@ function isNetworkFailure(error: unknown) {
 }
 
 async function readPersistent<T>(key: string): Promise<CacheEntry<T> | null> {
-  const raw = await AsyncStorage.getItem(key);
-  if (!raw) return null;
   try {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CacheEntry<T>>;
     if (typeof parsed.cachedAt !== "number" || !("value" in parsed)) return null;
     return { value: parsed.value as T, cachedAt: parsed.cachedAt };
@@ -102,7 +102,7 @@ async function readPersistent<T>(key: string): Promise<CacheEntry<T> | null> {
 }
 
 async function writePersistent<T>(key: string, entry: CacheEntry<T>) {
-  await AsyncStorage.setItem(key, JSON.stringify(entry));
+  await AsyncStorage.setItem(key, JSON.stringify(entry)).catch(() => undefined);
 }
 
 async function removeKeysMatching(predicate: (key: string) => boolean) {
@@ -112,10 +112,10 @@ async function removeKeysMatching(predicate: (key: string) => boolean) {
   for (const key of [...inFlightReads.keys()]) {
     if (predicate(key)) inFlightReads.delete(key);
   }
-  const keys = (await AsyncStorage.getAllKeys()).filter((key) =>
+  const keys = (await AsyncStorage.getAllKeys().catch(() => [] as string[])).filter((key) =>
     key.startsWith(`${STORAGE_PREFIX}|`) && predicate(key)
   );
-  if (keys.length) await AsyncStorage.multiRemove(keys);
+  if (keys.length) await AsyncStorage.multiRemove(keys).catch(() => undefined);
 }
 
 async function clearScope(scope: string) {
