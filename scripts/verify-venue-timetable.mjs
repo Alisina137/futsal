@@ -114,23 +114,18 @@ assert(ownerLayout.includes("<TimetableSubNav/>"),"Venue owner shell must keep t
 for(const route of [
   'href:"/owner/schedule"',
   'href:"/owner/timetable/weekly"',
-  'href:"/owner/manual-booking"',
-  'href:"/owner/block-time"',
   'href:"/owner/timetable/exceptions"',
 ]){
   assert(timetableNav.includes(route),`Timetable sub-navigation missing route: ${route}`);
 }
+assert(!timetableNav.includes('href:"/owner/manual-booking"'),"Manual Reserve must stay accessible from slots but be hidden from timetable sub-navigation.");
+assert(!timetableNav.includes('href:"/owner/block-time"'),"Close a Time must stay accessible from slots but be hidden from timetable sub-navigation.");
 const calendarNavPosition=timetableNav.indexOf('{key:"calendar"');
-const manualNavPosition=timetableNav.indexOf('{key:"manual"');
-const blockNavPosition=timetableNav.indexOf('{key:"block"');
 const specialNavPosition=timetableNav.indexOf('{key:"special"');
 const weeklyNavPosition=timetableNav.indexOf('{key:"weekly"');
 assert(
-  calendarNavPosition<manualNavPosition
-    &&manualNavPosition<blockNavPosition
-    &&blockNavPosition<specialNavPosition
-    &&specialNavPosition<weeklyNavPosition,
-  "Weekly Timetable must be the last timetable sub-navigation option.",
+  calendarNavPosition<specialNavPosition&&specialNavPosition<weeklyNavPosition,
+  "Visible timetable sub-navigation must remain Calendar, Special Hours, then Weekly Timetable.",
 );
 assert(!schedule.includes('t("schedule.quickActions")'),"Main timetable calendar page must not duplicate the old Quick Actions card.");
 assert(!schedule.includes('t("schedule.venueTimetable")'),"Main timetable calendar page title must remain removed.");
