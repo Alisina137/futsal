@@ -179,6 +179,56 @@ export class FakeBookingRepository implements BookingRepository {
     });
   }
 
+  async updateBlockAtomic(input: {
+    blockId: string;
+    venueId: string;
+    areaId: string;
+    ownerUserId: string;
+    startsAt: Date;
+    endsAt: Date;
+    reason: string | null;
+  }) {
+    return this.exclusive(async () => {
+      const current = this.blocks.get(input.blockId);
+      const venue = this.venues.get(input.venueId);
+      if (!current || current.venueId !== input.venueId || !venue || venue.ownerUserId !== input.ownerUserId) {
+        return null;
+      }
+
+      const bookingConflict = [...this.bookings.values()].some((booking) =>
+        booking.venueId === input.venueId
+        && booking.areaId === input.areaId
+        && booking.status !== "CANCELLED"
+        && overlap(new Date(booking.startsAt), new Date(booking.endsAt), input.startsAt, input.endsAt)
+      );
+      const blockConflict = [...this.blocks.values()].some((block) =>
+        block.id !== input.blockId
+        && block.venueId === input.venueId
+        && block.areaId === input.areaId
+        && overlap(new Date(block.startsAt), new Date(block.endsAt), input.startsAt, input.endsAt)
+      );
+      if (bookingConflict || blockConflict) {
+        throw errors.conflict("SLOT_UNAVAILABLE", "That time is already occupied.");
+      }
+
+      const area = venue.areas.find((candidate) => candidate.id === input.areaId);
+      if (!area) return null;
+      const updated: VenueBlockDto = {
+        ...current,
+        areaId: input.areaId,
+        areaName: area.name,
+        startsAt: input.startsAt.toISOString(),
+        endsAt: input.endsAt.toISOString(),
+        reason: input.reason,
+      };
+      this.blocks.set(updated.id, updated);
+      this.promotionPrices = this.promotionPrices.filter((promotion) =>
+        !(promotion.areaId === input.areaId && overlap(promotion.startsAt, promotion.endsAt, input.startsAt, input.endsAt))
+      );
+      return updated;
+    });
+  }
+
   async deleteBlock(ownerUserId: string, blockId: string) {
     const block = this.blocks.get(blockId);
     if (!block) return false;
