@@ -140,6 +140,7 @@ function publicPrefixesAffectedBy(path: string) {
   if (pathname.startsWith("/api/v1/teams")) prefixes.push("/api/v1/teams");
   if (pathname.includes("/competitions")) prefixes.push("/api/v1/competitions");
   if (pathname.startsWith("/api/v1/owner/onboarding")) prefixes.push("/api/v1/venues");
+  if (pathname.startsWith("/api/v1/venues/") && pathname.endsWith("/follow")) prefixes.push("/api/v1/venues");
   if (pathname.startsWith("/api/v1/owner/posts") || pathname.startsWith("/api/v1/owner/promotions")) {
     prefixes.push("/api/v1/feed");
   }
