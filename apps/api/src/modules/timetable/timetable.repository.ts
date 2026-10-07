@@ -26,6 +26,7 @@ function period(row: typeof venueTimetablePeriods.$inferSelect) {
     dayOfWeek: row.dayOfWeek,
     startsAt: row.startsAt.slice(0, 5),
     endsAt: row.endsAt.slice(0, 5),
+    priceAfn: row.priceAfn,
   };
 }
 
@@ -132,6 +133,7 @@ export class DrizzleTimetableRepository implements TimetableRepository {
         dayOfWeek: item.dayOfWeek,
         startsAt: item.startsAt,
         endsAt: item.endsAt,
+        priceAfn: item.priceAfn,
       })));
       return created.id;
     });
@@ -166,6 +168,7 @@ export class DrizzleTimetableRepository implements TimetableRepository {
         dayOfWeek: item.dayOfWeek,
         startsAt: item.startsAt,
         endsAt: item.endsAt,
+        priceAfn: item.priceAfn,
       })));
     });
     const result = await this.getTimetable(input.timetableId);
