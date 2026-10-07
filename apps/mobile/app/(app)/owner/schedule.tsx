@@ -106,7 +106,7 @@ export default function OwnerScheduleScreen(){
       requestAnimationFrame(()=>{
         if(weekListY.current===null||todayWeekRowY.current===null)return;
         screenScrollRef.current?.scrollTo({
-          y:Math.max(0,weekListY.current+48+todayWeekRowY.current-spacing.md),
+          y:Math.max(0,weekListY.current+todayWeekRowY.current-spacing.md),
           animated:false,
         });
       });
@@ -281,9 +281,10 @@ export default function OwnerScheduleScreen(){
 }
 
 function Summary({day,t}:{day:VenueCalendarDay;t:ReturnType<typeof useLocale>["t"]}){
+  const onlineCount=day.events.filter((event)=>event.type==="ONLINE_BOOKING").length;
   const metrics=[
     [t("schedule.summaryAvailable"),day.availableCount],
-    [t("schedule.summaryBooked"),day.bookedCount],
+    [t("schedule.summaryOnline"),onlineCount],
     [t("schedule.summaryManual"),day.manualCount],
     [t("schedule.summaryCompetition"),day.competitionCount],
     [t("schedule.summaryBlocked"),day.blockedCount],
@@ -364,12 +365,13 @@ function WeekView({
         onLayout={isToday?(event)=>onTodayRowLayout(event.nativeEvent.layout.y):undefined}
         style={({pressed})=>[
           styles.weekDayRow,
+          {flexDirection:language==="en"?"row":"row-reverse"},
           isToday&&styles.weekTodayRow,
           pressed&&styles.weekDayRowPressed,
         ]}
       >
         <View style={styles.weekDayInfo}>
-          <View style={styles.weekDayTitleLine}>
+          <View style={[styles.weekDayTitleLine,{flexDirection:language==="en"?"row":"row-reverse"}]}>
             <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>
               {formatCalendarDate(day.date,language,{weekday:"long"})}
             </AppText>
@@ -384,7 +386,7 @@ function WeekView({
           </AppText>
         </View>
 
-        <View style={styles.weekReservationSummary}>
+        <View style={[styles.weekReservationSummary,{flexDirection:language==="en"?"row":"row-reverse"}]}>
           <Ionicons name="calendar-outline" size={18} color={colors.primary}/>
           <View style={styles.weekReservationText}>
             <AppText variant="caption" muted>{t("schedule.totalReservations")}</AppText>
