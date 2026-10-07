@@ -58,6 +58,15 @@ const bookingRepository = new DrizzleBookingRepository(db);
 const booking = new BookingService(bookingRepository, undefined, notificationService, timetable);
 const marketingRepository = new DrizzleMarketingRepository(db);
 const marketing = new MarketingService(marketingRepository, booking, undefined, notificationService);
+const mediaLifecycleTimer = setInterval(() => {
+  void marketing.refreshScheduledMedia().catch((error) => {
+    console.error(JSON.stringify({
+      event: "media_lifecycle_refresh_failed",
+      message: error instanceof Error ? error.message : String(error),
+    }));
+  });
+}, 60_000);
+mediaLifecycleTimer.unref();
 const teamRepository = new DrizzleTeamRepository(db);
 const teamService = new TeamService(teamRepository, undefined, notificationService);
 const competitionRepository = new DrizzleCompetitionRepository(db);
@@ -105,6 +114,7 @@ let shuttingDown = false;
 async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
+  clearInterval(mediaLifecycleTimer);
   console.log(JSON.stringify({ event: "api_shutdown_started", signal }));
 
   const forceTimer = setTimeout(() => {
