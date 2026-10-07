@@ -91,7 +91,7 @@ console.log("[dev:mobile] Starting Expo Go with localhost + clean cache...\n");
 
 const child=spawn(
   process.platform==="win32"?"pnpm.cmd":"pnpm",
-  ["--filter","@leaguekick/mobile","exec","expo","start","--localhost","--clear","--go"],
+  ["--filter","@leaguekick/mobile","exec","expo","start","--localhost","--port","8081","--clear","--go"],
   {
     stdio:"inherit",
     env:{
@@ -110,3 +110,31 @@ child.on("exit",(code,signal)=>{
   }
   process.exit(code??0);
 });
+
+async function waitForMetro(){
+  for(let attempt=0;attempt<60;attempt+=1){
+    try{
+      const response=await fetch("http://127.0.0.1:8081/status");
+      if(response.ok)return true;
+    }catch{}
+    await new Promise((resolve)=>setTimeout(resolve,500));
+  }
+  return false;
+}
+
+if(await waitForMetro()){
+  const opened=run(adb,[
+    "shell","am","start",
+    "-a","android.intent.action.VIEW",
+    "-d","exp://127.0.0.1:8081",
+  ]);
+  if(opened.ok){
+    console.log("\n[dev:mobile] Expo Go launch request sent to the Android phone.");
+  }else{
+    console.warn("\n[dev:mobile] Metro is ready, but Expo Go could not be opened automatically.");
+    console.warn("[dev:mobile] Open Expo Go on the phone and use: exp://127.0.0.1:8081");
+  }
+}else{
+  console.warn("\n[dev:mobile] Metro did not become ready on port 8081 within 30 seconds.");
+  console.warn("[dev:mobile] Check the Expo terminal output above for the startup error.");
+}
