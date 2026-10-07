@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { VenueTimetableConflict, VenueTimetableDto, VenueTimetableListResponse } from "@leaguekick/contracts";
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../../src/lib/api";
 import { formatCalendarDate } from "../../../../src/lib/timetable-calendar";
@@ -158,7 +158,7 @@ export default function WeeklyTimetableScreen(){
   </Screen>;
 }
 
-function Section({title,children}:{title:string;children:React.ReactNode}){
+function Section({title,children}:{title:string;children:ReactNode}){
   return <Card>
     <AppText variant="bodyLarge" weight="bold">{title}</AppText>
     {children}
