@@ -877,6 +877,7 @@ export const venuePostDtoSchema = z.object({
   id: z.string().uuid(),
   venueId: z.string().uuid(),
   venueName: z.string(),
+  socialPostId: z.string().uuid().nullable(),
   body: z.string(),
   imageUrl: z.string().nullable(),
   ctaType: postCtaTypeSchema,
