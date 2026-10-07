@@ -27,7 +27,10 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
 
   private async hydrateVenue(row: typeof venues.$inferSelect): Promise<OwnerVenueRecord> {
     const [areas, hours] = await Promise.all([
-      this.db.select().from(venueAreas).where(eq(venueAreas.venueId, row.id)),
+      this.db.select().from(venueAreas).where(and(
+        eq(venueAreas.venueId, row.id),
+        eq(venueAreas.active, true),
+      )),
       this.db.select().from(venueOpeningHours).where(eq(venueOpeningHours.venueId, row.id)),
     ]);
 
@@ -128,15 +131,45 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
         venueId = created.id;
       }
 
-      await tx.delete(venueAreas).where(eq(venueAreas.venueId, venueId));
-      await tx.delete(venueOpeningHours).where(eq(venueOpeningHours.venueId, venueId));
+      const courtInput = input.setup.areas[0]!;
+      const existingCourts = await tx.select().from(venueAreas)
+        .where(eq(venueAreas.venueId, venueId))
+        .orderBy(venueAreas.createdAt);
+      const activeCourt = existingCourts.find((court) => court.active) ?? existingCourts[0] ?? null;
 
-      await tx.insert(venueAreas).values(input.setup.areas.map((area) => ({
-        venueId,
-        name: area.name.trim(),
-        defaultSessionDurationMinutes: area.defaultSessionDurationMinutes,
-        basePriceAfn: area.basePriceAfn,
-      })));
+      if (activeCourt) {
+        await tx.update(venueAreas).set({
+          name: courtInput.name.trim(),
+          defaultSessionDurationMinutes: courtInput.defaultSessionDurationMinutes,
+          basePriceAfn: courtInput.basePriceAfn,
+          active: true,
+          updatedAt: input.completedAt,
+        }).where(eq(venueAreas.id, activeCourt.id));
+
+        await tx.update(venueAreas).set({
+          active: false,
+          updatedAt: input.completedAt,
+        }).where(and(
+          eq(venueAreas.venueId, venueId),
+          // The selected court stays active; historical extra courts remain preserved but inactive.
+          // Drizzle has no != import in this repository, so deactivate extras one by one below.
+          eq(venueAreas.active, true),
+        ));
+        await tx.update(venueAreas).set({
+          active: true,
+          updatedAt: input.completedAt,
+        }).where(eq(venueAreas.id, activeCourt.id));
+      } else {
+        await tx.insert(venueAreas).values({
+          venueId,
+          name: courtInput.name.trim(),
+          defaultSessionDurationMinutes: courtInput.defaultSessionDurationMinutes,
+          basePriceAfn: courtInput.basePriceAfn,
+          active: true,
+        });
+      }
+
+      await tx.delete(venueOpeningHours).where(eq(venueOpeningHours.venueId, venueId));
 
       await tx.insert(venueOpeningHours).values(input.setup.openingHours.map((hour) => ({
         venueId,
