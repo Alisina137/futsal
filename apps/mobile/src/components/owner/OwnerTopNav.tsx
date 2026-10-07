@@ -26,7 +26,7 @@ const items:{
 ];
 
 function activeSection(pathname:string):OwnerSection|null{
-  if(pathname.startsWith("/owner/competitions"))return "competitions";
+  if(pathname==="/dashboard"||pathname.startsWith("/owner/competitions"))return "competitions";
   if(pathname==="/schedule"||pathname.startsWith("/owner/manual-booking")||pathname.startsWith("/owner/block-time"))return "schedule";
   if(pathname.startsWith("/owner/posts")||pathname.startsWith("/owner/promotions"))return "media";
   if(pathname.startsWith("/owner/analytics"))return "analysis";
