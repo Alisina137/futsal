@@ -134,7 +134,7 @@ export default function OwnerScheduleScreen(){
       .catch(()=>{if(active)setError(t("schedule.loadTimetableError"));})
       .finally(()=>{if(active)setLoading(false);});
     return ()=>{active=false;};
-  },[loadMeta,t,token]);
+  },[loadMeta,token]); // Initial page shell load only; calendar/language changes stay in-place.
 
   useEffect(()=>{
     void loadCalendar().catch(()=>setError(t("schedule.calendarError")));
