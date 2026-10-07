@@ -4,7 +4,7 @@ import type { SocialFeedPostDto, SocialPostCommentDto } from "@leaguekick/contra
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Image, Pressable, View } from "react-native";
-import { marketingApi } from "../../../../src/lib/api";
+import { marketingApi, resolveMediaImageUrl } from "../../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
@@ -142,7 +142,7 @@ export default function PostCommentsScreen(){
         style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"center",gap:spacing.sm}}
       >
         {post.authorImageUrl
-          ?<Image source={{uri:post.authorImageUrl}} style={{width:46,height:46,borderRadius:23}}/>
+          ?<Image source={{uri:resolveMediaImageUrl(post.authorImageUrl)!}} style={{width:46,height:46,borderRadius:23}}/>
           :<View style={{width:46,height:46,borderRadius:23,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft}}>
             <AppText weight="bold" style={{color:colors.primary}}>{post.authorName.slice(0,2).toUpperCase()}</AppText>
           </View>}
@@ -153,7 +153,7 @@ export default function PostCommentsScreen(){
         <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.textMuted}/>
       </Pressable>
       <AppText>{post.body}</AppText>
-      {post.imageUrl?<Image source={{uri:post.imageUrl}} style={{width:"100%",height:210,borderRadius:radius.md}} resizeMode="cover"/>:null}
+      {post.imageUrl?<Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={{width:"100%",height:210,borderRadius:radius.md}} resizeMode="cover"/>:null}
       <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between"}}>
         <AppText variant="caption" muted>{t("social.likes",{count:post.likeCount})}</AppText>
         <AppText variant="caption" muted>{t("social.comments",{count:post.commentCount})}</AppText>
