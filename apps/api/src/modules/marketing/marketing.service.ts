@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type {
   FeedResponse,
   FollowStateDto,
@@ -13,6 +14,9 @@ import type {
   VenuePostScheduleRequest,
   VenuePostUpdateRequest,
   VenuePostVisibility,
+  VenueMediaAssetPurpose,
+  VenueMediaPageDto,
+  VenueMediaPageUpdateRequest,
 } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import type { BookingService } from "../booking/booking.service.js";
@@ -97,6 +101,99 @@ export class MarketingService {
     if(new Date(input.executeAt).getTime()<=now.getTime()){
       throw errors.badRequest("MEDIA_SCHEDULE_IN_PAST","Scheduled media actions must be in the future.");
     }
+  }
+
+  private mediaAssetRef(value:string){
+    const match=/^\/api\/v1\/media-assets\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{32,64})$/.exec(value);
+    return match?{assetId:match[1]!,publicToken:match[2]!}:null;
+  }
+
+  private async assertOwnedMediaReference(ownerUserId:string,value:string|null|undefined){
+    if(!value||value.startsWith("https://"))return;
+    const ref=this.mediaAssetRef(value);
+    if(!ref)throw errors.badRequest("INVALID_MEDIA_ASSET","Choose an uploaded image from this venue.");
+    const asset=await this.repository.getMediaAsset(ref.assetId,ref.publicToken);
+    if(!asset||asset.ownerUserId!==ownerUserId){
+      throw errors.forbidden("MEDIA_ASSET_ACCESS_DENIED","You cannot use this media asset.");
+    }
+  }
+
+  private async mediaPageDto(venue:Awaited<ReturnType<MarketingRepository["getVenue"]>>):Promise<VenueMediaPageDto>{
+    if(!venue)throw errors.badRequest("VENUE_REQUIRED","Complete venue setup first.");
+    const [followerCount,posts]=await Promise.all([
+      this.repository.followerCount(venue.id),
+      this.repository.listOwnerPosts(venue.ownerUserId),
+    ]);
+    return {
+      venueId:venue.id,
+      name:venue.name,
+      city:venue.city,
+      province:venue.province,
+      pageProfileImageUrl:venue.pageProfileImageUrl,
+      pageCoverImageUrl:venue.pageCoverImageUrl,
+      pageBio:venue.pageBio,
+      followerCount,
+      postCount:posts.length,
+    };
+  }
+
+  async ownerMediaPage(ownerUserId:string){
+    const venue=await this.ownerVenue(ownerUserId,false);
+    return {page:await this.mediaPageDto(venue)};
+  }
+
+  async updateOwnerMediaPage(ownerUserId:string,input:VenueMediaPageUpdateRequest){
+    await this.ownerVenue(ownerUserId,true);
+    await Promise.all([
+      this.assertOwnedMediaReference(ownerUserId,input.pageProfileImageUrl),
+      this.assertOwnedMediaReference(ownerUserId,input.pageCoverImageUrl),
+    ]);
+    const venue=await this.repository.updateVenueMediaPage(ownerUserId,input,this.now());
+    if(!venue)throw errors.badRequest("VENUE_REQUIRED","Complete venue setup first.");
+    return {page:await this.mediaPageDto(venue)};
+  }
+
+  async createMediaAsset(
+    ownerUserId:string,
+    purpose:VenueMediaAssetPurpose,
+    mimeType:string,
+    bytes:Buffer,
+  ){
+    const venue=await this.ownerVenue(ownerUserId,true);
+    const allowed=new Set(["image/jpeg","image/png","image/webp","image/heic","image/heif"]);
+    if(!allowed.has(mimeType.toLowerCase())){
+      throw errors.badRequest("MEDIA_TYPE_NOT_ALLOWED","Use a JPG, PNG, WEBP, HEIC, or HEIF image.");
+    }
+    if(bytes.length===0)throw errors.badRequest("MEDIA_EMPTY","Choose a non-empty image.");
+    if(bytes.length>6*1024*1024)throw errors.badRequest("MEDIA_TOO_LARGE","Images must be 6 MB or smaller.");
+    const publicToken=randomBytes(24).toString("base64url");
+    const createdAt=this.now();
+    const asset=await this.repository.createMediaAsset({
+      venueId:venue.id,
+      ownerUserId,
+      purpose,
+      publicToken,
+      mimeType:mimeType.toLowerCase(),
+      byteSize:bytes.length,
+      dataBase64:bytes.toString("base64"),
+      createdAt,
+    });
+    return {
+      asset:{
+        id:asset.id,
+        purpose,
+        imageUrl:`/api/v1/media-assets/${asset.id}/${publicToken}`,
+        mimeType:asset.mimeType,
+        byteSize:asset.byteSize,
+        createdAt:asset.createdAt.toISOString(),
+      },
+    };
+  }
+
+  async publicMediaAsset(assetId:string,publicToken:string){
+    const asset=await this.repository.getMediaAsset(assetId,publicToken);
+    if(!asset)throw errors.badRequest("MEDIA_ASSET_NOT_FOUND","This image is no longer available.");
+    return asset;
   }
 
   private async ownerVenue(ownerUserId: string, requireWrite = true) {
@@ -191,6 +288,7 @@ export class MarketingService {
     }
     input.schedules.forEach((schedule)=>this.assertFutureSchedule(schedule,now));
 
+    await this.assertOwnedMediaReference(ownerUserId,input.imageUrl);
     const request:VenuePostCreateRequest={...input,ctaTargetId:targetId};
     const post=await this.repository.createPost({
       venueId:venue.id,
@@ -221,6 +319,7 @@ export class MarketingService {
       ctaType,
       input.ctaTargetId!==undefined?input.ctaTargetId:current.ctaTargetId,
     );
+    await this.assertOwnedMediaReference(ownerUserId,input.imageUrl);
     const updated=await this.repository.updatePost(ownerUserId,postId,{...input,ctaType,ctaTargetId:targetId},this.now());
     if(!updated)throw errors.forbidden("POST_ACCESS_DENIED","You cannot manage this post.");
     return updated;
