@@ -8,7 +8,6 @@ import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
 import { DateTimePickerField } from "../../../../src/components/ui/DateTimePickerField";
-import { OwnerTopNav } from "../../../../src/components/owner/OwnerTopNav";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
@@ -102,8 +101,7 @@ export default function CreateCompetitionScreen(){
     finally{setBusy(false);}
   }
 
-  return <Screen showHeader>
-    <OwnerTopNav/>
+  return <Screen embedded>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("competition.createTitle")}</AppText>
       <AppText muted>{t("competition.control.createSubtitle")}</AppText>
