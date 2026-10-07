@@ -28,7 +28,7 @@ const items:{
 
 function activeSection(pathname:string):OwnerSection|null{
   if(pathname==="/dashboard"||pathname.startsWith("/owner/competitions"))return "competitions";
-  if(pathname.startsWith("/owner/schedule")||pathname.startsWith("/owner/manual-booking")||pathname.startsWith("/owner/block-time"))return "schedule";
+  if(pathname.startsWith("/owner/schedule")||pathname.startsWith("/owner/timetable")||pathname.startsWith("/owner/manual-booking")||pathname.startsWith("/owner/block-time"))return "schedule";
   if(pathname.startsWith("/owner/posts")||pathname.startsWith("/owner/promotions"))return "media";
   if(pathname.startsWith("/owner/analytics"))return "analysis";
   if(pathname.startsWith("/owner/onboarding")||pathname.startsWith("/owner/subscription"))return "settings";
