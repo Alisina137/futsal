@@ -1,13 +1,13 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, type ViewProps } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader } from "./AppHeader";
 
-type ScreenProps = ViewProps & { showHeader?: boolean };
+type ScreenProps = ViewProps & { showHeader?: boolean; embedded?: boolean };
 
-export function Screen({ children, style, showHeader = false }: ScreenProps) {
-  return <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-    {showHeader ? <AppHeader/> : null}
+export function Screen({ children, style, showHeader = false, embedded = false }: ScreenProps) {
+  const content = <>
+    {!embedded && showHeader ? <AppHeader/> : null}
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -17,6 +17,12 @@ export function Screen({ children, style, showHeader = false }: ScreenProps) {
         {children}
       </ScrollView>
     </KeyboardAvoidingView>
+  </>;
+
+  if (embedded) return <View style={styles.safe}>{content}</View>;
+
+  return <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    {content}
   </SafeAreaView>;
 }
 
