@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev:api": "pnpm --filter @leaguekick/api dev",
-    "dev:mobile": "pnpm --filter @leaguekick/mobile start",
+    "dev:mobile": "pnpm --filter @leaguekick/mobile exec expo start --lan --clear",
     "dev:admin": "node scripts/dev-admin.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
