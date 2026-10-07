@@ -5,13 +5,10 @@ import type {
   VenueCalendarDay,
   VenueCalendarEvent,
   VenueCalendarEventType,
-  VenueTimetableConflict,
-  VenueTimetableDto,
-  VenueTimetableListResponse,
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
 import {
   formatCalendarDate,
@@ -83,7 +80,6 @@ export default function OwnerScheduleScreen(){
   const [areaId,setAreaId]=useState<string|null>(null);
   const [statusFilter,setStatusFilter]=useState<"ALL"|VenueCalendarEventType>("ALL");
   const [owner,setOwner]=useState<OwnerOnboardingStatus|null>(null);
-  const [versions,setVersions]=useState<VenueTimetableListResponse|null>(null);
   const [calendar,setCalendar]=useState<Awaited<ReturnType<typeof ownerApi.timetableCalendar>>|null>(null);
   const [renderedView,setRenderedView]=useState<TimetableCalendarView>(view);
   const [renderedAnchorDate,setRenderedAnchorDate]=useState(anchorDate);
@@ -92,17 +88,11 @@ export default function OwnerScheduleScreen(){
   const calendarRequestId=useRef(0);
   const [busy,setBusy]=useState<string|null>(null);
   const [error,setError]=useState<string|null>(null);
-  const [conflicts,setConflicts]=useState<VenueTimetableConflict[]>([]);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
 
   const loadMeta=useCallback(async()=>{
     if(!token)return;
-    const [nextOwner,nextVersions]=await Promise.all([
-      ownerApi.getStatus(token),
-      ownerApi.timetables(token),
-    ]);
-    setOwner(nextOwner);
-    setVersions(nextVersions);
+    setOwner(await ownerApi.getStatus(token));
   },[token]);
 
   const loadCalendar=useCallback(async()=>{
@@ -144,63 +134,6 @@ export default function OwnerScheduleScreen(){
     setError(null);
     try{await Promise.all([loadMeta(),loadCalendar()]);}
     catch{setError(t("schedule.loadTimetableError"));}
-  }
-
-  async function duplicateAndEdit(item:VenueTimetableDto){
-    if(!token)return;
-    setBusy(`duplicate-${item.id}`);
-    setError(null);
-    try{
-      const {timetable}=await ownerApi.duplicateTimetable(token,item.id);
-      await loadMeta();
-      router.push({pathname:"/owner/timetable/edit",params:{timetableId:timetable.id}});
-    }catch{setError(t("schedule.saveTimetableError"));}
-    finally{setBusy(null);}
-  }
-
-  async function publish(item:VenueTimetableDto){
-    if(!token)return;
-    setBusy(`publish-${item.id}`);
-    setError(null);
-    setConflicts([]);
-    try{
-      const result=await ownerApi.publishTimetable(token,item.id);
-      if(result.conflicts.length){
-        setConflicts(result.conflicts);
-      }else{
-        await Promise.all([loadMeta(),loadCalendar()]);
-      }
-    }catch{setError(t("schedule.publishTimetableError"));}
-    finally{setBusy(null);}
-  }
-
-  function deleteDraft(item:VenueTimetableDto){
-    if(!token)return;
-    Alert.alert(t("schedule.deleteDraftTitle"),t("schedule.deleteDraftBody"),[
-      {text:t("common.cancel"),style:"cancel"},
-      {text:t("schedule.deleteDraft"),style:"destructive",onPress:()=>void(async()=>{
-        setBusy(`delete-${item.id}`);
-        try{await ownerApi.deleteTimetable(token,item.id);await loadMeta();}
-        catch{setError(t("schedule.deleteTimetableError"));}
-        finally{setBusy(null);}
-      })()},
-    ]);
-  }
-
-  async function archive(item:VenueTimetableDto){
-    if(!token)return;
-    setBusy(`archive-${item.id}`);
-    try{await ownerApi.archiveTimetable(token,item.id);await loadMeta();}
-    catch{setError(t("schedule.archiveTimetableError"));}
-    finally{setBusy(null);}
-  }
-
-  async function removeException(id:string){
-    if(!token)return;
-    setBusy(`exception-${id}`);
-    try{await ownerApi.deleteTimetableException(token,id);await Promise.all([loadMeta(),loadCalendar()]);}
-    catch{setError(t("schedule.exceptionError"));}
-    finally{setBusy(null);}
   }
 
   async function cancelBooking(id:string){
@@ -304,75 +237,7 @@ export default function OwnerScheduleScreen(){
       </View>:null}
     </View>
 
-    <Card>
-      <AppText variant="bodyLarge" weight="bold">{t("schedule.quickActions")}</AppText>
-      <View style={styles.actionGrid}>
-        <Button label={t("schedule.createWeekly")} onPress={()=>router.push("/owner/timetable/edit")} style={styles.actionButton}/>
-        <Button label={t("schedule.addManual")} onPress={()=>router.push("/owner/manual-booking")} variant="secondary" style={styles.actionButton}/>
-        <Button label={t("schedule.blockTime")} onPress={()=>router.push("/owner/block-time")} variant="secondary" style={styles.actionButton}/>
-        <Button label={t("schedule.addException")} onPress={()=>router.push("/owner/timetable/exception")} variant="secondary" style={styles.actionButton}/>
-      </View>
-    </Card>
-
     <Legend t={t}/>
-
-    {conflicts.length?<Card style={styles.conflictCard}>
-      <View style={styles.titleRow}>
-        <Ionicons name="warning-outline" size={22} color={colors.warning}/>
-        <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{t("schedule.publishConflictTitle")}</AppText>
-      </View>
-      <AppText>{t("schedule.publishConflictBody")}</AppText>
-      <AppText weight="bold">{t("schedule.conflictCount",{count:conflicts.length})}</AppText>
-      {conflicts.slice(0,12).map((conflict,index)=><Pressable
-        key={`${conflict.type}-${conflict.areaId}-${conflict.startsAt}-${index}`}
-        onPress={()=>{
-          setAnchorDate(localDateFromIso(conflict.startsAt));
-          setView("DAY");
-        }}
-        style={styles.conflictItem}
-      >
-        <AppText weight="semibold">{conflict.areaName} · {conflict.title}</AppText>
-        <AppText variant="caption" muted forceLtr>{formatCalendarTime(conflict.startsAt,language)} – {formatCalendarTime(conflict.endsAt,language)}</AppText>
-      </Pressable>)}
-      <Button label={t("schedule.reviewConflicts")} onPress={()=>{
-        const first=conflicts[0];
-        if(first){setAnchorDate(localDateFromIso(first.startsAt));setView("DAY");}
-      }} variant="secondary"/>
-    </Card>:null}
-
-    <TimetableVersions
-      data={versions}
-      t={t}
-      language={language}
-      busy={busy}
-      onCreate={()=>router.push("/owner/timetable/edit")}
-      onEdit={(item)=>router.push({pathname:"/owner/timetable/edit",params:{timetableId:item.id}})}
-      onDuplicate={(item)=>void duplicateAndEdit(item)}
-      onPublish={(item)=>void publish(item)}
-      onDelete={deleteDraft}
-      onArchive={(item)=>void archive(item)}
-    />
-
-    <Card>
-      <View style={styles.titleRow}>
-        <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{t("schedule.specialHours")}</AppText>
-        <Button label={t("schedule.addException")} onPress={()=>router.push("/owner/timetable/exception")} variant="secondary" style={styles.smallAction}/>
-      </View>
-      {versions?.exceptions.length?versions.exceptions.map((item)=><View key={item.id} style={styles.versionRow}>
-        <View style={{flex:1,gap:2}}>
-          <AppText weight="semibold">{formatCalendarDate(item.date,language,{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</AppText>
-          <AppText variant="caption" muted>{item.isClosed?t("schedule.dayClosed"):item.periods.map((period)=>`${period.startsAt}–${period.endsAt}`).join(", ")}</AppText>
-          {item.note?<AppText variant="caption">{item.note}</AppText>:null}
-        </View>
-        <Button
-          label={t("schedule.deleteException")}
-          onPress={()=>void removeException(item.id)}
-          loading={busy===`exception-${item.id}`}
-          variant="ghost"
-          style={styles.smallAction}
-        />
-      </View>):<AppText muted>{t("schedule.noEvents")}</AppText>}
-    </Card>
   </Screen>;
 }
 
@@ -579,105 +444,6 @@ function EventCard({
       />
     </View>:null}
   </Card>;
-}
-
-function TimetableVersions({
-  data,t,language,busy,onCreate,onEdit,onDuplicate,onPublish,onDelete,onArchive,
-}:{
-  data:VenueTimetableListResponse|null;
-  t:ReturnType<typeof useLocale>["t"];
-  language:"fa-AF"|"ps-AF"|"en";
-  busy:string|null;
-  onCreate:()=>void;
-  onEdit:(item:VenueTimetableDto)=>void;
-  onDuplicate:(item:VenueTimetableDto)=>void;
-  onPublish:(item:VenueTimetableDto)=>void;
-  onDelete:(item:VenueTimetableDto)=>void;
-  onArchive:(item:VenueTimetableDto)=>void;
-}){
-  return <Card>
-    <View style={styles.titleRow}>
-      <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{t("schedule.manageVersions")}</AppText>
-      <Button label={t("schedule.createWeekly")} onPress={onCreate} variant="secondary" style={styles.smallAction}/>
-    </View>
-
-    <AppText weight="bold">{t("schedule.currentTimetable")}</AppText>
-    {data?.current?<VersionCard
-      item={data.current}
-      t={t}
-      language={language}
-      actions={[
-        {label:t("schedule.newVersion"),onPress:()=>onDuplicate(data.current!),loading:busy===`duplicate-${data.current.id}`},
-      ]}
-    />:<AppText muted>{t("schedule.noTimetable")}</AppText>}
-
-    {data?.drafts.length?<View style={styles.versionSection}>
-      <AppText weight="bold">{t("schedule.draftTimetables")}</AppText>
-      {data.drafts.map((item)=><VersionCard key={item.id} item={item} t={t} language={language} actions={[
-        {label:t("schedule.editWeekly"),onPress:()=>onEdit(item)},
-        {label:t("schedule.publish"),onPress:()=>onPublish(item),loading:busy===`publish-${item.id}`},
-        {label:t("schedule.duplicate"),onPress:()=>onDuplicate(item),loading:busy===`duplicate-${item.id}`},
-        {label:t("schedule.deleteDraft"),onPress:()=>onDelete(item),danger:true,loading:busy===`delete-${item.id}`},
-      ]}/>)}
-    </View>:null}
-
-    {data?.future.length?<View style={styles.versionSection}>
-      <AppText weight="bold">{t("schedule.futureTimetables")}</AppText>
-      {data.future.map((item)=><VersionCard key={item.id} item={item} t={t} language={language} actions={[
-        {label:t("schedule.newVersion"),onPress:()=>onDuplicate(item),loading:busy===`duplicate-${item.id}`},
-        {label:t("schedule.archiveTimetable"),onPress:()=>onArchive(item),loading:busy===`archive-${item.id}`},
-      ]}/>)}
-    </View>:null}
-
-    {data?.archived.length?<View style={styles.versionSection}>
-      <AppText weight="bold">{t("schedule.archivedTimetables")}</AppText>
-      {data.archived.slice(0,8).map((item)=><VersionCard key={item.id} item={item} t={t} language={language} actions={[
-        {label:t("schedule.newVersion"),onPress:()=>onDuplicate(item),loading:busy===`duplicate-${item.id}`},
-      ]}/>)}
-    </View>:null}
-  </Card>;
-}
-
-function VersionCard({
-  item,t,language,actions,
-}:{
-  item:VenueTimetableDto;
-  t:ReturnType<typeof useLocale>["t"];
-  language:"fa-AF"|"ps-AF"|"en";
-  actions:Array<{label:string;onPress:()=>void;danger?:boolean;loading?:boolean}>;
-}){
-  return <View style={styles.versionCard}>
-    <View style={styles.titleRow}>
-      <View style={{flex:1}}>
-        <AppText weight="bold">{item.name}</AppText>
-        <AppText variant="caption" muted>
-          {formatCalendarDate(item.effectiveFrom,language,{year:"numeric",month:"long",day:"numeric"})}
-          {" → "}
-          {item.effectiveUntil
-            ?formatCalendarDate(item.effectiveUntil,language,{year:"numeric",month:"long",day:"numeric"})
-            :t("schedule.forever")}
-        </AppText>
-      </View>
-      <View style={styles.statusBadge}>
-        <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
-          {t(`schedule.status.${item.status}` as never)}
-        </AppText>
-      </View>
-    </View>
-    <AppText variant="caption" muted forceLtr>
-      {item.defaultSlotDurationMinutes} min · +{item.bufferMinutes} min
-    </AppText>
-    <View style={styles.actionGrid}>
-      {actions.map((action)=><Button
-        key={action.label}
-        label={action.label}
-        onPress={action.onPress}
-        loading={action.loading ?? false}
-        variant={action.danger?"danger":"secondary"}
-        style={styles.actionButton}
-      />)}
-    </View>
-  </View>;
 }
 
 function Legend({t}:{t:ReturnType<typeof useLocale>["t"]}){
