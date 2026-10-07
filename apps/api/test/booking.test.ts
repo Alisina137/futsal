@@ -150,6 +150,45 @@ describe("Phase 3 availability and booking API", () => {
     expect(availability.body.slots.some((slot: { startsAt: string }) => slot.startsAt === bookableSlot.startsAt)).toBe(true);
   });
 
+  it("lets the venue owner edit a blocked interval without losing conflict safety", async () => {
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223380");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+
+    let availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    const originalSlot = availability.body.slots[0];
+    const targetSlot = availability.body.slots[1];
+
+    const created = await request(app)
+      .post("/api/v1/owner/blocks")
+      .set(auth)
+      .send({
+        areaId: originalSlot.areaId,
+        startsAt: originalSlot.startsAt,
+        endsAt: originalSlot.endsAt,
+        reason: "Maintenance",
+      });
+    expect(created.status).toBe(201);
+
+    const updated = await request(app)
+      .put(`/api/v1/owner/blocks/${created.body.block.id}`)
+      .set(auth)
+      .send({
+        areaId: targetSlot.areaId,
+        startsAt: targetSlot.startsAt,
+        endsAt: targetSlot.endsAt,
+        reason: "Cleaning",
+      });
+    expect(updated.status).toBe(200);
+    expect(updated.body.block.id).toBe(created.body.block.id);
+    expect(updated.body.block.reason).toBe("Cleaning");
+
+    availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    expect(availability.body.slots.some((slot: { startsAt: string }) => slot.startsAt === originalSlot.startsAt)).toBe(true);
+    expect(availability.body.slots.some((slot: { startsAt: string }) => slot.startsAt === targetSlot.startsAt)).toBe(false);
+  });
+
   it("retries the same player's idempotency key without creating a duplicate booking", async () => {
     const { app, bookingRepository, authRepository } = setup();
     const owner = await register(app, authRepository, "VENUE_OWNER", "0702223390");
