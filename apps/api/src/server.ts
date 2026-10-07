@@ -18,6 +18,8 @@ import { DrizzleCompetitionRepository } from "./modules/competition/competition.
 import { CompetitionService } from "./modules/competition/competition.service.js";
 import { DrizzleCommercialRepository } from "./modules/commercial/commercial.repository.js";
 import { CommercialService } from "./modules/commercial/commercial.service.js";
+import { DrizzleTimetableRepository } from "./modules/timetable/timetable.repository.js";
+import { TimetableService } from "./modules/timetable/timetable.service.js";
 
 const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
@@ -50,8 +52,10 @@ tokens.setAccessValidator(async (userId) => (await authRepository.getUserById(us
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
 const notificationRepository = new DrizzleNotificationRepository(db);
 const notificationService = new NotificationService(notificationRepository);
+const timetableRepository = new DrizzleTimetableRepository(db);
+const timetable = new TimetableService(timetableRepository);
 const bookingRepository = new DrizzleBookingRepository(db);
-const booking = new BookingService(bookingRepository, undefined, notificationService);
+const booking = new BookingService(bookingRepository, undefined, notificationService, timetable);
 const marketingRepository = new DrizzleMarketingRepository(db);
 const marketing = new MarketingService(marketingRepository, booking, undefined, notificationService);
 const teamRepository = new DrizzleTeamRepository(db);
@@ -75,6 +79,7 @@ const app = createApp({
   teamService,
   competitionService,
   commercialService,
+  timetableService: timetable,
   trustProxyHops: env.TRUST_PROXY_HOPS,
   corsOrigin: env.CORS_ORIGIN,
   appVersion: env.APP_VERSION,
