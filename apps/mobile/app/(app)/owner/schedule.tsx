@@ -195,8 +195,10 @@ export default function OwnerScheduleScreen(){
     </Card>:null}
 
     <Card>
-      <View style={[styles.toolbar,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Button label={t("schedule.today")} onPress={()=>setAnchorDate(todayKabul())} variant="secondary" style={styles.compactButton}/>
+      <View style={styles.toolbar}>
+        <View style={[styles.todayRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Button label={t("schedule.today")} onPress={()=>setAnchorDate(todayKabul())} variant="secondary" style={styles.compactButton}/>
+        </View>
         <View style={[styles.navButtons,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Pressable style={styles.textNavButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,-1,language))}>
             <AppText variant="caption" weight="semibold" style={styles.textNavButtonLabel}>
@@ -786,9 +788,10 @@ const styles=StyleSheet.create({
     borderWidth:1,
     borderColor:colors.border,
   },
-  toolbar:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm,flexWrap:"wrap"},
+  toolbar:{gap:spacing.sm},
+  todayRow:{width:"100%",justifyContent:"flex-start"},
   compactButton:{minHeight:42,paddingHorizontal:spacing.md},
-  navButtons:{alignItems:"center",gap:spacing.xs,flex:1,justifyContent:"flex-end"},
+  navButtons:{width:"100%",alignItems:"center",gap:spacing.xs,justifyContent:"space-between"},
   textNavButton:{
     minHeight:42,
     minWidth:76,
@@ -799,7 +802,7 @@ const styles=StyleSheet.create({
     backgroundColor:colors.primarySoft,
   },
   textNavButtonLabel:{color:colors.primary,textAlign:"center"},
-  rangeLabel:{textAlign:"center",minWidth:120},
+  rangeLabel:{textAlign:"center",minWidth:120,flex:1},
   segmented:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   segment:{flex:1,minHeight:42,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
   segmentActive:{backgroundColor:colors.primarySoft},
