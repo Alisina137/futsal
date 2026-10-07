@@ -8,6 +8,7 @@ function assert(value,message){
 }
 
 const migration=read("packages/database/drizzle/0017_media_center.sql");
+const mediaAssetsMigration=read("packages/database/drizzle/0018_media_page_assets.sql");
 const journal=read("packages/database/drizzle/meta/_journal.json");
 const schema=read("packages/database/src/schema.ts");
 const contracts=read("packages/contracts/src/index.ts");
@@ -24,6 +25,9 @@ const venueDirectory=read("apps/mobile/app/(app)/(tabs)/venues.tsx");
 const postDetail=read("apps/mobile/app/(app)/posts/[postId].tsx");
 const home=read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const comments=read("apps/mobile/app/(app)/posts/[postId]/comments.tsx");
+const mediaPicker=read("apps/mobile/src/components/owner/media/MediaImagePicker.tsx");
+const mobilePackage=read("apps/mobile/package.json");
+const mobileApi=read("apps/mobile/src/lib/api.ts");
 const localization=read("packages/localization/src/index.ts");
 const tests=read("apps/api/test/marketing.test.ts");
 
@@ -37,12 +41,25 @@ for(const marker of [
   assert(migration.includes(marker),`Media migration missing: ${marker}`);
 }
 assert(journal.includes('"tag": "0017_media_center"'),"Media migration must be registered in Drizzle journal.");
+for(const marker of [
+  'page_profile_image_url',
+  'page_cover_image_url',
+  'page_bio',
+  'CREATE TABLE "venue_media_assets"',
+  '"data_base64" text',
+]){
+  assert(mediaAssetsMigration.includes(marker),`Media page asset migration missing: ${marker}`);
+}
+assert(journal.includes('"tag": "0018_media_page_assets"'),"Venue media asset migration must be registered in Drizzle journal.");
 
 for(const marker of [
   "venuePostTypeEnum",
   "venuePostVisibilityEnum",
   "venuePostScheduledActionEnum",
   "venuePostScheduledActions",
+  "venueMediaAssets",
+  "pageProfileImageUrl",
+  "pageCoverImageUrl",
 ]){
   assert(schema.includes(marker),`Media database schema missing: ${marker}`);
 }
@@ -53,6 +70,10 @@ for(const marker of [
   "venuePostScheduledActionSchema",
   "venuePostScheduleRequestSchema",
   "venuePostUpdateRequestSchema",
+  "venueMediaAssetDtoSchema",
+  "venueMediaPageDtoSchema",
+  "venueMediaPageUpdateRequestSchema",
+  "mediaImageRefSchema",
   'z.enum(["NOW","DRAFT","SCHEDULED"])',
 ]){
   assert(contracts.includes(marker),`Media contracts missing: ${marker}`);
@@ -67,6 +88,9 @@ for(const marker of [
   'row.visibility === "PRIVATE"',
   'row.visibility === "FOLLOWERS"',
   "competitionBelongsToVenue",
+  "createMediaAsset",
+  "getMediaAsset",
+  "updateVenueMediaPage",
 ]){
   assert(repository.includes(marker),`Media repository invariant missing: ${marker}`);
 }
@@ -79,6 +103,10 @@ for(const marker of [
   "getVenuePostForUser",
   "venuePosts(venueId",
   'post.visibility==="FOLLOWERS"',
+  "createMediaAsset",
+  "ownerMediaPage",
+  "updateOwnerMediaPage",
+  "assertOwnedMediaReference",
 ]){
   assert(service.includes(marker),`Media service invariant missing: ${marker}`);
 }
@@ -90,6 +118,10 @@ for(const marker of [
   'router.delete("/posts/:postId"',
   'router.patch("/posts/:postId/visibility"',
   'router.post("/posts/:postId/schedules"',
+  'router.get("/media-assets/:assetId/:publicToken"',
+  'router.get("/media-page"',
+  'router.patch("/media-page"',
+  '"/media-assets"',
 ]){
   assert(routes.includes(marker),`Media route missing: ${marker}`);
 }
@@ -99,11 +131,16 @@ assert(bookingRoutes.includes("request.query.q"),"Venue directory API must accep
 assert(bookingRepository.includes("ilike(venues.name"),"Venue directory must search venue page names server-side.");
 
 for(const marker of [
-  "media.stat.total",
+  "page.pageCoverImageUrl",
+  "page.pageProfileImageUrl",
+  "media.composerPrompt",
+  "media.editPage",
   '"ALL","PUBLISHED","DRAFT","SCHEDULED","PRIVATE"',
   "setPostVisibility",
   "cancelPostSchedule",
   "ownerApi.deletePost",
+  "ownerApi.updateMediaPage",
+  "MediaImagePicker",
   'pathname:"/venues/[venueId]"',
 ]){
   assert(ownerMedia.includes(marker),`Owner Media dashboard missing: ${marker}`);
@@ -117,14 +154,34 @@ for(const marker of [
   "completedMatches",
   "ownerApi.addPostSchedule",
   "publishMode",
+  "MediaImagePicker",
+  'purpose="POST"',
 ]){
   assert(composer.includes(marker),`Media composer missing: ${marker}`);
 }
+
+for(const marker of [
+  "expo-image-picker",
+  "expo-document-picker",
+]){
+  assert(mobilePackage.includes(marker),`Native media picker dependency missing: ${marker}`);
+}
+for(const marker of [
+  "launchImageLibraryAsync",
+  "getDocumentAsync",
+  'purpose:VenueMediaAssetPurpose',
+]){
+  assert(mediaPicker.includes(marker),`Native image picker capability missing: ${marker}`);
+}
+assert(mobileApi.includes("uploadVenueMediaAsset")&&mobileApi.includes("resolveMediaImageUrl"),"Mobile Media API must upload and resolve durable images.");
 
 assert(venueDirectory.includes("media.venueSearch")&&venueDirectory.includes("query.trim()"),"Users must be able to search venue pages by name.");
 for(const marker of [
   "marketingApi.venuePosts",
   "media.pagePosts",
+  "pageCoverImageUrl",
+  "pageProfileImageUrl",
+  "resolveMediaImageUrl",
   "socialPostId",
   'pathname:"/posts/[postId]/comments"',
 ]){
@@ -144,6 +201,10 @@ for(const key of [
   "media.action.MAKE_PRIVATE",
   "media.venueSearch",
   "media.pagePosts",
+  "media.chooseGallery",
+  "media.chooseFiles",
+  "media.editPage",
+  "media.coverPhoto",
 ]){
   const count=localization.split(`"${key}"`).length-1;
   assert(count===3,`Media localization missing ${key}; found ${count}.`);
@@ -152,4 +213,4 @@ for(const key of [
 assert(tests.includes("keeps followers-only venue posts off the public page"),"Media audience regression test missing.");
 assert(tests.includes("executes scheduled media visibility and deletion actions"),"Media lifecycle regression test missing.");
 
-console.log("Owner Media verified: searchable/followable venue pages, post types, competition/promotion/result linking, audience privacy, Facebook-style conversations, and server-driven scheduled lifecycle actions are present.");
+console.log("Owner Media verified: Facebook-style editable venue pages, Gallery/Files uploads, durable cover/profile/post images, searchable/followable public pages, rich post management, audience privacy, conversations, and scheduled lifecycle actions are present.");
