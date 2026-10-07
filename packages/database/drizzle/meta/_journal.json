@@ -127,6 +127,13 @@
       "when": 1791293400000,
       "tag": "0017_media_center",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791297000000,
+      "tag": "0018_media_page_assets",
+      "breakpoints": true
     }
   ]
 }
