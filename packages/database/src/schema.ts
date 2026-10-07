@@ -38,6 +38,9 @@ export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
 export const promotionStatusEnum = pgEnum("promotion_status", ["ACTIVE", "CLOSED", "EXPIRED"]);
 export const postStatusEnum = pgEnum("post_status", ["PUBLISHED", "UNPUBLISHED"]);
 export const postCtaTypeEnum = pgEnum("post_cta_type", ["NONE", "VENUE", "PROMOTION", "COMPETITION"]);
+export const venuePostTypeEnum = pgEnum("venue_post_type", ["GENERAL", "ANNOUNCEMENT", "PROMOTION", "COMPETITION", "RESULT"]);
+export const venuePostVisibilityEnum = pgEnum("venue_post_visibility", ["PUBLIC", "FOLLOWERS", "PRIVATE"]);
+export const venuePostScheduledActionEnum = pgEnum("venue_post_scheduled_action", ["PUBLISH", "UNPUBLISH", "MAKE_PUBLIC", "MAKE_FOLLOWERS", "MAKE_PRIVATE", "DELETE"]);
 export const socialEntityTypeEnum = pgEnum("social_entity_type", ["VENUE", "TEAM", "COMPETITION"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE"]);
 export const notificationChannelEnum = pgEnum("notification_channel", ["IN_APP", "PUSH"]);
@@ -480,6 +483,9 @@ export const venuePosts = pgTable(
     imageUrl: text("image_url"),
     ctaType: postCtaTypeEnum("cta_type").notNull().default("NONE"),
     ctaTargetId: uuid("cta_target_id"),
+    postType: venuePostTypeEnum("post_type").notNull().default("GENERAL"),
+    visibility: venuePostVisibilityEnum("visibility").notNull().default("PUBLIC"),
+    notifyFollowers: boolean("notify_followers").notNull().default(false),
     status: postStatusEnum("status").notNull().default("PUBLISHED"),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
     unpublishedAt: timestamp("unpublished_at", { withTimezone: true }),
@@ -489,6 +495,24 @@ export const venuePosts = pgTable(
   (table) => [
     index("venue_posts_venue_status_idx").on(table.venueId, table.status),
     index("venue_posts_published_at_idx").on(table.publishedAt),
+    index("venue_posts_visibility_status_idx").on(table.visibility, table.status, table.publishedAt),
+  ],
+);
+
+export const venuePostScheduledActions = pgTable(
+  "venue_post_scheduled_actions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    postId: uuid("post_id").notNull().references(() => venuePosts.id, { onDelete: "cascade" }),
+    action: venuePostScheduledActionEnum("action").notNull(),
+    executeAt: timestamp("execute_at", { withTimezone: true }).notNull(),
+    executedAt: timestamp("executed_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("venue_post_scheduled_actions_pending_idx").on(table.executeAt, table.postId),
+    index("venue_post_scheduled_actions_post_idx").on(table.postId),
   ],
 );
 
@@ -531,6 +555,8 @@ export const socialPosts = pgTable(
     legacyVenuePostId: uuid("legacy_venue_post_id").references(() => venuePosts.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     imageUrl: text("image_url"),
+    postType: venuePostTypeEnum("post_type").notNull().default("GENERAL"),
+    visibility: venuePostVisibilityEnum("visibility").notNull().default("PUBLIC"),
     status: postStatusEnum("status").notNull().default("PUBLISHED"),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
     unpublishedAt: timestamp("unpublished_at", { withTimezone: true }),
