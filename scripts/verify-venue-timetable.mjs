@@ -254,6 +254,8 @@ for(const key of [
   "schedule.useRegularSchedule",
   "schedule.specialConflict",
   "schedule.specialDuplicate",
+  "schedule.specialRegularPrice",
+  "schedule.editAction",
   "schedule.solarHijriHint",
   "schedule.weeklyHeaderDay",
   "schedule.weekViewActivity",
