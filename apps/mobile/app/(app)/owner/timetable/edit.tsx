@@ -1,0 +1,351 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { colors, radius, spacing } from "@leaguekick/design-tokens";
+import type {
+  VenueOpeningHourInput,
+  VenueTimetableConflict,
+  VenueTimetableDraftRequest,
+  VenueTimetableDto,
+} from "@leaguekick/contracts";
+import { router, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { ownerApi } from "../../../../src/lib/api";
+import { todayKabul } from "../../../../src/lib/timetable-calendar";
+import { AppText } from "../../../../src/components/ui/AppText";
+import { Button } from "../../../../src/components/ui/Button";
+import { Card } from "../../../../src/components/ui/Card";
+import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
+import { Screen } from "../../../../src/components/ui/Screen";
+import { TextField } from "../../../../src/components/ui/TextField";
+import { useAuth } from "../../../../src/providers/AuthProvider";
+import { useLocale } from "../../../../src/providers/LocaleProvider";
+
+type PeriodDraft={startsAt:string;endsAt:string};
+type DayDraft={dayOfWeek:number;periods:PeriodDraft[]};
+
+function defaultDays(hours:VenueOpeningHourInput[]|undefined):DayDraft[]{
+  return Array.from({length:7},(_,dayOfWeek)=>{
+    const hour=hours?.find((item)=>item.dayOfWeek===dayOfWeek);
+    return {
+      dayOfWeek,
+      periods:hour&&!hour.isClosed&&hour.opensAt&&hour.closesAt
+        ?[{startsAt:hour.opensAt,endsAt:hour.closesAt}]
+        :[],
+    };
+  });
+}
+
+function dayFromTimetable(item:VenueTimetableDto,preferredAreaId:string|null):DayDraft[]{
+  return Array.from({length:7},(_,dayOfWeek)=>{
+    const specific=preferredAreaId
+      ?item.periods.filter((period)=>period.dayOfWeek===dayOfWeek&&period.areaId===preferredAreaId)
+      :[];
+    const shared=item.periods.filter((period)=>period.dayOfWeek===dayOfWeek&&period.areaId===null);
+    const chosen=specific.length?specific:shared;
+    return {dayOfWeek,periods:chosen.map((period)=>({startsAt:period.startsAt,endsAt:period.endsAt}))};
+  });
+}
+
+function isoDate(value:string){return /^\d{4}-\d{2}-\d{2}$/.test(value);}
+
+export default function TimetableEditorScreen(){
+  const params=useLocalSearchParams<{timetableId?:string}>();
+  const initialId=typeof params.timetableId==="string"?params.timetableId:null;
+  const {session}=useAuth();
+  const {t,isRTL}=useLocale();
+  const token=session?.accessToken;
+  const [timetableId,setTimetableId]=useState<string|null>(initialId);
+  const [name,setName]=useState("Weekly timetable");
+  const [effectiveFrom,setEffectiveFrom]=useState(todayKabul());
+  const [effectiveUntil,setEffectiveUntil]=useState("");
+  const [duration,setDuration]=useState("90");
+  const [buffer,setBuffer]=useState("0");
+  const [allAreas,setAllAreas]=useState(true);
+  const [selectedAreaIds,setSelectedAreaIds]=useState<string[]>([]);
+  const [days,setDays]=useState<DayDraft[]>(defaultDays(undefined));
+  const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
+  const [loading,setLoading]=useState(true);
+  const [busy,setBusy]=useState<"save"|"publish"|null>(null);
+  const [error,setError]=useState<string|null>(null);
+  const [conflicts,setConflicts]=useState<VenueTimetableConflict[]>([]);
+
+  const load=useCallback(async()=>{
+    if(!token)return;
+    setLoading(true);
+    setError(null);
+    try{
+      const [status,versions]=await Promise.all([ownerApi.getStatus(token),ownerApi.timetables(token)]);
+      const venueAreas=status.venue?.areas??[];
+      setAreas(venueAreas.map((area)=>({id:area.id,name:area.name})));
+      const item=initialId
+        ?[versions.current,...versions.drafts,...versions.future,...versions.archived].find((candidate)=>candidate?.id===initialId)??null
+        :null;
+      if(item){
+        if(item.status!=="DRAFT"){
+          setError(t("schedule.saveTimetableError"));
+          return;
+        }
+        setTimetableId(item.id);
+        setName(item.name);
+        setEffectiveFrom(item.effectiveFrom);
+        setEffectiveUntil(item.effectiveUntil??"");
+        setDuration(String(item.defaultSlotDurationMinutes));
+        setBuffer(String(item.bufferMinutes));
+        const specificIds=Array.from(new Set(item.periods.map((period)=>period.areaId).filter((value):value is string=>Boolean(value))));
+        const shared=item.periods.some((period)=>period.areaId===null);
+        setAllAreas(shared||specificIds.length===0);
+        setSelectedAreaIds(shared?[]:specificIds);
+        setDays(dayFromTimetable(item,shared?null:specificIds[0]??null));
+      }else{
+        setDays(defaultDays(status.venue?.openingHours));
+        setSelectedAreaIds(venueAreas.map((area)=>area.id));
+      }
+    }catch{
+      setError(t("schedule.loadTimetableError"));
+    }finally{
+      setLoading(false);
+    }
+  },[initialId,t,token]);
+
+  useEffect(()=>{void load();},[load]);
+
+  function setDayPeriods(dayOfWeek:number,periods:PeriodDraft[]){
+    setDays((current)=>current.map((day)=>day.dayOfWeek===dayOfWeek?{...day,periods}:day));
+  }
+
+  function toggleDay(day:DayDraft){
+    setDayPeriods(day.dayOfWeek,day.periods.length?[]:[{startsAt:"08:00",endsAt:"23:00"}]);
+  }
+
+  function updatePeriod(dayOfWeek:number,index:number,patch:Partial<PeriodDraft>){
+    setDays((current)=>current.map((day)=>day.dayOfWeek!==dayOfWeek?day:{
+      ...day,
+      periods:day.periods.map((period,periodIndex)=>periodIndex===index?{...period,...patch}:period),
+    }));
+  }
+
+  function copyDay(source:DayDraft,targetDay:number){
+    setDayPeriods(targetDay,source.periods.map((period)=>({...period})));
+  }
+
+  function copyMany(source:DayDraft,targets:number[]){
+    setDays((current)=>current.map((day)=>targets.includes(day.dayOfWeek)
+      ?{...day,periods:source.periods.map((period)=>({...period}))}
+      :day));
+  }
+
+  function buildDraft():VenueTimetableDraftRequest|null{
+    const defaultSlotDurationMinutes=Number(duration);
+    const bufferMinutes=Number(buffer);
+    if(
+      name.trim().length<2
+      ||!isoDate(effectiveFrom)
+      ||Boolean(effectiveUntil)&&!isoDate(effectiveUntil)
+      ||Boolean(effectiveUntil)&&effectiveUntil<effectiveFrom
+      ||!Number.isInteger(defaultSlotDurationMinutes)||defaultSlotDurationMinutes<30||defaultSlotDurationMinutes>240
+      ||!Number.isInteger(bufferMinutes)||bufferMinutes<0||bufferMinutes>60
+      ||(!allAreas&&selectedAreaIds.length===0)
+    )return null;
+
+    const scopes:(string|null)[]=allAreas?[null]:selectedAreaIds;
+    const periods=days.flatMap((day)=>day.periods.flatMap((period)=>scopes.map((areaId)=>({
+      areaId,
+      dayOfWeek:day.dayOfWeek,
+      startsAt:period.startsAt,
+      endsAt:period.endsAt,
+    }))));
+    if(!periods.length)return null;
+    if(periods.some((period)=>!/^([01]\d|2[0-3]):[0-5]\d$/.test(period.startsAt)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(period.endsAt)||period.startsAt>=period.endsAt))return null;
+
+    return {
+      name:name.trim(),
+      effectiveFrom,
+      effectiveUntil:effectiveUntil||null,
+      defaultSlotDurationMinutes,
+      bufferMinutes,
+      periods,
+    };
+  }
+
+  async function save(){
+    if(!token)return null;
+    const draft=buildDraft();
+    if(!draft){setError(t("schedule.saveTimetableError"));return null;}
+    setBusy("save");setError(null);setConflicts([]);
+    try{
+      const result=timetableId
+        ?await ownerApi.updateTimetable(token,timetableId,draft)
+        :await ownerApi.createTimetable(token,draft);
+      setTimetableId(result.timetable.id);
+      if(!timetableId){
+        router.replace({pathname:"/owner/timetable/edit",params:{timetableId:result.timetable.id}});
+      }
+      return result.timetable;
+    }catch{
+      setError(t("schedule.saveTimetableError"));
+      return null;
+    }finally{setBusy(null);}
+  }
+
+  async function publish(){
+    if(!token)return;
+    let id=timetableId;
+    if(!id){
+      const saved=await save();
+      id=saved?.id??null;
+    }else{
+      const draft=buildDraft();
+      if(!draft){setError(t("schedule.saveTimetableError"));return;}
+      setBusy("publish");setError(null);
+      try{await ownerApi.updateTimetable(token,id,draft);}
+      catch{setError(t("schedule.saveTimetableError"));setBusy(null);return;}
+    }
+    if(!id)return;
+    setBusy("publish");setConflicts([]);
+    try{
+      const result=await ownerApi.publishTimetable(token,id);
+      if(result.conflicts.length){
+        setConflicts(result.conflicts);
+      }else{
+        router.replace("/owner/schedule");
+      }
+    }catch{setError(t("schedule.publishTimetableError"));}
+    finally{setBusy(null);}
+  }
+
+  if(loading)return <Screen embedded><DataLoadingState variant="form" minHeight={560}/></Screen>;
+
+  return <Screen embedded>
+    <View style={styles.headerRow}>
+      <Pressable onPress={()=>router.back()} style={styles.back}>
+        <Ionicons name={isRTL?"chevron-forward":"chevron-back"} size={22} color={colors.primary}/>
+      </Pressable>
+      <View style={{flex:1}}>
+        <AppText variant="title" weight="bold">{t("schedule.editWeekly")}</AppText>
+        <AppText muted>{t("schedule.venueTimetable")}</AppText>
+      </View>
+    </View>
+
+    {error?<Card style={{borderColor:colors.danger}}><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
+
+    <Card>
+      <TextField label={t("schedule.timetableName")} value={name} onChangeText={setName}/>
+      <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <TextField label={t("schedule.effectiveFrom")} value={effectiveFrom} onChangeText={setEffectiveFrom} forceLtr hint="YYYY-MM-DD" containerStyle={styles.field}/>
+        <TextField label={t("schedule.effectiveUntil")} value={effectiveUntil} onChangeText={setEffectiveUntil} forceLtr hint="YYYY-MM-DD" containerStyle={styles.field}/>
+      </View>
+      <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <TextField label={t("schedule.slotDuration")} value={duration} onChangeText={setDuration} keyboardType="number-pad" forceLtr containerStyle={styles.field}/>
+        <TextField label={t("schedule.buffer")} value={buffer} onChangeText={setBuffer} keyboardType="number-pad" forceLtr containerStyle={styles.field}/>
+      </View>
+    </Card>
+
+    <Card>
+      <AppText variant="bodyLarge" weight="bold">{t("schedule.areaScope")}</AppText>
+      <View style={styles.scopeRow}>
+        <Choice label={t("schedule.allAreasScope")} active={allAreas} onPress={()=>setAllAreas(true)}/>
+        <Choice label={t("schedule.selectedAreas")} active={!allAreas} onPress={()=>setAllAreas(false)}/>
+      </View>
+      {!allAreas?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.areaChips}>
+        {areas.map((area)=>{
+          const active=selectedAreaIds.includes(area.id);
+          return <Choice key={area.id} label={area.name} active={active} onPress={()=>setSelectedAreaIds((current)=>
+            active?current.filter((id)=>id!==area.id):[...current,area.id]
+          )}/>;
+        })}
+      </ScrollView>:null}
+    </Card>
+
+    <View style={{gap:spacing.md}}>
+      {days.map((day)=><Card key={day.dayOfWeek}>
+        <View style={[styles.dayHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={{flex:1}}>
+            <AppText variant="bodyLarge" weight="bold">{t(`owner.day.${day.dayOfWeek}` as never)}</AppText>
+            <AppText variant="caption" muted>{day.periods.length?t("schedule.dayOpen"):t("schedule.dayClosed")}</AppText>
+          </View>
+          <Switch value={day.periods.length>0} onValueChange={()=>toggleDay(day)}/>
+        </View>
+
+        {day.periods.map((period,index)=><View key={index} style={styles.periodBlock}>
+          <AppText variant="caption" weight="semibold">{t("schedule.period")} {index+1}</AppText>
+          <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <TextField label={t("schedule.startTime")} value={period.startsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{startsAt:value})} forceLtr containerStyle={styles.field}/>
+            <TextField label={t("schedule.endTime")} value={period.endsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{endsAt:value})} forceLtr containerStyle={styles.field}/>
+          </View>
+          {day.periods.length>1?<Button
+            label={t("schedule.removePeriod")}
+            onPress={()=>setDayPeriods(day.dayOfWeek,day.periods.filter((_,periodIndex)=>periodIndex!==index))}
+            variant="ghost"
+          />:null}
+        </View>)}
+
+        {day.periods.length?<Button
+          label={t("schedule.addPeriod")}
+          onPress={()=>setDayPeriods(day.dayOfWeek,[...day.periods,{startsAt:"18:00",endsAt:"23:00"}])}
+          variant="secondary"
+        />:null}
+
+        {day.periods.length?<View style={{gap:spacing.sm}}>
+          <AppText variant="caption" muted>{t("schedule.copyTo")}</AppText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.areaChips}>
+            {days.filter((target)=>target.dayOfWeek!==day.dayOfWeek).map((target)=><Choice
+              key={target.dayOfWeek}
+              label={t(`owner.day.${target.dayOfWeek}` as never)}
+              active={false}
+              onPress={()=>copyDay(day,target.dayOfWeek)}
+            />)}
+          </ScrollView>
+          <View style={styles.scopeRow}>
+            <Button label={t("schedule.copyWeekdays")} onPress={()=>copyMany(day,[1,2,3,4,5])} variant="ghost" style={styles.copyButton}/>
+            <Button label={t("schedule.copyAll")} onPress={()=>copyMany(day,[0,1,2,3,4,5,6])} variant="ghost" style={styles.copyButton}/>
+          </View>
+        </View>:null}
+      </Card>)}
+    </View>
+
+    {conflicts.length?<Card style={{borderColor:colors.warning}}>
+      <View style={styles.headerRow}>
+        <Ionicons name="warning-outline" size={24} color={colors.warning}/>
+        <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{t("schedule.publishConflictTitle")}</AppText>
+      </View>
+      <AppText>{t("schedule.publishConflictBody")}</AppText>
+      {conflicts.slice(0,20).map((item,index)=><View key={`${item.areaId}-${item.startsAt}-${index}`} style={styles.conflict}>
+        <AppText weight="semibold">{item.areaName} · {item.title}</AppText>
+        <AppText variant="caption" muted forceLtr>{item.startsAt} → {item.endsAt}</AppText>
+      </View>)}
+      <Button label={t("schedule.reviewConflicts")} onPress={()=>{
+        const first=conflicts[0];
+        const date=first?new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(first.startsAt)):todayKabul();
+        router.replace({pathname:"/owner/schedule",params:{date}});
+      }} variant="secondary"/>
+    </Card>:null}
+
+    <View style={styles.footerActions}>
+      <Button label={t("schedule.saveDraft")} onPress={()=>void save()} loading={busy==="save"} variant="secondary" style={styles.footerButton}/>
+      <Button label={t("schedule.publish")} onPress={()=>void publish()} loading={busy==="publish"} style={styles.footerButton}/>
+    </View>
+  </Screen>;
+}
+
+function Choice({label,active,onPress}:{label:string;active:boolean;onPress:()=>void}){
+  return <Pressable onPress={onPress} style={[styles.choice,active&&styles.choiceActive]}>
+    <AppText variant="caption" weight="semibold" numberOfLines={1} style={active?{color:colors.primary}:undefined}>{label}</AppText>
+  </Pressable>;
+}
+
+const styles=StyleSheet.create({
+  headerRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
+  back:{width:44,height:44,borderRadius:radius.md,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  twoColumns:{gap:spacing.sm,alignItems:"flex-start"},
+  field:{flex:1,minWidth:0},
+  scopeRow:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  areaChips:{gap:spacing.sm,paddingVertical:spacing.xs},
+  choice:{minHeight:40,paddingHorizontal:spacing.md,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
+  choiceActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
+  dayHeader:{alignItems:"center",gap:spacing.sm},
+  periodBlock:{padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted,gap:spacing.sm},
+  copyButton:{flexGrow:1,minWidth:140},
+  conflict:{paddingVertical:spacing.sm,borderBottomWidth:1,borderBottomColor:colors.border},
+  footerActions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  footerButton:{flexGrow:1,minWidth:160},
+});
