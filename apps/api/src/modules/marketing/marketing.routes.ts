@@ -7,6 +7,9 @@ import {
   socialPostCommentCreateRequestSchema,
   socialPostCommentUpdateRequestSchema,
   venuePostCreateRequestSchema,
+  venuePostScheduleRequestSchema,
+  venuePostUpdateRequestSchema,
+  venuePostVisibilitySchema,
 } from "@leaguekick/contracts";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
@@ -133,6 +136,27 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
     } catch (error) { next(error); }
   });
 
+  router.get("/venues/:venueId/posts", async (request, response, next) => {
+    try {
+      const venueId=routeIdSchema.parse(request.params.venueId);
+      response.json(await marketing.venuePosts(venueId));
+    } catch (error) { next(error); }
+  });
+
+  router.get("/venues/:venueId/posts/following", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const venueId=routeIdSchema.parse(request.params.venueId);
+      response.json(await marketing.venuePosts(venueId,request.auth!.userId));
+    } catch (error) { next(error); }
+  });
+
+  router.get("/social/venue-posts/:postId", requireAuth(tokens), async (request, response, next) => {
+    try {
+      const postId=routeIdSchema.parse(request.params.postId);
+      response.json({post:await marketing.getVenuePostForUser(request.auth!.userId,postId)});
+    } catch (error) { next(error); }
+  });
+
   router.get("/venues/:venueId/follow", requireAuth(tokens), async (request, response, next) => {
     try {
       const venueId = routeIdSchema.parse(request.params.venueId);
@@ -190,6 +214,45 @@ export function createOwnerMarketingRouter(marketing: MarketingService, tokens: 
     try {
       const input = venuePostCreateRequestSchema.parse(request.body);
       response.status(201).json({ post: await marketing.createPost(request.auth!.userId, input) });
+    } catch (error) { next(error); }
+  });
+
+  router.put("/posts/:postId", writeLimiter, async (request, response, next) => {
+    try {
+      const postId=routeIdSchema.parse(request.params.postId);
+      const input=venuePostUpdateRequestSchema.parse(request.body);
+      response.json({post:await marketing.updatePost(request.auth!.userId,postId,input)});
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/posts/:postId", writeLimiter, async (request, response, next) => {
+    try {
+      const postId=routeIdSchema.parse(request.params.postId);
+      response.json(await marketing.deletePost(request.auth!.userId,postId));
+    } catch (error) { next(error); }
+  });
+
+  router.patch("/posts/:postId/visibility", writeLimiter, async (request, response, next) => {
+    try {
+      const postId=routeIdSchema.parse(request.params.postId);
+      const visibility=venuePostVisibilitySchema.parse(request.body?.visibility);
+      response.json({post:await marketing.setPostVisibility(request.auth!.userId,postId,visibility)});
+    } catch (error) { next(error); }
+  });
+
+  router.post("/posts/:postId/schedules", writeLimiter, async (request, response, next) => {
+    try {
+      const postId=routeIdSchema.parse(request.params.postId);
+      const input=venuePostScheduleRequestSchema.parse(request.body);
+      response.status(201).json({schedule:await marketing.addPostSchedule(request.auth!.userId,postId,input)});
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/posts/:postId/schedules/:scheduleId", writeLimiter, async (request, response, next) => {
+    try {
+      const postId=routeIdSchema.parse(request.params.postId);
+      const scheduleId=routeIdSchema.parse(request.params.scheduleId);
+      response.json({schedule:await marketing.cancelPostSchedule(request.auth!.userId,postId,scheduleId)});
     } catch (error) { next(error); }
   });
 
