@@ -80,7 +80,10 @@ export class DrizzleBookingRepository implements BookingRepository {
 
   private async hydrateVenue(row: typeof venues.$inferSelect): Promise<BookingVenueRecord> {
     const [areas, hours, subscriptionRows] = await Promise.all([
-      this.db.select().from(venueAreas).where(eq(venueAreas.venueId, row.id)),
+      this.db.select().from(venueAreas).where(and(
+      eq(venueAreas.venueId, row.id),
+      eq(venueAreas.active, true),
+    )),
       this.db.select().from(venueOpeningHours).where(eq(venueOpeningHours.venueId, row.id)),
       this.db.select().from(venueSubscriptions).where(eq(venueSubscriptions.venueId, row.id)).limit(1),
     ]);
