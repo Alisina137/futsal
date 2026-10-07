@@ -2,7 +2,7 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, Animated, StyleSheet, View, type DimensionValue } from "react-native";
 
-type LoadingVariant="list"|"detail"|"dashboard"|"form";
+type LoadingVariant="list"|"detail"|"dashboard"|"form"|"calendar";
 
 type Props={
   variant?:LoadingVariant;
@@ -29,10 +29,11 @@ export function DataLoadingState({variant="list",minHeight=360}:Props){
     style={[styles.root,{minHeight}]}
   >
     <Animated.View style={[styles.skeleton,{opacity}]}>
-      {variant==="dashboard"?<DashboardSkeleton/>
-        :variant==="detail"?<DetailSkeleton/>
-          :variant==="form"?<FormSkeleton/>
-            :<ListSkeleton/>}
+      {variant==="calendar"?<CalendarSkeleton/>
+        :variant==="dashboard"?<DashboardSkeleton/>
+          :variant==="detail"?<DetailSkeleton/>
+            :variant==="form"?<FormSkeleton/>
+              :<ListSkeleton/>}
     </Animated.View>
 
     <View pointerEvents="none" style={styles.loaderLayer}>
@@ -40,6 +41,19 @@ export function DataLoadingState({variant="list",minHeight=360}:Props){
         <ActivityIndicator size="small" color={colors.primary}/>
       </View>
     </View>
+  </View>;
+}
+
+function CalendarSkeleton(){
+  return <View style={styles.calendarSkeleton}>
+    <View style={styles.calendarHeader}>
+      <Skeleton width={58} height={18}/>
+      {[0,1,2].map((item)=><Skeleton key={item} width="27%" height={34} radiusValue={radius.md}/>)}
+    </View>
+    {[0,1,2,3,4].map((row)=><View key={row} style={styles.calendarRow}>
+      <Skeleton width={58} height={18}/>
+      {[0,1,2].map((cell)=><Skeleton key={cell} width="27%" height={54} radiusValue={radius.md}/>)}
+    </View>)}
   </View>;
 }
 
@@ -148,6 +162,33 @@ const styles=StyleSheet.create({
   stack:{
     width:"100%",
     gap:spacing.md,
+  },
+  calendarSkeleton:{
+    width:"100%",
+    gap:spacing.xs,
+    padding:spacing.xs,
+    borderWidth:1,
+    borderColor:colors.border,
+    borderRadius:radius.lg,
+    backgroundColor:colors.surface,
+  },
+  calendarHeader:{
+    minHeight:52,
+    flexDirection:"row",
+    alignItems:"center",
+    justifyContent:"space-between",
+    gap:spacing.xs,
+    paddingHorizontal:spacing.xs,
+  },
+  calendarRow:{
+    minHeight:64,
+    flexDirection:"row",
+    alignItems:"center",
+    justifyContent:"space-between",
+    gap:spacing.xs,
+    paddingHorizontal:spacing.xs,
+    borderTopWidth:1,
+    borderTopColor:colors.border,
   },
   row:{
     flexDirection:"row",
