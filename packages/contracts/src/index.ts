@@ -195,7 +195,7 @@ export const ownerVenueSetupRequestSchema = z.object({
     latitude: z.number().min(-90).max(90).nullable().optional(),
     longitude: z.number().min(-180).max(180).nullable().optional(),
   }),
-  areas: z.array(venueAreaInputSchema).min(1).max(20),
+  areas: z.array(venueAreaInputSchema).length(1, "A venue owner account can manage exactly one court."),
   openingHours: openingHoursSchema,
 });
 export type OwnerVenueSetupRequest = z.infer<typeof ownerVenueSetupRequestSchema>;
@@ -219,7 +219,7 @@ export const ownerVenueDtoSchema = z.object({
   longitude: z.number().nullable(),
   status: z.enum(["DRAFT", "READY", "ACTIVE", "SUSPENDED"]),
   setupCompletedAt: z.string().nullable(),
-  areas: z.array(venueAreaDtoSchema),
+  areas: z.array(venueAreaDtoSchema).max(1),
   openingHours: z.array(venueOpeningHourDtoSchema),
 });
 export type OwnerVenueDto = z.infer<typeof ownerVenueDtoSchema>;
@@ -597,6 +597,7 @@ export const venueTimetablePeriodInputSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
   startsAt: hhmmSchema,
   endsAt: hhmmSchema,
+  priceAfn: z.number().int().min(0).max(1_000_000),
 }).superRefine((value, ctx) => {
   if (value.startsAt >= value.endsAt) {
     ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End time must be after start time." });
