@@ -106,7 +106,7 @@ export default function OwnerScheduleScreen(){
       requestAnimationFrame(()=>{
         if(weekListY.current===null||todayWeekRowY.current===null)return;
         screenScrollRef.current?.scrollTo({
-          y:Math.max(0,weekListY.current+todayWeekRowY.current-spacing.md),
+          y:Math.max(0,weekListY.current+48+todayWeekRowY.current-spacing.md),
           animated:false,
         });
       });
@@ -230,7 +230,15 @@ export default function OwnerScheduleScreen(){
 
     {selectedDay?<Summary day={selectedDay} t={t}/>:null}
 
-    <View style={styles.calendarDataArea}>
+    <View
+      style={styles.calendarDataArea}
+      onLayout={(event)=>{
+        weekListY.current=event.nativeEvent.layout.y;
+        if(renderedView==="WEEK"&&calendar?.days.some((day)=>day.date===todayDate)){
+          focusTodayWeekRow(calendar.from);
+        }
+      }}
+    >
       {calendar?
         renderedView==="MONTH"
           ?<MonthView
@@ -246,12 +254,6 @@ export default function OwnerScheduleScreen(){
               language={language}
               t={t}
               todayDate={todayDate}
-              onListLayout={(y)=>{
-                weekListY.current=y;
-                if(calendar.days.some((day)=>day.date===todayDate)){
-                  focusTodayWeekRow(calendar.from);
-                }
-              }}
               onTodayRowLayout={(y)=>{
                 todayWeekRowY.current=y;
                 focusTodayWeekRow(calendar.from);
@@ -342,17 +344,16 @@ function MonthView({
 }
 
 function WeekView({
-  days,language,t,todayDate,onSelect,onListLayout,onTodayRowLayout,
+  days,language,t,todayDate,onSelect,onTodayRowLayout,
 }:{
   days:VenueCalendarDay[];
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
   todayDate:string;
   onSelect:(date:string)=>void;
-  onListLayout:(y:number)=>void;
   onTodayRowLayout:(y:number)=>void;
 }){
-  return <View onLayout={(event)=>onListLayout(event.nativeEvent.layout.y)}>
+  return <View>
     <ScrollView
       horizontal
       nestedScrollEnabled
