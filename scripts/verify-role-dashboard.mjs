@@ -8,16 +8,22 @@ function assert(value, message) {
 }
 
 const dashboard = read("apps/mobile/app/(app)/dashboard.tsx");
-const ownerDashboard = read("apps/mobile/src/components/owner/OwnerDashboard.tsx");
 const ownerTopNav = read("apps/mobile/src/components/owner/OwnerTopNav.tsx");
+const ownerLayout = read("apps/mobile/app/(app)/owner/_layout.tsx");
 const ownerCompetition = read("apps/mobile/app/(app)/owner/competitions/index.tsx");
-const ownerSchedulePage = read("apps/mobile/app/(app)/(tabs)/schedule.tsx");
+const ownerSchedulePage = read("apps/mobile/app/(app)/owner/schedule.tsx");
+const legacySchedulePage = read("apps/mobile/app/(app)/(tabs)/schedule.tsx");
 const ownerMediaPage = read("apps/mobile/app/(app)/owner/posts/index.tsx");
 const ownerAnalyticsPage = read("apps/mobile/app/(app)/owner/analytics.tsx");
 const ownerSettingsPage = read("apps/mobile/app/(app)/owner/onboarding.tsx");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const header = read("apps/mobile/src/components/ui/AppHeader.tsx");
 const localization = read("packages/localization/src/index.ts");
+const rootLayout = read("apps/mobile/app/_layout.tsx");
+const protectedLayout = read("apps/mobile/app/(app)/_layout.tsx");
+const authLayout = read("apps/mobile/app/(auth)/_layout.tsx");
+const tabsLayout = read("apps/mobile/app/(app)/(tabs)/_layout.tsx");
+const screen = read("apps/mobile/src/components/ui/Screen.tsx");
 
 for (const role of ["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE","PLATFORM_ADMIN"]) {
   assert(header.includes(role), `Dashboard hamburger eligibility missing role: ${role}`);
@@ -25,21 +31,17 @@ for (const role of ["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE","PLATFORM_AD
 }
 
 assert(dashboard.includes("resolveDashboardRole"), "Role-aware dashboard resolver missing.");
-assert(dashboard.includes('role === "VENUE_OWNER"') && dashboard.includes("<OwnerDashboard />"), "Venue Owner must use the existing owner dashboard.");
+assert(dashboard.includes('role === "VENUE_OWNER"') && dashboard.includes('<Redirect href="/owner/competitions" />'), "Venue Owner dashboard must enter the persistent owner shell at Competitions.");
 assert(dashboard.includes('role === "TEAM_MANAGER"'), "Team Owner dashboard shell missing.");
 assert(dashboard.includes('role === "PLAYER"'), "Player dashboard shell missing.");
 assert(dashboard.includes('role === "REFEREE"'), "Referee dashboard shell missing.");
 assert(dashboard.includes('PLATFORM_ADMIN'), "Platform Admin dashboard shell missing.");
 assert(dashboard.includes("dashboard.normalUnavailableTitle"), "Normal-user direct dashboard fallback missing.");
 
-assert(!ownerDashboard.includes('t("owner.dashboardTitle")'), "Venue Owner dashboard must not render the dashboard title.");
-assert(!ownerDashboard.includes('t("owner.dashboardSubtitle")'), "Venue Owner dashboard must not render the old dashboard subtitle.");
-assert(ownerDashboard.includes("<OwnerTopNav"), "Venue Owner dashboard must render the shared top navigation.");
-assert(!ownerDashboard.includes('t("home.discoveryTitle")'), "Venue Owner dashboard must not show the futsal discovery card.");
-assert(!ownerDashboard.includes('t("home.discoveryBody")'), "Venue Owner dashboard must not show the discovery subtitle.");
-assert(!ownerDashboard.includes('t("owner.setupStatus")'), "Venue Owner dashboard must not show the venue settings/status card.");
-assert(!ownerDashboard.includes('t("competition.ownerQuickAccessBody")'), "Venue Owner dashboard must not show the competition management shortcut card.");
-assert(!ownerDashboard.includes('t("ownerMarketing.marketingTitle")'), "Venue Owner dashboard must not show the marketing shortcut card.");
+assert(ownerLayout.includes("<AppHeader/>"), "Venue Owner shell must render the app header once.");
+assert(ownerLayout.includes("<OwnerTopNav/>"), "Venue Owner shell must render the owner navigation once.");
+assert(ownerLayout.includes("<Slot/>"), "Venue Owner shell must render only the active child content below the persistent chrome.");
+assert(screen.includes("embedded?: boolean"), "Screen must support embedded owner content without another safe-area/header shell.");
 
 assert(ownerTopNav.includes("<ScrollView") && ownerTopNav.includes("horizontal"), "Venue Owner top navigation must scroll horizontally.");
 assert(ownerTopNav.includes('flexWrap:"nowrap"'), "Venue Owner top navigation must stay on one line.");
@@ -58,7 +60,7 @@ assert(ownerTopNav.includes("focusActive") && ownerTopNav.includes("scrollTo({x,
 assert(ownerTopNav.includes("onContentSizeChange") && ownerTopNav.includes("handleItemLayout"), "Venue Owner navigation must measure its scroll content and tabs before restoring active-tab focus.");
 
 const ownerCompetitionRoute = ownerTopNav.indexOf('href:"/owner/competitions"');
-const ownerScheduleRoute = ownerTopNav.indexOf('href:"/schedule"');
+const ownerScheduleRoute = ownerTopNav.indexOf('href:"/owner/schedule"');
 const ownerPostsRoute = ownerTopNav.indexOf('href:"/owner/posts"');
 const ownerAnalysisRoute = ownerTopNav.indexOf('href:"/owner/analytics"');
 const ownerSettingsRoute = ownerTopNav.indexOf('href:"/owner/onboarding"');
@@ -78,11 +80,18 @@ for (const [name, source] of [
   ["Analysis", ownerAnalyticsPage],
   ["Venue Settings", ownerSettingsPage],
 ]) {
-  assert(source.includes("<OwnerTopNav"), `Venue Owner ${name} page must keep the shared top navigation visible.`);
+  assert(source.includes("<Screen embedded>"), `Venue Owner ${name} page must render only embedded content.`);
+  assert(!source.includes("OwnerTopNav"), `Venue Owner ${name} page must not remount the shared owner navigation.`);
+  assert(!source.includes("showHeader"), `Venue Owner ${name} page must not remount the global app header.`);
 }
+assert(legacySchedulePage.includes('<Redirect href="/owner/schedule"/>'), "Legacy schedule route must redirect into the persistent owner shell.");
 
 assert(!ownerCompetition.includes('t("competition.ownerTitle")'), "Venue Owner competition page title must be removed.");
 assert(!ownerCompetition.includes('t("competition.control.listSubtitle")'), "Venue Owner competition page subtitle must be removed.");
+assert(rootLayout.includes('animation:"none"'), "Root navigation must disable full-page slide transitions.");
+assert(protectedLayout.includes('animation: "none"'), "Protected app navigation must disable full-page slide transitions.");
+assert(authLayout.includes('animation: "none"'), "Auth navigation must disable full-page slide transitions.");
+assert(tabsLayout.includes('animation:"none"'), "Hidden tab navigation must disable page transition animation.");
 assert(
   ownerCompetition.includes('["ALL","IN_PROGRESS","REGISTRATION_OPEN","REGISTRATION_CLOSED","COMPLETED","DRAFT","SCHEDULED","ARCHIVED","CANCELLED"]'),
   "Competition filters must be ordered All → In Progress → Registration Open → Registration Closed → Completed → Draft → Scheduled → Archived → Cancelled.",
@@ -110,4 +119,4 @@ for (const key of [
   assert(count === 3, `Venue Owner dashboard navigation localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Role dashboards verified: shared role routing plus persistent, active Venue Owner top navigation and competition filter order.");
+console.log("Role dashboards verified: persistent Venue Owner shell, embedded content-only tab changes, no slide transitions, and competition filter order.");
