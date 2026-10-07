@@ -170,8 +170,8 @@ assert(schedule.includes("weekSlotGrid"),"Timetable Week view must render a slot
 assert(schedule.includes("timeRows=Array.from(new Set("),"Timetable Week view must divide the calendar into start-time rows.");
 assert(schedule.includes("rawTime(event.startsAt!)===time"),"Timetable Week view must place events into their matching start-time slot.");
 assert(schedule.includes("onSelectSlot(event)"),"Every populated Week slot must be clickable.");
-assert(schedule.includes("selectedWeekSlot"),"Week slot selection must open exact-slot management.");
-assert(schedule.includes("<WeekSlotManager"),"Week slot clicks must open a management panel.");
+assert(schedule.includes("selectedSlot"),"Week/Day slot selection must open exact-slot management.");
+assert(schedule.includes("<SlotManager"),"Week/Day slot clicks must open a management panel.");
 assert(schedule.includes('t("schedule.manageSlot")'),"Week slot management panel must be clearly titled.");
 assert(schedule.includes('t("schedule.slotColorGuide")'),"Week view must include a slot background-color guide.");
 assert(schedule.includes('AVAILABLE:{background:"#DCFCE7"'),"Available slots must use a green background.");
