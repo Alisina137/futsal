@@ -37,7 +37,7 @@ function exception(row: typeof venueTimetableExceptions.$inferSelect): Timetable
     areaId: row.areaId,
     date: row.date,
     isClosed: row.isClosed,
-    periods: row.periods,
+    periods: row.periods.map((period) => ({ ...period, priceAfn: period.priceAfn ?? null })),
     note: row.note,
     createdByUserId: row.createdByUserId,
     createdAt: row.createdAt,
