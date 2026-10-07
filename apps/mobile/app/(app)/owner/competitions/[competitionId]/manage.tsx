@@ -22,7 +22,6 @@ import { Button } from "../../../../../src/components/ui/Button";
 import { Card } from "../../../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../../../src/components/ui/DataLoadingState";
 import { DateTimePickerField } from "../../../../../src/components/ui/DateTimePickerField";
-import { OwnerTopNav } from "../../../../../src/components/owner/OwnerTopNav";
 import { Screen } from "../../../../../src/components/ui/Screen";
 import { TextField } from "../../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../../src/providers/AuthProvider";
@@ -473,10 +472,9 @@ export default function ManageCompetitionScreen(){
     finally{setBusy(null);}
   }
 
-  if(loading)return <Screen showHeader><OwnerTopNav/><DataLoadingState variant="dashboard" minHeight={520}/></Screen>;
+  if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={520}/></Screen>;
 
-  return <Screen showHeader>
-    <OwnerTopNav/>
+  return <Screen embedded>
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {message?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{message}</AppText></Card>:null}
 
