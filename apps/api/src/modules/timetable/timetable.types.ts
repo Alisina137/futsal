@@ -45,7 +45,7 @@ export type TimetableExceptionRecord = {
   areaId: string | null;
   date: string;
   isClosed: boolean;
-  periods: Array<{ startsAt: string; endsAt: string }>;
+  periods: Array<{ startsAt: string; endsAt: string; priceAfn: number | null }>;
   note: string | null;
   createdByUserId: string;
   createdAt: Date;
@@ -103,6 +103,12 @@ export interface TimetableRepository {
     ownerUserId: string;
     exception: VenueTimetableExceptionRequest;
   }): Promise<TimetableExceptionRecord>;
+  getException(exceptionId: string): Promise<TimetableExceptionRecord | null>;
+  updateException(input: {
+    exceptionId: string;
+    venueId: string;
+    exception: VenueTimetableExceptionRequest;
+  }): Promise<TimetableExceptionRecord | null>;
   deleteException(exceptionId: string, venueId: string): Promise<boolean>;
   listOccupancies(venueId: string, startsAt: Date, endsAt: Date): Promise<TimetableOccupancyRecord[]>;
 }
