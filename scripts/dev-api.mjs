@@ -5,26 +5,29 @@ const apiPort="4000";
 let shuttingDown=false;
 const children=[];
 
-function commandPath(name){
-  if(process.platform!=="win32")return name;
-  const lookup=spawnSync("where",[name],{encoding:"utf8",shell:false});
-  if(lookup.status!==0)return null;
-  const candidates=(lookup.stdout??"")
-    .split(/\r?\n/)
-    .map((value)=>value.trim())
-    .filter(Boolean);
-  return candidates.find((value)=>/\.(?:exe|cmd|bat)$/i.test(value))
-    ??candidates[0]
-    ??null;
+function commandAvailable(name){
+  const lookup=spawnSync(
+    process.platform==="win32"?"where":"which",
+    [name],
+    {encoding:"utf8",shell:false},
+  );
+  return lookup.status===0;
 }
 
 function start(label,command,args,env=process.env){
-  const child=spawn(command,args,{
-    cwd:process.cwd(),
-    stdio:"inherit",
-    shell:false,
-    env,
-  });
+  let child;
+  try{
+    child=spawn(command,args,{
+      cwd:process.cwd(),
+      stdio:"inherit",
+      shell:process.platform==="win32",
+      env,
+    });
+  }catch(error){
+    console.error(`[dev:api] Failed to start ${label}: ${error instanceof Error?error.message:String(error)}`);
+    void shutdown(1);
+    return null;
+  }
   children.push({label,child});
 
   child.on("error",(error)=>{
@@ -86,14 +89,12 @@ async function printNgrokUrl(){
   }
 }
 
-const pnpm=process.platform==="win32"?commandPath("pnpm"): "pnpm";
-if(!pnpm){
+if(!commandAvailable("pnpm")){
   console.error("[dev:api] pnpm was not found in PATH.");
   process.exit(1);
 }
 
-const ngrok=process.platform==="win32"?commandPath("ngrok"): "ngrok";
-if(!ngrok){
+if(!commandAvailable("ngrok")){
   console.error("[dev:api] ngrok was not found in PATH.");
   console.error("[dev:api] Confirm that 'ngrok http 4000' works directly in PowerShell.");
   process.exit(1);
@@ -106,7 +107,7 @@ console.log("[dev:api] Press Ctrl+C once to stop both.\n");
 
 start(
   "API",
-  pnpm,
+  "pnpm",
   ["--filter","@leaguekick/api","dev"],
   {
     ...process.env,
@@ -115,7 +116,7 @@ start(
   },
 );
 
-start("ngrok",ngrok,["http",apiPort]);
+start("ngrok","ngrok",["http",apiPort]);
 void printNgrokUrl();
 
 process.on("SIGINT",()=>void shutdown(0));
