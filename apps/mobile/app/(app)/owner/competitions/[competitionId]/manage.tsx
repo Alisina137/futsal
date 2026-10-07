@@ -310,7 +310,7 @@ export default function ManageCompetitionScreen(){
   function openSchedule(match:CompetitionMatchDto){
     setActiveTab("FIXTURES");
     setActiveMatch(match);setEditMode("SCHEDULE");
-    setAreaId(match.areaId??areas[0]?.id??"");
+    setAreaId(match.areaId??areaId);
     setStartsAt(match.startsAt??"");
     setEndsAt(match.endsAt??"");
     setRefereeUserId(match.refereeUserId??null);
