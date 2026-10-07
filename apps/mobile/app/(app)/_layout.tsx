@@ -10,5 +10,5 @@ export default function ProtectedLayout() {
     return <Redirect href={adminMode ? { pathname: "/login", params: { next: "/admin" } } : "/login"} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack screenOptions={{ headerShown: false, animation: "none" }} />;
 }
