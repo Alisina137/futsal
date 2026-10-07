@@ -67,6 +67,10 @@ export class MarketingService {
     await Promise.all(newlyPublished.map((post)=>this.notifyVenuePost(post)));
   }
 
+  async refreshScheduledMedia(){
+    await this.refreshMedia();
+  }
+
   private async normalizePostCta(
     venueId:string,
     ctaType:"NONE"|"VENUE"|"PROMOTION"|"COMPETITION",
