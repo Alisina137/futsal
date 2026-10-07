@@ -2,6 +2,7 @@ import type { AccountProfileUpdateRequest, AuthResponse, LoginRequest, RegisterR
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 import { ApiRequestError, authApi, setAccountAccessListener } from "../lib/api";
+import { clearActiveUserApiCache, setApiCacheUserScope } from "../lib/api-cache";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "../lib/auth-storage";
 
 type AuthStatus = "hydrating" | "anonymous" | "authenticated";
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthResponse | null>(null);
 
   const adopt = useCallback(async (next: AuthResponse) => {
+    setApiCacheUserScope(next.user.id);
     setSession(next);
     setStatus("authenticated");
     setAccessState("active");
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearSession = useCallback(async () => {
+    await clearActiveUserApiCache();
     setSession(null);
     setStatus("anonymous");
     setAccessState("active");
@@ -63,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      setApiCacheUserScope(stored.user.id);
       setSession(stored);
       setStatus("authenticated");
 
