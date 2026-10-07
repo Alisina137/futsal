@@ -393,14 +393,14 @@ function MonthView({
   onSelect:(date:string)=>void;
 }){
   return <Card style={styles.calendarCard}>
-    <View style={styles.weekdayHeader}>
+    <View style={[styles.weekdayHeader,{flexDirection:language==="en"?"row":"row-reverse"}]}>
       {days.slice(0,7).map((day)=><View key={`weekday-${day.date}`} style={styles.weekdayHeaderCell}>
         <AppText variant="caption" weight="bold" muted numberOfLines={1}>
           {formatCalendarDate(day.date,language,{weekday:"short"})}
         </AppText>
       </View>)}
     </View>
-    <View style={styles.monthGrid}>
+    <View style={[styles.monthGrid,{flexDirection:language==="en"?"row":"row-reverse"}]}>
       {days.map((day)=><View key={day.date} style={styles.monthCellFrame}>
         <Pressable
           onPress={()=>onSelect(day.date)}
@@ -429,7 +429,11 @@ function WeekView({days,language,onSelect}:{
   language:"fa-AF"|"ps-AF"|"en";
   onSelect:(date:string)=>void;
 }){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weekScroll}>
+  return <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={[styles.weekScroll,{flexDirection:language==="en"?"row":"row-reverse"}]}
+  >
     {days.map((day)=><Pressable key={day.date} onPress={()=>onSelect(day.date)}>
       <Card style={styles.weekCard}>
         <AppText weight="bold">{formatCalendarDate(day.date,language,{weekday:"short",month:"short",day:"numeric"})}</AppText>
@@ -698,9 +702,9 @@ const styles=StyleSheet.create({
   summaryGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   metric:{minWidth:96,flexGrow:1,padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted,gap:2},
   calendarCard:{padding:spacing.xs},
-  weekdayHeader:{flexDirection:"row"},
+  weekdayHeader:{},
   weekdayHeaderCell:{width:"14.285714%",alignItems:"center",paddingVertical:spacing.xs,paddingHorizontal:2},
-  monthGrid:{flexDirection:"row",flexWrap:"wrap"},
+  monthGrid:{flexWrap:"wrap"},
   monthCellFrame:{width:"14.285714%",padding:2},
   monthCell:{minHeight:78,borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,padding:spacing.xs,gap:2,backgroundColor:colors.surface},
   monthCellMuted:{opacity:.46},
