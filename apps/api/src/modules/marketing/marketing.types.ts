@@ -18,12 +18,12 @@ export type MarketingVenueRecord = {
   id: string;
   ownerUserId: string;
   name: string;
-  city: string;
-  province: string;
+  city?: string;
+  province?: string;
   timezone: string;
-  pageProfileImageUrl: string | null;
-  pageCoverImageUrl: string | null;
-  pageBio: string | null;
+  pageProfileImageUrl?: string | null;
+  pageCoverImageUrl?: string | null;
+  pageBio?: string | null;
   status: "DRAFT" | "READY" | "ACTIVE" | "SUSPENDED";
   subscription: {
     status: "TRIAL" | "ACTIVE" | "EXPIRED" | "CANCELLED";
