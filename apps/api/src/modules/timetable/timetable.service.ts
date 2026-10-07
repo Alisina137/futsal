@@ -172,7 +172,7 @@ function periodsFor(
   if (special) {
     return special.isClosed
       ? []
-      : special.periods.map(({ startsAt, endsAt }) => ({ startsAt, endsAt, priceAfn: null }));
+      : special.periods.map(({ startsAt, endsAt, priceAfn }) => ({ startsAt, endsAt, priceAfn: priceAfn ?? null }));
   }
 
   if (!record) return null;
@@ -364,10 +364,97 @@ export class TimetableService {
     return { timetable: toDto(archived) };
   }
 
+  private async assertExceptionSafe(
+    venue: TimetableVenueRecord,
+    input: VenueTimetableExceptionRequest,
+    ignoreExceptionId?: string,
+  ) {
+    const today = localDateForInstant(this.now(), venue.timezone);
+    if (input.date < today) {
+      throw errors.badRequest("TIMETABLE_EXCEPTION_PAST", "Special schedules can only be created or edited for today or a future date.");
+    }
+
+    const [records, sameDateExceptions] = await Promise.all([
+      this.repository.listTimetables(venue.id),
+      this.repository.listExceptions(venue.id, input.date, input.date),
+    ]);
+    if (!recordForDate(records, input.date)) {
+      throw errors.badRequest(
+        "TIMETABLE_EXCEPTION_REQUIRES_TIMETABLE",
+        "Publish a weekly timetable that covers this date before creating a special schedule.",
+      );
+    }
+
+    const duplicate = sameDateExceptions.find((item) =>
+      item.id !== ignoreExceptionId && item.areaId === input.areaId
+    );
+    if (duplicate) {
+      throw errors.conflict(
+        "TIMETABLE_EXCEPTION_EXISTS",
+        "A special schedule already exists for this date. Edit the existing one instead.",
+        { exceptionId: duplicate.id, date: duplicate.date },
+      );
+    }
+
+    const affectedAreaIds = input.areaId
+      ? [input.areaId]
+      : venue.areas.filter((area) => area.active).map((area) => area.id);
+    const bounds = dayBounds(input.date, venue.timezone);
+    const occupancies = (await this.repository.listOccupancies(
+      venue.id,
+      bounds.startsAt,
+      bounds.endsAt,
+    )).filter((item) => item.type !== "PROMOTION" && affectedAreaIds.includes(item.areaId));
+
+    const conflicts = occupancies.filter((item) => {
+      if (input.isClosed) return true;
+      return !input.periods.some((period) => {
+        const open = localDateTimeToUtc(input.date, period.startsAt, venue.timezone);
+        const close = localDateTimeToUtc(input.date, period.endsAt, venue.timezone);
+        return item.startsAt.getTime() >= open.getTime() && item.endsAt.getTime() <= close.getTime();
+      });
+    });
+
+    if (conflicts.length) {
+      throw errors.conflict(
+        "TIMETABLE_EXCEPTION_CONFLICT",
+        "Existing bookings, blocks, or competition matches fall outside this special schedule.",
+        {
+          conflicts: conflicts.map((item) => ({
+            type: item.type,
+            areaId: item.areaId,
+            areaName: item.areaName,
+            startsAt: item.startsAt.toISOString(),
+            endsAt: item.endsAt.toISOString(),
+            title: item.title,
+          })),
+        },
+      );
+    }
+  }
+
   async createException(ownerUserId: string, input: VenueTimetableExceptionRequest) {
     const venue = await this.ownerVenue(ownerUserId);
     ensureAreaReferences(venue, [{ areaId: input.areaId }]);
+    await this.assertExceptionSafe(venue, input);
     return { exception: exceptionDto(await this.repository.createException({ venueId: venue.id, ownerUserId, exception: input })) };
+  }
+
+  async updateException(ownerUserId: string, exceptionId: string, input: VenueTimetableExceptionRequest) {
+    const venue = await this.ownerVenue(ownerUserId);
+    ensureAreaReferences(venue, [{ areaId: input.areaId }]);
+    const existing = await this.repository.getException(exceptionId);
+    if (!existing || existing.venueId !== venue.id) {
+      throw errors.badRequest("TIMETABLE_EXCEPTION_NOT_FOUND", "Special schedule not found.");
+    }
+    await this.assertExceptionSafe(venue, input, exceptionId);
+    const updated = await this.repository.updateException({
+      exceptionId,
+      venueId: venue.id,
+      exception: input,
+    });
+    if (!updated) throw errors.badRequest("TIMETABLE_EXCEPTION_NOT_FOUND", "Special schedule not found.");
+    return { exception: exceptionDto(updated) };
   }
 
   async deleteException(ownerUserId: string, exceptionId: string) {
