@@ -342,10 +342,11 @@ export const ownerApi = {
 
 
 export const venueApi = {
-  list: (filters?: { city?: string; province?: string }) => {
+  list: (filters?: { city?: string; province?: string; q?: string }) => {
     const params = new URLSearchParams();
     if (filters?.city) params.set("city", filters.city);
     if (filters?.province) params.set("province", filters.province);
+    if (filters?.q) params.set("q", filters.q);
     const query = params.toString();
     return request<PublicVenueListResponse>(`/api/v1/venues${query ? `?${query}` : ""}`);
   },
