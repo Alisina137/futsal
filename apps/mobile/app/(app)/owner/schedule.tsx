@@ -376,7 +376,7 @@ function WeekView({
         <View style={styles.weekTableBody}>
           {days.map((day,index)=>{
             const isToday=day.date===todayDate;
-            const activity=day.events.filter((event)=>event.type!=="AVAILABLE").slice(0,3);
+            const activity=day.events.filter((event)=>event.type!=="AVAILABLE").slice(0,2);
             return <Pressable
               key={day.date}
               accessibilityRole="button"
@@ -392,20 +392,34 @@ function WeekView({
               ]}
             >
               <View style={[styles.weekTableCell,styles.weekDayColumn]}>
-                <AppText weight="bold">
-                  {formatCalendarDate(day.date,language,{weekday:"long"})}
-                </AppText>
-                <AppText variant="caption" muted>
-                  {formatCalendarDate(day.date,language,{month:"short",day:"numeric"})}
-                </AppText>
-                {isToday?<View style={styles.weekTodayBadge}>
-                  <AppText variant="caption" weight="bold" style={styles.weekTodayBadgeText}>
-                    {t("schedule.today")}
+                <View style={styles.weekDayTitleRow}>
+                  <AppText weight="bold" style={{flex:1}}>
+                    {formatCalendarDate(day.date,language,{weekday:"long"})}
                   </AppText>
-                </View>:null}
-                {day.closed?<AppText variant="caption" style={{color:colors.danger}}>
-                  {t("schedule.dayClosed")}
-                </AppText>:null}
+                  <View style={styles.weekOpenDayCue}>
+                    <AppText variant="caption" weight="semibold" style={styles.weekOpenDayText}>
+                      {t("schedule.openDay")}
+                    </AppText>
+                    <Ionicons
+                      name={language==="en"?"chevron-forward":"chevron-back"}
+                      size={14}
+                      color={colors.primary}
+                    />
+                  </View>
+                </View>
+                <View style={styles.weekDateMeta}>
+                  <AppText variant="caption" muted>
+                    {formatCalendarDate(day.date,language,{month:"short",day:"numeric"})}
+                  </AppText>
+                  {isToday?<View style={styles.weekTodayBadge}>
+                    <AppText variant="caption" weight="bold" style={styles.weekTodayBadgeText}>
+                      {t("schedule.today")}
+                    </AppText>
+                  </View>:null}
+                  {day.closed?<AppText variant="caption" style={{color:colors.danger}}>
+                    {t("schedule.dayClosed")}
+                  </AppText>:null}
+                </View>
               </View>
 
               <WeekMetricCell value={day.availableCount} tone="success"/>
@@ -631,60 +645,65 @@ const styles=StyleSheet.create({
   monthCell:{minHeight:78,borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,padding:spacing.xs,gap:2,backgroundColor:colors.surface},
   monthCellMuted:{opacity:.46},
   monthCellSelected:{borderColor:colors.primary,backgroundColor:colors.primarySoft,borderWidth:2},
-  weekTableScrollContent:{paddingBottom:spacing.xs},
+  weekTableScrollContent:{paddingBottom:spacing.xs,paddingHorizontal:2},
   weekTable:{
-    minWidth:1120,
-    borderWidth:1,
-    borderColor:colors.border,
-    borderRadius:radius.lg,
-    overflow:"hidden",
-    backgroundColor:colors.surface,
+    minWidth:920,
+    backgroundColor:"transparent",
   },
   weekTableHeader:{
-    minHeight:48,
+    minHeight:38,
     alignItems:"stretch",
     backgroundColor:colors.primarySoft,
-    borderBottomWidth:1,
-    borderBottomColor:colors.border,
+    borderWidth:1,
+    borderColor:colors.border,
+    borderRadius:radius.md,
+    overflow:"hidden",
+    marginBottom:spacing.xs,
   },
   weekTableHeaderCell:{
     justifyContent:"center",
-    paddingHorizontal:spacing.sm,
-    paddingVertical:spacing.sm,
+    paddingHorizontal:spacing.xs,
+    paddingVertical:spacing.xs,
     borderRightWidth:1,
     borderRightColor:colors.border,
   },
   weekTableHeaderText:{color:colors.primary},
-  weekTableBody:{flexDirection:"column"},
+  weekTableBody:{flexDirection:"column",gap:spacing.xs},
   weekTableRow:{
-    minHeight:78,
+    minHeight:56,
     alignItems:"stretch",
-    borderBottomWidth:1,
-    borderBottomColor:colors.border,
+    borderWidth:1,
+    borderColor:colors.border,
+    borderRadius:radius.md,
+    overflow:"hidden",
     backgroundColor:colors.surface,
   },
-  weekTableRowAlt:{backgroundColor:colors.surfaceMuted},
-  weekTableRowPressed:{opacity:.82},
+  weekTableRowAlt:{backgroundColor:colors.surface},
+  weekTableRowPressed:{
+    backgroundColor:colors.primarySoft,
+    borderColor:colors.primary,
+    opacity:.9,
+  },
   weekTodayRow:{
     backgroundColor:colors.primarySoft,
-    borderLeftWidth:4,
-    borderLeftColor:colors.primary,
+    borderColor:colors.primary,
+    borderWidth:2,
   },
   weekTableCell:{
     justifyContent:"center",
-    paddingHorizontal:spacing.sm,
-    paddingVertical:spacing.sm,
+    paddingHorizontal:spacing.xs,
+    paddingVertical:spacing.xs,
     borderRightWidth:1,
     borderRightColor:colors.border,
   },
-  weekDayColumn:{width:180},
-  weekMetricColumn:{width:100,alignItems:"center"},
-  weekRevenueColumn:{width:130,alignItems:"center"},
-  weekActivityColumn:{width:210},
+  weekDayColumn:{width:168},
+  weekMetricColumn:{width:76,alignItems:"center"},
+  weekRevenueColumn:{width:108,alignItems:"center"},
+  weekActivityColumn:{width:190},
   weekMetricBadge:{
-    minWidth:42,
-    height:34,
-    paddingHorizontal:spacing.sm,
+    minWidth:34,
+    height:28,
+    paddingHorizontal:spacing.xs,
     borderRadius:radius.pill,
     borderWidth:1,
     alignItems:"center",
@@ -692,13 +711,24 @@ const styles=StyleSheet.create({
     backgroundColor:colors.surface,
   },
   weekTodayBadge:{
-    alignSelf:"flex-start",
-    paddingHorizontal:spacing.sm,
-    paddingVertical:3,
+    paddingHorizontal:spacing.xs,
+    paddingVertical:2,
     borderRadius:radius.pill,
     backgroundColor:colors.primary,
   },
   weekTodayBadgeText:{color:colors.surface},
+  weekDayTitleRow:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
+  weekDateMeta:{flexDirection:"row",alignItems:"center",flexWrap:"wrap",gap:spacing.xs},
+  weekOpenDayCue:{
+    flexDirection:"row",
+    alignItems:"center",
+    gap:2,
+    paddingHorizontal:spacing.xs,
+    minHeight:26,
+    borderRadius:radius.pill,
+    backgroundColor:colors.primarySoft,
+  },
+  weekOpenDayText:{color:colors.primary},
   weekActivityItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
   dot:{width:8,height:8,borderRadius:4},
   titleRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
