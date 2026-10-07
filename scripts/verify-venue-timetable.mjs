@@ -141,22 +141,31 @@ assert(schedule.includes("/owner/promotions/create"),"Available slots must suppo
 assert(editor.includes("copyDay(")&&editor.includes("copyMany("),"Weekly editor must copy hours between days.");
 assert(editor.includes("orderedWeekdays(language)"),"Weekly editor day order must follow the active language week start.");
 assert(editor.includes("todayDayOfWeek"),"Weekly editor must identify today's weekday.");
-assert(editor.includes("styles.todayRow"),"Weekly editor must visually highlight today's row.");
+assert(editor.includes("styles.todayCard"),"Weekly editor must keep the previous card-based current-day highlight.");
 assert(editor.includes('t("schedule.today")'),"Weekly editor must label today's card.");
 assert(editor.includes("focusTodayCard"),"Weekly editor must focus today's card when opened.");
 assert(editor.includes("scrollRef={screenScrollRef}"),"Weekly editor must control its own scroll position to reveal today's card.");
-assert(editor.includes("weekTableBody:{flexDirection:\"column\"}"),"Weekly timetable days must be rendered as a vertical list of rows.");
-assert(editor.includes("horizontal")&&editor.includes("weekTableScrollContent"),"Weekly timetable must allow horizontal scrolling when row content exceeds the screen width.");
+assert(!editor.includes("weekTableBody:{flexDirection:\"column\"}"),"Weekly Timetable editor must remain card-based and must not use the Week-view status table.");
+
+assert(schedule.includes("weekTableBody:{flexDirection:\"column\"}"),"Timetable Week view must render the seven days as a vertical row list.");
+assert(schedule.includes("weekTableScrollContent")&&schedule.includes("showsHorizontalScrollIndicator"),"Timetable Week view must allow horizontal scrolling when columns exceed the screen width.");
+assert(schedule.includes("WeekHeaderCell"),"Timetable Week view must render a structured table header.");
 for(const key of [
   "schedule.weeklyHeaderDay",
-  "schedule.weeklyHeaderStatus",
-  "schedule.weeklyHeaderHours",
-  "schedule.weeklyHeaderActions",
+  "schedule.summaryAvailable",
+  "schedule.summaryBooked",
+  "schedule.summaryManual",
+  "schedule.summaryCompetition",
+  "schedule.summaryBlocked",
+  "schedule.event.PROMOTION",
+  "schedule.summaryRevenue",
+  "schedule.weekViewActivity",
 ]){
-  assert(editor.includes(`t("${key}")`),`Weekly timetable table header missing: ${key}`);
+  assert(schedule.includes(`t("${key}")`),`Timetable Week-view table header missing: ${key}`);
 }
-assert(editor.includes("styles.weekTableRowAlt"),"Weekly timetable rows must use structured alternating styling.");
-assert(editor.includes("styles.todayRow"),"Today's weekly timetable row must remain highlighted in the table layout.");
+assert(schedule.includes("styles.weekTableRowAlt"),"Timetable Week rows must use structured alternating styling.");
+assert(schedule.includes("styles.weekTodayRow"),"Today's row must be highlighted in Timetable Week view.");
+assert(schedule.includes("focusTodayWeekRow"),"Timetable Week view must bring today's row into view for the current week.");
 assert(editor.includes("calendarInputDate"),"Weekly editor must display Solar Hijri form dates for Dari/Pashto.");
 assert(editor.includes("selectedAreaIds"),"Weekly editor must support selected venue areas.");
 assert(editor.includes("defaultSlotDurationMinutes"),"Weekly editor must configure slot duration.");
@@ -176,10 +185,11 @@ for(const key of [
   "schedule.publishConflictTitle",
   "schedule.specialHours",
   "schedule.solarHijriHint",
-  "schedule.weeklyNoActions",
+  "schedule.weeklyHeaderDay",
+  "schedule.weekViewActivity",
 ]){
   const count=localization.split(`"${key}"`).length-1;
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: vertical horizontally-scrollable weekly table, current-day focus, persistent sub-navigation, locale-aware calendars, weekly versions, special hours, and booking integration.");
+console.log("Venue timetable verified: card-based Weekly Timetable editor restored; Timetable Week view uses a vertical, horizontally-scrollable status table with today focus.");
