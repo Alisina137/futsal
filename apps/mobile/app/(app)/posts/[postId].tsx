@@ -3,7 +3,7 @@ import type { VenuePostDto } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Image, View } from "react-native";
-import { marketingApi } from "../../../src/lib/api";
+import { marketingApi, resolveMediaImageUrl } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -63,7 +63,7 @@ export default function PostDetailScreen(){
       <View style={{alignSelf:"flex-start",paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill,backgroundColor:colors.primarySoft}}>
         <AppText variant="caption" weight="bold" style={{color:colors.primary}}>{t(`media.type.${post.postType}` as never)}</AppText>
       </View>
-      {post.imageUrl?<Image source={{uri:post.imageUrl}} style={{width:"100%",height:220,borderRadius:radius.md}} resizeMode="cover"/>:null}
+      {post.imageUrl?<Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={{width:"100%",height:220,borderRadius:radius.md}} resizeMode="cover"/>:null}
       <View style={{gap:spacing.xs}}>
         <AppText variant="bodyLarge" weight="bold">{post.venueName}</AppText>
         <AppText>{post.body}</AppText>
