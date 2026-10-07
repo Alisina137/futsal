@@ -138,7 +138,7 @@ export class BookingService {
     private readonly timetable?: TimetableService,
   ) {}
 
-  async listPublicVenues(filters: { city?: string; province?: string }): Promise<PublicVenueListResponse> {
+  async listPublicVenues(filters: { city?: string; province?: string; q?: string }): Promise<PublicVenueListResponse> {
     const now = this.now();
     const records = await this.repository.listPublicVenueRecords(filters);
     return {
