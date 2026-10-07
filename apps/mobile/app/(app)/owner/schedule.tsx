@@ -10,8 +10,8 @@ import type {
   VenueTimetableListResponse,
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
 import {
   formatCalendarDate,
@@ -85,8 +85,11 @@ export default function OwnerScheduleScreen(){
   const [owner,setOwner]=useState<OwnerOnboardingStatus|null>(null);
   const [versions,setVersions]=useState<VenueTimetableListResponse|null>(null);
   const [calendar,setCalendar]=useState<Awaited<ReturnType<typeof ownerApi.timetableCalendar>>|null>(null);
+  const [renderedView,setRenderedView]=useState<TimetableCalendarView>(view);
+  const [renderedAnchorDate,setRenderedAnchorDate]=useState(anchorDate);
   const [loading,setLoading]=useState(true);
   const [calendarLoading,setCalendarLoading]=useState(false);
+  const calendarRequestId=useRef(0);
   const [busy,setBusy]=useState<string|null>(null);
   const [error,setError]=useState<string|null>(null);
   const [conflicts,setConflicts]=useState<VenueTimetableConflict[]>([]);
@@ -104,31 +107,38 @@ export default function OwnerScheduleScreen(){
 
   const loadCalendar=useCallback(async()=>{
     if(!token)return;
+    const requestId=++calendarRequestId.current;
+    const requestedView=view;
+    const requestedAnchorDate=anchorDate;
     setCalendarLoading(true);
     try{
-      setCalendar(await ownerApi.timetableCalendar(token,range.from,range.to,areaId));
+      const next=await ownerApi.timetableCalendar(token,range.from,range.to,areaId);
+      if(requestId!==calendarRequestId.current)return;
+      setCalendar(next);
+      setRenderedView(requestedView);
+      setRenderedAnchorDate(requestedAnchorDate);
     }finally{
-      setCalendarLoading(false);
+      if(requestId===calendarRequestId.current)setCalendarLoading(false);
     }
-  },[areaId,range.from,range.to,token]);
+  },[anchorDate,areaId,range.from,range.to,token,view]);
 
-  const load=useCallback(async()=>{
-    if(!token)return;
+  useEffect(()=>{
+    if(!token){
+      setLoading(false);
+      return;
+    }
+    let active=true;
     setLoading(true);
     setError(null);
-    try{
-      await Promise.all([loadMeta(),loadCalendar()]);
-    }catch{
-      setError(t("schedule.loadTimetableError"));
-    }finally{
-      setLoading(false);
-    }
-  },[loadCalendar,loadMeta,t,token]);
+    void loadMeta()
+      .catch(()=>{if(active)setError(t("schedule.loadTimetableError"));})
+      .finally(()=>{if(active)setLoading(false);});
+    return ()=>{active=false;};
+  },[loadMeta,t,token]);
 
-  useEffect(()=>{void load();},[load]);
   useEffect(()=>{
-    if(!loading)void loadCalendar().catch(()=>setError(t("schedule.calendarError")));
-  },[areaId,anchorDate,view]); // eslint-disable-line react-hooks/exhaustive-deps
+    void loadCalendar().catch(()=>setError(t("schedule.calendarError")));
+  },[loadCalendar,t]);
 
   async function refresh(){
     setError(null);
@@ -211,7 +221,7 @@ export default function OwnerScheduleScreen(){
 
   if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={560}/></Screen>;
 
-  const selectedDay=calendar?.days.find((day)=>day.date===anchorDate)??calendar?.days[0]??null;
+  const selectedDay=calendar?.days.find((day)=>day.date===renderedAnchorDate)??calendar?.days[0]??null;
   const areas=owner?.venue?.areas??[];
 
   return <Screen embedded>
@@ -266,28 +276,33 @@ export default function OwnerScheduleScreen(){
 
     {selectedDay?<Summary day={selectedDay} t={t}/>:null}
 
-    {calendarLoading?<DataLoadingState variant="list" minHeight={320}/>:calendar?
-      view==="MONTH"
-        ?<MonthView
-          days={calendar.days}
-          anchorDate={anchorDate}
-          language={language}
-          selected={anchorDate}
-          onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}
-        />
-        :view==="WEEK"
-          ?<WeekView days={calendar.days} language={language} onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}/>
-          :<DayView
-            day={selectedDay}
-            statusFilter={statusFilter}
-            setStatusFilter={setStatusFilter}
+    <View style={styles.calendarDataArea}>
+      {calendar?
+        renderedView==="MONTH"
+          ?<MonthView
+            days={calendar.days}
+            anchorDate={renderedAnchorDate}
             language={language}
-            t={t}
-            busy={busy}
-            onCancelBooking={(id)=>void cancelBooking(id)}
-            onUnblock={(id)=>void unblock(id)}
+            selected={renderedAnchorDate}
+            onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}
           />
-      :null}
+          :renderedView==="WEEK"
+            ?<WeekView days={calendar.days} language={language} onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}/>
+            :<DayView
+              day={selectedDay}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              language={language}
+              t={t}
+              busy={busy}
+              onCancelBooking={(id)=>void cancelBooking(id)}
+              onUnblock={(id)=>void unblock(id)}
+            />
+        :<DataLoadingState variant="list" minHeight={320}/>}
+      {calendarLoading&&calendar?<View pointerEvents="none" style={styles.calendarRefreshIndicator}>
+        <ActivityIndicator size="small" color={colors.primary}/>
+      </View>:null}
+    </View>
 
     <Card>
       <AppText variant="bodyLarge" weight="bold">{t("schedule.quickActions")}</AppText>
@@ -685,6 +700,20 @@ function FilterChip({label,active,onPress}:{label:string;active:boolean;onPress:
 
 const styles=StyleSheet.create({
   errorCard:{borderColor:colors.danger},
+  calendarDataArea:{position:"relative",minHeight:1},
+  calendarRefreshIndicator:{
+    position:"absolute",
+    top:spacing.sm,
+    right:spacing.sm,
+    width:34,
+    height:34,
+    borderRadius:17,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:colors.surface,
+    borderWidth:1,
+    borderColor:colors.border,
+  },
   toolbar:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm,flexWrap:"wrap"},
   compactButton:{minHeight:42,paddingHorizontal:spacing.md},
   navButtons:{alignItems:"center",gap:spacing.xs,flex:1,justifyContent:"flex-end"},
