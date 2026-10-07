@@ -104,7 +104,6 @@ export default function VenueDetailScreen(){
       />:null}
 
       <View style={styles.statGrid}>
-        <ProfileStat icon="grid-outline" value={String(venue.areas.length)} label={t("publicProfile.playingAreas")}/>
         <ProfileStat icon="flash-outline" value={t(`publicProfile.bookingMode.${venue.bookingMode}` as never)} label={t("publicProfile.bookingMode")}/>
       </View>
 
@@ -148,10 +147,10 @@ export default function VenueDetailScreen(){
       <View style={[styles.slotHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.slotIcon}><Ionicons name="football-outline" size={20} color={colors.primary}/></View>
         <View style={{flex:1,gap:2}}>
-          <AppText weight="bold">{slot.areaName}</AppText>
-          <AppText variant="caption" muted forceLtr>
+          <AppText weight="bold" forceLtr>
             {timeLabel(slot.startsAt,availability.venue.timezone)} - {timeLabel(slot.endsAt,availability.venue.timezone)}
           </AppText>
+          <AppText variant="caption" muted>{t("booking.availableSlot")}</AppText>
         </View>
         <AppText weight="bold" style={{color:colors.primary}}>{slot.priceAfn} AFN</AppText>
       </View>
@@ -163,7 +162,7 @@ export default function VenueDetailScreen(){
         label={live&&isOnline?t("booking.bookNow"):t("booking.liveRequired")}
         disabled={!live||!isOnline}
         onPress={()=>router.push({pathname:"/booking/confirm",params:{
-          venueId:slot.venueId,areaId:slot.areaId,areaName:slot.areaName,venueName:availability.venue.name,
+          venueId:slot.venueId,areaId:slot.areaId,venueName:availability.venue.name,
           startsAt:slot.startsAt,endsAt:slot.endsAt,priceAfn:String(slot.priceAfn),timeZone:availability.venue.timezone
         }})}
       />
