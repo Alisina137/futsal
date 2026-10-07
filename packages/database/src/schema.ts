@@ -57,6 +57,7 @@ export const competitionRegistrationStatusEnum = pgEnum("competition_registratio
 export const competitionFeeStatusEnum = pgEnum("competition_fee_status", ["UNPAID", "PENDING", "PAID", "WAIVED"]);
 export const competitionMatchStageEnum = pgEnum("competition_match_stage", ["LEAGUE", "GROUP", "KNOCKOUT"]);
 export const competitionMatchStatusEnum = pgEnum("competition_match_status", ["UNSCHEDULED", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "POSTPONED", "CANCELLED", "CORRECTED"]);
+export const venueTimetableStatusEnum = pgEnum("venue_timetable_status", ["DRAFT", "PUBLISHED", "ARCHIVED"]);
 
 export const users = pgTable(
   "users",
@@ -249,6 +250,65 @@ export const venueOpeningHours = pgTable(
   (table) => [
     primaryKey({ columns: [table.venueId, table.dayOfWeek] }),
     index("venue_opening_hours_venue_id_idx").on(table.venueId),
+  ],
+);
+
+export const venueTimetables = pgTable(
+  "venue_timetables",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull().default("Weekly timetable"),
+    status: venueTimetableStatusEnum("status").notNull().default("DRAFT"),
+    effectiveFrom: varchar("effective_from", { length: 10 }).notNull(),
+    effectiveUntil: varchar("effective_until", { length: 10 }),
+    defaultSlotDurationMinutes: integer("default_slot_duration_minutes").notNull().default(90),
+    bufferMinutes: integer("buffer_minutes").notNull().default(0),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("venue_timetables_venue_status_idx").on(table.venueId, table.status),
+    index("venue_timetables_effective_idx").on(table.venueId, table.effectiveFrom, table.effectiveUntil),
+  ],
+);
+
+export const venueTimetablePeriods = pgTable(
+  "venue_timetable_periods",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    timetableId: uuid("timetable_id").notNull().references(() => venueTimetables.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id").references(() => venueAreas.id, { onDelete: "cascade" }),
+    dayOfWeek: integer("day_of_week").notNull(),
+    startsAt: time("starts_at").notNull(),
+    endsAt: time("ends_at").notNull(),
+  },
+  (table) => [
+    index("venue_timetable_periods_timetable_day_idx").on(table.timetableId, table.dayOfWeek),
+    index("venue_timetable_periods_area_idx").on(table.areaId),
+  ],
+);
+
+export const venueTimetableExceptions = pgTable(
+  "venue_timetable_exceptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id").references(() => venueAreas.id, { onDelete: "cascade" }),
+    date: varchar("date", { length: 10 }).notNull(),
+    isClosed: boolean("is_closed").notNull().default(false),
+    periods: jsonb("periods").$type<Array<{ startsAt: string; endsAt: string }>>().notNull().default([]),
+    note: varchar("note", { length: 240 }),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("venue_timetable_exceptions_venue_date_idx").on(table.venueId, table.date),
+    index("venue_timetable_exceptions_area_idx").on(table.areaId),
   ],
 );
 
