@@ -13,33 +13,87 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 
 function todayKabul(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
 function afghanistanIso(date:string,time:string){return `${date}T${time}:00+04:30`;}
+function isTime(value:string){return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);}
+function isDate(value:string){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(`${value}T00:00:00Z`));}
 
 export default function ManualBookingScreen(){
   const params=useLocalSearchParams<{areaId?:string;date?:string;start?:string;end?:string;price?:string}>();
   const {session}=useAuth(); const {t,isRTL}=useLocale();
-  const [areaId,setAreaId]=useState(typeof params.areaId==="string"?params.areaId:"");
+  const requestedAreaId=typeof params.areaId==="string"?params.areaId:"";
+  const requestedPrice=typeof params.price==="string"?params.price:"";
+  const [areaId,setAreaId]=useState(requestedAreaId);
   const [date,setDate]=useState(typeof params.date==="string"?params.date:todayKabul());
   const [start,setStart]=useState(typeof params.start==="string"?params.start:"18:00");
   const [end,setEnd]=useState(typeof params.end==="string"?params.end:"19:30");
-  const [name,setName]=useState(""); const [phone,setPhone]=useState(""); const [price,setPrice]=useState(typeof params.price==="string"?params.price:""); const [note,setNote]=useState("");
-  const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
+  const [name,setName]=useState("");
+  const [phone,setPhone]=useState("");
+  const [price,setPrice]=useState(requestedPrice);
+  const [note,setNote]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState<string|null>(null);
 
-  useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((next)=>{
-    const court=next.venue?.areas[0]??null;
-    setAreaId(court?.id??"");
-    setPrice(typeof params.price==="string"&&params.price.trim()
-      ?params.price
-      :court?String(court.basePriceAfn):"");
-  }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[params.price,session,t]);
+  useEffect(()=>{
+    if(!session){setLoading(false);return;}
 
-  async function submit(){if(!session||!areaId)return;setBusy(true);setError(null);try{
-    await ownerApi.createManualBooking(session.accessToken,{areaId,startsAt:afghanistanIso(date,start),endsAt:afghanistanIso(date,end),customerName:name,customerPhone:phone, ...(price.trim()?{priceAfn:Number(price)}:{}),note});
-    router.replace("/owner/schedule");
-  }catch(cause){
-    if(cause instanceof ApiRequestError&&cause.code==="SLOT_UNAVAILABLE")setError(t("schedule.conflict"));
-    else if(cause instanceof ApiRequestError&&cause.code==="SUBSCRIPTION_REQUIRED")setError(t("schedule.subscriptionRequired"));
-    else setError(t("schedule.manualError"));
-  }finally{setBusy(false);}}
+    // Exact timetable-slot navigation already supplies the authoritative single
+    // court id and slot price. Avoid a redundant status request on that path.
+    if(requestedAreaId){
+      setAreaId(requestedAreaId);
+      if(requestedPrice.trim())setPrice(requestedPrice);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    ownerApi.getStatus(session.accessToken).then((next)=>{
+      const court=next.venue?.areas.find((item)=>item.active)??next.venue?.areas[0]??null;
+      setAreaId(court?.id??"");
+      if(!requestedPrice.trim())setPrice(court?String(court.basePriceAfn):"");
+    }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));
+  },[requestedAreaId,requestedPrice,session,t]);
+
+  async function submit(){
+    if(!session||!areaId)return;
+    setError(null);
+
+    const trimmedName=name.trim();
+    const trimmedPhone=phone.trim();
+    const trimmedPrice=price.trim();
+    const numericPrice=trimmedPrice?Number(trimmedPrice):null;
+
+    if(
+      trimmedName.length<2
+      ||!isDate(date)
+      ||!isTime(start)
+      ||!isTime(end)
+      ||end<=start
+      ||(numericPrice!==null&&(!Number.isInteger(numericPrice)||numericPrice<0||numericPrice>1_000_000))
+    ){
+      setError(t("schedule.manualError"));
+      return;
+    }
+
+    setBusy(true);
+    try{
+      await ownerApi.createManualBooking(session.accessToken,{
+        areaId,
+        startsAt:afghanistanIso(date,start),
+        endsAt:afghanistanIso(date,end),
+        customerName:trimmedName,
+        customerPhone:trimmedPhone,
+        ...(numericPrice!==null?{priceAfn:numericPrice}:{}),
+        note:note.trim(),
+      });
+      router.replace({pathname:"/owner/schedule",params:{date}});
+    }catch(cause){
+      if(cause instanceof ApiRequestError&&cause.code==="SLOT_UNAVAILABLE")setError(t("schedule.conflict"));
+      else if(cause instanceof ApiRequestError&&cause.code==="SUBSCRIPTION_REQUIRED")setError(t("schedule.subscriptionRequired"));
+      else setError(t("schedule.manualError"));
+    }finally{
+      setBusy(false);
+    }
+  }
 
   if(loading)return <Screen embedded><DataLoadingState variant="form" minHeight={500}/></Screen>;
 
@@ -55,7 +109,12 @@ export default function ManualBookingScreen(){
     <TextField label={t("schedule.price")} value={price} onChangeText={setPrice} keyboardType="number-pad" forceLtr/>
     <TextField label={t("booking.noteOptional")} value={note} onChangeText={setNote}/>
     {error?<AppText style={{color:colors.danger}}>{error}</AppText>:null}
-    <Button label={t("schedule.createManual")} onPress={()=>void submit()} loading={busy} disabled={!areaId||name.trim().length<2}/>
+    <Button
+      label={t("schedule.createManual")}
+      onPress={()=>void submit()}
+      loading={busy}
+      disabled={!areaId||name.trim().length<2}
+    />
     <Button label={t("owner.back")} onPress={()=>router.back()} variant="secondary"/>
   </Screen>;
 }
