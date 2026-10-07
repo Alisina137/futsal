@@ -209,8 +209,8 @@ export class BookingService {
             areaName: area.name,
             startsAt: startsAt.toISOString(),
             endsAt: endsAt.toISOString(),
-            priceAfn: promotion?.discountedPriceAfn ?? area.basePriceAfn,
-            originalPriceAfn: promotion ? area.basePriceAfn : null,
+            priceAfn: promotion?.discountedPriceAfn ?? period.priceAfn ?? area.basePriceAfn,
+            originalPriceAfn: promotion ? (period.priceAfn ?? area.basePriceAfn) : null,
             promotionId: promotion?.id ?? null,
             currency: "AFN",
             status: "AVAILABLE",
@@ -318,8 +318,9 @@ export class BookingService {
     const endsAt = new Date(input.endsAt);
     if (startsAt.getTime() <= now.getTime()) throw errors.badRequest("BOOKING_IN_PAST", "Choose a future interval.");
     const fallback = venue.openingHours.find((item) => item.dayOfWeek === weekdayForDate(localDateForInstant(startsAt, venue.timezone)));
+    let timetablePriceAfn: number | null = null;
     if (this.timetable) {
-      await this.timetable.assertIntervalAllowed({
+      const allowedPeriod = await this.timetable.assertIntervalAllowed({
         venueId: venue.id,
         areaId: area.id,
         startsAt,
@@ -327,6 +328,7 @@ export class BookingService {
         timeZone: venue.timezone,
         ...(fallback ? { fallback } : {}),
       });
+      timetablePriceAfn = allowedPeriod.priceAfn;
     } else {
       assertIntervalWithinOpeningHours(venue, startsAt, endsAt);
     }
@@ -346,7 +348,7 @@ export class BookingService {
       status: "CONFIRMED",
       startsAt,
       endsAt,
-      priceAfn: input.priceAfn ?? area.basePriceAfn,
+      priceAfn: input.priceAfn ?? timetablePriceAfn ?? area.basePriceAfn,
       customerName: input.customerName.trim(),
       customerPhone,
       note: input.note?.trim() || null,
