@@ -186,6 +186,10 @@ assert(schedule.includes('event.priceAfn!==null?\`\${event.priceAfn} AFN\`:"—"
 assert(schedule.includes("formatCalendarTime(event.startsAt!,language)"),"Each Week slot must display its start time.");
 assert(schedule.includes("styles.weekSlotPressed"),"Week slots must provide pressed-state feedback.");
 assert(schedule.includes("function DaySlotView"),"Day view must render timetable entries as clickable slots.");
+assert(schedule.includes("styles.daySlotTable"),"Day view must use a one-day timetable slot layout.");
+assert(schedule.includes("slotPalette[event.type]"),"Day view must use the same status color palette as Week view.");
+assert(schedule.includes("styles.daySlotButton"),"Every timed Day slot must be rendered as an interactive slot.");
+assert(schedule.includes("styles.dayClosedSlot"),"Closed Day state must remain clickable for management.");
 assert(schedule.includes("onSelectSlot(event)"),"Day and Week slots must open the same management flow.");
 assert(schedule.includes("<SlotManager"),"Slot management must be shared by Day and Week views.");
 assert(schedule.includes('event.type==="PROMOTION"'),"Slot manager must provide promotion-specific management.");
