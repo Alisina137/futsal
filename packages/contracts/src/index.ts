@@ -807,12 +807,41 @@ export type PostCtaType = z.infer<typeof postCtaTypeSchema>;
 
 const httpsImageUrlSchema = z.string().url().refine((value) => value.startsWith("https://"), "Image URL must use HTTPS.");
 
+export const venuePostTypeSchema = z.enum(["GENERAL","ANNOUNCEMENT","PROMOTION","COMPETITION","RESULT"]);
+export type VenuePostType = z.infer<typeof venuePostTypeSchema>;
+
+export const venuePostVisibilitySchema = z.enum(["PUBLIC","FOLLOWERS","PRIVATE"]);
+export type VenuePostVisibility = z.infer<typeof venuePostVisibilitySchema>;
+
+export const venuePostScheduledActionSchema = z.enum(["PUBLISH","UNPUBLISH","MAKE_PUBLIC","MAKE_FOLLOWERS","MAKE_PRIVATE","DELETE"]);
+export type VenuePostScheduledAction = z.infer<typeof venuePostScheduledActionSchema>;
+
+export const venuePostScheduleRequestSchema = z.object({
+  action: venuePostScheduledActionSchema,
+  executeAt: isoDateTimeSchema,
+});
+export type VenuePostScheduleRequest = z.infer<typeof venuePostScheduleRequestSchema>;
+
+export const venuePostScheduleDtoSchema = venuePostScheduleRequestSchema.extend({
+  id: z.string().uuid(),
+  postId: z.string().uuid(),
+  executedAt: isoDateTimeSchema.nullable(),
+  cancelledAt: isoDateTimeSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+});
+export type VenuePostScheduleDto = z.infer<typeof venuePostScheduleDtoSchema>;
+
 export const venuePostCreateRequestSchema = z.object({
   body: z.string().trim().min(1).max(2_000),
   imageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
   ctaType: postCtaTypeSchema.default("NONE"),
   ctaTargetId: z.string().uuid().nullable().optional(),
+  postType: venuePostTypeSchema.default("GENERAL"),
+  visibility: venuePostVisibilitySchema.default("PUBLIC"),
+  publishMode: z.enum(["NOW","DRAFT","SCHEDULED"]).default("NOW"),
+  publishAt: isoDateTimeSchema.nullable().optional(),
   notifyFollowers: z.boolean().default(false),
+  schedules: z.array(venuePostScheduleRequestSchema).max(8).default([]),
 }).superRefine((value, ctx) => {
   if (value.ctaType === "NONE" && value.ctaTargetId) {
     ctx.addIssue({ code: "custom", path: ["ctaTargetId"], message: "A NONE CTA cannot have a target." });
@@ -820,8 +849,29 @@ export const venuePostCreateRequestSchema = z.object({
   if (value.ctaType !== "NONE" && value.ctaType !== "VENUE" && !value.ctaTargetId) {
     ctx.addIssue({ code: "custom", path: ["ctaTargetId"], message: "This CTA requires a target." });
   }
+  if (value.publishMode === "SCHEDULED" && !value.publishAt) {
+    ctx.addIssue({ code: "custom", path: ["publishAt"], message: "Scheduled posts require a publish time." });
+  }
+  if (value.publishMode !== "SCHEDULED" && value.publishAt) {
+    ctx.addIssue({ code: "custom", path: ["publishAt"], message: "Publish time is only used for scheduled posts." });
+  }
 });
 export type VenuePostCreateRequest = z.infer<typeof venuePostCreateRequestSchema>;
+
+export const venuePostUpdateRequestSchema = z.object({
+  body: z.string().trim().min(1).max(2_000).optional(),
+  imageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  ctaType: postCtaTypeSchema.optional(),
+  ctaTargetId: z.string().uuid().nullable().optional(),
+  postType: venuePostTypeSchema.optional(),
+  visibility: venuePostVisibilitySchema.optional(),
+  notifyFollowers: z.boolean().optional(),
+}).superRefine((value, ctx) => {
+  if (value.ctaType === "NONE" && value.ctaTargetId) {
+    ctx.addIssue({ code: "custom", path: ["ctaTargetId"], message: "A NONE CTA cannot have a target." });
+  }
+});
+export type VenuePostUpdateRequest = z.infer<typeof venuePostUpdateRequestSchema>;
 
 export const venuePostDtoSchema = z.object({
   id: z.string().uuid(),
@@ -831,9 +881,15 @@ export const venuePostDtoSchema = z.object({
   imageUrl: z.string().nullable(),
   ctaType: postCtaTypeSchema,
   ctaTargetId: z.string().uuid().nullable(),
+  postType: venuePostTypeSchema,
+  visibility: venuePostVisibilitySchema,
+  notifyFollowers: z.boolean(),
   status: postStatusSchema,
   publishedAt: isoDateTimeSchema,
   unpublishedAt: isoDateTimeSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+  updatedAt: isoDateTimeSchema,
+  schedules: z.array(venuePostScheduleDtoSchema),
 });
 export type VenuePostDto = z.infer<typeof venuePostDtoSchema>;
 
@@ -888,6 +944,7 @@ export const socialFeedPostDtoSchema = z.object({
   authorImageUrl: z.string().nullable(),
   body: z.string(),
   imageUrl: z.string().nullable(),
+  postType: venuePostTypeSchema.default("GENERAL"),
   publishedAt: isoDateTimeSchema,
   deepLink: z.string(),
   likedByMe: z.boolean(),
