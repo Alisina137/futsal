@@ -442,8 +442,13 @@ export class DrizzleMarketingRepository implements MarketingRepository {
   }
 
   async deletePost(ownerUserId:string,postId:string){
-    const rows=await this.db.delete(venuePosts).using(venues)
-      .where(and(eq(venuePosts.id,postId),eq(venuePosts.venueId,venues.id),eq(venues.ownerUserId,ownerUserId)))
+    const [owned]=await this.db.select({id:venuePosts.id}).from(venuePosts)
+      .innerJoin(venues,eq(venuePosts.venueId,venues.id))
+      .where(and(eq(venuePosts.id,postId),eq(venues.ownerUserId,ownerUserId)))
+      .limit(1);
+    if(!owned)return false;
+    const rows=await this.db.delete(venuePosts)
+      .where(eq(venuePosts.id,postId))
       .returning({id:venuePosts.id});
     return rows.length>0;
   }
