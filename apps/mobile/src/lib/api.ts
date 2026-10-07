@@ -285,6 +285,12 @@ export const ownerApi = {
     request<{ booking: BookingDto }>("/api/v1/owner/bookings/manual", { method: "POST", body: JSON.stringify(input) }, accessToken),
   createBlock: (accessToken: string, input: VenueBlockRequest) =>
     request<{ block: import("@leaguekick/contracts").VenueBlockDto }>("/api/v1/owner/blocks", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  updateBlock: (accessToken: string, blockId: string, input: VenueBlockRequest) =>
+    request<{ block: import("@leaguekick/contracts").VenueBlockDto }>(
+      `/api/v1/owner/blocks/${blockId}`,
+      { method: "PUT", body: JSON.stringify(input) },
+      accessToken,
+    ),
   deleteBlock: (accessToken: string, blockId: string) =>
     request<void>(`/api/v1/owner/blocks/${blockId}`, { method: "DELETE" }, accessToken),
   cancelBooking: (accessToken: string, bookingId: string, reason?: string) =>
