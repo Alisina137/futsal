@@ -146,7 +146,7 @@ assert(schedule.includes("calendarRequestId=useRef(0)"),"Calendar refreshes must
 assert(schedule.includes("renderedView")&&schedule.includes("renderedAnchorDate"),"Fetched timetable content must keep its last successful presentation while the next range loads.");
 assert(!schedule.includes('calendarLoading?<DataLoadingState variant="list"'),"Calendar navigation must not replace existing timetable content with a full skeleton.");
 assert(schedule.includes("calendarRefreshIndicator"),"Calendar navigation must use a small in-place refresh indicator.");
-assert(schedule.includes("Initial page shell load only"),"Page-level loading must be reserved for the initial timetable shell load.");
+assert(schedule.includes("Initial page shell only"),"Page-level loading must stay separate from calendar range refreshes.");
 assert(schedule.includes("statusFilters"),"Venue timetable must offer status filters.");
 assert(schedule.includes("Summary"),"Venue timetable must show operational summary.");
 assert(weeklyPage.includes("schedule.currentTimetable")&&weeklyPage.includes("schedule.draftTimetables")&&weeklyPage.includes("schedule.futureTimetables")&&weeklyPage.includes("schedule.archivedTimetables"),"Weekly Timetable page must manage current/draft/future/archive versions.");
