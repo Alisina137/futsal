@@ -97,30 +97,80 @@ export class FakeMarketingRepository implements MarketingRepository {
     }
   }
 
-  async createPost(input: {
-    venueId: string;
-    createdByUserId: string;
-    body: string;
-    imageUrl: string | null;
-    ctaType: "NONE" | "VENUE" | "PROMOTION" | "COMPETITION";
-    ctaTargetId: string | null;
-    publishedAt: Date;
-  }) {
+  async createPost(input: Parameters<MarketingRepository["createPost"]>[0]) {
     const venue=this.venues.get(input.venueId)!;
+    const now=input.publishedAt.toISOString();
+    const schedules=[
+      ...(input.request.publishMode==="SCHEDULED"&&input.request.publishAt
+        ?[{
+          id:randomUUID(),
+          postId:"",
+          action:"PUBLISH" as const,
+          executeAt:input.request.publishAt,
+          executedAt:null,
+          cancelledAt:null,
+          createdAt:now,
+        }]
+        :[]),
+      ...input.request.schedules.map((item)=>({
+        id:randomUUID(),
+        postId:"",
+        action:item.action,
+        executeAt:item.executeAt,
+        executedAt:null,
+        cancelledAt:null,
+        createdAt:now,
+      })),
+    ];
+    const id=randomUUID();
     const post:VenuePostDto={
-      id:randomUUID(),
+      id,
       venueId:input.venueId,
       venueName:venue.name,
-      body:input.body,
-      imageUrl:input.imageUrl,
-      ctaType:input.ctaType,
-      ctaTargetId:input.ctaTargetId,
-      status:"PUBLISHED",
-      publishedAt:input.publishedAt.toISOString(),
-      unpublishedAt:null,
+      socialPostId:null,
+      body:input.request.body,
+      imageUrl:input.request.imageUrl?.trim()||null,
+      ctaType:input.request.ctaType,
+      ctaTargetId:input.request.ctaTargetId??null,
+      postType:input.request.postType,
+      visibility:input.request.visibility,
+      notifyFollowers:input.request.notifyFollowers,
+      status:input.initialStatus,
+      publishedAt:now,
+      unpublishedAt:input.initialStatus==="UNPUBLISHED"?now:null,
+      createdAt:now,
+      updatedAt:now,
+      schedules:schedules.map((item)=>({...item,postId:id})),
     };
     this.posts.set(post.id,post);
     return post;
+  }
+
+  async updatePost(ownerUserId:string,postId:string,input:Parameters<MarketingRepository["updatePost"]>[2],changedAt:Date){
+    const post=this.posts.get(postId);
+    const venue=post?this.venues.get(post.venueId):null;
+    if(!post||venue?.ownerUserId!==ownerUserId)return null;
+    const next:VenuePostDto={
+      ...post,
+      ...(input.body!==undefined?{body:input.body}:{}),
+      ...(input.imageUrl!==undefined?{imageUrl:input.imageUrl.trim()||null}:{}),
+      ...(input.ctaType!==undefined?{ctaType:input.ctaType}:{}),
+      ...(input.ctaTargetId!==undefined?{ctaTargetId:input.ctaTargetId}:{}),
+      ...(input.postType!==undefined?{postType:input.postType}:{}),
+      ...(input.visibility!==undefined?{visibility:input.visibility}:{}),
+      ...(input.notifyFollowers!==undefined?{notifyFollowers:input.notifyFollowers}:{}),
+      updatedAt:changedAt.toISOString(),
+    };
+    this.posts.set(postId,next);
+    return next;
+  }
+
+  async deletePost(ownerUserId:string,postId:string){
+    const post=this.posts.get(postId);
+    const venue=post?this.venues.get(post.venueId):null;
+    if(!post||venue?.ownerUserId!==ownerUserId)return false;
+    this.posts.delete(postId);
+    return true;
   }
 
   async listOwnerPosts(ownerUserId: string) {
@@ -128,9 +178,16 @@ export class FakeMarketingRepository implements MarketingRepository {
     return [...this.posts.values()].filter((post)=>post.venueId===venue?.id);
   }
 
-  async listPublishedPosts(venueIds?: string[]) {
+  async listPublishedPosts(venueIds?: string[],visibility:"PUBLIC"|"PUBLIC_OR_FOLLOWERS"="PUBLIC") {
     return [...this.posts.values()].filter((post)=>
-      post.status==="PUBLISHED" && (!venueIds || venueIds.includes(post.venueId)));
+      post.status==="PUBLISHED"
+      &&post.visibility!=="PRIVATE"
+      &&(visibility==="PUBLIC_OR_FOLLOWERS"||post.visibility==="PUBLIC")
+      &&(!venueIds||venueIds.includes(post.venueId)));
+  }
+
+  async listVenuePosts(venueId:string,visibility:"PUBLIC"|"PUBLIC_OR_FOLLOWERS"){
+    return this.listPublishedPosts([venueId],visibility);
   }
 
   async getPost(postId: string) { return this.posts.get(postId)??null; }
@@ -138,9 +195,94 @@ export class FakeMarketingRepository implements MarketingRepository {
   async setPostStatus(ownerUserId:string,postId:string,status:"PUBLISHED"|"UNPUBLISHED",changedAt:Date){
     const post=this.posts.get(postId); const venue=post?this.venues.get(post.venueId):null;
     if(!post||venue?.ownerUserId!==ownerUserId)return null;
-    const next={...post,status,publishedAt:status==="PUBLISHED"?changedAt.toISOString():post.publishedAt,unpublishedAt:status==="UNPUBLISHED"?changedAt.toISOString():null};
+    const next={
+      ...post,
+      status,
+      publishedAt:status==="PUBLISHED"?changedAt.toISOString():post.publishedAt,
+      unpublishedAt:status==="UNPUBLISHED"?changedAt.toISOString():null,
+      updatedAt:changedAt.toISOString(),
+    };
     this.posts.set(postId,next); return next;
   }
+
+  async setPostVisibility(
+    ownerUserId:string,
+    postId:string,
+    visibility:Parameters<MarketingRepository["setPostVisibility"]>[2],
+    changedAt:Date,
+  ){
+    const post=this.posts.get(postId); const venue=post?this.venues.get(post.venueId):null;
+    if(!post||venue?.ownerUserId!==ownerUserId)return null;
+    const next={...post,visibility,updatedAt:changedAt.toISOString()};
+    this.posts.set(postId,next);
+    return next;
+  }
+
+  async addPostSchedule(
+    ownerUserId:string,
+    postId:string,
+    input:Parameters<MarketingRepository["addPostSchedule"]>[2],
+    createdAt:Date,
+  ){
+    const post=this.posts.get(postId); const venue=post?this.venues.get(post.venueId):null;
+    if(!post||venue?.ownerUserId!==ownerUserId)return null;
+    const schedule={
+      id:randomUUID(),
+      postId,
+      action:input.action,
+      executeAt:input.executeAt,
+      executedAt:null,
+      cancelledAt:null,
+      createdAt:createdAt.toISOString(),
+    };
+    this.posts.set(postId,{...post,schedules:[...post.schedules,schedule]});
+    return schedule;
+  }
+
+  async cancelPostSchedule(ownerUserId:string,postId:string,scheduleId:string,cancelledAt:Date){
+    const post=this.posts.get(postId); const venue=post?this.venues.get(post.venueId):null;
+    if(!post||venue?.ownerUserId!==ownerUserId)return null;
+    const schedule=post.schedules.find((item)=>item.id===scheduleId&&item.executedAt===null&&item.cancelledAt===null);
+    if(!schedule)return null;
+    const next={...schedule,cancelledAt:cancelledAt.toISOString()};
+    this.posts.set(postId,{
+      ...post,
+      schedules:post.schedules.map((item)=>item.id===scheduleId?next:item),
+    });
+    return next;
+  }
+
+  async refreshPostStates(now:Date){
+    const published:VenuePostDto[]=[];
+    for(const post of [...this.posts.values()]){
+      let next=post;
+      for(const schedule of post.schedules
+        .filter((item)=>!item.executedAt&&!item.cancelledAt&&Date.parse(item.executeAt)<=now.getTime())
+        .sort((a,b)=>a.executeAt.localeCompare(b.executeAt))){
+        if(schedule.action==="DELETE"){
+          this.posts.delete(post.id);
+          break;
+        }
+        if(schedule.action==="PUBLISH"){
+          next={...next,status:"PUBLISHED",publishedAt:now.toISOString(),unpublishedAt:null};
+          published.push(next);
+        }else if(schedule.action==="UNPUBLISH"){
+          next={...next,status:"UNPUBLISHED",unpublishedAt:now.toISOString()};
+        }else{
+          next={...next,visibility:schedule.action==="MAKE_PUBLIC"?"PUBLIC":schedule.action==="MAKE_FOLLOWERS"?"FOLLOWERS":"PRIVATE"};
+        }
+        next={
+          ...next,
+          updatedAt:now.toISOString(),
+          schedules:next.schedules.map((item)=>item.id===schedule.id?{...item,executedAt:now.toISOString()}:item),
+        };
+        this.posts.set(post.id,next);
+      }
+    }
+    return published;
+  }
+
+  async competitionBelongsToVenue(_competitionId:string,_venueId:string){return true;}
 
   async followVenue(userId:string,venueId:string){this.follows.add(`${userId}:${venueId}`);}
   async unfollowVenue(userId:string,venueId:string){this.follows.delete(`${userId}:${venueId}`);}
