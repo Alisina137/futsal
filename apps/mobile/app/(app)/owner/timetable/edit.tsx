@@ -310,138 +310,84 @@ export default function TimetableEditorScreen(){
     </Card>
 
     <View
+      style={{gap:spacing.md}}
       onLayout={(event)=>{
         dayListY.current=event.nativeEvent.layout.y;
         focusTodayCard();
       }}
     >
-      <ScrollView
-        horizontal
-        nestedScrollEnabled
-        showsHorizontalScrollIndicator
-        contentContainerStyle={styles.weekTableScrollContent}
-      >
-        <View style={styles.weekTable}>
-          <View style={[styles.weekTableHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <View style={[styles.weekTableHeaderCell,styles.dayColumn]}>
-              <AppText variant="caption" weight="bold" style={styles.weekTableHeaderText}>{t("schedule.weeklyHeaderDay")}</AppText>
+      {displayDays.map((day)=>{
+        const isToday=day.dayOfWeek===todayDayOfWeek;
+        return <Card
+          key={day.dayOfWeek}
+          accessibilityState={{selected:isToday}}
+          onLayout={isToday?(event)=>{
+            todayCardY.current=event.nativeEvent.layout.y;
+            focusTodayCard();
+          }:undefined}
+          style={isToday?styles.todayCard:undefined}
+        >
+        <View style={[styles.dayHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={{flex:1}}>
+            <View style={styles.dayTitleRow}>
+              <AppText variant="bodyLarge" weight="bold">{t(`owner.day.${day.dayOfWeek}` as never)}</AppText>
+              {isToday?<View style={styles.todayBadge}>
+                <AppText variant="caption" weight="bold" style={styles.todayBadgeText}>
+                  {t("schedule.today")} · {formatCalendarDate(todayDate,language,{month:"short",day:"numeric"})}
+                </AppText>
+              </View>:null}
             </View>
-            <View style={[styles.weekTableHeaderCell,styles.statusColumn]}>
-              <AppText variant="caption" weight="bold" style={styles.weekTableHeaderText}>{t("schedule.weeklyHeaderStatus")}</AppText>
-            </View>
-            <View style={[styles.weekTableHeaderCell,styles.hoursColumn]}>
-              <AppText variant="caption" weight="bold" style={styles.weekTableHeaderText}>{t("schedule.weeklyHeaderHours")}</AppText>
-            </View>
-            <View style={[styles.weekTableHeaderCell,styles.actionsColumn]}>
-              <AppText variant="caption" weight="bold" style={styles.weekTableHeaderText}>{t("schedule.weeklyHeaderActions")}</AppText>
-            </View>
+            <AppText variant="caption" muted>{day.periods.length?t("schedule.dayOpen"):t("schedule.dayClosed")}</AppText>
           </View>
-
-          <View style={styles.weekTableBody}>
-            {displayDays.map((day,index)=>{
-              const isToday=day.dayOfWeek===todayDayOfWeek;
-              return <View
-                key={day.dayOfWeek}
-                accessibilityState={{selected:isToday}}
-                onLayout={isToday?(event)=>{
-                  todayCardY.current=event.nativeEvent.layout.y;
-                  focusTodayCard();
-                }:undefined}
-                style={[
-                  styles.weekTableRow,
-                  {flexDirection:isRTL?"row-reverse":"row"},
-                  index%2===1&&styles.weekTableRowAlt,
-                  isToday&&styles.todayRow,
-                ]}
-              >
-                <View style={[styles.weekTableCell,styles.dayColumn]}>
-                  <AppText variant="bodyLarge" weight="bold">{t(`owner.day.${day.dayOfWeek}` as never)}</AppText>
-                  {isToday?<View style={styles.todayBadge}>
-                    <AppText variant="caption" weight="bold" style={styles.todayBadgeText}>
-                      {t("schedule.today")} · {formatCalendarDate(todayDate,language,{month:"short",day:"numeric"})}
-                    </AppText>
-                  </View>:null}
-                </View>
-
-                <View style={[styles.weekTableCell,styles.statusColumn]}>
-                  <Switch value={day.periods.length>0} onValueChange={()=>toggleDay(day)}/>
-                  <View style={[styles.statusPill,day.periods.length?styles.statusPillOpen:styles.statusPillClosed]}>
-                    <AppText
-                      variant="caption"
-                      weight="bold"
-                      style={day.periods.length?styles.statusTextOpen:styles.statusTextClosed}
-                    >
-                      {day.periods.length?t("schedule.dayOpen"):t("schedule.dayClosed")}
-                    </AppText>
-                  </View>
-                </View>
-
-                <View style={[styles.weekTableCell,styles.hoursColumn]}>
-                  {day.periods.length?day.periods.map((period,periodIndex)=><View key={periodIndex} style={styles.periodRow}>
-                    <View style={styles.periodNumber}>
-                      <AppText variant="caption" weight="bold">{periodIndex+1}</AppText>
-                    </View>
-                    <TextField
-                      label={t("schedule.startTime")}
-                      value={period.startsAt}
-                      onChangeText={(value)=>updatePeriod(day.dayOfWeek,periodIndex,{startsAt:value})}
-                      forceLtr
-                      containerStyle={styles.timeField}
-                    />
-                    <TextField
-                      label={t("schedule.endTime")}
-                      value={period.endsAt}
-                      onChangeText={(value)=>updatePeriod(day.dayOfWeek,periodIndex,{endsAt:value})}
-                      forceLtr
-                      containerStyle={styles.timeField}
-                    />
-                    {day.periods.length>1?<Button
-                      label={t("schedule.removePeriod")}
-                      onPress={()=>setDayPeriods(day.dayOfWeek,day.periods.filter((_,currentIndex)=>currentIndex!==periodIndex))}
-                      variant="ghost"
-                      style={styles.removePeriodButton}
-                    />:null}
-                  </View>):<AppText muted>{t("schedule.dayClosed")}</AppText>}
-
-                  {day.periods.length?<Button
-                    label={t("schedule.addPeriod")}
-                    onPress={()=>{
-                      const next=suggestNextPeriod(day.periods);
-                      if(!next){
-                        setError(t("schedule.noRoomForPeriod"));
-                        return;
-                      }
-                      setError(null);
-                      setDayPeriods(day.dayOfWeek,[...day.periods,next]);
-                    }}
-                    variant="secondary"
-                    style={styles.addPeriodButton}
-                  />:null}
-                </View>
-
-                <View style={[styles.weekTableCell,styles.actionsColumn]}>
-                  {day.periods.length?<View style={styles.copyActions}>
-                    <AppText variant="caption" weight="semibold" muted>{t("schedule.copyTo")}</AppText>
-                    <View style={styles.copyDayChoices}>
-                      {displayDays.filter((target)=>target.dayOfWeek!==day.dayOfWeek).map((target)=><Choice
-                        key={target.dayOfWeek}
-                        label={t(`owner.day.${target.dayOfWeek}` as never)}
-                        active={false}
-                        onPress={()=>copyDay(day,target.dayOfWeek)}
-                      />)}
-                    </View>
-                    <View style={styles.copyButtonsRow}>
-                      <Button label={t("schedule.copyWeekdays")} onPress={()=>copyMany(day,[1,2,3,4,5])} variant="ghost" style={styles.tableCopyButton}/>
-                      <Button label={t("schedule.copyAll")} onPress={()=>copyMany(day,[0,1,2,3,4,5,6])} variant="ghost" style={styles.tableCopyButton}/>
-                    </View>
-                  </View>:<AppText muted>{t("schedule.weeklyNoActions")}</AppText>}
-                </View>
-              </View>;
-            })}
-          </View>
+          <Switch value={day.periods.length>0} onValueChange={()=>toggleDay(day)}/>
         </View>
-      </ScrollView>
+
+        {day.periods.map((period,index)=><View key={index} style={styles.periodBlock}>
+          <AppText variant="caption" weight="semibold">{t("schedule.period")} {index+1}</AppText>
+          <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <TextField label={t("schedule.startTime")} value={period.startsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{startsAt:value})} forceLtr containerStyle={styles.field}/>
+            <TextField label={t("schedule.endTime")} value={period.endsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{endsAt:value})} forceLtr containerStyle={styles.field}/>
+          </View>
+          {day.periods.length>1?<Button
+            label={t("schedule.removePeriod")}
+            onPress={()=>setDayPeriods(day.dayOfWeek,day.periods.filter((_,periodIndex)=>periodIndex!==index))}
+            variant="ghost"
+          />:null}
+        </View>)}
+
+        {day.periods.length?<Button
+          label={t("schedule.addPeriod")}
+          onPress={()=>{
+            const next=suggestNextPeriod(day.periods);
+            if(!next){
+              setError(t("schedule.noRoomForPeriod"));
+              return;
+            }
+            setError(null);
+            setDayPeriods(day.dayOfWeek,[...day.periods,next]);
+          }}
+          variant="secondary"
+        />:null}
+
+        {day.periods.length?<View style={{gap:spacing.sm}}>
+          <AppText variant="caption" muted>{t("schedule.copyTo")}</AppText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.areaChips}>
+            {displayDays.filter((target)=>target.dayOfWeek!==day.dayOfWeek).map((target)=><Choice
+              key={target.dayOfWeek}
+              label={t(`owner.day.${target.dayOfWeek}` as never)}
+              active={false}
+              onPress={()=>copyDay(day,target.dayOfWeek)}
+            />)}
+          </ScrollView>
+          <View style={styles.scopeRow}>
+            <Button label={t("schedule.copyWeekdays")} onPress={()=>copyMany(day,[1,2,3,4,5])} variant="ghost" style={styles.copyButton}/>
+            <Button label={t("schedule.copyAll")} onPress={()=>copyMany(day,[0,1,2,3,4,5,6])} variant="ghost" style={styles.copyButton}/>
+          </View>
+        </View>:null}
+      </Card>;
+      })}
     </View>
+
     {conflicts.length?<Card style={{borderColor:colors.warning}}>
       <View style={styles.headerRow}>
         <Ionicons name="warning-outline" size={24} color={colors.warning}/>
@@ -481,92 +427,22 @@ const styles=StyleSheet.create({
   areaChips:{gap:spacing.sm,paddingVertical:spacing.xs},
   choice:{minHeight:40,paddingHorizontal:spacing.md,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
   choiceActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
-  weekTableScrollContent:{paddingBottom:spacing.xs},
-  weekTable:{
-    minWidth:980,
-    borderWidth:1,
-    borderColor:colors.border,
-    borderRadius:radius.lg,
-    overflow:"hidden",
-    backgroundColor:colors.surface,
-  },
-  weekTableHeader:{
-    minHeight:48,
-    alignItems:"stretch",
+  dayHeader:{alignItems:"center",gap:spacing.sm},
+  dayTitleRow:{flexDirection:"row",alignItems:"center",flexWrap:"wrap",gap:spacing.sm},
+  todayCard:{
+    borderColor:colors.primary,
+    borderWidth:2,
     backgroundColor:colors.primarySoft,
-    borderBottomWidth:1,
-    borderBottomColor:colors.border,
   },
-  weekTableHeaderCell:{
-    justifyContent:"center",
-    paddingHorizontal:spacing.md,
-    paddingVertical:spacing.sm,
-    borderRightWidth:1,
-    borderRightColor:colors.border,
-  },
-  weekTableHeaderText:{color:colors.primary},
-  weekTableBody:{flexDirection:"column"},
-  weekTableRow:{
-    alignItems:"stretch",
-    borderBottomWidth:1,
-    borderBottomColor:colors.border,
-    backgroundColor:colors.surface,
-  },
-  weekTableRowAlt:{backgroundColor:colors.surfaceMuted},
-  todayRow:{
-    backgroundColor:colors.primarySoft,
-    borderLeftWidth:4,
-    borderLeftColor:colors.primary,
-  },
-  weekTableCell:{
-    padding:spacing.md,
-    gap:spacing.sm,
-    justifyContent:"flex-start",
-    borderRightWidth:1,
-    borderRightColor:colors.border,
-  },
-  dayColumn:{width:170},
-  statusColumn:{width:140,alignItems:"flex-start"},
-  hoursColumn:{width:390},
-  actionsColumn:{width:280},
   todayBadge:{
-    alignSelf:"flex-start",
     paddingHorizontal:spacing.sm,
     paddingVertical:3,
     borderRadius:radius.pill,
     backgroundColor:colors.primary,
   },
   todayBadgeText:{color:colors.surface},
-  statusPill:{
-    paddingHorizontal:spacing.sm,
-    paddingVertical:4,
-    borderRadius:radius.pill,
-  },
-  statusPillOpen:{backgroundColor:"#DCFCE7"},
-  statusPillClosed:{backgroundColor:"#FEE2E2"},
-  statusTextOpen:{color:colors.success},
-  statusTextClosed:{color:colors.danger},
-  periodRow:{
-    flexDirection:"row",
-    alignItems:"flex-end",
-    gap:spacing.sm,
-  },
-  periodNumber:{
-    width:28,
-    height:28,
-    borderRadius:14,
-    alignItems:"center",
-    justifyContent:"center",
-    backgroundColor:colors.primarySoft,
-    marginBottom:10,
-  },
-  timeField:{width:118},
-  removePeriodButton:{minWidth:92,marginBottom:2},
-  addPeriodButton:{alignSelf:"flex-start",minWidth:130},
-  copyActions:{gap:spacing.sm},
-  copyDayChoices:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xs},
-  copyButtonsRow:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xs},
-  tableCopyButton:{minWidth:118,flexGrow:1},
+  periodBlock:{padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted,gap:spacing.sm},
+  copyButton:{flexGrow:1,minWidth:140},
   conflict:{paddingVertical:spacing.sm,borderBottomWidth:1,borderBottomColor:colors.border},
   footerActions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   footerButton:{flexGrow:1,minWidth:160},
