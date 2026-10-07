@@ -22,7 +22,12 @@ export function createPublicVenueRouter(booking: BookingService) {
     try {
       const city = typeof request.query.city === "string" ? request.query.city.trim() : undefined;
       const province = typeof request.query.province === "string" ? request.query.province.trim() : undefined;
-      response.json(await booking.listPublicVenues({ ...(city ? { city } : {}), ...(province ? { province } : {}) }));
+      const q = typeof request.query.q === "string" ? request.query.q.trim().slice(0,120) : undefined;
+      response.json(await booking.listPublicVenues({
+        ...(city ? { city } : {}),
+        ...(province ? { province } : {}),
+        ...(q ? { q } : {}),
+      }));
     } catch (error) { next(error); }
   });
 
