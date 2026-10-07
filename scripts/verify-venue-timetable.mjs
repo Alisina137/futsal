@@ -152,6 +152,9 @@ assert(schedule.includes("Summary"),"Venue timetable must show operational summa
 assert(weeklyPage.includes("schedule.currentTimetable")&&weeklyPage.includes("schedule.draftTimetables")&&weeklyPage.includes("schedule.futureTimetables")&&weeklyPage.includes("schedule.archivedTimetables"),"Weekly Timetable page must manage current/draft/future/archive versions.");
 assert(exceptionsPage.includes("schedule.specialHours"),"Special Hours page must expose timetable exceptions.");
 assert(schedule.includes("/owner/manual-booking"),"Available slots must support manual booking.");
+assert(schedule.includes("onNavigate={navigateFromSlot}")&&schedule.includes("setTimeout(navigate,0)"),"Slot actions must close the native management modal before navigating.");
+assert(manualEditor.includes("if(requestedAreaId)")&&manualEditor.includes("Avoid a redundant status request"),"Manual booking opened from a timetable slot must use its exact court/slot data without an extra owner-status request.");
+assert(manualEditor.includes('router.replace({pathname:"/owner/schedule",params:{date}})'),"Successful manual booking must return to the exact booked day so the new reservation is visible.");
 assert(schedule.includes("/owner/block-time"),"Available slots must support blocking.");
 assert(schedule.includes('t("schedule.editBlock")'),"Blocked calendar events must expose an edit action.");
 assert(blockEditor.includes("ownerApi.updateBlock"),"Blocked interval editor must update existing blocks when blockId is supplied.");
@@ -248,4 +251,4 @@ for(const key of [
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: one court per owner venue, per-period slot pricing, priced Week/Day slot views, top-left reservation/discount markers, and status-aware exact-slot management.");
+console.log("Venue timetable verified: one court per owner venue, per-period slot pricing, priced Week/Day slot views, reliable manual slot navigation, top-left reservation/discount markers, and status-aware exact-slot management.");
