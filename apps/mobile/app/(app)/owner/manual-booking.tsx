@@ -8,7 +8,6 @@ import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
-import { OwnerTopNav } from "../../../src/components/owner/OwnerTopNav";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -28,17 +27,16 @@ export default function ManualBookingScreen(){
 
   async function submit(){if(!session||!areaId)return;setBusy(true);setError(null);try{
     await ownerApi.createManualBooking(session.accessToken,{areaId,startsAt:afghanistanIso(date,start),endsAt:afghanistanIso(date,end),customerName:name,customerPhone:phone, ...(price.trim()?{priceAfn:Number(price)}:{}),note});
-    router.replace("/schedule");
+    router.replace("/owner/schedule");
   }catch(cause){
     if(cause instanceof ApiRequestError&&cause.code==="SLOT_UNAVAILABLE")setError(t("schedule.conflict"));
     else if(cause instanceof ApiRequestError&&cause.code==="SUBSCRIPTION_REQUIRED")setError(t("schedule.subscriptionRequired"));
     else setError(t("schedule.manualError"));
   }finally{setBusy(false);}}
 
-  if(loading)return <Screen><OwnerTopNav/><DataLoadingState variant="form" minHeight={500}/></Screen>;
+  if(loading)return <Screen embedded><DataLoadingState variant="form" minHeight={500}/></Screen>;
 
-  return <Screen>
-    <OwnerTopNav/>
+  return <Screen embedded>
     <AppText variant="title" weight="bold">{t("schedule.manualTitle")}</AppText>
     <Card>
       <AppText weight="semibold">{t("schedule.area")}</AppText>
