@@ -459,8 +459,60 @@ export class TimetableService {
 
   async deleteException(ownerUserId: string, exceptionId: string) {
     const venue = await this.ownerVenue(ownerUserId);
+    const existing = await this.repository.getException(exceptionId);
+    if (!existing || existing.venueId !== venue.id) {
+      throw errors.badRequest("TIMETABLE_EXCEPTION_NOT_FOUND", "Special schedule not found.");
+    }
+
+    const today = localDateForInstant(this.now(), venue.timezone);
+    if (existing.date >= today) {
+      const [records, sameDateExceptions] = await Promise.all([
+        this.repository.listTimetables(venue.id),
+        this.repository.listExceptions(venue.id, existing.date, existing.date),
+      ]);
+      const timetable = recordForDate(records, existing.date);
+      if (timetable) {
+        const remaining = sameDateExceptions.filter((item) => item.id !== exceptionId);
+        const bounds = dayBounds(existing.date, venue.timezone);
+        const affectedAreaIds = existing.areaId
+          ? [existing.areaId]
+          : venue.areas.filter((area) => area.active).map((area) => area.id);
+        const conflicts = (await this.repository.listOccupancies(
+          venue.id,
+          bounds.startsAt,
+          bounds.endsAt,
+        ))
+          .filter((item) => item.type !== "PROMOTION" && affectedAreaIds.includes(item.areaId))
+          .filter((item) => !this.intervalAllowedBy(
+            timetable,
+            remaining,
+            venue,
+            item.areaId,
+            item.startsAt,
+            item.endsAt,
+          ));
+
+        if (conflicts.length) {
+          throw errors.conflict(
+            "TIMETABLE_EXCEPTION_DELETE_CONFLICT",
+            "Deleting this special schedule would place existing activity outside the regular weekly timetable.",
+            {
+              conflicts: conflicts.map((item) => ({
+                type: item.type,
+                areaId: item.areaId,
+                areaName: item.areaName,
+                startsAt: item.startsAt.toISOString(),
+                endsAt: item.endsAt.toISOString(),
+                title: item.title,
+              })),
+            },
+          );
+        }
+      }
+    }
+
     if (!(await this.repository.deleteException(exceptionId, venue.id))) {
-      throw errors.badRequest("TIMETABLE_EXCEPTION_NOT_FOUND", "Special-hours exception not found.");
+      throw errors.badRequest("TIMETABLE_EXCEPTION_NOT_FOUND", "Special schedule not found.");
     }
     return { deleted: true };
   }
