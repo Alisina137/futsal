@@ -224,11 +224,13 @@ assert(editor.includes("saveDraft")||editor.includes('t("schedule.saveDraft")'),
 assert(editor.includes("publishTimetable"),"Weekly editor must publish changes.");
 assert(contracts.includes("priceAfn: z.number().int().min(0).max(1_000_000).nullable().default(null)"),"Special Schedule periods must support date-specific slot pricing.");
 assert(service.includes("TIMETABLE_EXCEPTION_CONFLICT")&&service.includes("TIMETABLE_EXCEPTION_EXISTS"),"Special Schedule API must prevent unsafe occupancy conflicts and duplicate date overrides.");
+assert(service.includes("TIMETABLE_EXCEPTION_DELETE_CONFLICT"),"Deleting a future Special Schedule must be blocked when regular weekly hours would strand existing activity.");
 assert(service.includes("TIMETABLE_EXCEPTION_PAST")&&service.includes("TIMETABLE_EXCEPTION_REQUIRES_TIMETABLE"),"Special Schedule API must reject past edits and dates without a published weekly timetable.");
 assert(routes.includes('router.put("/timetable-exceptions/:exceptionId"'),"Special Schedule must support editing existing overrides.");
 assert(exceptionsPage.includes('pathname:"/owner/timetable/exception"')&&exceptionsPage.includes("exceptionId:item.id"),"Special Schedule list must expose edit navigation.");
 assert(exceptionsPage.includes("viewSpecialDay")&&exceptionsPage.includes('pathname:"/owner/schedule"'),"Special Schedule entries must open their exact day in the timetable.");
 assert(exceptionsPage.includes("specialUpcoming")&&exceptionsPage.includes("specialPast"),"Special Schedule must show upcoming and history sections.");
+assert(exceptionsPage.includes("TIMETABLE_EXCEPTION_DELETE_CONFLICT")&&exceptionsPage.includes("specialDeleteConflict"),"Special Schedule list must explain unsafe deletion conflicts.");
 assert(exception.includes("useRegularSchedule"),"Special Schedule editor must be able to copy the regular weekly hours and prices.");
 assert(exception.includes('t("schedule.slotPrice")'),"Special Schedule editor must allow per-period slot pricing.");
 assert(exception.includes("updateTimetableException"),"Special Schedule editor must update existing date overrides.");
@@ -253,6 +255,7 @@ for(const key of [
   "schedule.saveException",
   "schedule.useRegularSchedule",
   "schedule.specialConflict",
+  "schedule.specialDeleteConflict",
   "schedule.specialDuplicate",
   "schedule.specialRegularPrice",
   "schedule.editAction",
