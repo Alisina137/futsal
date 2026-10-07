@@ -13,7 +13,7 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 import { useNetwork } from "../../../src/providers/NetworkProvider";
 
 export default function BookingConfirmScreen(){
-  const params=useLocalSearchParams<{venueId:string;areaId:string;areaName:string;venueName:string;startsAt:string;endsAt:string;priceAfn:string;timeZone:string}>();
+  const params=useLocalSearchParams<{venueId:string;areaId:string;venueName:string;startsAt:string;endsAt:string;priceAfn:string;timeZone:string}>();
   const {session}=useAuth(); const {t}=useLocale(); const {isOnline}=useNetwork();
   const [note,setNote]=useState(""); const [busy,setBusy]=useState(false); const [error,setError]=useState<string|null>(null);
   const key=useRef(`booking-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -35,7 +35,6 @@ export default function BookingConfirmScreen(){
     <AppText variant="title" weight="bold">{t("booking.confirmTitle")}</AppText>
     <Card>
       <AppText variant="bodyLarge" weight="bold">{params.venueName}</AppText>
-      <AppText>{params.areaName}</AppText>
       <AppText forceLtr>{params.startsAt}</AppText>
       <AppText weight="semibold">{params.priceAfn} AFN</AppText>
       <AppText variant="caption" muted>{t("booking.serverRecheck")}</AppText>
