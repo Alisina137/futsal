@@ -89,6 +89,15 @@ export interface BookingRepository {
     endsAt: Date;
     reason: string | null;
   }): Promise<VenueBlockDto>;
+  updateBlockAtomic(input: {
+    blockId: string;
+    venueId: string;
+    areaId: string;
+    ownerUserId: string;
+    startsAt: Date;
+    endsAt: Date;
+    reason: string | null;
+  }): Promise<VenueBlockDto | null>;
   deleteBlock(ownerUserId: string, blockId: string): Promise<boolean>;
   getBooking(bookingId: string): Promise<BookingDto | null>;
   getBookingByIdempotency(createdByUserId: string, idempotencyKey: string): Promise<BookingDto | null>;
