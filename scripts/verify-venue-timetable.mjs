@@ -101,6 +101,18 @@ for(const route of [
 ]){
   assert(timetableNav.includes(route),`Timetable sub-navigation missing route: ${route}`);
 }
+const calendarNavPosition=timetableNav.indexOf('{key:"calendar"');
+const manualNavPosition=timetableNav.indexOf('{key:"manual"');
+const blockNavPosition=timetableNav.indexOf('{key:"block"');
+const specialNavPosition=timetableNav.indexOf('{key:"special"');
+const weeklyNavPosition=timetableNav.indexOf('{key:"weekly"');
+assert(
+  calendarNavPosition<manualNavPosition
+    &&manualNavPosition<blockNavPosition
+    &&blockNavPosition<specialNavPosition
+    &&specialNavPosition<weeklyNavPosition,
+  "Weekly Timetable must be the last timetable sub-navigation option.",
+);
 assert(!schedule.includes('t("schedule.quickActions")'),"Main timetable calendar page must not duplicate the old Quick Actions card.");
 assert(!schedule.includes('t("schedule.venueTimetable")'),"Main timetable calendar page title must remain removed.");
 assert(!schedule.includes('t("schedule.subtitle")'),"Main timetable calendar page subtitle must remain removed.");
@@ -128,6 +140,11 @@ assert(schedule.includes("/owner/promotions/create"),"Available slots must suppo
 
 assert(editor.includes("copyDay(")&&editor.includes("copyMany("),"Weekly editor must copy hours between days.");
 assert(editor.includes("orderedWeekdays(language)"),"Weekly editor day order must follow the active language week start.");
+assert(editor.includes("todayDayOfWeek"),"Weekly editor must identify today's weekday.");
+assert(editor.includes("styles.todayCard"),"Weekly editor must visually highlight today's card.");
+assert(editor.includes('t("schedule.today")'),"Weekly editor must label today's card.");
+assert(editor.includes("focusTodayCard"),"Weekly editor must focus today's card when opened.");
+assert(editor.includes("scrollRef={screenScrollRef}"),"Weekly editor must control its own scroll position to reveal today's card.");
 assert(editor.includes("calendarInputDate"),"Weekly editor must display Solar Hijri form dates for Dari/Pashto.");
 assert(editor.includes("selectedAreaIds"),"Weekly editor must support selected venue areas.");
 assert(editor.includes("defaultSlotDurationMinutes"),"Weekly editor must configure slot duration.");
