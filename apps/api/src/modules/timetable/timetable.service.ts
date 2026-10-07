@@ -214,11 +214,17 @@ export class TimetableService {
     const future = published
       .filter((item) => item.id !== current?.id && item.effectiveFrom > today)
       .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+    const history = records
+      .filter((item) =>
+        item.status === "ARCHIVED"
+        || (item.status === "PUBLISHED" && Boolean(item.effectiveUntil) && item.effectiveUntil! < today)
+      )
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
     return {
       current: current ? toDto(current) : null,
       drafts: records.filter((item) => item.status === "DRAFT").sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).map(toDto),
       future: future.map(toDto),
-      archived: records.filter((item) => item.status === "ARCHIVED").sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).map(toDto),
+      archived: history.map(toDto),
       exceptions: exceptions.map(exceptionDto),
     };
   }
@@ -307,14 +313,32 @@ export class TimetableService {
       return { timetable: toDto(draft), conflicts };
     }
 
-    const archiveIds = records
-      .filter((item) => item.status === "PUBLISHED" && rangesOverlap(item, draft))
+    const publishedAt = this.now();
+    const overlapping = records.filter((item) => item.status === "PUBLISHED" && rangesOverlap(item, draft));
+    const predecessor = overlapping
+      .filter((item) => item.effectiveFrom < draft.effectiveFrom)
+      .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0] ?? null;
+
+    if (predecessor) {
+      const previousDay = addDays(draft.effectiveFrom, -1);
+      if (!predecessor.effectiveUntil || predecessor.effectiveUntil >= draft.effectiveFrom) {
+        await this.repository.truncatePublishedTimetable({
+          timetableId: predecessor.id,
+          venueId: venue.id,
+          effectiveUntil: previousDay,
+          updatedAt: publishedAt,
+        });
+      }
+    }
+
+    const archiveIds = overlapping
+      .filter((item) => item.id !== predecessor?.id && item.effectiveFrom >= draft.effectiveFrom)
       .map((item) => item.id);
     const published = await this.repository.publishTimetable({
       timetableId,
       venueId: venue.id,
       archiveIds,
-      publishedAt: this.now(),
+      publishedAt,
     });
     return { timetable: toDto(published), conflicts: [] };
   }
@@ -487,6 +511,7 @@ export class TimetableService {
 
       for (const event of eventsForDate) {
         if (areaId && event.areaId !== areaId) continue;
+        if (event.type === "PROMOTION") continue;
         events.push({
           id: event.id,
           type: event.type === "BOOKING"
