@@ -7,7 +7,7 @@ import type {
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
 import {
   formatCalendarDate,
@@ -115,6 +115,27 @@ export default function OwnerScheduleScreen(){
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
 
+  const changeAnchorDate=useCallback((nextDate:string)=>{
+    if(nextDate===anchorDate)return;
+    setCalendarLoading(true);
+    setSelectedSlot(null);
+    setAnchorDate(nextDate);
+  },[anchorDate]);
+
+  const changeCalendarView=useCallback((nextView:TimetableCalendarView)=>{
+    if(nextView===view)return;
+    setCalendarLoading(true);
+    setSelectedSlot(null);
+    setView(nextView);
+  },[view]);
+
+  const openCalendarDay=useCallback((date:string)=>{
+    setCalendarLoading(true);
+    setSelectedSlot(null);
+    setAnchorDate(date);
+    setView("DAY");
+  },[]);
+
   const focusTodayWeekRow=useCallback((weekKey:string)=>{
     if(
       focusedWeekKey.current===weekKey
@@ -197,10 +218,10 @@ export default function OwnerScheduleScreen(){
     <Card>
       <View style={styles.toolbar}>
         <View style={[styles.todayRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <Button label={t("schedule.today")} onPress={()=>setAnchorDate(todayKabul())} variant="secondary" style={styles.compactButton}/>
+          <Button label={t("schedule.today")} onPress={()=>changeAnchorDate(todayKabul())} variant="secondary" style={styles.compactButton}/>
         </View>
         <View style={[styles.navButtons,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <Pressable style={styles.textNavButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,-1,language))}>
+          <Pressable style={styles.textNavButton} onPress={()=>changeAnchorDate(moveView(view,anchorDate,-1,language))}>
             <AppText variant="caption" weight="semibold" style={styles.textNavButtonLabel}>
               {t("schedule.previous")}
             </AppText>
@@ -212,7 +233,7 @@ export default function OwnerScheduleScreen(){
                 ?formatCalendarDate(anchorDate,language,{weekday:"short",month:"short",day:"numeric",year:"numeric"})
                 :`${formatCalendarDate(range.from,language)} — ${formatCalendarDate(range.to,language)}`}
           </AppText>
-          <Pressable style={styles.textNavButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,1,language))}>
+          <Pressable style={styles.textNavButton} onPress={()=>changeAnchorDate(moveView(view,anchorDate,1,language))}>
             <AppText variant="caption" weight="semibold" style={styles.textNavButtonLabel}>
               {t("schedule.next")}
             </AppText>
@@ -223,7 +244,7 @@ export default function OwnerScheduleScreen(){
       <View style={[styles.segmented,{flexDirection:isRTL?"row-reverse":"row"}]}>
         {views.map((item)=><Pressable
           key={item}
-          onPress={()=>setView(item)}
+          onPress={()=>changeCalendarView(item)}
           style={[styles.segment,view===item&&styles.segmentActive]}
         >
           <AppText weight="semibold" style={view===item?styles.segmentTextActive:undefined}>
@@ -234,7 +255,7 @@ export default function OwnerScheduleScreen(){
 
     </Card>
 
-    {renderedView==="DAY"&&selectedDay?<Summary day={selectedDay} t={t}/>:null}
+    {!calendarLoading&&renderedView==="DAY"&&selectedDay?<Summary day={selectedDay} t={t}/>:null}
 
     <View
       style={styles.calendarDataArea}
@@ -245,40 +266,42 @@ export default function OwnerScheduleScreen(){
         }
       }}
     >
-      {calendar?
-        renderedView==="MONTH"
-          ?<MonthView
-            days={calendar.days}
-            anchorDate={renderedAnchorDate}
-            language={language}
-            selected={renderedAnchorDate}
-            onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}
-          />
-          :renderedView==="WEEK"
-            ?<WeekView
+      {calendarLoading
+        ?<DataLoadingState
+          variant="calendar"
+          minHeight={view==="MONTH"?430:view==="WEEK"?390:330}
+        />
+        :calendar
+          ?renderedView==="MONTH"
+            ?<MonthView
               days={calendar.days}
+              anchorDate={renderedAnchorDate}
               language={language}
-              t={t}
-              todayDate={todayDate}
-              onTodayRowLayout={(y)=>{
-                todayWeekRowY.current=y;
-                focusTodayWeekRow(calendar.from);
-              }}
-              onSelectSlot={(event,date)=>setSelectedSlot({event,date})}
+              selected={renderedAnchorDate}
+              onSelect={openCalendarDay}
             />
-            :<DaySlotView
-              day={selectedDay}
-              language={language}
-              t={t}
-              onSelectSlot={(event,date)=>setSelectedSlot({event,date})}
-            />
-        :<DataLoadingState variant="list" minHeight={320}/>}
-      {calendarLoading&&calendar?<View pointerEvents="none" style={styles.calendarRefreshIndicator}>
-        <ActivityIndicator size="small" color={colors.primary}/>
-      </View>:null}
+            :renderedView==="WEEK"
+              ?<WeekView
+                days={calendar.days}
+                language={language}
+                t={t}
+                todayDate={todayDate}
+                onTodayRowLayout={(y)=>{
+                  todayWeekRowY.current=y;
+                  focusTodayWeekRow(calendar.from);
+                }}
+                onSelectSlot={(event,date)=>setSelectedSlot({event,date})}
+              />
+              :<DaySlotView
+                day={selectedDay}
+                language={language}
+                t={t}
+                onSelectSlot={(event,date)=>setSelectedSlot({event,date})}
+              />
+          :<DataLoadingState variant="calendar" minHeight={330}/>} 
     </View>
 
-    {renderedView==="MONTH"?<Legend t={t}/>:null}
+    {!calendarLoading&&renderedView==="MONTH"?<Legend t={t}/>:null}
 
     {selectedSlot?<SlotManager
       event={selectedSlot.event}
@@ -287,11 +310,7 @@ export default function OwnerScheduleScreen(){
       t={t}
       busy={busy===`event-${selectedSlot.event.id}`}
       onClose={()=>setSelectedSlot(null)}
-      onOpenDay={(date)=>{
-        setSelectedSlot(null);
-        setAnchorDate(date);
-        setView("DAY");
-      }}
+      onOpenDay={openCalendarDay}
       onCancelBooking={(id)=>{
         setSelectedSlot(null);
         void cancelBooking(id);
@@ -775,19 +794,6 @@ function Legend({t}:{t:ReturnType<typeof useLocale>["t"]}){
 const styles=StyleSheet.create({
   errorCard:{borderColor:colors.danger},
   calendarDataArea:{position:"relative",minHeight:1},
-  calendarRefreshIndicator:{
-    position:"absolute",
-    top:spacing.sm,
-    right:spacing.sm,
-    width:34,
-    height:34,
-    borderRadius:17,
-    alignItems:"center",
-    justifyContent:"center",
-    backgroundColor:colors.surface,
-    borderWidth:1,
-    borderColor:colors.border,
-  },
   toolbar:{gap:spacing.sm},
   todayRow:{width:"100%",justifyContent:"flex-start"},
   compactButton:{minHeight:42,paddingHorizontal:spacing.md},
