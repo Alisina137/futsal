@@ -72,6 +72,7 @@ for(const path of [
   '"/timetables/:timetableId/duplicate"',
   '"/timetables/:timetableId/archive"',
   '"/timetable-exceptions"',
+  '"/timetable-exceptions/:exceptionId"',
   '"/timetable-calendar"',
 ]){
   assert(routes.includes(path),`Timetable API route missing: ${path}`);
@@ -105,6 +106,7 @@ for(const marker of [
   "publishTimetable:",
   "timetableCalendar:",
   "createTimetableException:",
+  "updateTimetableException:",
 ]){
   assert(mobileApi.includes(marker),`Mobile timetable client missing: ${marker}`);
 }
@@ -150,7 +152,7 @@ assert(schedule.includes("Initial page shell only"),"Page-level loading must sta
 assert(schedule.includes("statusFilters"),"Venue timetable must offer status filters.");
 assert(schedule.includes("Summary"),"Venue timetable must show operational summary.");
 assert(weeklyPage.includes("schedule.currentTimetable")&&weeklyPage.includes("schedule.draftTimetables")&&weeklyPage.includes("schedule.futureTimetables")&&weeklyPage.includes("schedule.archivedTimetables"),"Weekly Timetable page must manage current/draft/future/archive versions.");
-assert(exceptionsPage.includes("schedule.specialHours"),"Special Hours page must expose timetable exceptions.");
+assert(exceptionsPage.includes("schedule.specialUpcoming")&&exceptionsPage.includes("schedule.specialPast"),"Special Schedule must separate upcoming and past date overrides.");
 assert(schedule.includes("/owner/manual-booking"),"Available slots must support manual booking.");
 assert(schedule.includes("onNavigate={navigateFromSlot}")&&schedule.includes("setTimeout(navigate,0)"),"Slot actions must close the native management modal before navigating.");
 assert(manualEditor.includes("if(requestedAreaId)")&&manualEditor.includes("Avoid a redundant status request"),"Manual booking opened from a timetable slot must use its exact court/slot data without an extra owner-status request.");
@@ -220,6 +222,17 @@ assert(editor.includes("defaultSlotDurationMinutes"),"Weekly editor must configu
 assert(editor.includes("bufferMinutes"),"Weekly editor must configure booking buffer.");
 assert(editor.includes("saveDraft")||editor.includes('t("schedule.saveDraft")'),"Weekly editor must save drafts.");
 assert(editor.includes("publishTimetable"),"Weekly editor must publish changes.");
+assert(contracts.includes("priceAfn: z.number().int().min(0).max(1_000_000).nullable().default(null)"),"Special Schedule periods must support date-specific slot pricing.");
+assert(service.includes("TIMETABLE_EXCEPTION_CONFLICT")&&service.includes("TIMETABLE_EXCEPTION_EXISTS"),"Special Schedule API must prevent unsafe occupancy conflicts and duplicate date overrides.");
+assert(service.includes("TIMETABLE_EXCEPTION_PAST")&&service.includes("TIMETABLE_EXCEPTION_REQUIRES_TIMETABLE"),"Special Schedule API must reject past edits and dates without a published weekly timetable.");
+assert(routes.includes('router.put("/timetable-exceptions/:exceptionId"'),"Special Schedule must support editing existing overrides.");
+assert(exceptionsPage.includes('pathname:"/owner/timetable/exception"')&&exceptionsPage.includes("exceptionId:item.id"),"Special Schedule list must expose edit navigation.");
+assert(exceptionsPage.includes("viewSpecialDay")&&exceptionsPage.includes('pathname:"/owner/schedule"'),"Special Schedule entries must open their exact day in the timetable.");
+assert(exceptionsPage.includes("specialUpcoming")&&exceptionsPage.includes("specialPast"),"Special Schedule must show upcoming and history sections.");
+assert(exception.includes("useRegularSchedule"),"Special Schedule editor must be able to copy the regular weekly hours and prices.");
+assert(exception.includes('t("schedule.slotPrice")'),"Special Schedule editor must allow per-period slot pricing.");
+assert(exception.includes("updateTimetableException"),"Special Schedule editor must update existing date overrides.");
+assert(exception.includes("TIMETABLE_EXCEPTION_CONFLICT")&&exception.includes("TIMETABLE_EXCEPTION_EXISTS"),"Special Schedule editor must explain conflict and duplicate-date errors.");
 assert(exception.includes("isClosed"),"Special-hours editor must support full-day closure.");
 assert(exception.includes("periods"),"Special-hours editor must support multiple periods.");
 assert(exception.includes("calendarInputToGregorian"),"Special-hours dates must use the active display calendar and convert for API storage.");
@@ -232,6 +245,15 @@ for(const key of [
   "schedule.createWeekly",
   "schedule.publishConflictTitle",
   "schedule.specialHours",
+  "schedule.specialScheduleBody",
+  "schedule.specialUpcoming",
+  "schedule.specialPast",
+  "schedule.editException",
+  "schedule.updateException",
+  "schedule.saveException",
+  "schedule.useRegularSchedule",
+  "schedule.specialConflict",
+  "schedule.specialDuplicate",
   "schedule.solarHijriHint",
   "schedule.weeklyHeaderDay",
   "schedule.weekViewActivity",
@@ -251,4 +273,4 @@ for(const key of [
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: one court per owner venue, per-period slot pricing, priced Week/Day slot views, reliable manual slot navigation, top-left reservation/discount markers, and status-aware exact-slot management.");
+console.log("Venue timetable verified: one court per owner venue, per-period slot pricing, priced Week/Day slots, complete Special Schedule date overrides with pricing/edit/conflict safety, reliable slot actions, and status-aware management.");
