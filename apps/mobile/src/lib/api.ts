@@ -24,6 +24,11 @@ import type {
   OnlineBookingRequest,
   ManualBookingRequest,
   OwnerScheduleResponse,
+  VenueTimetableDraftRequest,
+  VenueTimetableExceptionRequest,
+  VenueTimetableListResponse,
+  VenueTimetablePublishResponse,
+  VenueTimetableCalendarResponse,
   VenueBlockRequest,
   FeedResponse,
   FollowStateDto,
@@ -252,6 +257,30 @@ export const ownerApi = {
     request<OwnerOnboardingStatus>("/api/v1/owner/trial/start", { method: "POST" }, accessToken),
   schedule: (accessToken: string, date: string) =>
     request<OwnerScheduleResponse>(`/api/v1/owner/schedule?date=${encodeURIComponent(date)}`, {}, accessToken),
+  timetables: (accessToken: string) =>
+    request<VenueTimetableListResponse>("/api/v1/owner/timetables", {}, accessToken),
+  createTimetable: (accessToken: string, input: VenueTimetableDraftRequest) =>
+    request<{ timetable: import("@leaguekick/contracts").VenueTimetableDto }>("/api/v1/owner/timetables", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  updateTimetable: (accessToken: string, timetableId: string, input: VenueTimetableDraftRequest) =>
+    request<{ timetable: import("@leaguekick/contracts").VenueTimetableDto }>(`/api/v1/owner/timetables/${timetableId}`, { method: "PUT", body: JSON.stringify(input) }, accessToken),
+  duplicateTimetable: (accessToken: string, timetableId: string) =>
+    request<{ timetable: import("@leaguekick/contracts").VenueTimetableDto }>(`/api/v1/owner/timetables/${timetableId}/duplicate`, { method: "POST" }, accessToken),
+  deleteTimetable: (accessToken: string, timetableId: string) =>
+    request<{ deleted: boolean }>(`/api/v1/owner/timetables/${timetableId}`, { method: "DELETE" }, accessToken),
+  publishTimetable: (accessToken: string, timetableId: string) =>
+    request<VenueTimetablePublishResponse>(`/api/v1/owner/timetables/${timetableId}/publish`, { method: "POST" }, accessToken),
+  archiveTimetable: (accessToken: string, timetableId: string) =>
+    request<{ timetable: import("@leaguekick/contracts").VenueTimetableDto }>(`/api/v1/owner/timetables/${timetableId}/archive`, { method: "POST" }, accessToken),
+  createTimetableException: (accessToken: string, input: VenueTimetableExceptionRequest) =>
+    request<{ exception: import("@leaguekick/contracts").VenueTimetableExceptionDto }>("/api/v1/owner/timetable-exceptions", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  deleteTimetableException: (accessToken: string, exceptionId: string) =>
+    request<{ deleted: boolean }>(`/api/v1/owner/timetable-exceptions/${exceptionId}`, { method: "DELETE" }, accessToken),
+  timetableCalendar: (accessToken: string, from: string, to: string, areaId?: string | null) =>
+    request<VenueTimetableCalendarResponse>(
+      `/api/v1/owner/timetable-calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${areaId ? `&areaId=${encodeURIComponent(areaId)}` : ""}`,
+      {},
+      accessToken,
+    ),
   createManualBooking: (accessToken: string, input: ManualBookingRequest) =>
     request<{ booking: BookingDto }>("/api/v1/owner/bookings/manual", { method: "POST", body: JSON.stringify(input) }, accessToken),
   createBlock: (accessToken: string, input: VenueBlockRequest) =>
