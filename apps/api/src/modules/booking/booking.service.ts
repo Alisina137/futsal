@@ -387,6 +387,48 @@ export class BookingService {
     });
   }
 
+  async updateBlock(ownerUserId: string, blockId: string, input: VenueBlockRequest) {
+    const now = this.now();
+    const venue = await this.repository.getOwnerVenueRecord(ownerUserId);
+    assertOwnerWritable(venue, now);
+    const area = venue.areas.find((candidate) => candidate.id === input.areaId && candidate.active);
+    if (!area) throw errors.badRequest("AREA_NOT_AVAILABLE", "This playing area is unavailable.");
+
+    const startsAt = new Date(input.startsAt);
+    const endsAt = new Date(input.endsAt);
+    if (startsAt.getTime() <= now.getTime()) {
+      throw errors.badRequest("BLOCK_IN_PAST", "Choose a future interval.");
+    }
+
+    const fallback = venue.openingHours.find((item) =>
+      item.dayOfWeek === weekdayForDate(localDateForInstant(startsAt, venue.timezone))
+    );
+    if (this.timetable) {
+      await this.timetable.assertIntervalAllowed({
+        venueId: venue.id,
+        areaId: area.id,
+        startsAt,
+        endsAt,
+        timeZone: venue.timezone,
+        ...(fallback ? { fallback } : {}),
+      });
+    } else {
+      assertIntervalWithinOpeningHours(venue, startsAt, endsAt);
+    }
+
+    const updated = await this.repository.updateBlockAtomic({
+      blockId,
+      venueId: venue.id,
+      areaId: area.id,
+      ownerUserId,
+      startsAt,
+      endsAt,
+      reason: input.reason?.trim() || null,
+    });
+    if (!updated) throw errors.badRequest("BLOCK_NOT_FOUND", "The block was not found.");
+    return updated;
+  }
+
   async deleteBlock(ownerUserId: string, blockId: string) {
     const venue = await this.repository.getOwnerVenueRecord(ownerUserId);
     assertOwnerWritable(venue, this.now());
