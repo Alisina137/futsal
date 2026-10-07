@@ -9,7 +9,7 @@ import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
-import { marketingApi } from "../../../src/lib/api";
+import { marketingApi, resolveMediaImageUrl } from "../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -169,7 +169,7 @@ function SocialPostCard({
       ]}
     >
       {post.authorImageUrl
-        ?<Image source={{uri:post.authorImageUrl}} style={styles.authorImage}/>
+        ?<Image source={{uri:resolveMediaImageUrl(post.authorImageUrl)!}} style={styles.authorImage}/>
         :<View style={styles.authorFallback}><AppText weight="bold" style={{color:colors.primary}}>{initials}</AppText></View>}
       <View style={[styles.authorCopy,{alignItems:isRTL?"flex-end":"flex-start"}]}>
         <AppText weight="bold">{post.authorName}</AppText>
@@ -185,7 +185,7 @@ function SocialPostCard({
 
     <AppText>{post.body}</AppText>
 
-    {post.imageUrl?<Image source={{uri:post.imageUrl}} style={styles.postImage} resizeMode="cover"/>:null}
+    {post.imageUrl?<Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={styles.postImage} resizeMode="cover"/>:null}
 
     <View style={[styles.countRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <AppText variant="caption" muted>{t("social.likes",{count:post.likeCount})}</AppText>
