@@ -462,7 +462,6 @@ function DayView({
   setStatusFilter:(value:"ALL"|VenueCalendarEventType)=>void;
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
-  language:"fa-AF"|"ps-AF"|"en";
   busy:string|null;
   onCancelBooking:(id:string)=>void;
   onUnblock:(id:string)=>void;
