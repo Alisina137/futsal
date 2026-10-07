@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
-import { OwnerTopNav } from "../../../src/components/owner/OwnerTopNav";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -154,10 +153,9 @@ export default function OwnerOnboardingScreen() {
     }
   }
 
-  if (loading) return <Screen><OwnerTopNav/><DataLoadingState variant="form" minHeight={520}/></Screen>;
+  if (loading) return <Screen embedded><DataLoadingState variant="form" minHeight={520}/></Screen>;
 
-  return <Screen>
-    <OwnerTopNav/>
+  return <Screen embedded>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{t("owner.onboardingTitle")}</AppText>
       <AppText muted>{t("owner.stepOf", { current: step + 1, total: 8 })}</AppText>
