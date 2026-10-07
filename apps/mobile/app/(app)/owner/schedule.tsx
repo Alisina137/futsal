@@ -158,11 +158,6 @@ export default function OwnerScheduleScreen(){
   const areas=owner?.venue?.areas??[];
 
   return <Screen embedded>
-    <View style={{gap:spacing.xs}}>
-      <AppText variant="title" weight="bold">{t("schedule.venueTimetable")}</AppText>
-      <AppText muted>{t("schedule.subtitle")}</AppText>
-    </View>
-
     {error?<Card style={styles.errorCard}>
       <AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={t("common.retry")} onPress={()=>void refresh()} variant="secondary"/>
