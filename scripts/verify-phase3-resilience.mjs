@@ -27,7 +27,7 @@ const checks = [
   [rootLayout.includes('LogBox.ignoreLogs(["Cannot connect to Expo CLI."])'), "Expo CLI disconnect warning suppression"],
   [connectivityBanner.includes('t("network.offlineTitle")') && connectivityBanner.includes('t("network.backOnline")'), "localized offline/back-online banner"],
   [mobileApi.includes("probeApi") && mobileApi.includes("systemApi") && mobileApi.includes("probe: () => probeApi()"), "bounded API health probe"],
-  [networkProvider.includes("API_PROBE_INTERVAL_MS = 3_000") && networkProvider.includes("apiReconnectVersion"), "global API availability monitor"],
+  [networkProvider.includes("API_PROBE_INTERVAL_MS = 3_000") && networkProvider.includes("apiReconnectVersion") && networkProvider.includes("API_FAILURE_THRESHOLD = 3") && networkProvider.includes("API_RECOVERY_THRESHOLD = 2") && networkProvider.includes("apiReachableRef"), "debounced global API availability monitor"],
   [connectivityBanner.includes('t("network.serverUnavailableTitle")') && connectivityBanner.includes('t("network.serverBackOnline")'), "server unavailable/recovered banner"],
 ];
 
