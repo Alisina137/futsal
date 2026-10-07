@@ -90,6 +90,7 @@ import type {
   AdminTrialExtensionRequest,
   SubscriptionPaymentDto,
 } from "@leaguekick/contracts";
+import { cachedApiRead, invalidateApiCacheAfterMutation } from "./api-cache";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -130,7 +131,7 @@ function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-async function request<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
+async function networkRequest<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
   const safeRead = isSafeRead(init);
   const maxAttempts = safeRead ? 2 : 1;
 
@@ -193,6 +194,16 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   }
 
   throw new ApiRequestError("NETWORK_ERROR", "Cannot reach the server.", null, null, true);
+}
+
+async function request<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
+  if (isSafeRead(init)) {
+    return cachedApiRead(path, accessToken, () => networkRequest<T>(path, init, accessToken));
+  }
+
+  const value = await networkRequest<T>(path, init, accessToken);
+  await invalidateApiCacheAfterMutation(path, accessToken);
+  return value;
 }
 
 async function probeApi(timeoutMs = 2_500) {
