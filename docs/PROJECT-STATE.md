@@ -500,3 +500,5 @@ Pilot release / launch signoff after the Phase 8 live-device and operations chec
 - Venue timetable Month/Week/Day navigation now immediately replaces the slot content area with a centered loader plus calendar-shaped skeleton while the requested range loads; Today, Previous/Next, view switches, month date selection, and Open Day all trigger the same slot-area loading state.
 
 - Venue Time Table sub-navigation now shows only Calendar, Special Hours, and Weekly Timetable. Manual Reserve and Close a Time remain fully implemented routes/actions but are intentionally hidden from the nav because they are opened from individual slot management.
+
+- Venue Time Table now names the date-exception tab **Special Schedule**. It manages one-off date overrides without changing the weekly timetable: upcoming/past history, full-day closure, custom opening periods, per-period AFN pricing, copy-from-regular-schedule, edit/delete/view-day actions, duplicate-date prevention, past-date protection, published-weekly coverage requirement, and occupancy conflict protection for bookings/blocks/competition matches.
