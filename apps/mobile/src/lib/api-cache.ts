@@ -51,6 +51,9 @@ function cachePolicy(path: string, accessToken?: string): CachePolicy | null {
     return { ttlMs: 60_000, persist: true };
   }
   if (/^\/api\/v1\/players\/[^/]+$/.test(pathname)) return { ttlMs: 2 * 60_000, persist: true };
+  if (pathname === "/api/v1/teams/mine" || pathname.includes("/invitations")) {
+    return { ttlMs: 20_000, persist: false };
+  }
   if (pathname === "/api/v1/teams" || /^\/api\/v1\/teams\/[^/]+$/.test(pathname)) {
     return { ttlMs: 60_000, persist: true };
   }
@@ -70,10 +73,6 @@ function cachePolicy(path: string, accessToken?: string): CachePolicy | null {
   if (pathname.startsWith("/api/v1/owner/")) return { ttlMs: 20_000, persist: false };
   if (pathname === "/api/v1/bookings/me") return { ttlMs: 15_000, persist: false };
   if (pathname.startsWith("/api/v1/notifications")) return { ttlMs: 10_000, persist: false };
-  if (pathname === "/api/v1/teams/mine" || pathname.includes("/invitations")) {
-    return { ttlMs: 20_000, persist: false };
-  }
-
   return null;
 }
 
