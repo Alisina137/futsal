@@ -127,11 +127,11 @@ export class MarketingService {
     return {
       venueId:venue.id,
       name:venue.name,
-      city:venue.city,
-      province:venue.province,
-      pageProfileImageUrl:venue.pageProfileImageUrl,
-      pageCoverImageUrl:venue.pageCoverImageUrl,
-      pageBio:venue.pageBio,
+      city:venue.city??"",
+      province:venue.province??"",
+      pageProfileImageUrl:venue.pageProfileImageUrl??null,
+      pageCoverImageUrl:venue.pageCoverImageUrl??null,
+      pageBio:venue.pageBio??null,
       followerCount,
       postCount:posts.length,
     };
