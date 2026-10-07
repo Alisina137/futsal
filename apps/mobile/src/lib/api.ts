@@ -284,6 +284,8 @@ export const ownerApi = {
     request<{ timetable: import("@leaguekick/contracts").VenueTimetableDto }>(`/api/v1/owner/timetables/${timetableId}/archive`, { method: "POST" }, accessToken),
   createTimetableException: (accessToken: string, input: VenueTimetableExceptionRequest) =>
     request<{ exception: import("@leaguekick/contracts").VenueTimetableExceptionDto }>("/api/v1/owner/timetable-exceptions", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  updateTimetableException: (accessToken: string, exceptionId: string, input: VenueTimetableExceptionRequest) =>
+    request<{ exception: import("@leaguekick/contracts").VenueTimetableExceptionDto }>(`/api/v1/owner/timetable-exceptions/${exceptionId}`, { method: "PUT", body: JSON.stringify(input) }, accessToken),
   deleteTimetableException: (accessToken: string, exceptionId: string) =>
     request<{ deleted: boolean }>(`/api/v1/owner/timetable-exceptions/${exceptionId}`, { method: "DELETE" }, accessToken),
   timetableCalendar: (accessToken: string, from: string, to: string, areaId?: string | null) =>
