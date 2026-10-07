@@ -470,6 +470,9 @@ export const publicVenueDtoSchema = z.object({
   city: z.string(),
   address: z.string(),
   publicPhone: z.string(),
+  pageProfileImageUrl: z.string().nullable(),
+  pageCoverImageUrl: z.string().nullable(),
+  pageBio: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
   timezone: z.string(),
@@ -806,6 +809,42 @@ export const postCtaTypeSchema = z.enum(["NONE", "VENUE", "PROMOTION", "COMPETIT
 export type PostCtaType = z.infer<typeof postCtaTypeSchema>;
 
 const httpsImageUrlSchema = z.string().url().refine((value) => value.startsWith("https://"), "Image URL must use HTTPS.");
+export const mediaImageRefSchema = z.union([
+  httpsImageUrlSchema,
+  z.string().regex(/^\/api\/v1\/media-assets\/[0-9a-f-]{36}\/[A-Za-z0-9_-]{32,64}$/),
+]);
+export const venueMediaAssetPurposeSchema = z.enum(["POST","PROFILE","COVER"]);
+export type VenueMediaAssetPurpose = z.infer<typeof venueMediaAssetPurposeSchema>;
+
+export const venueMediaAssetDtoSchema = z.object({
+  id: z.string().uuid(),
+  purpose: venueMediaAssetPurposeSchema,
+  imageUrl: mediaImageRefSchema,
+  mimeType: z.string(),
+  byteSize: z.number().int().positive(),
+  createdAt: isoDateTimeSchema,
+});
+export type VenueMediaAssetDto = z.infer<typeof venueMediaAssetDtoSchema>;
+
+export const venueMediaPageUpdateRequestSchema = z.object({
+  pageProfileImageUrl: mediaImageRefSchema.nullable().optional(),
+  pageCoverImageUrl: mediaImageRefSchema.nullable().optional(),
+  pageBio: z.string().trim().max(500).nullable().optional(),
+});
+export type VenueMediaPageUpdateRequest = z.infer<typeof venueMediaPageUpdateRequestSchema>;
+
+export const venueMediaPageDtoSchema = z.object({
+  venueId: z.string().uuid(),
+  name: z.string(),
+  city: z.string(),
+  province: z.string(),
+  pageProfileImageUrl: z.string().nullable(),
+  pageCoverImageUrl: z.string().nullable(),
+  pageBio: z.string().nullable(),
+  followerCount: z.number().int().min(0),
+  postCount: z.number().int().min(0),
+});
+export type VenueMediaPageDto = z.infer<typeof venueMediaPageDtoSchema>;
 
 export const venuePostTypeSchema = z.enum(["GENERAL","ANNOUNCEMENT","PROMOTION","COMPETITION","RESULT"]);
 export type VenuePostType = z.infer<typeof venuePostTypeSchema>;
@@ -833,7 +872,7 @@ export type VenuePostScheduleDto = z.infer<typeof venuePostScheduleDtoSchema>;
 
 export const venuePostCreateRequestSchema = z.object({
   body: z.string().trim().min(1).max(2_000),
-  imageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  imageUrl: mediaImageRefSchema.optional().or(z.literal("")),
   ctaType: postCtaTypeSchema.default("NONE"),
   ctaTargetId: z.string().uuid().nullable().optional(),
   postType: venuePostTypeSchema.default("GENERAL"),
@@ -860,7 +899,7 @@ export type VenuePostCreateRequest = z.infer<typeof venuePostCreateRequestSchema
 
 export const venuePostUpdateRequestSchema = z.object({
   body: z.string().trim().min(1).max(2_000).optional(),
-  imageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  imageUrl: mediaImageRefSchema.optional().or(z.literal("")),
   ctaType: postCtaTypeSchema.optional(),
   ctaTargetId: z.string().uuid().nullable().optional(),
   postType: venuePostTypeSchema.optional(),
@@ -1014,7 +1053,7 @@ export type TeamJoinRequestStatus = z.infer<typeof teamJoinRequestStatusSchema>;
 
 export const playerProfileUpdateRequestSchema = z.object({
   publicDisplayName: z.string().trim().min(2).max(80).optional(),
-  imageUrl: httpsImageUrlSchema.optional().or(z.literal("")),
+  imageUrl: mediaImageRefSchema.optional().or(z.literal("")),
   position: playerPositionSchema.optional(),
   visibility: profileVisibilitySchema.optional(),
 });
