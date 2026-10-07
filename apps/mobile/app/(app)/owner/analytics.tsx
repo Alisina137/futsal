@@ -3,7 +3,6 @@ import type { OwnerAnalyticsResponse } from "@leaguekick/contracts";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
-import { OwnerTopNav } from "../../../src/components/owner/OwnerTopNav";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -47,10 +46,9 @@ export default function OwnerAnalyticsScreen() {
 
   useEffect(() => { void load(); }, []);
 
-  if(loading)return <Screen showHeader><OwnerTopNav/><DataLoadingState variant="dashboard" minHeight={500}/></Screen>;
+  if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={500}/></Screen>;
 
-  return <Screen showHeader>
-    <OwnerTopNav/>
+  return <Screen embedded>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{t("phase7.analytics.title")}</AppText>
       <AppText muted>{t("phase7.analytics.subtitle")}</AppText>
