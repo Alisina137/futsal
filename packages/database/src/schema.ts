@@ -194,6 +194,9 @@ export const venues = pgTable(
     timezone: varchar("timezone", { length: 64 }).notNull().default("Asia/Kabul"),
     bookingMode: bookingModeEnum("booking_mode").notNull().default("INSTANT"),
     cancellationPolicy: text("cancellation_policy").notNull().default("Cancellation is allowed before the booking start time."),
+    pageProfileImageUrl: text("page_profile_image_url"),
+    pageCoverImageUrl: text("page_cover_image_url"),
+    pageBio: varchar("page_bio", { length: 500 }),
     status: venueStatusEnum("status").notNull().default("DRAFT"),
     verificationStatus: venueVerificationStatusEnum("verification_status").notNull().default("PENDING"),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
@@ -206,6 +209,25 @@ export const venues = pgTable(
     uniqueIndex("venues_owner_user_id_uq").on(table.ownerUserId),
     index("venues_status_idx").on(table.status),
     index("venues_location_idx").on(table.province, table.city),
+  ],
+);
+
+export const venueMediaAssets = pgTable(
+  "venue_media_assets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    ownerUserId: uuid("owner_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    publicToken: varchar("public_token", { length: 64 }).notNull().unique(),
+    purpose: varchar("purpose", { length: 20 }).notNull(),
+    mimeType: varchar("mime_type", { length: 40 }).notNull(),
+    byteSize: integer("byte_size").notNull(),
+    dataBase64: text("data_base64").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("venue_media_assets_venue_idx").on(table.venueId, table.createdAt),
+    index("venue_media_assets_owner_idx").on(table.ownerUserId, table.createdAt),
   ],
 );
 
