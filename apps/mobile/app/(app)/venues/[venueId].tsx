@@ -1,11 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { FollowStateDto, PublicVenueDto, VenueAvailabilityResponse } from "@leaguekick/contracts";
+import type { FollowStateDto, PublicVenueDto, VenueAvailabilityResponse, VenuePostDto } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { ApiRequestError, marketingApi, venueApi } from "../../../src/lib/api";
 import { readAvailabilityCache, writeAvailabilityCache } from "../../../src/lib/availability-cache";
+import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -22,7 +23,7 @@ function timeLabel(iso:string,timeZone:string){return new Intl.DateTimeFormat("e
 export default function VenueDetailScreen(){
   const {venueId,promotionId,startsAt}=useLocalSearchParams<{venueId:string;promotionId?:string;startsAt?:string}>();
   const {session}=useAuth();
-  const {t,isRTL}=useLocale();
+  const {t,isRTL,language}=useLocale();
   const {isOnline,reconnectVersion}=useNetwork();
   const [venue,setVenue]=useState<PublicVenueDto|null>(null);
   const [date,setDate]=useState(todayKabul());
@@ -33,6 +34,8 @@ export default function VenueDetailScreen(){
   const [error,setError]=useState<string|null>(null);
   const [followState,setFollowState]=useState<FollowStateDto|null>(null);
   const [followBusy,setFollowBusy]=useState(false);
+  const [posts,setPosts]=useState<VenuePostDto[]>([]);
+  const [postsLoading,setPostsLoading]=useState(true);
 
   const load=useCallback(async()=>{
     if(!venueId)return;
@@ -63,6 +66,19 @@ export default function VenueDetailScreen(){
     marketingApi.followState(session.accessToken,venueId).then(setFollowState).catch(()=>{});
   },[session,venueId]);
 
+  const loadPosts=useCallback(async()=>{
+    if(!venueId)return;
+    setPostsLoading(true);
+    try{
+      const result=await marketingApi.venuePosts(venueId,session?.accessToken);
+      setPosts(result.posts);
+    }catch{
+      setPosts([]);
+    }finally{setPostsLoading(false);}
+  },[session?.accessToken,venueId]);
+
+  useEffect(()=>{void loadPosts();},[loadPosts]);
+
   async function toggleFollow(){
     if(!session||!venueId||!followState)return;
     setFollowBusy(true);setError(null);
@@ -70,6 +86,7 @@ export default function VenueDetailScreen(){
       setFollowState(followState.following
         ?await marketingApi.unfollow(session.accessToken,venueId)
         :await marketingApi.follow(session.accessToken,venueId));
+      await loadPosts();
     }catch{
       setError(t("feed.followError"));
     }finally{setFollowBusy(false);}
@@ -116,6 +133,34 @@ export default function VenueDetailScreen(){
         <InfoRow icon="call-outline" value={venue.publicPhone} rtl={isRTL} ltr/>
         <InfoRow icon="time-outline" value={venue.timezone} rtl={isRTL} ltr/>
       </Card>
+
+      <View style={{gap:spacing.xs}}>
+        <AppText variant="bodyLarge" weight="bold">{t("media.pagePosts")}</AppText>
+        <AppText muted>{t("media.pagePostsBody")}</AppText>
+      </View>
+
+      {postsLoading?<DataLoadingState variant="list" minHeight={260}/>:null}
+      {!postsLoading&&posts.length===0?<Card><AppText muted>{t("media.pagePostsEmpty")}</AppText></Card>:null}
+      {!postsLoading?posts.slice(0,20).map((post)=><VenuePagePost
+        key={post.id}
+        post={post}
+        language={language}
+        isRTL={isRTL}
+        t={t}
+        onOpenCta={()=>{
+          if(post.ctaType==="PROMOTION"&&post.ctaTargetId){
+            void marketingApi.promotion(post.ctaTargetId).then(({promotion})=>{
+              router.push({pathname:"/venues/[venueId]",params:{
+                venueId:promotion.venueId,
+                promotionId:promotion.id,
+                startsAt:promotion.startsAt,
+              }});
+            }).catch(()=>setError(t("feed.promotionUnavailable")));
+          }else if(post.ctaType==="COMPETITION"&&post.ctaTargetId){
+            router.push({pathname:"/competitions/[competitionId]",params:{competitionId:post.ctaTargetId}});
+          }
+        }}
+      />):null}
     </>:null}
 
     <View style={{gap:spacing.xs}}>
@@ -170,6 +215,51 @@ export default function VenueDetailScreen(){
   </Screen>;
 }
 
+function VenuePagePost({
+  post,language,isRTL,t,onOpenCta,
+}:{
+  post:VenuePostDto;
+  language:Parameters<typeof formatLocalDateTimeParts>[1];
+  isRTL:boolean;
+  t:(key:any,params?:Record<string,string|number>)=>string;
+  onOpenCta:()=>void;
+}){
+  const published=formatLocalDateTimeParts(post.publishedAt,language);
+  return <Card style={styles.pagePost}>
+    <View style={[styles.postMeta,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={styles.postTypeBadge}>
+        <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
+          {t(`media.type.${post.postType}` as never)}
+        </AppText>
+      </View>
+      <View style={{flex:1}}/>
+      <AppText variant="caption" muted>{published.date}</AppText>
+    </View>
+    <AppText>{post.body}</AppText>
+    {post.imageUrl?<Image source={{uri:post.imageUrl}} style={styles.pagePostImage} resizeMode="cover"/>:null}
+    <View style={[styles.postActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {post.ctaType!=="NONE"&&post.ctaType!=="VENUE"?<Button
+        label={t("feed.openCta")}
+        onPress={onOpenCta}
+        variant="secondary"
+        style={{flex:1}}
+      />:null}
+      {post.socialPostId?<Button
+        label={t("social.comment")}
+        onPress={()=>router.push({pathname:"/posts/[postId]/comments",params:{postId:post.socialPostId!}})}
+        variant="secondary"
+        style={{flex:1}}
+      />:null}
+      <Pressable
+        onPress={()=>router.push({pathname:"/posts/[postId]",params:{postId:post.id}})}
+        style={styles.openPostButton}
+      >
+        <AppText variant="caption" weight="bold" style={{color:colors.primary}}>{t("feed.openPost")}</AppText>
+      </Pressable>
+    </View>
+  </Card>;
+}
+
 function ProfileStat({icon,value,label}:{icon:keyof typeof Ionicons.glyphMap;value:string;label:string}){
   return <Card style={styles.statCard}>
     <View style={styles.statIcon}><Ionicons name={icon} size={20} color={colors.primary}/></View>
@@ -213,6 +303,12 @@ const styles=StyleSheet.create({
   statCard:{flex:1,alignItems:"center",gap:spacing.xs,padding:spacing.md},
   statIcon:{width:36,height:36,borderRadius:18,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   aboutCard:{gap:spacing.md},
+  pagePost:{gap:spacing.md},
+  postMeta:{alignItems:"center",gap:spacing.sm},
+  postTypeBadge:{paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill,backgroundColor:colors.primarySoft},
+  pagePostImage:{width:"100%",height:220,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
+  postActions:{alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
+  openPostButton:{minHeight:42,paddingHorizontal:spacing.md,alignItems:"center",justifyContent:"center"},
   sectionHeading:{alignItems:"center",gap:spacing.sm},
   sectionIcon:{width:38,height:38,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   infoRow:{alignItems:"center",gap:spacing.sm},
