@@ -18,6 +18,7 @@ import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
 import { DateTimePickerField } from "../../../../src/components/ui/DateTimePickerField";
+import { MediaImagePicker } from "../../../../src/components/owner/media/MediaImagePicker";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
@@ -27,15 +28,17 @@ type PublishMode="NOW"|"DRAFT"|"SCHEDULED";
 type LocalSchedule={id:string;action:VenuePostScheduledAction;executeAt:string};
 
 export default function CreatePostScreen(){
-  const params=useLocalSearchParams<{postId?:string}>();
+  const params=useLocalSearchParams<{postId?:string;type?:string}>();
   const postId=typeof params.postId==="string"?params.postId:null;
   const editing=Boolean(postId);
+  const presetTypes:VenuePostType[]=["GENERAL","ANNOUNCEMENT","PROMOTION","COMPETITION","RESULT"];
+  const presetType=presetTypes.includes(params.type as VenuePostType)?params.type as VenuePostType:"GENERAL";
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
 
   const [body,setBody]=useState("");
   const [imageUrl,setImageUrl]=useState("");
-  const [postType,setPostType]=useState<VenuePostType>("GENERAL");
+  const [postType,setPostType]=useState<VenuePostType>(presetType);
   const [visibility,setVisibility]=useState<VenuePostVisibility>("PUBLIC");
   const [promotionId,setPromotionId]=useState<string|null>(null);
   const [competitionId,setCompetitionId]=useState<string|null>(null);
@@ -235,8 +238,23 @@ export default function CreatePostScreen(){
         />)}
       </View>
 
-      <TextField label={t("media.postBody")} value={body} onChangeText={setBody} multiline maxLength={2000}/>
-      <TextField label={t("media.imageUrl")} value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" forceLtr hint="https://..."/>
+      <TextField
+        label={t("media.postBody")}
+        value={body}
+        onChangeText={setBody}
+        multiline
+        maxLength={2000}
+        placeholder={t("media.composerPrompt")}
+      />
+      {session?<MediaImagePicker
+        accessToken={session.accessToken}
+        purpose="POST"
+        label={t("media.postPhoto")}
+        value={imageUrl}
+        onChange={setImageUrl}
+        variant="post"
+        disabled={busy}
+      />:null}
     </Card>
 
     {postType==="PROMOTION"?<Card style={styles.card}>
