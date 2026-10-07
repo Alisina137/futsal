@@ -24,6 +24,10 @@ const schedule=read("apps/mobile/app/(app)/owner/schedule.tsx");
 const editor=read("apps/mobile/app/(app)/owner/timetable/edit.tsx");
 const exception=read("apps/mobile/app/(app)/owner/timetable/exception.tsx");
 const calendar=read("apps/mobile/src/lib/timetable-calendar.ts");
+const timetableNav=read("apps/mobile/src/components/owner/timetable/TimetableSubNav.tsx");
+const ownerLayout=read("apps/mobile/app/(app)/owner/_layout.tsx");
+const weeklyPage=read("apps/mobile/app/(app)/owner/timetable/weekly.tsx");
+const exceptionsPage=read("apps/mobile/app/(app)/owner/timetable/exceptions.tsx");
 const localization=read("packages/localization/src/index.ts");
 
 for(const marker of [
@@ -87,6 +91,21 @@ for(const marker of [
 }
 
 assert(schedule.includes('"MONTH","WEEK","DAY"'),"Venue timetable must offer Month, Week, and Day views.");
+assert(ownerLayout.includes("<TimetableSubNav/>"),"Venue owner shell must keep timetable sub-navigation mounted across timetable pages.");
+for(const route of [
+  'href:"/owner/schedule"',
+  'href:"/owner/timetable/weekly"',
+  'href:"/owner/manual-booking"',
+  'href:"/owner/block-time"',
+  'href:"/owner/timetable/exceptions"',
+]){
+  assert(timetableNav.includes(route),`Timetable sub-navigation missing route: ${route}`);
+}
+assert(!schedule.includes('t("schedule.quickActions")'),"Main timetable calendar page must not duplicate the old Quick Actions card.");
+assert(!schedule.includes('t("schedule.venueTimetable")'),"Main timetable calendar page title must remain removed.");
+assert(!schedule.includes('t("schedule.subtitle")'),"Main timetable calendar page subtitle must remain removed.");
+assert(weeklyPage.includes("schedule.manageVersions")||weeklyPage.includes("schedule.currentTimetable"),"Weekly Timetable page must own timetable version management.");
+assert(exceptionsPage.includes("schedule.addException")&&exceptionsPage.includes("deleteTimetableException"),"Special Hours page must own exception management.");
 assert(calendar.includes('return language==="en"?1:6'),"English weeks must start Monday and Dari/Pashto weeks must start Saturday.");
 assert(calendar.includes('calendar:usesSolarHijri(language)?"persian":"gregory"'),"Dari/Pashto timetable dates must use Solar Hijri and English must use Gregorian.");
 assert(calendar.includes("monthGridRange(value,language)"),"Month grid boundaries must follow the active calendar system.");
@@ -133,4 +152,4 @@ for(const key of [
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: stable in-place calendar refreshes, locale-aware week starts/calendars, versioned weekly hours, exceptions, conflict-safe publishing, and booking availability integration.");
+console.log("Venue timetable verified: persistent timetable sub-navigation, focused calendar page, stable in-place refreshes, locale-aware calendars, weekly versions, special hours, and booking integration.");
