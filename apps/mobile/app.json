@@ -25,6 +25,12 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Futsal to select photos for venue pages and posts."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#F6F8FC",
