@@ -777,7 +777,7 @@ May be implemented as an internal responsive web console or protected mobile/adm
 
 ## 22.3 Venue Detail
 
-**Information:** name, verification status, images, address text, map pin, phone/WhatsApp if public, facilities, opening hours, base price, playing areas, cancellation policy, next available slots, active promotions, upcoming competitions, recent posts.  
+**Information:** name, verification status, images, address text, map pin, phone/WhatsApp if public, facilities, opening hours, base price, cancellation policy, next available slots, active promotions, upcoming competitions, recent posts. Each venue-owner account represents one venue with one active court, so public users never choose among multiple courts inside one venue.  
 **Primary action:** “View availability.”  
 **Secondary:** Follow, call/contact, directions, share.  
 **Suspended venue:** Public booking disabled; page may remain visible with neutral “Online booking unavailable” state unless platform admin hides it.
@@ -786,13 +786,13 @@ May be implemented as an internal responsive web console or protected mobile/adm
 
 **Purpose:** Present live inventory for one venue/date.  
 **Data freshness:** Screen must revalidate on entry, pull-to-refresh, foreground return, and immediately before booking confirmation.  
-**Slot card:** start time, duration, playing area, normal price, discounted price if any, status.  
+**Slot card:** start time, duration, normal price, discounted price if any, status. A venue has one active court, so no court selector/name is required in booking availability.  
 **Unavailable reasons:** booked, blocked, competition, closed, pending hold.  
 **Cached state:** Cached slots may be shown for orientation but cannot be presented as guaranteed live availability.
 
 ## 22.5 Booking Confirmation
 
-**Inputs:** selected venue/area/time, user contact, optional note, acceptance of cancellation/no-show policy, payment method if applicable.  
+**Inputs:** selected venue/time, user contact, optional note, acceptance of cancellation/no-show policy, payment method if applicable. The server still carries the internal court identifier as an implementation key, but it is not a user-selectable product choice.  
 **Logic:** Server re-checks availability atomically. Client must never assume a slot remains available because it was visible seconds earlier.  
 **Success:** booking identifier, confirmation state, calendar time, venue contact, policy, deep link to detail.  
 **Conflict:** Explain that another booking took the slot and return the user to refreshed availability with nearby alternatives.
@@ -831,7 +831,7 @@ Steps:
 1. Verify owner account.
 2. Enter venue identity and contact.
 3. Pin location / enter address.
-4. Create at least one playing area.
+4. Define the venue's single court. One Venue Owner account can manage exactly one court; another physical court requires another account and separate Venue Owner subscription.
 5. Define opening hours.
 6. Define default session duration and price.
 7. Preview public venue page.
@@ -848,16 +848,16 @@ Expired subscription: dashboard shifts to service-continuity mode with clear rea
 
 ## 22.12 Owner Schedule
 
-Default mobile view: day timeline by playing area.  
-Colors/status should be backed by text/icon labels, not color alone.  
-Tap empty time → manual booking/block/offer.  
-Tap occupied time → detail.  
-Owner can switch to week overview, but daily operations remain primary.  
+Default mobile view: a one-day slot timeline for the venue's single court.  
+Week view: seven day columns crossed with start-time rows, with horizontally scrollable slot cells when needed.  
+Each slot shows its start time and AFN price and uses a text/icon-supported status color; color must never be the only status signal.  
+Tap any slot, regardless of status, to open exact-slot management. Available/promoted slots support manual booking/block/promotion actions; online/manual reservations support booking management; blocked, competition, promotion, and closed states expose their relevant operational actions.  
+Owner can switch between day, week, and month views, but Day and Week share the same exact-slot management model.  
 Concurrent edits require server conflict validation.
 
 ## 22.13 Availability & Pricing
 
-Supports weekly opening hours, closed days, session duration, base price, area-specific rules, date overrides, special hours, maintenance blocks, and one-off prices.  
+Supports weekly opening hours, closed days, session duration, base price, date overrides, special hours, maintenance blocks, promotions, and per-period weekly prices. Each weekly operating period has an AFN slot price, so different days/time bands (for example Friday nights) can have different prices; generated slots inherit the matched period price.  
 MVP should avoid an overly complex rules engine: priority order should be explicit and previewable.
 
 Recommended priority:
