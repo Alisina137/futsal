@@ -6,7 +6,7 @@ import { Pressable, ScrollView, StyleSheet, type LayoutChangeEvent } from "react
 import { useLocale } from "../../../providers/LocaleProvider";
 import { AppText } from "../../ui/AppText";
 
-type TimetableSection="calendar"|"weekly"|"manual"|"block"|"special";
+type TimetableSection="calendar"|"weekly"|"special";
 
 const items:{
   key:TimetableSection;
@@ -14,19 +14,13 @@ const items:{
   labelKey:
     |"schedule.subnav.calendar"
     |"schedule.subnav.weekly"
-    |"schedule.subnav.manual"
-    |"schedule.subnav.block"
     |"schedule.subnav.special";
   href:
     |"/owner/schedule"
     |"/owner/timetable/weekly"
-    |"/owner/manual-booking"
-    |"/owner/block-time"
     |"/owner/timetable/exceptions";
 }[]=[
   {key:"calendar",icon:"calendar-outline",labelKey:"schedule.subnav.calendar",href:"/owner/schedule"},
-  {key:"manual",icon:"person-add-outline",labelKey:"schedule.subnav.manual",href:"/owner/manual-booking"},
-  {key:"block",icon:"ban-outline",labelKey:"schedule.subnav.block",href:"/owner/block-time"},
   {key:"special",icon:"time-outline",labelKey:"schedule.subnav.special",href:"/owner/timetable/exceptions"},
   {key:"weekly",icon:"repeat-outline",labelKey:"schedule.subnav.weekly",href:"/owner/timetable/weekly"},
 ];
@@ -39,8 +33,7 @@ export function isTimetableRoute(pathname:string){
 }
 
 function activeSection(pathname:string):TimetableSection{
-  if(pathname.startsWith("/owner/manual-booking"))return "manual";
-  if(pathname.startsWith("/owner/block-time"))return "block";
+  if(pathname.startsWith("/owner/manual-booking")||pathname.startsWith("/owner/block-time"))return "calendar";
   if(pathname.startsWith("/owner/timetable/exception"))return "special";
   if(pathname.startsWith("/owner/timetable/exceptions"))return "special";
   if(pathname.startsWith("/owner/timetable/weekly")||pathname.startsWith("/owner/timetable/edit"))return "weekly";
