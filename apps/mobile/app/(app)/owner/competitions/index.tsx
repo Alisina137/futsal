@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { competitionApi } from "../../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
-import { OwnerTopNav } from "../../../../src/components/owner/OwnerTopNav";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
@@ -46,13 +45,11 @@ export default function OwnerCompetitionListScreen(){
   );
   const activeCount=items.filter((item)=>["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS"].includes(item.status)).length;
 
-  if(loading)return <Screen showHeader>
-    <OwnerTopNav/>
+  if(loading)return <Screen embedded>
     <DataLoadingState variant="dashboard" minHeight={500}/>
   </Screen>;
 
-  return <Screen showHeader>
-    <OwnerTopNav/>
+  return <Screen embedded>
 
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
       <Card style={styles.summaryCard}>
