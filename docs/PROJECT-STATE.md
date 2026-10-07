@@ -490,3 +490,5 @@ Pilot release / launch signoff after the Phase 8 live-device and operations chec
 - Mobile connectivity banners now debounce API health transitions: one transient `/health` probe failure no longer declares the server unavailable; three consecutive failures confirm an outage, and two consecutive successes confirm server recovery.
 
 - Timetable slot actions close the native slot-management modal before navigating. Manual Reserve now opens reliably from an exact available/discount slot, reuses the slot court/time/price without a redundant owner-status request, and returns to the exact booked day after success.
+
+- Venue timetable calendar navigation now uses localized Previous/Next text controls instead of directional chevrons in Month, Week, and Day views.
