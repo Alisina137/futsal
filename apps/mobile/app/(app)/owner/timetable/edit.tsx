@@ -7,7 +7,7 @@ import type {
   VenueTimetableDto,
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../../src/lib/api";
 import {
@@ -15,7 +15,11 @@ import {
   suggestNextPeriod,
   type TimetableDraftValidationError,
 } from "../../../../src/lib/timetable-editor";
-import { todayKabul } from "../../../../src/lib/timetable-calendar";
+import {
+  calendarInputDate,
+  orderedWeekdays,
+  todayKabul,
+} from "../../../../src/lib/timetable-calendar";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
@@ -56,11 +60,11 @@ export default function TimetableEditorScreen(){
   const params=useLocalSearchParams<{timetableId?:string}>();
   const initialId=typeof params.timetableId==="string"?params.timetableId:null;
   const {session}=useAuth();
-  const {t,isRTL}=useLocale();
+  const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
   const [timetableId,setTimetableId]=useState<string|null>(initialId);
   const [name,setName]=useState("Weekly timetable");
-  const [effectiveFrom,setEffectiveFrom]=useState(todayKabul());
+  const [effectiveFrom,setEffectiveFrom]=useState(()=>calendarInputDate(todayKabul(),language));
   const [effectiveUntil,setEffectiveUntil]=useState("");
   const [duration,setDuration]=useState("90");
   const [buffer,setBuffer]=useState("0");
@@ -91,8 +95,8 @@ export default function TimetableEditorScreen(){
         }
         setTimetableId(item.id);
         setName(item.name);
-        setEffectiveFrom(item.effectiveFrom);
-        setEffectiveUntil(item.effectiveUntil??"");
+        setEffectiveFrom(calendarInputDate(item.effectiveFrom,language));
+        setEffectiveUntil(item.effectiveUntil?calendarInputDate(item.effectiveUntil,language):"");
         setDuration(String(item.defaultSlotDurationMinutes));
         setBuffer(String(item.bufferMinutes));
         const specificIds=Array.from(new Set(item.periods.map((period)=>period.areaId).filter((value):value is string=>Boolean(value))));
@@ -109,7 +113,7 @@ export default function TimetableEditorScreen(){
     }finally{
       setLoading(false);
     }
-  },[initialId,t,token]);
+  },[initialId,language,t,token]);
 
   useEffect(()=>{void load();},[load]);
 
@@ -165,6 +169,11 @@ export default function TimetableEditorScreen(){
     return `${t("schedule.saveTimetableError")} (${cause.code})${requestSuffix}`;
   }
 
+  const displayDays=useMemo(
+    ()=>orderedWeekdays(language).map((dayOfWeek)=>days.find((day)=>day.dayOfWeek===dayOfWeek)).filter((day):day is DayDraft=>Boolean(day)),
+    [days,language],
+  );
+
   function draftResult(){
     return buildTimetableDraft({
       name,
@@ -175,6 +184,7 @@ export default function TimetableEditorScreen(){
       allAreas,
       selectedAreaIds,
       days,
+      language,
     });
   }
 
@@ -250,8 +260,8 @@ export default function TimetableEditorScreen(){
     <Card>
       <TextField label={t("schedule.timetableName")} value={name} onChangeText={setName}/>
       <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <TextField label={t("schedule.effectiveFrom")} value={effectiveFrom} onChangeText={setEffectiveFrom} forceLtr hint="YYYY-MM-DD" containerStyle={styles.field}/>
-        <TextField label={t("schedule.effectiveUntil")} value={effectiveUntil} onChangeText={setEffectiveUntil} forceLtr hint="YYYY-MM-DD" containerStyle={styles.field}/>
+        <TextField label={t("schedule.effectiveFrom")} value={effectiveFrom} onChangeText={setEffectiveFrom} forceLtr hint={language==="en"?"YYYY-MM-DD":t("schedule.solarHijriHint")} containerStyle={styles.field}/>
+        <TextField label={t("schedule.effectiveUntil")} value={effectiveUntil} onChangeText={setEffectiveUntil} forceLtr hint={language==="en"?"YYYY-MM-DD":t("schedule.solarHijriHint")} containerStyle={styles.field}/>
       </View>
       <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <TextField label={t("schedule.slotDuration")} value={duration} onChangeText={setDuration} keyboardType="number-pad" forceLtr containerStyle={styles.field}/>
@@ -276,7 +286,7 @@ export default function TimetableEditorScreen(){
     </Card>
 
     <View style={{gap:spacing.md}}>
-      {days.map((day)=><Card key={day.dayOfWeek}>
+      {displayDays.map((day)=><Card key={day.dayOfWeek}>
         <View style={[styles.dayHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <View style={{flex:1}}>
             <AppText variant="bodyLarge" weight="bold">{t(`owner.day.${day.dayOfWeek}` as never)}</AppText>
@@ -315,7 +325,7 @@ export default function TimetableEditorScreen(){
         {day.periods.length?<View style={{gap:spacing.sm}}>
           <AppText variant="caption" muted>{t("schedule.copyTo")}</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.areaChips}>
-            {days.filter((target)=>target.dayOfWeek!==day.dayOfWeek).map((target)=><Choice
+            {displayDays.filter((target)=>target.dayOfWeek!==day.dayOfWeek).map((target)=><Choice
               key={target.dayOfWeek}
               label={t(`owner.day.${target.dayOfWeek}` as never)}
               active={false}
