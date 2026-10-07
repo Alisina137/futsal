@@ -39,6 +39,9 @@ for(const marker of [
   "Animated.loop",
   "styles.loaderLayer",
   'variant="list"',
+  '"calendar"',
+  "CalendarSkeleton",
+  "styles.calendarRow",
 ]){
   if(!loader.includes(marker)){
     issues.push(`apps/mobile/src/components/ui/DataLoadingState.tsx: missing loader UX marker ${marker}`);
