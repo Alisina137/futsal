@@ -25,10 +25,10 @@ const items:{
     |"/owner/timetable/exceptions";
 }[]=[
   {key:"calendar",icon:"calendar-outline",labelKey:"schedule.subnav.calendar",href:"/owner/schedule"},
-  {key:"weekly",icon:"repeat-outline",labelKey:"schedule.subnav.weekly",href:"/owner/timetable/weekly"},
   {key:"manual",icon:"person-add-outline",labelKey:"schedule.subnav.manual",href:"/owner/manual-booking"},
   {key:"block",icon:"ban-outline",labelKey:"schedule.subnav.block",href:"/owner/block-time"},
   {key:"special",icon:"time-outline",labelKey:"schedule.subnav.special",href:"/owner/timetable/exceptions"},
+  {key:"weekly",icon:"repeat-outline",labelKey:"schedule.subnav.weekly",href:"/owner/timetable/weekly"},
 ];
 
 export function isTimetableRoute(pathname:string){
