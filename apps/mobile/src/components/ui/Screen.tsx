@@ -1,12 +1,13 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ScrollViewProps, type ViewProps } from "react-native";
+import type { Ref } from "react";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader } from "./AppHeader";
 
 type ScreenProps = ViewProps & {
   showHeader?: boolean;
   embedded?: boolean;
-  scrollRef?: ScrollViewProps["ref"];
+  scrollRef?: Ref<ScrollView>;
 };
 
 export function Screen({ children, style, showHeader = false, embedded = false, scrollRef }: ScreenProps) {
