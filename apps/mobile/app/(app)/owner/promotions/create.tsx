@@ -85,7 +85,7 @@ export default function CreatePromotionScreen(){
     }finally{setBusy(false);}
   }
 
-  const selectedLabel=useMemo(()=>selected?`${selected.areaName} · ${selected.priceAfn} AFN`:null,[selected]);
+  const selectedLabel=useMemo(()=>selected?`${selected.priceAfn} AFN`:null,[selected]);
 
   if(loading)return <Screen embedded><DataLoadingState variant="form" minHeight={500}/></Screen>;
 
@@ -102,9 +102,8 @@ export default function CreatePromotionScreen(){
       if(!title.trim())setTitle(t("ownerMarketing.defaultPromotionTitle"));
     }}>
       <Card style={selected?.areaId===slot.areaId&&selected.startsAt===slot.startsAt?{borderColor:colors.primary,borderWidth:2}:undefined}>
-        <AppText weight="bold">{slot.areaName}</AppText>
+        <AppText weight="bold" forceLtr>{slot.priceAfn} AFN</AppText>
         <AppText forceLtr>{slot.startsAt}</AppText>
-        <AppText>{slot.priceAfn} AFN</AppText>
       </Card>
     </Pressable>)}
 
