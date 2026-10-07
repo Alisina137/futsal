@@ -12,6 +12,7 @@ export class FakeMarketingRepository implements MarketingRepository {
   venues = new Map<string, MarketingVenueRecord>();
   promotions = new Map<string, PromotionDto>();
   posts = new Map<string, VenuePostDto>();
+  mediaAssets = new Map<string, Awaited<ReturnType<MarketingRepository["createMediaAsset"]>>>();
   follows = new Set<string>();
   onPromotionCreated?: (promotion: PromotionDto) => void;
 
@@ -284,6 +285,44 @@ export class FakeMarketingRepository implements MarketingRepository {
 
   async competitionBelongsToVenue(_competitionId:string,_venueId:string){return true;}
 
+  async createMediaAsset(input:Parameters<MarketingRepository["createMediaAsset"]>[0]){
+    const asset={
+      id:randomUUID(),
+      venueId:input.venueId,
+      ownerUserId:input.ownerUserId,
+      purpose:input.purpose,
+      publicToken:input.publicToken,
+      mimeType:input.mimeType,
+      byteSize:input.byteSize,
+      dataBase64:input.dataBase64,
+      createdAt:input.createdAt,
+    };
+    this.mediaAssets.set(asset.id,asset);
+    return asset;
+  }
+
+  async getMediaAsset(assetId:string,publicToken:string){
+    const asset=this.mediaAssets.get(assetId)??null;
+    return asset?.publicToken===publicToken?asset:null;
+  }
+
+  async updateVenueMediaPage(
+    ownerUserId:string,
+    input:Parameters<MarketingRepository["updateVenueMediaPage"]>[1],
+    _updatedAt:Date,
+  ){
+    const venue=await this.getOwnerVenue(ownerUserId);
+    if(!venue)return null;
+    const next={
+      ...venue,
+      ...(input.pageProfileImageUrl!==undefined?{pageProfileImageUrl:input.pageProfileImageUrl}:{}),
+      ...(input.pageCoverImageUrl!==undefined?{pageCoverImageUrl:input.pageCoverImageUrl}:{}),
+      ...(input.pageBio!==undefined?{pageBio:input.pageBio}:{}),
+    };
+    this.venues.set(venue.id,next);
+    return next;
+  }
+
   async followVenue(userId:string,venueId:string){this.follows.add(`${userId}:${venueId}`);}
   async unfollowVenue(userId:string,venueId:string){this.follows.delete(`${userId}:${venueId}`);}
   async isFollowing(userId:string,venueId:string){return this.follows.has(`${userId}:${venueId}`);}
@@ -294,7 +333,7 @@ export class FakeMarketingRepository implements MarketingRepository {
   async getSocialEntity(entityType:SocialEntityType,entityId:string){
     if(entityType!=="VENUE")return null;
     const venue=this.venues.get(entityId);
-    return venue?{id:venue.id,type:"VENUE" as const,name:venue.name,imageUrl:null}:null;
+    return venue?{id:venue.id,type:"VENUE" as const,name:venue.name,imageUrl:venue.pageProfileImageUrl??null}:null;
   }
   async followEntity(userId:string,entityType:SocialEntityType,entityId:string){
     if(entityType==="VENUE")await this.followVenue(userId,entityId);
