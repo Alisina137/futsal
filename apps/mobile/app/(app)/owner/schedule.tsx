@@ -74,6 +74,23 @@ function statusColor(type:VenueCalendarEventType){
   return slotPalette[type].text;
 }
 
+function SlotCornerMarker({
+  type,color,
+}:{
+  type:VenueCalendarEventType;
+  color:string;
+}){
+  const checked=type==="ONLINE_BOOKING"||type==="MANUAL_BOOKING"||type==="COMPETITION";
+  const discounted=type==="PROMOTION";
+  if(!checked&&!discounted)return null;
+
+  return <View pointerEvents="none" style={styles.slotCornerMarker}>
+    {checked
+      ?<Ionicons name="checkmark" size={13} color={color}/>
+      :<AppText variant="caption" weight="bold" style={{color,lineHeight:14}}>%</AppText>}
+  </View>;
+}
+
 export default function OwnerScheduleScreen(){
   const params=useLocalSearchParams<{date?:string}>();
   const {session}=useAuth();
@@ -428,6 +445,7 @@ function WeekView({
                     pressed&&styles.weekSlotPressed,
                   ]}
                 >
+                  <SlotCornerMarker type={event.type} color={palette.text}/>
                   <AppText weight="bold" forceLtr style={{color:palette.text}}>
                     {formatCalendarTime(event.startsAt!,language)}
                   </AppText>
@@ -570,6 +588,7 @@ function DaySlotView({
                 pressed&&styles.weekSlotPressed,
               ]}
             >
+              <SlotCornerMarker type={event.type} color={palette.text}/>
               <View style={styles.daySlotButtonTop}>
                 <View style={{flex:1,minWidth:0}}>
                   <AppText weight="bold" style={{color:palette.text}}>
@@ -579,7 +598,6 @@ function DaySlotView({
                     {event.title}
                   </AppText>
                 </View>
-                <Ionicons name={eventIcon(event.type)} size={19} color={palette.text}/>
               </View>
               <View style={styles.daySlotButtonBottom}>
                 <AppText variant="caption" forceLtr style={{color:palette.text}}>
@@ -851,6 +869,7 @@ const styles=StyleSheet.create({
     backgroundColor:colors.surface,
   },
   weekSlot:{
+    position:"relative",
     minHeight:40,
     paddingHorizontal:spacing.xs,
     paddingVertical:5,
@@ -858,6 +877,18 @@ const styles=StyleSheet.create({
     borderWidth:1,
     alignItems:"center",
     justifyContent:"center",
+  },
+  slotCornerMarker:{
+    position:"absolute",
+    top:4,
+    left:4,
+    width:18,
+    height:18,
+    borderRadius:9,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:"rgba(255,255,255,0.78)",
+    zIndex:2,
   },
   weekSlotPressed:{opacity:.72,transform:[{scale:.98}]},
   weekEmptySlot:{minHeight:40},
@@ -913,6 +944,7 @@ const styles=StyleSheet.create({
     justifyContent:"center",
   },
   daySlotButton:{
+    position:"relative",
     minHeight:60,
     borderRadius:radius.md,
     borderWidth:1,
