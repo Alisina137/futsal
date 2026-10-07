@@ -484,3 +484,5 @@ Pilot release / launch signoff after the Phase 8 live-device and operations chec
 - Venue Owner Dashboard top navigation is a single horizontally scrollable, non-wrapping row: Competitions → Venue Time Table → Media → Analysis → Venue Settings. Destinations are `/owner/competitions`, `/schedule`, `/owner/posts`, `/owner/analytics`, and `/owner/onboarding`.
 
 - Venue Owner Competition control center uses Overview → Teams → Fixtures → Standings/Bracket → Referees → Statistics → Media → Settings, with League, Group + Knockout, and Knockout formats; lifecycle/status actions; team invite/approval/removal/reseed; fee tracking; fixture generation/scheduling; venue-referee assignment; results/corrections; automatic standings/brackets; player statistics; competition media/follower notifications; safe Draft/Cancelled deletion; Completed archival; and clean Draft duplication.
+
+- Venue timetable Week and Day slot cards now use a single top-left status marker rule: online reservations, manual reservations, and competition slots show a check mark; promotion/discount slots show a percentage symbol; other slot statuses show no corner status symbol.
