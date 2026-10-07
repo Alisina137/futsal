@@ -2,8 +2,8 @@ import { spacing, colors } from "@leaguekick/design-tokens";
 import type { PublicVenueDto } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
-import { venueApi } from "../../../src/lib/api";
+import { Image, Pressable, View } from "react-native";
+import { resolveMediaImageUrl, venueApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
@@ -43,8 +43,18 @@ export default function VenuesScreen(){
     {!loading&&venues.length===0?<Card><AppText>{t("booking.noVenues")}</AppText></Card>:null}
     {venues.map((venue)=><Pressable key={venue.id} onPress={()=>router.push({pathname:"/venues/[venueId]",params:{venueId:venue.id}})}>
       <Card>
-        <AppText variant="bodyLarge" weight="bold">{venue.name}</AppText>
-        <AppText muted>{venue.city}, {venue.province}</AppText>
+        <View style={{flexDirection:"row",alignItems:"center",gap:spacing.sm}}>
+          {resolveMediaImageUrl(venue.pageProfileImageUrl)
+            ?<Image source={{uri:resolveMediaImageUrl(venue.pageProfileImageUrl)!}} style={{width:52,height:52,borderRadius:26}}/>
+            :<View style={{width:52,height:52,borderRadius:26,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft}}>
+              <AppText weight="bold" style={{color:colors.primary}}>{venue.name.trim().slice(0,2).toUpperCase()}</AppText>
+            </View>}
+          <View style={{flex:1,gap:2}}>
+            <AppText variant="bodyLarge" weight="bold">{venue.name}</AppText>
+            <AppText muted>{venue.city}, {venue.province}</AppText>
+          </View>
+        </View>
+        {venue.pageBio?<AppText muted>{venue.pageBio}</AppText>:null}
         <AppText>{venue.address}</AppText>
         <AppText style={{color:colors.primary}} weight="semibold">{t("booking.viewAvailability")}</AppText>
       </Card>
