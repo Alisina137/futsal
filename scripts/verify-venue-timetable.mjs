@@ -23,6 +23,7 @@ const mobileApi=read("apps/mobile/src/lib/api.ts");
 const schedule=read("apps/mobile/app/(app)/owner/schedule.tsx");
 const editor=read("apps/mobile/app/(app)/owner/timetable/edit.tsx");
 const exception=read("apps/mobile/app/(app)/owner/timetable/exception.tsx");
+const calendar=read("apps/mobile/src/lib/timetable-calendar.ts");
 const localization=read("packages/localization/src/index.ts");
 
 for(const marker of [
@@ -86,6 +87,11 @@ for(const marker of [
 }
 
 assert(schedule.includes('"MONTH","WEEK","DAY"'),"Venue timetable must offer Month, Week, and Day views.");
+assert(calendar.includes('return language==="en"?1:6'),"English weeks must start Monday and Dari/Pashto weeks must start Saturday.");
+assert(calendar.includes('calendar:usesSolarHijri(language)?"persian":"gregory"'),"Dari/Pashto timetable dates must use Solar Hijri and English must use Gregorian.");
+assert(calendar.includes("monthGridRange(value,language)"),"Month grid boundaries must follow the active calendar system.");
+assert(calendar.includes("calendarInputToGregorian"),"Solar Hijri timetable form dates must convert safely to stored Gregorian dates.");
+assert(schedule.includes("isSameDisplayMonth"),"Month view must determine in-month days using the active calendar, not Gregorian month keys.");
 assert(schedule.includes("statusFilters"),"Venue timetable must offer status filters.");
 assert(schedule.includes("Summary"),"Venue timetable must show operational summary.");
 assert(schedule.includes("TimetableVersions"),"Venue timetable must manage current/draft/future/archive versions.");
@@ -97,6 +103,8 @@ assert(blockEditor.includes("ownerApi.updateBlock"),"Blocked interval editor mus
 assert(schedule.includes("/owner/promotions/create"),"Available slots must support promotion creation.");
 
 assert(editor.includes("copyDay(")&&editor.includes("copyMany("),"Weekly editor must copy hours between days.");
+assert(editor.includes("orderedWeekdays(language)"),"Weekly editor day order must follow the active language week start.");
+assert(editor.includes("calendarInputDate"),"Weekly editor must display Solar Hijri form dates for Dari/Pashto.");
 assert(editor.includes("selectedAreaIds"),"Weekly editor must support selected venue areas.");
 assert(editor.includes("defaultSlotDurationMinutes"),"Weekly editor must configure slot duration.");
 assert(editor.includes("bufferMinutes"),"Weekly editor must configure booking buffer.");
@@ -104,6 +112,7 @@ assert(editor.includes("saveDraft")||editor.includes('t("schedule.saveDraft")'),
 assert(editor.includes("publishTimetable"),"Weekly editor must publish changes.");
 assert(exception.includes("isClosed"),"Special-hours editor must support full-day closure.");
 assert(exception.includes("periods"),"Special-hours editor must support multiple periods.");
+assert(exception.includes("calendarInputToGregorian"),"Special-hours dates must use the active display calendar and convert for API storage.");
 
 for(const key of [
   "schedule.venueTimetable",
@@ -113,9 +122,10 @@ for(const key of [
   "schedule.createWeekly",
   "schedule.publishConflictTitle",
   "schedule.specialHours",
+  "schedule.solarHijriHint",
 ]){
   const count=localization.split(`"${key}"`).length-1;
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: versioned weekly hours, multi-period/area editing, Month/Week/Day calendar, exceptions, conflict-safe publishing, and booking availability integration.");
+console.log("Venue timetable verified: versioned weekly hours, locale-aware Saturday/Monday week starts, Solar Hijri/Gregorian calendars, exceptions, conflict-safe publishing, and booking availability integration.");
