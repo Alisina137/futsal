@@ -147,7 +147,7 @@ assert(editor.includes("focusTodayCard"),"Weekly editor must focus today's card 
 assert(editor.includes("scrollRef={screenScrollRef}"),"Weekly editor must control its own scroll position to reveal today's card.");
 assert(!editor.includes("weekTableBody:{flexDirection:\"column\"}"),"Weekly Timetable editor must remain card-based and must not use the Week-view status table.");
 
-assert(schedule.includes("weekTableBody:{flexDirection:\"column\"}"),"Timetable Week view must render the seven days as a vertical row list.");
+assert(schedule.includes('weekTableBody:{flexDirection:"column"'),"Timetable Week view must render the seven days as a vertical row list.");
 assert(schedule.includes("weekTableScrollContent")&&schedule.includes("showsHorizontalScrollIndicator"),"Timetable Week view must allow horizontal scrolling when columns exceed the screen width.");
 assert(schedule.includes("WeekHeaderCell"),"Timetable Week view must render a structured table header.");
 for(const key of [
