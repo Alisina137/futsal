@@ -188,6 +188,12 @@ assert(schedule.includes("styles.weekSlotPressed"),"Week slots must provide pres
 assert(schedule.includes("function DaySlotView"),"Day view must render timetable entries as clickable slots.");
 assert(schedule.includes("styles.daySlotTable"),"Day view must use a one-day timetable slot layout.");
 assert(schedule.includes("slotPalette[event.type]"),"Day view must use the same status color palette as Week view.");
+assert(schedule.includes("function SlotCornerMarker"),"Week/Day timetable slots must share one corner-marker rule.");
+assert(schedule.includes('type==="ONLINE_BOOKING"||type==="MANUAL_BOOKING"||type==="COMPETITION"'),"Reserved and competition slots must use the check-mark corner marker.");
+assert(schedule.includes('const discounted=type==="PROMOTION"'),"Promotion/discount slots must use the percentage corner marker.");
+assert((schedule.match(/<SlotCornerMarker type=\{event\.type\} color=\{palette\.text\}\/>/g)??[]).length===2,"Week and Day slot renderers must both apply the corner marker.");
+assert(schedule.includes('left:4')&&schedule.includes("slotCornerMarker"),"Slot marker must stay anchored to the top-left corner.");
+assert(!schedule.includes('Ionicons name={eventIcon(event.type)} size={19}'),"Day slots must not retain the old per-status icon alongside the new corner marker.");
 assert(schedule.includes("styles.daySlotButton"),"Every timed Day slot must be rendered as an interactive slot.");
 assert(schedule.includes("styles.dayClosedSlot"),"Closed Day state must remain clickable for management.");
 assert(schedule.includes("onSelectSlot(event,day.date)"),"Day and Week slots must open the same management flow with the exact calendar date.");
@@ -242,4 +248,4 @@ for(const key of [
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: one court per owner venue, per-period slot pricing, priced Week/Day slot views, and status-aware exact-slot management.");
+console.log("Venue timetable verified: one court per owner venue, per-period slot pricing, priced Week/Day slot views, top-left reservation/discount markers, and status-aware exact-slot management.");
