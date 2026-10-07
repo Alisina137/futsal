@@ -1,6 +1,6 @@
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { OwnerOnboardingStatus } from "@leaguekick/contracts";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
@@ -17,11 +17,21 @@ function todayKabul(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kab
 function afghanistanIso(date:string,time:string){return `${date}T${time}:00+04:30`;}
 
 export default function BlockTimeScreen(){
+  const params=useLocalSearchParams<{areaId?:string;date?:string;start?:string;end?:string}>();
   const {session}=useAuth(); const {t,isRTL}=useLocale();
   const [owner,setOwner]=useState<OwnerOnboardingStatus|null>(null);
-  const [areaId,setAreaId]=useState(""); const [date,setDate]=useState(todayKabul()); const [start,setStart]=useState("12:00"); const [end,setEnd]=useState("13:30"); const [reason,setReason]=useState("");
+  const [areaId,setAreaId]=useState(typeof params.areaId==="string"?params.areaId:"");
+  const [date,setDate]=useState(typeof params.date==="string"?params.date:todayKabul());
+  const [start,setStart]=useState(typeof params.start==="string"?params.start:"12:00");
+  const [end,setEnd]=useState(typeof params.end==="string"?params.end:"13:30");
+  const [reason,setReason]=useState("");
   const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
-  useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((next)=>{setOwner(next);setAreaId(next.venue?.areas[0]?.id??"");}).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[session,t]);
+  useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((next)=>{
+    setOwner(next);
+    const requested=typeof params.areaId==="string"?params.areaId:"";
+    const valid=next.venue?.areas.some((area)=>area.id===requested)??false;
+    setAreaId(valid?requested:(next.venue?.areas[0]?.id??""));
+  }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[params.areaId,session,t]);
 
   async function submit(){if(!session||!areaId)return;setBusy(true);setError(null);try{
     await ownerApi.createBlock(session.accessToken,{areaId,startsAt:afghanistanIso(date,start),endsAt:afghanistanIso(date,end),reason});
