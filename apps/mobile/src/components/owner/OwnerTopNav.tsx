@@ -1,7 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { router, usePathname } from "expo-router";
-import { Pressable, ScrollView, StyleSheet } from "react-native";
+import { useCallback, useEffect, useRef } from "react";
+import { Pressable, ScrollView, StyleSheet, type LayoutChangeEvent } from "react-native";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
 
@@ -38,8 +39,46 @@ export function OwnerTopNav(){
   const pathname=usePathname();
   const {t,isRTL}=useLocale();
   const active=activeSection(pathname);
+  const scrollRef=useRef<ScrollView|null>(null);
+  const viewportWidth=useRef(0);
+  const contentWidth=useRef(0);
+  const itemLayouts=useRef<Partial<Record<OwnerSection,{x:number;width:number}>>>({});
+
+  const focusActive=useCallback((animated=false)=>{
+    if(!active)return;
+    const layout=itemLayouts.current[active];
+    const viewport=viewportWidth.current;
+    if(!layout||viewport<=0)return;
+
+    const maxX=Math.max(0,contentWidth.current-viewport);
+    const centeredX=layout.x+(layout.width/2)-(viewport/2);
+    const x=Math.max(0,Math.min(centeredX,maxX));
+    scrollRef.current?.scrollTo({x,y:0,animated});
+  },[active]);
+
+  useEffect(()=>{
+    const frame=requestAnimationFrame(()=>focusActive(false));
+    return ()=>cancelAnimationFrame(frame);
+  },[focusActive]);
+
+  function handleViewportLayout(event:LayoutChangeEvent){
+    viewportWidth.current=event.nativeEvent.layout.width;
+    focusActive(false);
+  }
+
+  function handleItemLayout(key:OwnerSection,event:LayoutChangeEvent){
+    const {x,width}=event.nativeEvent.layout;
+    itemLayouts.current[key]={x,width};
+    if(key===active)focusActive(false);
+  }
 
   return <ScrollView
+    ref={scrollRef}
+    onLayout={handleViewportLayout}
+    onContentSizeChange={(width)=>{
+      contentWidth.current=width;
+      focusActive(false);
+    }}
     horizontal
     showsHorizontalScrollIndicator={false}
     style={styles.nav}
@@ -55,8 +94,22 @@ export function OwnerTopNav(){
         accessibilityRole="tab"
         accessibilityState={{selected}}
         accessibilityLabel={t(item.labelKey)}
+        onLayout={(event)=>handleItemLayout(item.key,event)}
         onPress={()=>{
-          if(!selected)router.replace(item.href);
+          if(!selected){
+            const layout=itemLayouts.current[item.key];
+            const viewport=viewportWidth.current;
+            if(layout&&viewport>0){
+              const maxX=Math.max(0,contentWidth.current-viewport);
+              const centeredX=layout.x+(layout.width/2)-(viewport/2);
+              scrollRef.current?.scrollTo({
+                x:Math.max(0,Math.min(centeredX,maxX)),
+                y:0,
+                animated:true,
+              });
+            }
+            router.replace(item.href);
+          }
         }}
         style={({pressed})=>[
           styles.item,
