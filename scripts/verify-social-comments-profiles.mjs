@@ -38,7 +38,7 @@ assert(!home.includes("commentsOpen"), "Home must not keep the legacy inline com
 assert(comments.includes("canManage") && comments.includes("confirmDelete"), "comments page must expose own-comment edit/delete controls");
 assert(comments.includes("toggleCommentLike"), "comments page must expose comment Likes");
 
-assert(venue.includes("styles.hero") && venue.includes("publicProfile.aboutVenue") && venue.includes("publicProfile.availability"), "public Venue profile styling missing");
+assert(venue.includes("styles.pageHeader") && venue.includes("pageCoverImageUrl") && venue.includes("pageProfileImageUrl") && venue.includes("publicProfile.aboutVenue") && venue.includes("publicProfile.availability"), "public Venue profile styling missing");
 assert(team.includes("styles.hero") && team.includes("publicProfile.followers") && team.includes("styles.statGrid"), "public Team profile styling missing");
 
 assert((localization.match(/"social\.commentsPageTitle"/g) ?? []).length === 3, "comments page title missing in one or more languages");
