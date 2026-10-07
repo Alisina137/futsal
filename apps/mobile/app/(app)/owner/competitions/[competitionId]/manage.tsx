@@ -55,7 +55,6 @@ export default function ManageCompetitionScreen(){
   const {t,isRTL,language}=useLocale();
   const [activeTab,setActiveTab]=useState<ControlTab>("OVERVIEW");
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
-  const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
   const [referees,setReferees]=useState<VenueRefereeDto[]>([]);
   const [directoryTeams,setDirectoryTeams]=useState<TeamDirectoryItemDto[]>([]);
   const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
@@ -131,9 +130,8 @@ export default function ManageCompetitionScreen(){
       setReferees(refereeResult.referees);
       setDirectoryTeams(teamResult.teams);
       setMediaPosts(mediaResult.posts);
-      const venueAreas=status.venue?.areas.map((item)=>({id:item.id,name:item.name}))??[];
-      setAreas(venueAreas);
-      setAreaId((current)=>current||venueAreas[0]?.id||"");
+      const court=status.venue?.areas[0]??null;
+      setAreaId((current)=>current||court?.id||"");
     }catch{setError(t("competition.loadError"));}
     finally{setLoading(false);}
   },[competitionId,session,t]);
@@ -695,7 +693,7 @@ export default function ManageCompetitionScreen(){
               <AppText variant="bodyLarge" weight="bold" forceLtr>{match.homeScore===null||match.awayScore===null?"—":`${match.homeScore} - ${match.awayScore}`}</AppText>
               <AppText weight="bold" style={{flex:1,textAlign:isRTL?"left":"right"}}>{match.awayTeamName??t("competition.tbd")}</AppText>
             </View>
-            {when?<AppText variant="caption" muted>{when.date} · {when.time}{match.areaName?` · ${match.areaName}`:""}</AppText>:null}
+            {when?<AppText variant="caption" muted>{when.date} · {when.time}</AppText>:null}
             <AppText variant="caption" muted>
               {match.refereeUserId
                 ?t("competition.control.refereeAssigned",{name:referees.find((item)=>item.userId===match.refereeUserId)?.displayName??"—"})
@@ -711,12 +709,6 @@ export default function ManageCompetitionScreen(){
         {activeMatch&&editMode==="SCHEDULE"?<Card style={styles.editorCard}>
           <AppText variant="bodyLarge" weight="bold">{t("competition.scheduleMatch")}</AppText>
           <AppText>{activeMatch.homeTeamName??t("competition.tbd")} — {activeMatch.awayTeamName??t("competition.tbd")}</AppText>
-          <AppText weight="semibold">{t("competition.area")}</AppText>
-          <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,flexWrap:"wrap"}}>
-            {areas.map((area)=><Pressable key={area.id} onPress={()=>setAreaId(area.id)} style={[styles.choice,areaId===area.id&&styles.choiceActive]}>
-              <AppText>{area.name}</AppText>
-            </Pressable>)}
-          </View>
           <DateTimePickerField label={t("competition.startsAt")} value={startsAt} onChange={setStartsAt}/>
           <DateTimePickerField
             label={t("competition.endsAt")}
