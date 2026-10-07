@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, View } from "react-native";
 import { ownerApi } from "../../../../src/lib/api";
-import { OwnerTopNav } from "../../../../src/components/owner/OwnerTopNav";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
@@ -41,10 +40,9 @@ export default function OwnerPostsScreen(){
     }
   }
 
-  if(loading)return <Screen><OwnerTopNav/><DataLoadingState variant="list" minHeight={460}/></Screen>;
+  if(loading)return <Screen embedded><DataLoadingState variant="list" minHeight={460}/></Screen>;
 
-  return <Screen>
-    <OwnerTopNav/>
+  return <Screen embedded>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("ownerMarketing.postsTitle")}</AppText>
       <AppText muted>{t("ownerMarketing.postsSubtitle")}</AppText>
