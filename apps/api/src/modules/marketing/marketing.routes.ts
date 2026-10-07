@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, raw } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import {
@@ -10,8 +10,11 @@ import {
   venuePostScheduleRequestSchema,
   venuePostUpdateRequestSchema,
   venuePostVisibilitySchema,
+  venueMediaAssetPurposeSchema,
+  venueMediaPageUpdateRequestSchema,
 } from "@leaguekick/contracts";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
+import { errors } from "../../lib/errors.js";
 import type { TokenService } from "../auth/token.service.js";
 import type { MarketingService } from "./marketing.service.js";
 
@@ -24,6 +27,19 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
   router.get("/feed", async (_request, response, next) => {
     try { response.json(await marketing.feed()); }
     catch (error) { next(error); }
+  });
+
+  router.get("/media-assets/:assetId/:publicToken", async (request, response, next) => {
+    try {
+      const assetId=routeIdSchema.parse(request.params.assetId);
+      const publicToken=z.string().regex(/^[A-Za-z0-9_-]{32,64}$/).parse(request.params.publicToken);
+      const asset=await marketing.publicMediaAsset(assetId,publicToken);
+      response.setHeader("Content-Type",asset.mimeType);
+      response.setHeader("Content-Length",String(asset.byteSize));
+      response.setHeader("Cache-Control","public, max-age=31536000, immutable");
+      response.setHeader("Cross-Origin-Resource-Policy","cross-origin");
+      response.send(Buffer.from(asset.dataBase64,"base64"));
+    } catch (error) { next(error); }
   });
 
   router.get("/promotions/:promotionId", async (request, response, next) => {
@@ -185,6 +201,32 @@ export function createOwnerMarketingRouter(marketing: MarketingService, tokens: 
   const router = Router();
   router.use(requireAuth(tokens), requireRole("VENUE_OWNER"));
   const writeLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
+
+  router.get("/media-page", async (request,response,next)=>{
+    try{response.json(await marketing.ownerMediaPage(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+
+  router.patch("/media-page", writeLimiter, async (request,response,next)=>{
+    try{
+      const input=venueMediaPageUpdateRequestSchema.parse(request.body);
+      response.json(await marketing.updateOwnerMediaPage(request.auth!.userId,input));
+    }catch(error){next(error);}
+  });
+
+  router.post(
+    "/media-assets",
+    writeLimiter,
+    raw({type:"image/*",limit:"6mb"}),
+    async (request,response,next)=>{
+      try{
+        const purpose=venueMediaAssetPurposeSchema.parse(request.query.purpose);
+        const mimeType=String(request.headers["content-type"]??"").split(";")[0]!.trim().toLowerCase();
+        if(!Buffer.isBuffer(request.body))throw errors.badRequest("MEDIA_BODY_REQUIRED","Choose an image to upload.");
+        response.status(201).json(await marketing.createMediaAsset(request.auth!.userId,purpose,mimeType,request.body));
+      }catch(error){next(error);}
+    },
+  );
 
   router.get("/promotions", async (request, response, next) => {
     try { response.json(await marketing.listOwnerPromotions(request.auth!.userId)); }
