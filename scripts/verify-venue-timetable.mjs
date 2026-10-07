@@ -158,6 +158,10 @@ assert(!schedule.includes("WeekMetricCell"),"Timetable Week list must keep detai
 assert(schedule.includes('setStatusFilter("ALL");setAnchorDate(date);setView("DAY")'),"Selecting a week day must open that day detail with all statuses visible.");
 assert(schedule.includes('event.type==="ONLINE_BOOKING"'),"Day detail summary must calculate online reservations separately.");
 assert(schedule.includes('t("schedule.summaryOnline")'),"Day detail summary must label online reservations separately.");
+assert(schedule.includes('renderedView==="DAY"&&selectedDay?<Summary'),"Detailed status summary must stay hidden in Week mode and appear only in Day detail.");
+assert(schedule.includes('t("schedule.event.PROMOTION"),day.promotionCount'),"Day detail summary must include promotions.");
+assert(schedule.includes('onSelect={(date)=>{setStatusFilter("ALL");setAnchorDate(date);setView("DAY");}}'),"Selecting a week day must reset filters and open the full Day detail view.");
+
 
 assert(editor.includes("calendarInputDate"),"Weekly editor must display Solar Hijri form dates for Dari/Pashto.");
 assert(editor.includes("selectedAreaIds"),"Weekly editor must support selected venue areas.");
