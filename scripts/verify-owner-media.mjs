@@ -100,7 +100,7 @@ assert(bookingRepository.includes("ilike(venues.name"),"Venue directory must sea
 
 for(const marker of [
   "media.stat.total",
-  "media.filter.SCHEDULED",
+  '"ALL","PUBLISHED","DRAFT","SCHEDULED","PRIVATE"',
   "setPostVisibility",
   "cancelPostSchedule",
   "ownerApi.deletePost",
