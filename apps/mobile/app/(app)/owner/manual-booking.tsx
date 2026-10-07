@@ -47,7 +47,7 @@ export default function ManualBookingScreen(){
 
     setLoading(true);
     ownerApi.getStatus(session.accessToken).then((next)=>{
-      const court=next.venue?.areas.find((item)=>item.active)??next.venue?.areas[0]??null;
+      const court=next.venue?.areas[0]??null;
       setAreaId(court?.id??"");
       if(!requestedPrice.trim())setPrice(court?String(court.basePriceAfn):"");
     }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));
