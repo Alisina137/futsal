@@ -7,9 +7,14 @@ import type {
   VenueTimetableDto,
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
-import { ownerApi } from "../../../../src/lib/api";
+import { ApiRequestError, ownerApi } from "../../../../src/lib/api";
+import {
+  buildTimetableDraft,
+  suggestNextPeriod,
+  type TimetableDraftValidationError,
+} from "../../../../src/lib/timetable-editor";
 import { todayKabul } from "../../../../src/lib/timetable-calendar";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
@@ -46,7 +51,6 @@ function dayFromTimetable(item:VenueTimetableDto,preferredAreaId:string|null):Da
   });
 }
 
-function isoDate(value:string){return /^\d{4}-\d{2}-\d{2}$/.test(value);}
 
 export default function TimetableEditorScreen(){
   const params=useLocalSearchParams<{timetableId?:string}>();
@@ -134,43 +138,54 @@ export default function TimetableEditorScreen(){
       :day));
   }
 
-  function buildDraft():VenueTimetableDraftRequest|null{
-    const defaultSlotDurationMinutes=Number(duration);
-    const bufferMinutes=Number(buffer);
-    if(
-      name.trim().length<2
-      ||!isoDate(effectiveFrom)
-      ||Boolean(effectiveUntil)&&!isoDate(effectiveUntil)
-      ||Boolean(effectiveUntil)&&effectiveUntil<effectiveFrom
-      ||!Number.isInteger(defaultSlotDurationMinutes)||defaultSlotDurationMinutes<30||defaultSlotDurationMinutes>240
-      ||!Number.isInteger(bufferMinutes)||bufferMinutes<0||bufferMinutes>60
-      ||(!allAreas&&selectedAreaIds.length===0)
-    )return null;
+  function validationMessage(code:TimetableDraftValidationError){
+    if(code==="NAME")return t("schedule.validationName");
+    if(code==="DATE")return t("schedule.validationDate");
+    if(code==="DATE_RANGE")return t("schedule.validationDateRange");
+    if(code==="DURATION")return t("schedule.validationDuration");
+    if(code==="BUFFER")return t("schedule.validationBuffer");
+    if(code==="AREA")return t("schedule.validationArea");
+    if(code==="EMPTY")return t("schedule.validationEmpty");
+    if(code==="TIME")return t("schedule.validationTime");
+    return t("schedule.validationOverlap");
+  }
 
-    const scopes:(string|null)[]=allAreas?[null]:selectedAreaIds;
-    const periods=days.flatMap((day)=>day.periods.flatMap((period)=>scopes.map((areaId)=>({
-      areaId,
-      dayOfWeek:day.dayOfWeek,
-      startsAt:period.startsAt,
-      endsAt:period.endsAt,
-    }))));
-    if(!periods.length)return null;
-    if(periods.some((period)=>!/^([01]\d|2[0-3]):[0-5]\d$/.test(period.startsAt)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(period.endsAt)||period.startsAt>=period.endsAt))return null;
+  function saveErrorMessage(cause:unknown){
+    if(!(cause instanceof ApiRequestError))return t("schedule.saveTimetableError");
+    if(cause.code==="NETWORK_ERROR"||cause.code==="TIMEOUT")return t("schedule.timetableNetworkError");
+    if(cause.code==="VALIDATION_ERROR"){
+      const issues=Array.isArray(cause.details)?cause.details:[];
+      const first=issues.find((item)=>item&&typeof item==="object"&&"message" in item) as {message?:unknown}|undefined;
+      return typeof first?.message==="string"
+        ?`${t("schedule.timetableValidationError")} ${first.message}`
+        :t("schedule.timetableValidationError");
+    }
+    if(cause.code==="TIMETABLE_STORAGE_NOT_READY")return t("schedule.timetableStorageError");
+    const requestSuffix=cause.requestId?` [${cause.requestId}]`:"";
+    return `${t("schedule.saveTimetableError")} (${cause.code})${requestSuffix}`;
+  }
 
-    return {
-      name:name.trim(),
+  function draftResult(){
+    return buildTimetableDraft({
+      name,
       effectiveFrom,
-      effectiveUntil:effectiveUntil||null,
-      defaultSlotDurationMinutes,
-      bufferMinutes,
-      periods,
-    };
+      effectiveUntil,
+      duration,
+      buffer,
+      allAreas,
+      selectedAreaIds,
+      days,
+    });
   }
 
   async function save(){
     if(!token)return null;
-    const draft=buildDraft();
-    if(!draft){setError(t("schedule.saveTimetableError"));return null;}
+    const built=draftResult();
+    if(!built.draft){
+      setError(validationMessage(built.error!));
+      return null;
+    }
+    const draft=built.draft;
     setBusy("save");setError(null);setConflicts([]);
     try{
       const result=timetableId
@@ -181,8 +196,8 @@ export default function TimetableEditorScreen(){
         router.replace({pathname:"/owner/timetable/edit",params:{timetableId:result.timetable.id}});
       }
       return result.timetable;
-    }catch{
-      setError(t("schedule.saveTimetableError"));
+    }catch(cause){
+      setError(saveErrorMessage(cause));
       return null;
     }finally{setBusy(null);}
   }
@@ -194,11 +209,11 @@ export default function TimetableEditorScreen(){
       const saved=await save();
       id=saved?.id??null;
     }else{
-      const draft=buildDraft();
-      if(!draft){setError(t("schedule.saveTimetableError"));return;}
+      const built=draftResult();
+      if(!built.draft){setError(validationMessage(built.error!));return;}
       setBusy("publish");setError(null);
-      try{await ownerApi.updateTimetable(token,id,draft);}
-      catch{setError(t("schedule.saveTimetableError"));setBusy(null);return;}
+      try{await ownerApi.updateTimetable(token,id,built.draft);}
+      catch(cause){setError(saveErrorMessage(cause));setBusy(null);return;}
     }
     if(!id)return;
     setBusy("publish");setConflicts([]);
@@ -209,7 +224,11 @@ export default function TimetableEditorScreen(){
       }else{
         router.replace("/owner/schedule");
       }
-    }catch{setError(t("schedule.publishTimetableError"));}
+    }catch(cause){
+      setError(cause instanceof ApiRequestError
+        ?`${t("schedule.publishTimetableError")} (${cause.code})${cause.requestId?` [${cause.requestId}]`:""}`
+        :t("schedule.publishTimetableError"));
+    }
     finally{setBusy(null);}
   }
 
@@ -281,7 +300,15 @@ export default function TimetableEditorScreen(){
 
         {day.periods.length?<Button
           label={t("schedule.addPeriod")}
-          onPress={()=>setDayPeriods(day.dayOfWeek,[...day.periods,{startsAt:"18:00",endsAt:"23:00"}])}
+          onPress={()=>{
+            const next=suggestNextPeriod(day.periods);
+            if(!next){
+              setError(t("schedule.noRoomForPeriod"));
+              return;
+            }
+            setError(null);
+            setDayPeriods(day.dayOfWeek,[...day.periods,next]);
+          }}
           variant="secondary"
         />:null}
 
