@@ -270,7 +270,7 @@ export default function CreatePostScreen(){
           <AppText weight="semibold">
             {match.homeTeamName??"—"} {match.homeScore??"—"} - {match.awayScore??"—"} {match.awayTeamName??"—"}
           </AppText>
-          <AppText variant="caption" muted>{match.groupName??t(`competition.stage.${match.stage}` as never)}</AppText>
+          <AppText variant="caption" muted>{match.groupName??match.stage}</AppText>
         </View>
         <Button label={t("media.useResult")} onPress={()=>useResult(match)} variant="secondary"/>
       </View>)}
