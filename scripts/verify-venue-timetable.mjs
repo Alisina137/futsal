@@ -92,6 +92,11 @@ assert(calendar.includes('calendar:usesSolarHijri(language)?"persian":"gregory"'
 assert(calendar.includes("monthGridRange(value,language)"),"Month grid boundaries must follow the active calendar system.");
 assert(calendar.includes("calendarInputToGregorian"),"Solar Hijri timetable form dates must convert safely to stored Gregorian dates.");
 assert(schedule.includes("isSameDisplayMonth"),"Month view must determine in-month days using the active calendar, not Gregorian month keys.");
+assert(schedule.includes("calendarRequestId=useRef(0)"),"Calendar refreshes must ignore stale responses during rapid navigation.");
+assert(schedule.includes("renderedView")&&schedule.includes("renderedAnchorDate"),"Fetched timetable content must keep its last successful presentation while the next range loads.");
+assert(!schedule.includes('calendarLoading?<DataLoadingState variant="list"'),"Calendar navigation must not replace existing timetable content with a full skeleton.");
+assert(schedule.includes("calendarRefreshIndicator"),"Calendar navigation must use a small in-place refresh indicator.");
+assert(schedule.includes("Initial page shell load only"),"Page-level loading must be reserved for the initial timetable shell load.");
 assert(schedule.includes("statusFilters"),"Venue timetable must offer status filters.");
 assert(schedule.includes("Summary"),"Venue timetable must show operational summary.");
 assert(schedule.includes("TimetableVersions"),"Venue timetable must manage current/draft/future/archive versions.");
@@ -128,4 +133,4 @@ for(const key of [
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: versioned weekly hours, locale-aware Saturday/Monday week starts, Solar Hijri/Gregorian calendars, exceptions, conflict-safe publishing, and booking availability integration.");
+console.log("Venue timetable verified: stable in-place calendar refreshes, locale-aware week starts/calendars, versioned weekly hours, exceptions, conflict-safe publishing, and booking availability integration.");
