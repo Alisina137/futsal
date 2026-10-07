@@ -143,9 +143,10 @@ assert(calendar.includes("monthGridRange(value,language)"),"Month grid boundarie
 assert(calendar.includes("calendarInputToGregorian"),"Solar Hijri timetable form dates must convert safely to stored Gregorian dates.");
 assert(schedule.includes("isSameDisplayMonth"),"Month view must determine in-month days using the active calendar, not Gregorian month keys.");
 assert(schedule.includes("calendarRequestId=useRef(0)"),"Calendar refreshes must ignore stale responses during rapid navigation.");
-assert(schedule.includes("renderedView")&&schedule.includes("renderedAnchorDate"),"Fetched timetable content must keep its last successful presentation while the next range loads.");
-assert(!schedule.includes('calendarLoading?<DataLoadingState variant="list"'),"Calendar navigation must not replace existing timetable content with a full skeleton.");
-assert(schedule.includes("calendarRefreshIndicator"),"Calendar navigation must use a small in-place refresh indicator.");
+assert(schedule.includes("renderedView")&&schedule.includes("renderedAnchorDate"),"Fetched timetable content must keep the last successful view identity until the next range succeeds.");
+assert(schedule.includes('variant="calendar"'),"Calendar navigation must render a timetable-shaped skeleton in the slot area.");
+assert(schedule.includes("calendarLoading")&&schedule.includes("changeAnchorDate")&&schedule.includes("changeCalendarView")&&schedule.includes("openCalendarDay"),"Calendar navigation actions must enter loading state immediately.");
+assert(!schedule.includes("calendarRefreshIndicator"),"Calendar navigation must not rely on the old corner-only refresh spinner.");
 assert(schedule.includes('t("schedule.previous")')&&schedule.includes('t("schedule.next")'),"Timetable calendar navigation must use explicit Previous/Next text controls.");
 assert(schedule.includes("styles.todayRow")&&schedule.includes('todayRow:{width:"100%"'),"Today control must stay on its own full-width row above calendar navigation.");
 assert(schedule.includes('navButtons:{width:"100%"'),"Previous/date/Next navigation must have its own full-width row.");
