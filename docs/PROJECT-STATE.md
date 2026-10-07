@@ -41,7 +41,9 @@ Increase futsal venue utilization and revenue through reliable availability and 
 - `pnpm dev:admin` overrides the mobile/tunnel API URL and calls the local API at `http://localhost:4000` by default. Reverse-proxy/ngrok API traffic is supported through explicit `TRUST_PROXY_HOPS` configuration so Express rate limiting can safely interpret forwarded client IPs.
 - `pnpm db:migrate` now executes the runtime Drizzle migrator directly from the database package, normalizes Neon SSL modes to explicit `verify-full`, and prints the underlying PostgreSQL code/detail/hint instead of only a recursive pnpm failure.
 - Server owns authorization, venue ownership, entitlement, live availability, confirmation price, promotion validity and notification fan-out.
-- One Venue Owner account maps to at most one venue.
+- One Venue Owner account maps to exactly one managed venue after setup, and that venue has exactly one active court. A second court requires a separate account and separate Venue Owner subscription. The internal area/court row remains as a compatibility key for bookings, competitions, blocks, promotions, and historical records; extra historical court rows are inactive and never exposed as owner-selectable inventory.
+- Weekly timetable operating periods carry their own AFN slot price. This supports higher Friday/evening prices and other time-band pricing; live availability, online booking confirmation, owner calendar slots, and default manual-booking price inherit the matched timetable-period price.
+- Venue Owner Timetable Week and Day views are color-coded slot-management surfaces. Slots show start time + price, and tapping any slot opens status-aware management for available, online/manual booking, promotion, block, competition, or closed states.
 - Premium trial is exactly 72 hours and starts explicitly.
 - Booking/manual booking/blocks share one occupancy source of truth.
 - PostgreSQL booking/block writes serialize per playing area with a transaction-scoped advisory lock.
@@ -85,8 +87,12 @@ Committed canonical migrations:
 - `0010_paid_role_subscriptions` — paid Venue Owner/Team Owner entitlements, venue-scoped referees, existing paid-role grace backfill, and venue pricing alignment to 1000 AFN/month. — authoritative last successful credential-reset timestamp for the 72-hour cooldown.
 - `0011_normal_user_social_feed` — generic Venue/Team/Competition follows, unified social posts, likes/comments, and backfill of existing venue follows/posts for the Normal User Home feed.
 - `0012_team_join_requests` — user-initiated team join requests with one pending request per user/team and response history for Team Owner approval/rejection.
+- `0013_social_comment_interactions` — social comment likes, ownership-aware edit/delete interactions, and related indexes.
+- `0014_competition_control_center` — competition control-center extensions and operational scheduling/statistics data.
+- `0015_venue_timetable` — versioned weekly venue timetables, periods, date exceptions, and owner timetable calendar support.
+- `0016_single_court_slot_pricing` — enforces one active court per venue, preserves legacy court history by deactivating extras, and adds/backfills per-period timetable slot prices.
 
-The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 itself had no database schema change. Pre-release authentication corrections add `0007_password_reset_challenges.sql`; it is committed but must not be marked applied until the user runs `pnpm db:migrate` successfully.
+The user previously reported Phase 6 migration `0005_robust_smiling_tiger.sql` applied successfully. The user also reported Phase 7 migration `0006_phase7_commercial_core.sql` applied successfully. Phase 8 itself had no database schema change. Pre-release corrections have added later canonical migrations through `0016_single_court_slot_pricing.sql`. Migration `0016` is committed but must not be marked applied until the user runs `pnpm db:migrate` successfully after pulling this update.
 
 ## Phase 1 status
 Foundation implemented and previously verified.
