@@ -13,6 +13,7 @@ import type { BookingRepository, BookingVenueRecord } from "./booking.types.js";
 import { toPublicVenueDto } from "./booking.types.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
+import type { TimetableService } from "../timetable/timetable.service.js";
 
 function assertBookableVenue(venue: BookingVenueRecord | null, now: Date): asserts venue is BookingVenueRecord {
   if (!venue || venue.status !== "ACTIVE") {
@@ -134,6 +135,7 @@ export class BookingService {
     private readonly repository: BookingRepository,
     private readonly now: () => Date = () => new Date(),
     private readonly notifications?: NotificationPublisher,
+    private readonly timetable?: TimetableService,
   ) {}
 
   async listPublicVenues(filters: { city?: string; province?: string }): Promise<PublicVenueListResponse> {
@@ -159,43 +161,61 @@ export class BookingService {
     const venue = await this.repository.getVenueRecord(venueId);
     assertBookableVenue(venue, now);
 
-    const day = venue.openingHours.find((item) => item.dayOfWeek === weekdayForDate(date));
-    if (!day || day.isClosed || !day.opensAt || !day.closesAt) {
-      return { venue: toPublicVenueDto(venue), date, generatedAt: now.toISOString(), live: true, slots: [] };
-    }
-
-    const open = localDateTimeToUtc(date, day.opensAt, venue.timezone);
-    const close = localDateTimeToUtc(date, day.closesAt, venue.timezone);
+    const dayBoundsValue = dayBounds(date, venue.timezone);
     const [occupancies, promotionPrices] = await Promise.all([
-      this.repository.listOccupancies(venue.id, open, close),
-      this.repository.listActivePromotionPrices(venue.id, open, close, now),
+      this.repository.listOccupancies(venue.id, dayBoundsValue.startsAt, dayBoundsValue.endsAt),
+      this.repository.listActivePromotionPrices(venue.id, dayBoundsValue.startsAt, dayBoundsValue.endsAt, now),
     ]);
     const slots: VenueAvailabilityResponse["slots"] = [];
 
     for (const area of venue.areas.filter((item) => item.active)) {
-      const durationMs = area.defaultSessionDurationMinutes * 60_000;
-      for (let cursor = open.getTime(); cursor + durationMs <= close.getTime(); cursor += durationMs) {
-        const startsAt = new Date(cursor);
-        const endsAt = new Date(cursor + durationMs);
-        if (startsAt.getTime() <= now.getTime()) continue;
-        if (occupancies.some((item) => item.areaId === area.id && intervalsOverlap(startsAt, endsAt, item.startsAt, item.endsAt))) continue;
-        const promotion = promotionPrices.find((item) =>
-          item.areaId === area.id &&
-          item.startsAt.getTime() === startsAt.getTime() &&
-          item.endsAt.getTime() === endsAt.getTime()
-        );
-        slots.push({
-          venueId: venue.id,
-          areaId: area.id,
-          areaName: area.name,
-          startsAt: startsAt.toISOString(),
-          endsAt: endsAt.toISOString(),
-          priceAfn: promotion?.discountedPriceAfn ?? area.basePriceAfn,
-          originalPriceAfn: promotion ? area.basePriceAfn : null,
-          promotionId: promotion?.id ?? null,
-          currency: "AFN",
-          status: "AVAILABLE",
-        });
+      const fallback = venue.openingHours.find((item) => item.dayOfWeek === weekdayForDate(date));
+      const resolved = this.timetable
+        ? await this.timetable.resolveDay({
+            venueId: venue.id,
+            date,
+            areaId: area.id,
+            ...(fallback ? { fallback } : {}),
+          })
+        : {
+            periods: fallback && !fallback.isClosed && fallback.opensAt && fallback.closesAt
+              ? [{ startsAt: fallback.opensAt, endsAt: fallback.closesAt }]
+              : [],
+            slotDurationMinutes: null,
+            bufferMinutes: 0,
+            source: "LEGACY" as const,
+          };
+
+      const durationMinutes = resolved.slotDurationMinutes ?? area.defaultSessionDurationMinutes;
+      const durationMs = durationMinutes * 60_000;
+      const stepMs = (durationMinutes + resolved.bufferMinutes) * 60_000;
+
+      for (const period of resolved.periods) {
+        const open = localDateTimeToUtc(date, period.startsAt, venue.timezone);
+        const close = localDateTimeToUtc(date, period.endsAt, venue.timezone);
+        for (let cursor = open.getTime(); cursor + durationMs <= close.getTime(); cursor += stepMs) {
+          const startsAt = new Date(cursor);
+          const endsAt = new Date(cursor + durationMs);
+          if (startsAt.getTime() <= now.getTime()) continue;
+          if (occupancies.some((item) => item.areaId === area.id && intervalsOverlap(startsAt, endsAt, item.startsAt, item.endsAt))) continue;
+          const promotion = promotionPrices.find((item) =>
+            item.areaId === area.id &&
+            item.startsAt.getTime() === startsAt.getTime() &&
+            item.endsAt.getTime() === endsAt.getTime()
+          );
+          slots.push({
+            venueId: venue.id,
+            areaId: area.id,
+            areaName: area.name,
+            startsAt: startsAt.toISOString(),
+            endsAt: endsAt.toISOString(),
+            priceAfn: promotion?.discountedPriceAfn ?? area.basePriceAfn,
+            originalPriceAfn: promotion ? area.basePriceAfn : null,
+            promotionId: promotion?.id ?? null,
+            currency: "AFN",
+            status: "AVAILABLE",
+          });
+        }
       }
     }
 
@@ -297,7 +317,19 @@ export class BookingService {
     const startsAt = new Date(input.startsAt);
     const endsAt = new Date(input.endsAt);
     if (startsAt.getTime() <= now.getTime()) throw errors.badRequest("BOOKING_IN_PAST", "Choose a future interval.");
-    assertIntervalWithinOpeningHours(venue, startsAt, endsAt);
+    const fallback = venue.openingHours.find((item) => item.dayOfWeek === weekdayForDate(localDateForInstant(startsAt, venue.timezone)));
+    if (this.timetable) {
+      await this.timetable.assertIntervalAllowed({
+        venueId: venue.id,
+        areaId: area.id,
+        startsAt,
+        endsAt,
+        timeZone: venue.timezone,
+        ...(fallback ? { fallback } : {}),
+      });
+    } else {
+      assertIntervalWithinOpeningHours(venue, startsAt, endsAt);
+    }
 
     let customerPhone: string | null = null;
     if (input.customerPhone) {
@@ -332,7 +364,19 @@ export class BookingService {
     const startsAt = new Date(input.startsAt);
     const endsAt = new Date(input.endsAt);
     if (startsAt.getTime() <= now.getTime()) throw errors.badRequest("BLOCK_IN_PAST", "Choose a future interval.");
-    assertIntervalWithinOpeningHours(venue, startsAt, endsAt);
+    const fallback = venue.openingHours.find((item) => item.dayOfWeek === weekdayForDate(localDateForInstant(startsAt, venue.timezone)));
+    if (this.timetable) {
+      await this.timetable.assertIntervalAllowed({
+        venueId: venue.id,
+        areaId: area.id,
+        startsAt,
+        endsAt,
+        timeZone: venue.timezone,
+        ...(fallback ? { fallback } : {}),
+      });
+    } else {
+      assertIntervalWithinOpeningHours(venue, startsAt, endsAt);
+    }
     return this.repository.createBlockAtomic({
       venueId: venue.id,
       areaId: area.id,
