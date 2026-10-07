@@ -15,6 +15,7 @@ import { errors } from "../../lib/errors.js";
 import type {
   ResolvedTimetableDay,
   TimetableExceptionRecord,
+  TimetableOccupancyRecord,
   TimetableRecord,
   TimetableRepository,
   TimetableVenueRecord,
@@ -291,7 +292,7 @@ export class TimetableService {
     };
     const occupancies = await this.repository.listOccupancies(venue.id, bounds.startsAt, bounds.endsAt);
     const conflicts: VenueTimetableConflict[] = occupancies
-      .filter((item) => item.type !== "PROMOTION")
+      .filter((item): item is TimetableOccupancyRecord & { type: "BOOKING" | "BLOCK" | "COMPETITION_MATCH" } => item.type !== "PROMOTION")
       .filter((item) => !this.intervalAllowedBy(draft, exceptions, venue, item.areaId, item.startsAt, item.endsAt))
       .map((item) => ({
         type: item.type,
