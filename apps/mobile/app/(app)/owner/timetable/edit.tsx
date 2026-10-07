@@ -7,7 +7,7 @@ import type {
   VenueTimetableDto,
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../../src/lib/api";
 import {
@@ -17,6 +17,7 @@ import {
 } from "../../../../src/lib/timetable-editor";
 import {
   calendarInputDate,
+  formatCalendarDate,
   orderedWeekdays,
   todayKabul,
 } from "../../../../src/lib/timetable-calendar";
@@ -76,6 +77,26 @@ export default function TimetableEditorScreen(){
   const [busy,setBusy]=useState<"save"|"publish"|null>(null);
   const [error,setError]=useState<string|null>(null);
   const [conflicts,setConflicts]=useState<VenueTimetableConflict[]>([]);
+  const screenScrollRef=useRef<ScrollView|null>(null);
+  const dayListY=useRef<number|null>(null);
+  const todayCardY=useRef<number|null>(null);
+  const focusedToday=useRef(false);
+  const todayDate=useMemo(()=>todayKabul(),[]);
+  const todayDayOfWeek=useMemo(
+    ()=>new Date(`${todayDate}T00:00:00.000Z`).getUTCDay(),
+    [todayDate],
+  );
+
+  const focusTodayCard=useCallback(()=>{
+    if(focusedToday.current||dayListY.current===null||todayCardY.current===null)return;
+    focusedToday.current=true;
+    requestAnimationFrame(()=>{
+      screenScrollRef.current?.scrollTo({
+        y:Math.max(0,dayListY.current!+todayCardY.current!-spacing.sm),
+        animated:false,
+      });
+    });
+  },[]);
 
   const load=useCallback(async()=>{
     if(!token)return;
@@ -244,7 +265,7 @@ export default function TimetableEditorScreen(){
 
   if(loading)return <Screen embedded><DataLoadingState variant="form" minHeight={560}/></Screen>;
 
-  return <Screen embedded>
+  return <Screen embedded scrollRef={screenScrollRef}>
     <View style={styles.headerRow}>
       <Pressable onPress={()=>router.back()} style={styles.back}>
         <Ionicons name={isRTL?"chevron-forward":"chevron-back"} size={22} color={colors.primary}/>
@@ -285,11 +306,34 @@ export default function TimetableEditorScreen(){
       </ScrollView>:null}
     </Card>
 
-    <View style={{gap:spacing.md}}>
-      {displayDays.map((day)=><Card key={day.dayOfWeek}>
+    <View
+      style={{gap:spacing.md}}
+      onLayout={(event)=>{
+        dayListY.current=event.nativeEvent.layout.y;
+        focusTodayCard();
+      }}
+    >
+      {displayDays.map((day)=>{
+        const isToday=day.dayOfWeek===todayDayOfWeek;
+        return <Card
+          key={day.dayOfWeek}
+          accessibilityState={{selected:isToday}}
+          onLayout={isToday?(event)=>{
+            todayCardY.current=event.nativeEvent.layout.y;
+            focusTodayCard();
+          }:undefined}
+          style={isToday?styles.todayCard:undefined}
+        >
         <View style={[styles.dayHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <View style={{flex:1}}>
-            <AppText variant="bodyLarge" weight="bold">{t(`owner.day.${day.dayOfWeek}` as never)}</AppText>
+            <View style={styles.dayTitleRow}>
+              <AppText variant="bodyLarge" weight="bold">{t(`owner.day.${day.dayOfWeek}` as never)}</AppText>
+              {isToday?<View style={styles.todayBadge}>
+                <AppText variant="caption" weight="bold" style={styles.todayBadgeText}>
+                  {t("schedule.today")} · {formatCalendarDate(todayDate,language,{month:"short",day:"numeric"})}
+                </AppText>
+              </View>:null}
+            </View>
             <AppText variant="caption" muted>{day.periods.length?t("schedule.dayOpen"):t("schedule.dayClosed")}</AppText>
           </View>
           <Switch value={day.periods.length>0} onValueChange={()=>toggleDay(day)}/>
@@ -337,7 +381,8 @@ export default function TimetableEditorScreen(){
             <Button label={t("schedule.copyAll")} onPress={()=>copyMany(day,[0,1,2,3,4,5,6])} variant="ghost" style={styles.copyButton}/>
           </View>
         </View>:null}
-      </Card>)}
+      </Card>;
+      })}
     </View>
 
     {conflicts.length?<Card style={{borderColor:colors.warning}}>
@@ -380,6 +425,19 @@ const styles=StyleSheet.create({
   choice:{minHeight:40,paddingHorizontal:spacing.md,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
   choiceActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
   dayHeader:{alignItems:"center",gap:spacing.sm},
+  dayTitleRow:{flexDirection:"row",alignItems:"center",flexWrap:"wrap",gap:spacing.sm},
+  todayCard:{
+    borderColor:colors.primary,
+    borderWidth:2,
+    backgroundColor:colors.primarySoft,
+  },
+  todayBadge:{
+    paddingHorizontal:spacing.sm,
+    paddingVertical:3,
+    borderRadius:radius.pill,
+    backgroundColor:colors.primary,
+  },
+  todayBadgeText:{color:colors.surface},
   periodBlock:{padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted,gap:spacing.sm},
   copyButton:{flexGrow:1,minWidth:140},
   conflict:{paddingVertical:spacing.sm,borderBottomWidth:1,borderBottomColor:colors.border},
