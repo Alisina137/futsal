@@ -262,18 +262,18 @@ export default function OwnerScheduleScreen(){
       language={language}
       t={t}
       busy={busy===`event-${selectedSlot.id}`}
-      onClose={()=>setSelectedWeekSlot(null)}
+      onClose={()=>setSelectedSlot(null)}
       onOpenDay={(date)=>{
-        setSelectedWeekSlot(null);
+        setSelectedSlot(null);
         setAnchorDate(date);
         setView("DAY");
       }}
       onCancelBooking={(id)=>{
-        setSelectedWeekSlot(null);
+        setSelectedSlot(null);
         void cancelBooking(id);
       }}
       onUnblock={(id)=>{
-        setSelectedWeekSlot(null);
+        setSelectedSlot(null);
         void unblock(id);
       }}
     />:null}
@@ -524,55 +524,102 @@ function DaySlotView({
   t:ReturnType<typeof useLocale>["t"];
   onSelectSlot:(event:VenueCalendarEvent)=>void;
 }){
-  const timed=(day?.events??[]).filter((event)=>Boolean(event.startsAt));
+  const timed=(day?.events??[])
+    .filter((event)=>Boolean(event.startsAt))
+    .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??""));
   const closed=(day?.events??[]).filter((event)=>event.type==="CLOSED"&&!event.startsAt);
+
   return <View style={styles.daySlotSection}>
     <SlotColorGuide t={t}/>
-    {timed.length?<View style={styles.daySlotGrid}>
+
+    {day?<View style={styles.daySlotTable}>
+      <View style={[styles.daySlotHeader,{flexDirection:language==="en"?"row":"row-reverse"}]}>
+        <View style={styles.dayTimeHeader}>
+          <Ionicons name="time-outline" size={16} color={colors.textMuted}/>
+        </View>
+        <View style={styles.dayHeaderCell}>
+          <AppText weight="bold">
+            {formatCalendarDate(day.date,language,{weekday:"long"})}
+          </AppText>
+          <AppText variant="caption" muted>
+            {formatCalendarDate(day.date,language,{month:"long",day:"numeric"})}
+          </AppText>
+        </View>
+      </View>
+
       {timed.map((event)=>{
         const palette=slotPalette[event.type];
+        return <View
+          key={event.id}
+          style={[styles.daySlotRow,{flexDirection:language==="en"?"row":"row-reverse"}]}
+        >
+          <View style={styles.dayTimeCell}>
+            <AppText variant="caption" weight="semibold" forceLtr>
+              {formatCalendarTime(event.startsAt!,language)}
+            </AppText>
+          </View>
+          <View style={styles.dayStatusCell}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatCalendarTime(event.startsAt!,language)}, ${event.priceAfn??0} AFN`}
+              onPress={()=>onSelectSlot(event)}
+              style={({pressed})=>[
+                styles.daySlotButton,
+                {backgroundColor:palette.background,borderColor:palette.border},
+                pressed&&styles.weekSlotPressed,
+              ]}
+            >
+              <View style={styles.daySlotButtonTop}>
+                <View style={{flex:1,minWidth:0}}>
+                  <AppText weight="bold" style={{color:palette.text}}>
+                    {t(`schedule.event.${event.type}` as never)}
+                  </AppText>
+                  <AppText variant="caption" muted={false} numberOfLines={1} style={{color:palette.text}}>
+                    {event.title}
+                  </AppText>
+                </View>
+                <Ionicons name={eventIcon(event.type)} size={19} color={palette.text}/>
+              </View>
+              <View style={styles.daySlotButtonBottom}>
+                <AppText variant="caption" forceLtr style={{color:palette.text}}>
+                  {event.startsAt&&event.endsAt
+                    ?`${formatCalendarTime(event.startsAt,language)} – ${formatCalendarTime(event.endsAt,language)}`
+                    :""}
+                </AppText>
+                <AppText weight="bold" forceLtr style={{color:palette.text}}>
+                  {event.priceAfn!==null?`${event.priceAfn} AFN`:"—"}
+                </AppText>
+              </View>
+            </Pressable>
+          </View>
+        </View>;
+      })}
+
+      {closed.map((event)=>{
+        const palette=slotPalette.CLOSED;
         return <Pressable
           key={event.id}
           accessibilityRole="button"
           onPress={()=>onSelectSlot(event)}
           style={({pressed})=>[
-            styles.daySlot,
+            styles.dayClosedSlot,
             {backgroundColor:palette.background,borderColor:palette.border},
             pressed&&styles.weekSlotPressed,
           ]}
         >
-          <View style={styles.daySlotTop}>
-            <AppText variant="bodyLarge" weight="bold" forceLtr style={{color:palette.text}}>
-              {formatCalendarTime(event.startsAt!,language)}
-            </AppText>
-            <Ionicons name={eventIcon(event.type)} size={18} color={palette.text}/>
+          <Ionicons name="lock-closed-outline" size={20} color={palette.text}/>
+          <View style={{flex:1}}>
+            <AppText weight="bold" style={{color:palette.text}}>{t("schedule.event.CLOSED")}</AppText>
+            <AppText variant="caption" style={{color:palette.text}}>{t("schedule.manageSlot")}</AppText>
           </View>
-          <AppText variant="caption" weight="semibold" style={{color:palette.text}}>
-            {t(`schedule.event.${event.type}` as never)}
-          </AppText>
-          <AppText weight="bold" forceLtr style={{color:palette.text}}>
-            {event.priceAfn!==null?`${event.priceAfn} AFN`:"—"}
-          </AppText>
+          <Ionicons name={language==="en"?"chevron-forward":"chevron-back"} size={18} color={palette.text}/>
         </Pressable>;
       })}
+
+      {!timed.length&&!closed.length?<View style={styles.dayEmptyState}>
+        <AppText muted>{t("schedule.noEvents")}</AppText>
+      </View>:null}
     </View>:null}
-    {closed.map((event)=>{
-      const palette=slotPalette.CLOSED;
-      return <Pressable
-        key={event.id}
-        onPress={()=>onSelectSlot(event)}
-        style={({pressed})=>[
-          styles.dayClosedSlot,
-          {backgroundColor:palette.background,borderColor:palette.border},
-          pressed&&styles.weekSlotPressed,
-        ]}
-      >
-        <Ionicons name="lock-closed-outline" size={20} color={palette.text}/>
-        <AppText weight="bold" style={{color:palette.text}}>{t("schedule.event.CLOSED")}</AppText>
-        <AppText variant="caption" muted>{t("schedule.manageSlot")}</AppText>
-      </Pressable>;
-    })}
-    {!timed.length&&!closed.length?<Card><AppText muted>{t("schedule.noEvents")}</AppText></Card>:null}
   </View>;
 }
 
@@ -813,6 +860,76 @@ const styles=StyleSheet.create({
   },
   weekSlotPressed:{opacity:.72,transform:[{scale:.98}]},
   weekEmptySlot:{minHeight:40},
+  daySlotSection:{gap:spacing.md},
+  daySlotTable:{
+    borderWidth:1,
+    borderColor:colors.border,
+    borderRadius:radius.lg,
+    overflow:"hidden",
+    backgroundColor:colors.surface,
+  },
+  daySlotHeader:{
+    minHeight:58,
+    alignItems:"stretch",
+    backgroundColor:colors.primarySoft,
+    borderBottomWidth:1,
+    borderBottomColor:colors.border,
+  },
+  dayTimeHeader:{
+    width:78,
+    alignItems:"center",
+    justifyContent:"center",
+    borderRightWidth:1,
+    borderRightColor:colors.border,
+  },
+  dayHeaderCell:{
+    flex:1,
+    minWidth:0,
+    justifyContent:"center",
+    paddingHorizontal:spacing.md,
+    paddingVertical:spacing.sm,
+    gap:2,
+  },
+  daySlotRow:{
+    alignItems:"stretch",
+    borderBottomWidth:1,
+    borderBottomColor:colors.border,
+  },
+  dayTimeCell:{
+    width:78,
+    minHeight:70,
+    alignItems:"center",
+    justifyContent:"center",
+    padding:spacing.xs,
+    backgroundColor:colors.surfaceMuted,
+    borderRightWidth:1,
+    borderRightColor:colors.border,
+  },
+  dayStatusCell:{
+    flex:1,
+    minWidth:0,
+    padding:spacing.xs,
+    justifyContent:"center",
+  },
+  daySlotButton:{
+    minHeight:60,
+    borderRadius:radius.md,
+    borderWidth:1,
+    paddingHorizontal:spacing.sm,
+    paddingVertical:spacing.xs,
+    gap:spacing.xs,
+  },
+  daySlotButtonTop:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
+  daySlotButtonBottom:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  dayClosedSlot:{
+    minHeight:68,
+    padding:spacing.md,
+    borderWidth:1,
+    flexDirection:"row",
+    alignItems:"center",
+    gap:spacing.sm,
+  },
+  dayEmptyState:{padding:spacing.lg,alignItems:"center"},
   daySlotSection:{gap:spacing.md},
   daySlotGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   daySlot:{
