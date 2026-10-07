@@ -34,7 +34,7 @@ function findAdb(){
 
   const lookup=spawnSync(process.platform==="win32"?"where":"which",["adb"],{encoding:"utf8",shell:false});
   if(lookup.status===0){
-    const first=(lookup.stdout??"").split(/\\r?\\n/).map((value)=>value.trim()).find(Boolean);
+    const first=(lookup.stdout??"").split(/\r?\n/).map((value)=>value.trim()).find(Boolean);
     if(first)return first;
   }
   return null;
