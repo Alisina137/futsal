@@ -84,6 +84,7 @@ function postDto(row: {
   id: string;
   venueId: string;
   venueName: string;
+  socialPostId: string | null;
   body: string;
   imageUrl: string | null;
   ctaType: "NONE" | "VENUE" | "PROMOTION" | "COMPETITION";
@@ -101,6 +102,7 @@ function postDto(row: {
     id: row.id,
     venueId: row.venueId,
     venueName: row.venueName,
+    socialPostId: row.socialPostId,
     body: row.body,
     imageUrl: row.imageUrl,
     ctaType: row.ctaType,
@@ -325,6 +327,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       id: venuePosts.id,
       venueId: venuePosts.venueId,
       venueName: venues.name,
+      socialPostId: socialPosts.id,
       body: venuePosts.body,
       imageUrl: venuePosts.imageUrl,
       ctaType: venuePosts.ctaType,
@@ -337,7 +340,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       unpublishedAt: venuePosts.unpublishedAt,
       createdAt: venuePosts.createdAt,
       updatedAt: venuePosts.updatedAt,
-    }).from(venuePosts).innerJoin(venues, eq(venuePosts.venueId, venues.id));
+    }).from(venuePosts).innerJoin(venues, eq(venuePosts.venueId, venues.id)).leftJoin(socialPosts, eq(socialPosts.legacyVenuePostId, venuePosts.id));
   }
 
   private async hydrateProjectedPost(row: Awaited<ReturnType<ReturnType<DrizzleMarketingRepository["postProjection"]>["limit"]>>[number]) {
