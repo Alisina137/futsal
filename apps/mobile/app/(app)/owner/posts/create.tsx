@@ -8,7 +8,6 @@ import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
-import { OwnerTopNav } from "../../../../src/components/owner/OwnerTopNav";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
@@ -59,8 +58,7 @@ export default function CreatePostScreen(){
 
   const canSubmit=body.trim().length>0&&(ctaType!=="PROMOTION"||promotionId!==null)&&!busy;
 
-  return <Screen>
-    <OwnerTopNav/>
+  return <Screen embedded>
     <AppText variant="title" weight="bold">{t("ownerMarketing.createPost")}</AppText>
     <AppText muted>{t("ownerMarketing.createPostBody")}</AppText>
 
