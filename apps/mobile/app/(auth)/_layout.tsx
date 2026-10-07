@@ -10,5 +10,5 @@ export default function AuthLayout() {
     return <Redirect href={adminMode ? "/admin" : "/home"} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack screenOptions={{ headerShown: false, animation: "none" }} />;
 }
