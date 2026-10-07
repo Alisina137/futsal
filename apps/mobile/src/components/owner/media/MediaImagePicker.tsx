@@ -19,7 +19,7 @@ type Props={
   disabled?:boolean;
 };
 
-function mimeFromName(name:string|undefined){
+function mimeFromName(name:string|null|undefined){
   const lower=(name??"").toLowerCase();
   if(lower.endsWith(".png"))return "image/png";
   if(lower.endsWith(".webp"))return "image/webp";
@@ -55,20 +55,22 @@ export function MediaImagePicker({
       setError(t("media.galleryPermission"));
       return;
     }
-    const result=await ImagePicker.launchImageLibraryAsync({
+    const options:ImagePicker.ImagePickerOptions={
       mediaTypes:["images"],
       allowsEditing:variant!=="post",
-      aspect:variant==="profile"?[1,1]:variant==="cover"?[16,6]:undefined,
       quality:.82,
       selectionLimit:1,
-    });
+    };
+    if(variant==="profile")options.aspect=[1,1];
+    if(variant==="cover")options.aspect=[16,6];
+    const result=await ImagePicker.launchImageLibraryAsync(options);
     if(result.canceled)return;
     const asset=result.assets[0];
     if(!asset)return;
     await upload({
       uri:asset.uri,
       mimeType:asset.mimeType??mimeFromName(asset.fileName),
-      size:asset.fileSize,
+      ...(asset.fileSize!==undefined?{size:asset.fileSize}:{}),
     },"gallery");
   }
 
@@ -84,7 +86,7 @@ export function MediaImagePicker({
     await upload({
       uri:asset.uri,
       mimeType:asset.mimeType??mimeFromName(asset.name),
-      size:asset.size,
+      ...(asset.size!==undefined?{size:asset.size}:{}),
     },"files");
   }
 
@@ -181,7 +183,7 @@ const styles=StyleSheet.create({
   profilePreview:{width:132,height:132,borderRadius:66,alignSelf:"center"},
   coverPreview:{height:180},
   placeholder:{flex:1,alignItems:"center",justifyContent:"center",gap:spacing.sm},
-  busyOverlay:{...StyleSheet.absoluteFillObject,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(15,23,42,.48)"},
+  busyOverlay:{position:"absolute",top:0,right:0,bottom:0,left:0,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(15,23,42,.48)"},
   actions:{gap:spacing.sm,alignItems:"center",flexWrap:"wrap"},
   action:{
     minHeight:44,
