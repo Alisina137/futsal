@@ -393,6 +393,13 @@ function MonthView({
   onSelect:(date:string)=>void;
 }){
   return <Card style={styles.calendarCard}>
+    <View style={styles.weekdayHeader}>
+      {days.slice(0,7).map((day)=><View key={`weekday-${day.date}`} style={styles.weekdayHeaderCell}>
+        <AppText variant="caption" weight="bold" muted numberOfLines={1}>
+          {formatCalendarDate(day.date,language,{weekday:"short"})}
+        </AppText>
+      </View>)}
+    </View>
     <View style={styles.monthGrid}>
       {days.map((day)=><View key={day.date} style={styles.monthCellFrame}>
         <Pressable
@@ -561,6 +568,7 @@ function TimetableVersions({
 }:{
   data:VenueTimetableListResponse|null;
   t:ReturnType<typeof useLocale>["t"];
+  language:"fa-AF"|"ps-AF"|"en";
   busy:string|null;
   onCreate:()=>void;
   onEdit:(item:VenueTimetableDto)=>void;
@@ -579,6 +587,7 @@ function TimetableVersions({
     {data?.current?<VersionCard
       item={data.current}
       t={t}
+      language={language}
       actions={[
         {label:t("schedule.newVersion"),onPress:()=>onDuplicate(data.current!),loading:busy===`duplicate-${data.current.id}`},
       ]}
@@ -689,6 +698,8 @@ const styles=StyleSheet.create({
   summaryGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   metric:{minWidth:96,flexGrow:1,padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted,gap:2},
   calendarCard:{padding:spacing.xs},
+  weekdayHeader:{flexDirection:"row"},
+  weekdayHeaderCell:{width:"14.285714%",alignItems:"center",paddingVertical:spacing.xs,paddingHorizontal:2},
   monthGrid:{flexDirection:"row",flexWrap:"wrap"},
   monthCellFrame:{width:"14.285714%",padding:2},
   monthCell:{minHeight:78,borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,padding:spacing.xs,gap:2,backgroundColor:colors.surface},
