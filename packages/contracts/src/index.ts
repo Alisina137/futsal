@@ -636,7 +636,7 @@ export const venueTimetableDraftRequestSchema = z.object({
 });
 export type VenueTimetableDraftRequest = z.infer<typeof venueTimetableDraftRequestSchema>;
 
-export const venueTimetableDtoSchema = venueTimetableDraftRequestSchema.extend({
+export const venueTimetableDtoSchema = venueTimetableDraftRequestSchema.safeExtend({
   id: z.string().uuid(),
   venueId: z.string().uuid(),
   status: venueTimetableStatusSchema,
@@ -676,7 +676,7 @@ export const venueTimetableExceptionRequestSchema = z.object({
 });
 export type VenueTimetableExceptionRequest = z.infer<typeof venueTimetableExceptionRequestSchema>;
 
-export const venueTimetableExceptionDtoSchema = venueTimetableExceptionRequestSchema.extend({
+export const venueTimetableExceptionDtoSchema = venueTimetableExceptionRequestSchema.safeExtend({
   id: z.string().uuid(),
   venueId: z.string().uuid(),
   note: z.string().nullable(),
