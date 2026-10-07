@@ -8,7 +8,6 @@ import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
-import { OwnerTopNav } from "../../../src/components/owner/OwnerTopNav";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
@@ -26,17 +25,16 @@ export default function BlockTimeScreen(){
 
   async function submit(){if(!session||!areaId)return;setBusy(true);setError(null);try{
     await ownerApi.createBlock(session.accessToken,{areaId,startsAt:afghanistanIso(date,start),endsAt:afghanistanIso(date,end),reason});
-    router.replace("/schedule");
+    router.replace("/owner/schedule");
   }catch(cause){
     if(cause instanceof ApiRequestError&&cause.code==="SLOT_UNAVAILABLE")setError(t("schedule.conflict"));
     else if(cause instanceof ApiRequestError&&cause.code==="SUBSCRIPTION_REQUIRED")setError(t("schedule.subscriptionRequired"));
     else setError(t("schedule.blockError"));
   }finally{setBusy(false);}}
 
-  if(loading)return <Screen><OwnerTopNav/><DataLoadingState variant="form" minHeight={500}/></Screen>;
+  if(loading)return <Screen embedded><DataLoadingState variant="form" minHeight={500}/></Screen>;
 
-  return <Screen>
-    <OwnerTopNav/>
+  return <Screen embedded>
     <AppText variant="title" weight="bold">{t("schedule.blockTitle")}</AppText>
     <Card><AppText weight="semibold">{t("schedule.area")}</AppText><View style={{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap",gap:spacing.sm}}>
       {owner?.venue?.areas.map((area)=><Pressable key={area.id} onPress={()=>setAreaId(area.id)} style={{padding:spacing.md,borderRadius:radius.md,borderWidth:1,borderColor:areaId===area.id?colors.primary:colors.border,backgroundColor:areaId===area.id?colors.primarySoft:colors.surface}}><AppText>{area.name}</AppText></Pressable>)}
