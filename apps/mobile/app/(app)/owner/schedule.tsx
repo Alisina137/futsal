@@ -601,7 +601,7 @@ function EventCard({
       {event.priceAfn!==null?<AppText weight="bold" forceLtr>{event.priceAfn} AFN</AppText>:null}
     </View>
     {event.startsAt&&event.endsAt?<AppText forceLtr>{formatCalendarTime(event.startsAt,language)} – {formatCalendarTime(event.endsAt,language)}</AppText>:null}
-    {event.type==="AVAILABLE"?<View style={styles.actionGrid}>
+    {(event.type==="AVAILABLE"||event.type==="PROMOTION")?<View style={styles.actionGrid}>
       <Button
         label={t("schedule.addManual")}
         onPress={()=>router.push({pathname:"/owner/manual-booking",params:{areaId:event.areaId??"",date,start,end,price:event.priceAfn!==null?String(event.priceAfn):""}})}
@@ -613,12 +613,12 @@ function EventCard({
         variant="secondary"
         style={styles.actionButton}
       />
-      <Button
+      {event.type==="AVAILABLE"?<Button
         label={t("ownerMarketing.createPromotion")}
         onPress={()=>router.push({pathname:"/owner/promotions/create",params:{areaId:event.areaId??"",date,start}})}
         variant="secondary"
         style={styles.actionButton}
-      />
+      />:null}
     </View>:null}
     {(event.type==="ONLINE_BOOKING"||event.type==="MANUAL_BOOKING")?<Button
       label={t("schedule.cancelBooking")}
