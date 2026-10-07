@@ -179,7 +179,7 @@ export class BookingService {
           })
         : {
             periods: fallback && !fallback.isClosed && fallback.opensAt && fallback.closesAt
-              ? [{ startsAt: fallback.opensAt, endsAt: fallback.closesAt }]
+              ? [{ startsAt: fallback.opensAt, endsAt: fallback.closesAt, priceAfn: null }]
               : [],
             slotDurationMinutes: null,
             bufferMinutes: 0,
