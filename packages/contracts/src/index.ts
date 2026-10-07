@@ -589,6 +589,175 @@ export const ownerScheduleResponseSchema = z.object({
 export type OwnerScheduleResponse = z.infer<typeof ownerScheduleResponseSchema>;
 
 
+export const venueTimetableStatusSchema = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
+export type VenueTimetableStatus = z.infer<typeof venueTimetableStatusSchema>;
+
+export const venueTimetablePeriodInputSchema = z.object({
+  areaId: z.string().uuid().nullable(),
+  dayOfWeek: z.number().int().min(0).max(6),
+  startsAt: hhmmSchema,
+  endsAt: hhmmSchema,
+}).superRefine((value, ctx) => {
+  if (value.startsAt >= value.endsAt) {
+    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End time must be after start time." });
+  }
+});
+export type VenueTimetablePeriodInput = z.infer<typeof venueTimetablePeriodInputSchema>;
+
+const timetablePeriodsSchema = z.array(venueTimetablePeriodInputSchema).min(1).max(300).superRefine((periods, ctx) => {
+  const groups = new Map<string, Array<{ startsAt: string; endsAt: string }>>();
+  for (const period of periods) {
+    const key = `${period.areaId ?? "ALL"}:${period.dayOfWeek}`;
+    const group = groups.get(key) ?? [];
+    group.push({ startsAt: period.startsAt, endsAt: period.endsAt });
+    groups.set(key, group);
+  }
+  for (const [key, group] of groups) {
+    const sorted = [...group].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+    for (let index = 1; index < sorted.length; index += 1) {
+      if (sorted[index]!.startsAt < sorted[index - 1]!.endsAt) {
+        ctx.addIssue({ code: "custom", message: `Timetable periods overlap for ${key}.` });
+      }
+    }
+  }
+});
+
+export const venueTimetableDraftRequestSchema = z.object({
+  name: z.string().trim().min(2).max(120).default("Weekly timetable"),
+  effectiveFrom: dateOnlySchema,
+  effectiveUntil: dateOnlySchema.nullable().default(null),
+  defaultSlotDurationMinutes: z.number().int().min(30).max(240).default(90),
+  bufferMinutes: z.number().int().min(0).max(60).default(0),
+  periods: timetablePeriodsSchema,
+}).superRefine((value, ctx) => {
+  if (value.effectiveUntil && value.effectiveUntil < value.effectiveFrom) {
+    ctx.addIssue({ code: "custom", path: ["effectiveUntil"], message: "End date must be on or after the start date." });
+  }
+});
+export type VenueTimetableDraftRequest = z.infer<typeof venueTimetableDraftRequestSchema>;
+
+export const venueTimetableDtoSchema = venueTimetableDraftRequestSchema.extend({
+  id: z.string().uuid(),
+  venueId: z.string().uuid(),
+  status: venueTimetableStatusSchema,
+  publishedAt: isoDateTimeSchema.nullable(),
+  archivedAt: isoDateTimeSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+  updatedAt: isoDateTimeSchema,
+});
+export type VenueTimetableDto = z.infer<typeof venueTimetableDtoSchema>;
+
+export const venueTimetableExceptionPeriodSchema = z.object({
+  startsAt: hhmmSchema,
+  endsAt: hhmmSchema,
+}).superRefine((value, ctx) => {
+  if (value.startsAt >= value.endsAt) {
+    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End time must be after start time." });
+  }
+});
+export type VenueTimetableExceptionPeriod = z.infer<typeof venueTimetableExceptionPeriodSchema>;
+
+export const venueTimetableExceptionRequestSchema = z.object({
+  areaId: z.string().uuid().nullable(),
+  date: dateOnlySchema,
+  isClosed: z.boolean(),
+  periods: z.array(venueTimetableExceptionPeriodSchema).max(12).default([]),
+  note: z.string().trim().max(240).optional().or(z.literal("")),
+}).superRefine((value, ctx) => {
+  if (!value.isClosed && value.periods.length === 0) {
+    ctx.addIssue({ code: "custom", path: ["periods"], message: "Special hours require at least one time period." });
+  }
+  const sorted = [...value.periods].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  for (let index = 1; index < sorted.length; index += 1) {
+    if (sorted[index]!.startsAt < sorted[index - 1]!.endsAt) {
+      ctx.addIssue({ code: "custom", path: ["periods"], message: "Special-hour periods cannot overlap." });
+    }
+  }
+});
+export type VenueTimetableExceptionRequest = z.infer<typeof venueTimetableExceptionRequestSchema>;
+
+export const venueTimetableExceptionDtoSchema = venueTimetableExceptionRequestSchema.extend({
+  id: z.string().uuid(),
+  venueId: z.string().uuid(),
+  note: z.string().nullable(),
+  createdAt: isoDateTimeSchema,
+  updatedAt: isoDateTimeSchema,
+});
+export type VenueTimetableExceptionDto = z.infer<typeof venueTimetableExceptionDtoSchema>;
+
+export const timetableConflictTypeSchema = z.enum(["BOOKING", "BLOCK", "COMPETITION_MATCH"]);
+export const venueTimetableConflictSchema = z.object({
+  type: timetableConflictTypeSchema,
+  areaId: z.string().uuid(),
+  areaName: z.string(),
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+  title: z.string(),
+});
+export type VenueTimetableConflict = z.infer<typeof venueTimetableConflictSchema>;
+
+export const venueTimetableListResponseSchema = z.object({
+  current: venueTimetableDtoSchema.nullable(),
+  drafts: z.array(venueTimetableDtoSchema),
+  future: z.array(venueTimetableDtoSchema),
+  archived: z.array(venueTimetableDtoSchema),
+  exceptions: z.array(venueTimetableExceptionDtoSchema),
+});
+export type VenueTimetableListResponse = z.infer<typeof venueTimetableListResponseSchema>;
+
+export const venueTimetablePublishResponseSchema = z.object({
+  timetable: venueTimetableDtoSchema,
+  conflicts: z.array(venueTimetableConflictSchema),
+});
+export type VenueTimetablePublishResponse = z.infer<typeof venueTimetablePublishResponseSchema>;
+
+export const venueCalendarEventTypeSchema = z.enum([
+  "AVAILABLE",
+  "ONLINE_BOOKING",
+  "MANUAL_BOOKING",
+  "COMPETITION",
+  "BLOCKED",
+  "PROMOTION",
+  "CLOSED",
+]);
+export type VenueCalendarEventType = z.infer<typeof venueCalendarEventTypeSchema>;
+
+export const venueCalendarEventSchema = z.object({
+  id: z.string(),
+  type: venueCalendarEventTypeSchema,
+  areaId: z.string().uuid().nullable(),
+  areaName: z.string(),
+  startsAt: isoDateTimeSchema.nullable(),
+  endsAt: isoDateTimeSchema.nullable(),
+  title: z.string(),
+  priceAfn: z.number().int().min(0).nullable(),
+});
+export type VenueCalendarEvent = z.infer<typeof venueCalendarEventSchema>;
+
+export const venueCalendarDaySchema = z.object({
+  date: dateOnlySchema,
+  availableCount: z.number().int().min(0),
+  bookedCount: z.number().int().min(0),
+  manualCount: z.number().int().min(0),
+  competitionCount: z.number().int().min(0),
+  blockedCount: z.number().int().min(0),
+  promotionCount: z.number().int().min(0),
+  revenueAfn: z.number().int().min(0),
+  closed: z.boolean(),
+  events: z.array(venueCalendarEventSchema),
+});
+export type VenueCalendarDay = z.infer<typeof venueCalendarDaySchema>;
+
+export const venueTimetableCalendarResponseSchema = z.object({
+  from: dateOnlySchema,
+  to: dateOnlySchema,
+  generatedAt: isoDateTimeSchema,
+  areaId: z.string().uuid().nullable(),
+  days: z.array(venueCalendarDaySchema),
+});
+export type VenueTimetableCalendarResponse = z.infer<typeof venueTimetableCalendarResponseSchema>;
+
+
 export const promotionStatusSchema = z.enum(["ACTIVE", "CLOSED", "EXPIRED"]);
 export type PromotionStatus = z.infer<typeof promotionStatusSchema>;
 
