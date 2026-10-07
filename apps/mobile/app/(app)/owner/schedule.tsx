@@ -198,8 +198,10 @@ export default function OwnerScheduleScreen(){
       <View style={[styles.toolbar,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Button label={t("schedule.today")} onPress={()=>setAnchorDate(todayKabul())} variant="secondary" style={styles.compactButton}/>
         <View style={[styles.navButtons,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <Pressable style={styles.iconButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,-1,language))}>
-            <Ionicons name={isRTL?"chevron-forward":"chevron-back"} size={20} color={colors.primary}/>
+          <Pressable style={styles.textNavButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,-1,language))}>
+            <AppText variant="caption" weight="semibold" style={styles.textNavButtonLabel}>
+              {t("schedule.previous")}
+            </AppText>
           </Pressable>
           <AppText weight="bold" style={styles.rangeLabel}>
             {view==="MONTH"
@@ -208,8 +210,10 @@ export default function OwnerScheduleScreen(){
                 ?formatCalendarDate(anchorDate,language,{weekday:"short",month:"short",day:"numeric",year:"numeric"})
                 :`${formatCalendarDate(range.from,language)} — ${formatCalendarDate(range.to,language)}`}
           </AppText>
-          <Pressable style={styles.iconButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,1,language))}>
-            <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={20} color={colors.primary}/>
+          <Pressable style={styles.textNavButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,1,language))}>
+            <AppText variant="caption" weight="semibold" style={styles.textNavButtonLabel}>
+              {t("schedule.next")}
+            </AppText>
           </Pressable>
         </View>
       </View>
@@ -785,7 +789,16 @@ const styles=StyleSheet.create({
   toolbar:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm,flexWrap:"wrap"},
   compactButton:{minHeight:42,paddingHorizontal:spacing.md},
   navButtons:{alignItems:"center",gap:spacing.xs,flex:1,justifyContent:"flex-end"},
-  iconButton:{width:42,height:42,borderRadius:radius.md,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
+  textNavButton:{
+    minHeight:42,
+    minWidth:76,
+    paddingHorizontal:spacing.sm,
+    borderRadius:radius.md,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:colors.primarySoft,
+  },
+  textNavButtonLabel:{color:colors.primary,textAlign:"center"},
   rangeLabel:{textAlign:"center",minWidth:120},
   segmented:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   segment:{flex:1,minHeight:42,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
