@@ -537,6 +537,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
   }
 
   async refreshPostStates(now:Date){
+    const newlyPublished:VenuePostDto[]=[];
     const due=await this.db.select().from(venuePostScheduledActions)
       .where(and(
         lte(venuePostScheduledActions.executeAt,now),
@@ -558,6 +559,8 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       if(item.action==="PUBLISH"){
         await this.db.update(venuePosts).set({status:"PUBLISHED",publishedAt:now,unpublishedAt:null,updatedAt:now}).where(eq(venuePosts.id,item.postId));
         await this.db.update(socialPosts).set({status:"PUBLISHED",publishedAt:now,unpublishedAt:null,updatedAt:now}).where(eq(socialPosts.legacyVenuePostId,item.postId));
+        const published=await this.getPost(item.postId);
+        if(published)newlyPublished.push(published);
       }else if(item.action==="UNPUBLISH"){
         await this.db.update(venuePosts).set({status:"UNPUBLISHED",unpublishedAt:now,updatedAt:now}).where(eq(venuePosts.id,item.postId));
         await this.db.update(socialPosts).set({status:"UNPUBLISHED",unpublishedAt:now,updatedAt:now}).where(eq(socialPosts.legacyVenuePostId,item.postId));
@@ -568,6 +571,14 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       }
       await this.db.update(venuePostScheduledActions).set({executedAt:now}).where(eq(venuePostScheduledActions.id,item.id));
     }
+    return newlyPublished;
+  }
+
+  async competitionBelongsToVenue(competitionId:string,venueId:string){
+    const [row]=await this.db.select({id:competitions.id}).from(competitions)
+      .where(and(eq(competitions.id,competitionId),eq(competitions.venueId,venueId)))
+      .limit(1);
+    return Boolean(row);
   }
 
   async getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null> {
