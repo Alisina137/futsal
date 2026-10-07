@@ -11,7 +11,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   BookingRepository,
@@ -221,7 +221,13 @@ export class DrizzleBookingRepository implements BookingRepository {
     return bookingDto(row);
   }
 
-  private async overlapExists(tx: Parameters<Parameters<Database["transaction"]>[0]>[0], areaId: string, startsAt: Date, endsAt: Date) {
+  private async overlapExists(
+    tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+    areaId: string,
+    startsAt: Date,
+    endsAt: Date,
+    excludeBlockId?: string,
+  ) {
     const [bookingOverlap] = await tx.select({ id: bookings.id }).from(bookings).where(and(
       eq(bookings.areaId, areaId),
       inArray(bookings.status, ["PENDING", "CONFIRMED"]),
@@ -230,11 +236,20 @@ export class DrizzleBookingRepository implements BookingRepository {
     )).limit(1);
     if (bookingOverlap) return true;
 
-    const [blockOverlap] = await tx.select({ id: venueBlocks.id }).from(venueBlocks).where(and(
-      eq(venueBlocks.areaId, areaId),
-      lt(venueBlocks.startsAt, endsAt),
-      gt(venueBlocks.endsAt, startsAt),
-    )).limit(1);
+    const [blockOverlap] = await tx.select({ id: venueBlocks.id }).from(venueBlocks).where(
+      excludeBlockId
+        ? and(
+            eq(venueBlocks.areaId, areaId),
+            ne(venueBlocks.id, excludeBlockId),
+            lt(venueBlocks.startsAt, endsAt),
+            gt(venueBlocks.endsAt, startsAt),
+          )
+        : and(
+            eq(venueBlocks.areaId, areaId),
+            lt(venueBlocks.startsAt, endsAt),
+            gt(venueBlocks.endsAt, startsAt),
+          ),
+    ).limit(1);
     if (blockOverlap) return true;
 
     const [matchOverlap] = await tx.select({ id: competitionMatches.id }).from(competitionMatches).where(and(
@@ -350,6 +365,79 @@ export class DrizzleBookingRepository implements BookingRepository {
       .where(eq(venueBlocks.id, blockId))
       .limit(1);
     if (!row) throw new Error("Block could not be loaded.");
+    return { ...row, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt.toISOString() };
+  }
+
+  async updateBlockAtomic(input: {
+    blockId: string;
+    venueId: string;
+    areaId: string;
+    ownerUserId: string;
+    startsAt: Date;
+    endsAt: Date;
+    reason: string | null;
+  }) {
+    const updatedId = await this.db.transaction(async (tx) => {
+      const [owned] = await tx.select({
+        id: venueBlocks.id,
+        areaId: venueBlocks.areaId,
+      }).from(venueBlocks)
+        .innerJoin(venues, eq(venueBlocks.venueId, venues.id))
+        .where(and(
+          eq(venueBlocks.id, input.blockId),
+          eq(venueBlocks.venueId, input.venueId),
+          eq(venues.ownerUserId, input.ownerUserId),
+        ))
+        .limit(1);
+      if (!owned) return null;
+
+      const lockIds = Array.from(new Set([owned.areaId, input.areaId])).sort();
+      for (const areaId of lockIds) {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${areaId}))`);
+      }
+
+      if (await this.overlapExists(tx, input.areaId, input.startsAt, input.endsAt, input.blockId)) {
+        throw errors.conflict("SLOT_UNAVAILABLE", "That time is already occupied.");
+      }
+
+      const [updated] = await tx.update(venueBlocks).set({
+        areaId: input.areaId,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        reason: input.reason,
+      }).where(eq(venueBlocks.id, input.blockId)).returning({ id: venueBlocks.id });
+      if (!updated) return null;
+
+      const closedAt = new Date();
+      await tx.update(venuePromotions).set({
+        status: "CLOSED",
+        closedAt,
+        closeReason: "BLOCKED",
+        updatedAt: closedAt,
+      }).where(and(
+        eq(venuePromotions.areaId, input.areaId),
+        eq(venuePromotions.status, "ACTIVE"),
+        lt(venuePromotions.startsAt, input.endsAt),
+        gt(venuePromotions.endsAt, input.startsAt),
+      ));
+
+      return updated.id;
+    });
+
+    if (!updatedId) return null;
+    const [row] = await this.db.select({
+      id: venueBlocks.id,
+      venueId: venueBlocks.venueId,
+      areaId: venueBlocks.areaId,
+      areaName: venueAreas.name,
+      startsAt: venueBlocks.startsAt,
+      endsAt: venueBlocks.endsAt,
+      reason: venueBlocks.reason,
+    }).from(venueBlocks)
+      .innerJoin(venueAreas, eq(venueBlocks.areaId, venueAreas.id))
+      .where(eq(venueBlocks.id, updatedId))
+      .limit(1);
+    if (!row) return null;
     return { ...row, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt.toISOString() };
   }
 
