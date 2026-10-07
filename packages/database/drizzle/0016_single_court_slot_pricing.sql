@@ -29,23 +29,24 @@ ALTER TABLE venue_timetable_periods
 -- periods prefer their own historical court price.
 UPDATE venue_timetable_periods AS period
 SET price_afn = COALESCE(
-  specific_area.base_price_afn,
-  active_area.base_price_afn,
+  (
+    SELECT area.base_price_afn
+    FROM venue_areas AS area
+    WHERE area.id = period.area_id
+    LIMIT 1
+  ),
+  (
+    SELECT area.base_price_afn
+    FROM venue_timetables AS timetable
+    INNER JOIN venue_areas AS area
+      ON area.venue_id = timetable.venue_id
+    WHERE timetable.id = period.timetable_id
+    ORDER BY area.active DESC, area.created_at ASC, area.id ASC
+    LIMIT 1
+  ),
   0
 )
-FROM venue_timetables AS timetable
-LEFT JOIN venue_areas AS specific_area
-  ON specific_area.id = period.area_id
-LEFT JOIN LATERAL (
-  SELECT base_price_afn
-  FROM venue_areas
-  WHERE venue_id = timetable.venue_id
-    AND active = true
-  ORDER BY created_at ASC, id ASC
-  LIMIT 1
-) AS active_area ON true
-WHERE period.timetable_id = timetable.id
-  AND period.price_afn IS NULL;
+WHERE period.price_afn IS NULL;
 
 ALTER TABLE venue_timetable_periods
   ALTER COLUMN price_afn SET NOT NULL;
