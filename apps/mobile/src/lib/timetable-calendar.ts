@@ -112,6 +112,52 @@ export function orderedWeekdays(language:TimetableCalendarLanguage){
   return Array.from({length:7},(_,index)=>(first+index)%7);
 }
 
+
+export function formatWeekdayName(dayOfWeek:number,language:TimetableCalendarLanguage){
+  // 2024-01-07 is a Sunday, matching JS weekday index 0.
+  const date=addDays("2024-01-07",dayOfWeek);
+  return formatCalendarDate(date,language,{weekday:"short"});
+}
+
+export function calendarInputDate(value:string,language:TimetableCalendarLanguage){
+  if(!usesSolarHijri(language))return value;
+  const converted=displayCalendarParts(value,language);
+  return `${String(converted.year).padStart(4,"0")}-${String(converted.month).padStart(2,"0")}-${String(converted.day).padStart(2,"0")}`;
+}
+
+function normalizeCalendarDigits(value:string){
+  const fa="۰۱۲۳۴۵۶۷۸۹";
+  const ar="٠١٢٣٤٥٦٧٨٩";
+  return value
+    .replace(/[۰-۹]/g,(digit)=>String(fa.indexOf(digit)))
+    .replace(/[٠-٩]/g,(digit)=>String(ar.indexOf(digit)))
+    .trim();
+}
+
+export function calendarInputToGregorian(value:string,language:TimetableCalendarLanguage){
+  const normalized=normalizeCalendarDigits(value);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(normalized))return null;
+  if(!usesSolarHijri(language)){
+    const parsed=new Date(`${normalized}T00:00:00.000Z`);
+    return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===normalized
+      ?normalized
+      :null;
+  }
+
+  const [year,month,day]=normalized.split("-").map(Number);
+  if(!year||!month||!day||month<1||month>12||day<1||day>31)return null;
+
+  // Solar Hijri new year falls around March 20/21. Search one Solar year
+  // around that point and match via Intl's Persian calendar conversion.
+  let cursor=`${String(year+621).padStart(4,"0")}-03-18`;
+  for(let offset=0;offset<370;offset+=1){
+    const candidate=addDays(cursor,offset);
+    const converted=displayCalendarParts(candidate,language);
+    if(converted.year===year&&converted.month===month&&converted.day===day)return candidate;
+  }
+  return null;
+}
+
 export function startOfWeek(value: string,language:TimetableCalendarLanguage) {
   const { year, month, day } = parts(value);
   const date = new Date(Date.UTC(year, month - 1, day));
