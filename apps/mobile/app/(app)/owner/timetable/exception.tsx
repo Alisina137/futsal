@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { VenueTimetableExceptionPeriod } from "@leaguekick/contracts";
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { ownerApi } from "../../../../src/lib/api";
 import {
@@ -14,7 +14,6 @@ import { normalizeLocalizedDigits, suggestNextPeriod } from "../../../../src/lib
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
-import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
@@ -24,27 +23,13 @@ export default function TimetableExceptionScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
-  const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
-  const [areaId,setAreaId]=useState<string|null>(null);
+  const areaId:string|null=null;
   const [date,setDate]=useState(()=>calendarInputDate(todayKabul(),language));
   const [isClosed,setClosed]=useState(true);
   const [periods,setPeriods]=useState<VenueTimetableExceptionPeriod[]>([{startsAt:"08:00",endsAt:"23:00"}]);
   const [note,setNote]=useState("");
-  const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
-
-  const load=useCallback(async()=>{
-    if(!token)return;
-    setLoading(true);
-    try{
-      const status=await ownerApi.getStatus(token);
-      setAreas((status.venue?.areas??[]).map((area)=>({id:area.id,name:area.name})));
-    }catch{setError(t("schedule.loadTimetableError"));}
-    finally{setLoading(false);}
-  },[t,token]);
-
-  useEffect(()=>{void load();},[load]);
 
   function updatePeriod(index:number,patch:Partial<VenueTimetableExceptionPeriod>){
     setPeriods((current)=>current.map((period,i)=>i===index?{...period,...patch}:period));
@@ -74,8 +59,6 @@ export default function TimetableExceptionScreen(){
     finally{setBusy(false);}
   }
 
-  if(loading)return <Screen embedded><DataLoadingState variant="form" minHeight={480}/></Screen>;
-
   return <Screen embedded>
     <View style={styles.header}>
       <Pressable onPress={()=>router.back()} style={styles.back}>
@@ -91,12 +74,6 @@ export default function TimetableExceptionScreen(){
 
     <Card>
       <TextField label={t("schedule.exceptionDate")} value={date} onChangeText={setDate} hint={language==="en"?"YYYY-MM-DD":t("schedule.solarHijriHint")} forceLtr/>
-      <AppText weight="semibold">{t("schedule.exceptionArea")}</AppText>
-      <View style={styles.chips}>
-        <Choice label={t("schedule.allAreas")} active={areaId===null} onPress={()=>setAreaId(null)}/>
-        {areas.map((area)=><Choice key={area.id} label={area.name} active={areaId===area.id} onPress={()=>setAreaId(area.id)}/>)}
-      </View>
-
       <View style={[styles.toggleRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={{flex:1}}>
           <AppText weight="semibold">{t("schedule.exceptionClosed")}</AppText>
@@ -129,18 +106,10 @@ export default function TimetableExceptionScreen(){
   </Screen>;
 }
 
-function Choice({label,active,onPress}:{label:string;active:boolean;onPress:()=>void}){
-  return <Pressable onPress={onPress} style={[styles.choice,active&&styles.choiceActive]}>
-    <AppText variant="caption" weight="semibold" numberOfLines={1} style={active?{color:colors.primary}:undefined}>{label}</AppText>
-  </Pressable>;
-}
 
 const styles=StyleSheet.create({
   header:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
   back:{width:44,height:44,borderRadius:radius.md,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
-  chips:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  choice:{minHeight:40,paddingHorizontal:spacing.md,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,alignItems:"center",justifyContent:"center"},
-  choiceActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
   toggleRow:{alignItems:"center",gap:spacing.md,paddingVertical:spacing.sm},
   period:{gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
   times:{gap:spacing.sm},
