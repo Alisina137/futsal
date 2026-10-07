@@ -147,31 +147,17 @@ assert(editor.includes("focusTodayCard"),"Weekly editor must focus today's card 
 assert(editor.includes("scrollRef={screenScrollRef}"),"Weekly editor must control its own scroll position to reveal today's card.");
 assert(!editor.includes("weekTableBody:{flexDirection:\"column\"}"),"Weekly Timetable editor must remain card-based and must not use the Week-view status table.");
 
-assert(schedule.includes('weekTableBody:{flexDirection:"column"'),"Timetable Week view must render the seven days as a vertical row list.");
-assert(schedule.includes("weekTableScrollContent")&&schedule.includes("showsHorizontalScrollIndicator"),"Timetable Week view must allow horizontal scrolling when columns exceed the screen width.");
-assert(schedule.includes("WeekHeaderCell"),"Timetable Week view must render a structured table header.");
-for(const key of [
-  "schedule.weeklyHeaderDay",
-  "schedule.summaryAvailable",
-  "schedule.summaryBooked",
-  "schedule.summaryManual",
-  "schedule.summaryCompetition",
-  "schedule.summaryBlocked",
-  "schedule.event.PROMOTION",
-  "schedule.summaryRevenue",
-  "schedule.weekViewActivity",
-]){
-  assert(schedule.includes(`t("${key}")`),`Timetable Week-view table header missing: ${key}`);
-}
-assert(schedule.includes("styles.weekTableRowAlt"),"Timetable Week rows must use structured alternating styling.");
-assert(schedule.includes("styles.weekTodayRow"),"Today's row must be highlighted in Timetable Week view.");
+assert(schedule.includes("styles.weekList"),"Timetable Week view must render a simple vertical list of days.");
+assert(schedule.includes('t("schedule.totalReservations")'),"Timetable Week list must show only the total reservation count for each day.");
+assert(schedule.includes("day.bookedCount"),"Timetable Week list total must use the day total booking count.");
+assert(schedule.includes("styles.weekDayRowPressed"),"Timetable Week day rows must clearly feel clickable.");
+assert(schedule.includes("styles.weekTodayRow"),"Today's row must remain highlighted in Timetable Week view.");
 assert(schedule.includes("focusTodayWeekRow"),"Timetable Week view must bring today's row into view for the current week.");
-assert(schedule.includes('t("schedule.openDay")'),"Timetable Week rows must expose an explicit clickable Open day affordance.");
-assert(schedule.includes("weekTableBody:{flexDirection:\"column\",gap:spacing.xs}"),"Timetable Week rows must have visible spacing between days.");
-assert(schedule.includes("minHeight:56"),"Timetable Week rows must use compact content-driven height rather than oversized whitespace.");
-assert(schedule.includes("weekOpenDayCue"),"Timetable Week rows must visually communicate that each day is clickable.");
-assert(schedule.includes("weekTableRowPressed"),"Timetable Week rows must provide pressed-state feedback.");
-assert(schedule.includes("weekMetricColumn:{width:76"),"Timetable Week metric columns must remain compact.");
+assert(!schedule.includes("WeekHeaderCell"),"Timetable Week list must not expose the old detailed table columns.");
+assert(!schedule.includes("WeekMetricCell"),"Timetable Week list must keep detailed status metrics out of the weekly list.");
+assert(schedule.includes('setStatusFilter("ALL");setAnchorDate(date);setView("DAY")'),"Selecting a week day must open that day detail with all statuses visible.");
+assert(schedule.includes('event.type==="ONLINE_BOOKING"'),"Day detail summary must calculate online reservations separately.");
+assert(schedule.includes('t("schedule.summaryOnline")'),"Day detail summary must label online reservations separately.");
 
 assert(editor.includes("calendarInputDate"),"Weekly editor must display Solar Hijri form dates for Dari/Pashto.");
 assert(editor.includes("selectedAreaIds"),"Weekly editor must support selected venue areas.");
@@ -194,9 +180,11 @@ for(const key of [
   "schedule.solarHijriHint",
   "schedule.weeklyHeaderDay",
   "schedule.weekViewActivity",
+  "schedule.totalReservations",
+  "schedule.summaryOnline",
 ]){
   const count=localization.split(`"${key}"`).length-1;
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: card-based Weekly Timetable editor restored; Timetable Week view uses compact, separated, clearly clickable rows with horizontal overflow and today focus.");
+console.log("Venue timetable verified: Weekly Timetable editor stays card-based; Timetable Week view is a simple clickable day/reservation list and Day view exposes detailed reservation statuses.");
