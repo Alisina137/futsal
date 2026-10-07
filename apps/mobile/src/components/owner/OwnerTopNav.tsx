@@ -17,10 +17,10 @@ const items:{
     |"owner.dashboardNav.posts"
     |"owner.dashboardNav.analysis"
     |"owner.dashboardNav.settings";
-  href:"/owner/competitions"|"/schedule"|"/owner/posts"|"/owner/analytics"|"/owner/onboarding";
+  href:"/owner/competitions"|"/owner/schedule"|"/owner/posts"|"/owner/analytics"|"/owner/onboarding";
 }[]=[
   {key:"competitions",icon:"trophy-outline",labelKey:"owner.dashboardNav.competitions",href:"/owner/competitions"},
-  {key:"schedule",icon:"calendar-outline",labelKey:"owner.dashboardNav.schedule",href:"/schedule"},
+  {key:"schedule",icon:"calendar-outline",labelKey:"owner.dashboardNav.schedule",href:"/owner/schedule"},
   {key:"media",icon:"images-outline",labelKey:"owner.dashboardNav.posts",href:"/owner/posts"},
   {key:"analysis",icon:"stats-chart-outline",labelKey:"owner.dashboardNav.analysis",href:"/owner/analytics"},
   {key:"settings",icon:"settings-outline",labelKey:"owner.dashboardNav.settings",href:"/owner/onboarding"},
@@ -28,7 +28,7 @@ const items:{
 
 function activeSection(pathname:string):OwnerSection|null{
   if(pathname==="/dashboard"||pathname.startsWith("/owner/competitions"))return "competitions";
-  if(pathname==="/schedule"||pathname.startsWith("/owner/manual-booking")||pathname.startsWith("/owner/block-time"))return "schedule";
+  if(pathname.startsWith("/owner/schedule")||pathname.startsWith("/owner/manual-booking")||pathname.startsWith("/owner/block-time"))return "schedule";
   if(pathname.startsWith("/owner/posts")||pathname.startsWith("/owner/promotions"))return "media";
   if(pathname.startsWith("/owner/analytics"))return "analysis";
   if(pathname.startsWith("/owner/onboarding")||pathname.startsWith("/owner/subscription"))return "settings";
