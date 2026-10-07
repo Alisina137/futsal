@@ -228,7 +228,7 @@ export default function OwnerScheduleScreen(){
       </ScrollView>
     </Card>
 
-    {selectedDay?<Summary day={selectedDay} t={t}/>:null}
+    {renderedView==="DAY"&&selectedDay?<Summary day={selectedDay} t={t}/>:null}
 
     <View
       style={styles.calendarDataArea}
@@ -258,7 +258,7 @@ export default function OwnerScheduleScreen(){
                 todayWeekRowY.current=y;
                 focusTodayWeekRow(calendar.from);
               }}
-              onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}
+              onSelect={(date)=>{setStatusFilter("ALL");setAnchorDate(date);setView("DAY");}}
             />
             :<DayView
               day={selectedDay}
@@ -288,6 +288,7 @@ function Summary({day,t}:{day:VenueCalendarDay;t:ReturnType<typeof useLocale>["t
     [t("schedule.summaryManual"),day.manualCount],
     [t("schedule.summaryCompetition"),day.competitionCount],
     [t("schedule.summaryBlocked"),day.blockedCount],
+    [t("schedule.event.PROMOTION"),day.promotionCount],
   ] as const;
   return <Card>
     <View style={styles.summaryGrid}>
