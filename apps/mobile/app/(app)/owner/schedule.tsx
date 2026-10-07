@@ -497,6 +497,10 @@ function SlotManager({
   onUnblock:(id:string)=>void;
 }){
   const palette=slotPalette[event.type];
+  const navigateFromSlot=(navigate:()=>void)=>{
+    onClose();
+    setTimeout(navigate,0);
+  };
   return <Modal visible transparent animationType="fade" onRequestClose={onClose}>
     <Pressable style={styles.slotModalOverlay} onPress={onClose}>
       <Pressable style={styles.slotModalCard} onPress={()=>{}}>
@@ -521,6 +525,7 @@ function SlotManager({
             language={language}
             t={t}
             busy={busy}
+            onNavigate={navigateFromSlot}
             onCancelBooking={()=>onCancelBooking(event.id)}
             onUnblock={()=>onUnblock(event.id)}
           />
@@ -643,12 +648,13 @@ function DaySlotView({
 }
 
 function EventCard({
-  event,language,t,busy,onCancelBooking,onUnblock,
+  event,language,t,busy,onNavigate,onCancelBooking,onUnblock,
 }:{
   event:VenueCalendarEvent;
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
   busy:boolean;
+  onNavigate:(navigate:()=>void)=>void;
   onCancelBooking:()=>void;
   onUnblock:()=>void;
 }){
@@ -670,18 +676,21 @@ function EventCard({
     {(event.type==="AVAILABLE"||event.type==="PROMOTION")?<View style={styles.actionGrid}>
       <Button
         label={t("schedule.addManual")}
-        onPress={()=>router.push({pathname:"/owner/manual-booking",params:{areaId:event.areaId??"",date,start,end,price:event.priceAfn!==null?String(event.priceAfn):""}})}
+        onPress={()=>onNavigate(()=>router.push({
+          pathname:"/owner/manual-booking",
+          params:{areaId:event.areaId??"",date,start,end,price:event.priceAfn!==null?String(event.priceAfn):""},
+        }))}
         style={styles.actionButton}
       />
       <Button
         label={t("schedule.blockTime")}
-        onPress={()=>router.push({pathname:"/owner/block-time",params:{areaId:event.areaId??"",date,start,end}})}
+        onPress={()=>onNavigate(()=>router.push({pathname:"/owner/block-time",params:{areaId:event.areaId??"",date,start,end}}))}
         variant="secondary"
         style={styles.actionButton}
       />
       {event.type==="AVAILABLE"?<Button
         label={t("ownerMarketing.createPromotion")}
-        onPress={()=>router.push({pathname:"/owner/promotions/create",params:{areaId:event.areaId??"",date,start}})}
+        onPress={()=>onNavigate(()=>router.push({pathname:"/owner/promotions/create",params:{areaId:event.areaId??"",date,start}}))}
         variant="secondary"
         style={styles.actionButton}
       />:null}
@@ -695,7 +704,7 @@ function EventCard({
     {event.type==="BLOCKED"?<View style={styles.actionGrid}>
       <Button
         label={t("schedule.editBlock")}
-        onPress={()=>router.push({
+        onPress={()=>onNavigate(()=>router.push({
           pathname:"/owner/block-time",
           params:{
             blockId:event.id,
@@ -705,7 +714,7 @@ function EventCard({
             end,
             reason:event.title,
           },
-        })}
+        }))}
         variant="secondary"
         style={styles.actionButton}
       />
@@ -719,24 +728,24 @@ function EventCard({
     </View>:null}
     {event.type==="PROMOTION"?<Button
       label={t("schedule.managePromotions")}
-      onPress={()=>router.push("/owner/promotions")}
+      onPress={()=>onNavigate(()=>router.push("/owner/promotions"))}
       variant="secondary"
     />:null}
     {event.type==="COMPETITION"?<Button
       label={t("schedule.manageCompetitions")}
-      onPress={()=>router.push("/owner/competitions")}
+      onPress={()=>onNavigate(()=>router.push("/owner/competitions"))}
       variant="secondary"
     />:null}
     {event.type==="CLOSED"?<View style={styles.actionGrid}>
       <Button
         label={t("schedule.editWeekly")}
-        onPress={()=>router.push("/owner/timetable/weekly")}
+        onPress={()=>onNavigate(()=>router.push("/owner/timetable/weekly"))}
         variant="secondary"
         style={styles.actionButton}
       />
       <Button
         label={t("schedule.specialHours")}
-        onPress={()=>router.push("/owner/timetable/exceptions")}
+        onPress={()=>onNavigate(()=>router.push("/owner/timetable/exceptions"))}
         variant="secondary"
         style={styles.actionButton}
       />
