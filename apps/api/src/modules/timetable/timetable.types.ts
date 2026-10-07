@@ -35,6 +35,7 @@ export type TimetableRecord = {
     dayOfWeek: number;
     startsAt: string;
     endsAt: string;
+    priceAfn: number;
   }>;
 };
 
@@ -107,7 +108,7 @@ export interface TimetableRepository {
 }
 
 export type ResolvedTimetableDay = {
-  periods: Array<{ startsAt: string; endsAt: string }>;
+  periods: Array<{ startsAt: string; endsAt: string; priceAfn: number | null }>;
   slotDurationMinutes: number | null;
   bufferMinutes: number;
   source: "TIMETABLE" | "LEGACY";
