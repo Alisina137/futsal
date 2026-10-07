@@ -5,7 +5,12 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { ownerApi } from "../../../../src/lib/api";
-import { todayKabul } from "../../../../src/lib/timetable-calendar";
+import {
+  calendarInputDate,
+  calendarInputToGregorian,
+  todayKabul,
+} from "../../../../src/lib/timetable-calendar";
+import { normalizeLocalizedDigits, suggestNextPeriod } from "../../../../src/lib/timetable-editor";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
@@ -17,11 +22,11 @@ import { useLocale } from "../../../../src/providers/LocaleProvider";
 
 export default function TimetableExceptionScreen(){
   const {session}=useAuth();
-  const {t,isRTL}=useLocale();
+  const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
   const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
   const [areaId,setAreaId]=useState<string|null>(null);
-  const [date,setDate]=useState(todayKabul());
+  const [date,setDate]=useState(()=>calendarInputDate(todayKabul(),language));
   const [isClosed,setClosed]=useState(true);
   const [periods,setPeriods]=useState<VenueTimetableExceptionPeriod[]>([{startsAt:"08:00",endsAt:"23:00"}]);
   const [note,setNote]=useState("");
@@ -47,16 +52,21 @@ export default function TimetableExceptionScreen(){
 
   async function save(){
     if(!token)return;
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||(!isClosed&&!periods.length)){
+    const gregorianDate=calendarInputToGregorian(date,language);
+    const normalizedPeriods=periods.map((period)=>({
+      startsAt:normalizeLocalizedDigits(period.startsAt),
+      endsAt:normalizeLocalizedDigits(period.endsAt),
+    }));
+    if(!gregorianDate||(!isClosed&&!normalizedPeriods.length)){
       setError(t("schedule.exceptionError"));return;
     }
     setBusy(true);setError(null);
     try{
       await ownerApi.createTimetableException(token,{
         areaId,
-        date,
+        date:gregorianDate,
         isClosed,
-        periods:isClosed?[]:periods,
+        periods:isClosed?[]:normalizedPeriods,
         note,
       });
       router.replace("/owner/schedule");
@@ -80,7 +90,7 @@ export default function TimetableExceptionScreen(){
     {error?<Card style={{borderColor:colors.danger}}><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
 
     <Card>
-      <TextField label={t("schedule.exceptionDate")} value={date} onChangeText={setDate} hint="YYYY-MM-DD" forceLtr/>
+      <TextField label={t("schedule.exceptionDate")} value={date} onChangeText={setDate} hint={language==="en"?"YYYY-MM-DD":t("schedule.solarHijriHint")} forceLtr/>
       <AppText weight="semibold">{t("schedule.exceptionArea")}</AppText>
       <View style={styles.chips}>
         <Choice label={t("schedule.allAreas")} active={areaId===null} onPress={()=>setAreaId(null)}/>
@@ -104,7 +114,12 @@ export default function TimetableExceptionScreen(){
           </View>
           {periods.length>1?<Button label={t("schedule.removePeriod")} onPress={()=>setPeriods((current)=>current.filter((_,i)=>i!==index))} variant="ghost"/>:null}
         </View>)}
-        <Button label={t("schedule.addPeriod")} onPress={()=>setPeriods((current)=>[...current,{startsAt:"18:00",endsAt:"23:00"}])} variant="secondary"/>
+        <Button label={t("schedule.addPeriod")} onPress={()=>{
+          const next=suggestNextPeriod(periods);
+          if(!next){setError(t("schedule.noRoomForPeriod"));return;}
+          setError(null);
+          setPeriods((current)=>[...current,next]);
+        }} variant="secondary"/>
       </View>:null}
 
       <TextField label={t("schedule.exceptionNote")} value={note} onChangeText={setNote} multiline/>
