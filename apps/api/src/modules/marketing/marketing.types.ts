@@ -10,13 +10,20 @@ import type {
   VenuePostScheduleRequest,
   VenuePostUpdateRequest,
   VenuePostVisibility,
+  VenueMediaAssetPurpose,
+  VenueMediaPageUpdateRequest,
 } from "@leaguekick/contracts";
 
 export type MarketingVenueRecord = {
   id: string;
   ownerUserId: string;
   name: string;
+  city: string;
+  province: string;
   timezone: string;
+  pageProfileImageUrl: string | null;
+  pageCoverImageUrl: string | null;
+  pageBio: string | null;
   status: "DRAFT" | "READY" | "ACTIVE" | "SUSPENDED";
   subscription: {
     status: "TRIAL" | "ACTIVE" | "EXPIRED" | "CANCELLED";
@@ -73,6 +80,38 @@ export interface MarketingRepository {
   cancelPostSchedule(ownerUserId: string, postId: string, scheduleId: string, cancelledAt: Date): Promise<VenuePostScheduleDto | null>;
   refreshPostStates(now: Date): Promise<VenuePostDto[]>;
   competitionBelongsToVenue(competitionId: string, venueId: string): Promise<boolean>;
+  createMediaAsset(input: {
+    venueId: string;
+    ownerUserId: string;
+    purpose: VenueMediaAssetPurpose;
+    publicToken: string;
+    mimeType: string;
+    byteSize: number;
+    dataBase64: string;
+    createdAt: Date;
+  }): Promise<{
+    id: string;
+    venueId: string;
+    ownerUserId: string;
+    purpose: VenueMediaAssetPurpose;
+    publicToken: string;
+    mimeType: string;
+    byteSize: number;
+    dataBase64: string;
+    createdAt: Date;
+  }>;
+  getMediaAsset(assetId: string, publicToken: string): Promise<{
+    id: string;
+    venueId: string;
+    ownerUserId: string;
+    purpose: VenueMediaAssetPurpose;
+    publicToken: string;
+    mimeType: string;
+    byteSize: number;
+    dataBase64: string;
+    createdAt: Date;
+  } | null>;
+  updateVenueMediaPage(ownerUserId: string, input: VenueMediaPageUpdateRequest, updatedAt: Date): Promise<MarketingVenueRecord | null>;
 
   followVenue(userId: string, venueId: string): Promise<void>;
   unfollowVenue(userId: string, venueId: string): Promise<void>;
