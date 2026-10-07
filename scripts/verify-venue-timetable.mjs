@@ -118,8 +118,8 @@ assert(schedule.includes("calendarRefreshIndicator"),"Calendar navigation must u
 assert(schedule.includes("Initial page shell load only"),"Page-level loading must be reserved for the initial timetable shell load.");
 assert(schedule.includes("statusFilters"),"Venue timetable must offer status filters.");
 assert(schedule.includes("Summary"),"Venue timetable must show operational summary.");
-assert(schedule.includes("TimetableVersions"),"Venue timetable must manage current/draft/future/archive versions.");
-assert(schedule.includes("specialHours"),"Venue timetable must expose special hours.");
+assert(weeklyPage.includes("schedule.currentTimetable")&&weeklyPage.includes("schedule.draftTimetables")&&weeklyPage.includes("schedule.futureTimetables")&&weeklyPage.includes("schedule.archivedTimetables"),"Weekly Timetable page must manage current/draft/future/archive versions.");
+assert(exceptionsPage.includes("schedule.specialHours"),"Special Hours page must expose timetable exceptions.");
 assert(schedule.includes("/owner/manual-booking"),"Available slots must support manual booking.");
 assert(schedule.includes("/owner/block-time"),"Available slots must support blocking.");
 assert(schedule.includes('t("schedule.editBlock")'),"Blocked calendar events must expose an edit action.");
