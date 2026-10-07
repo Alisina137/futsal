@@ -16,6 +16,7 @@ import { ownerApi } from "../../../src/lib/api";
 import {
   formatCalendarDate,
   formatCalendarTime,
+  isSameDisplayMonth,
   moveView,
   rangeForView,
   todayKabul,
@@ -89,7 +90,7 @@ export default function OwnerScheduleScreen(){
   const [busy,setBusy]=useState<string|null>(null);
   const [error,setError]=useState<string|null>(null);
   const [conflicts,setConflicts]=useState<VenueTimetableConflict[]>([]);
-  const range=useMemo(()=>rangeForView(view,anchorDate),[view,anchorDate]);
+  const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
 
   const loadMeta=useCallback(async()=>{
     if(!token)return;
@@ -211,7 +212,6 @@ export default function OwnerScheduleScreen(){
   if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={560}/></Screen>;
 
   const selectedDay=calendar?.days.find((day)=>day.date===anchorDate)??calendar?.days[0]??null;
-  const monthKey=anchorDate.slice(0,7);
   const areas=owner?.venue?.areas??[];
 
   return <Screen embedded>
@@ -229,7 +229,7 @@ export default function OwnerScheduleScreen(){
       <View style={[styles.toolbar,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Button label={t("schedule.today")} onPress={()=>setAnchorDate(todayKabul())} variant="secondary" style={styles.compactButton}/>
         <View style={[styles.navButtons,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <Pressable style={styles.iconButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,-1))}>
+          <Pressable style={styles.iconButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,-1,language))}>
             <Ionicons name={isRTL?"chevron-forward":"chevron-back"} size={20} color={colors.primary}/>
           </Pressable>
           <AppText weight="bold" style={styles.rangeLabel}>
@@ -239,7 +239,7 @@ export default function OwnerScheduleScreen(){
                 ?formatCalendarDate(anchorDate,language,{weekday:"short",month:"short",day:"numeric",year:"numeric"})
                 :`${formatCalendarDate(range.from,language)} — ${formatCalendarDate(range.to,language)}`}
           </AppText>
-          <Pressable style={styles.iconButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,1))}>
+          <Pressable style={styles.iconButton} onPress={()=>setAnchorDate(moveView(view,anchorDate,1,language))}>
             <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={20} color={colors.primary}/>
           </Pressable>
         </View>
@@ -270,7 +270,7 @@ export default function OwnerScheduleScreen(){
       view==="MONTH"
         ?<MonthView
           days={calendar.days}
-          monthKey={monthKey}
+          anchorDate={anchorDate}
           language={language}
           selected={anchorDate}
           onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}
@@ -328,6 +328,7 @@ export default function OwnerScheduleScreen(){
     <TimetableVersions
       data={versions}
       t={t}
+      language={language}
       busy={busy}
       onCreate={()=>router.push("/owner/timetable/edit")}
       onEdit={(item)=>router.push({pathname:"/owner/timetable/edit",params:{timetableId:item.id}})}
@@ -383,10 +384,10 @@ function Summary({day,t}:{day:VenueCalendarDay;t:ReturnType<typeof useLocale>["t
 }
 
 function MonthView({
-  days,monthKey,language,selected,onSelect,
+  days,anchorDate,language,selected,onSelect,
 }:{
   days:VenueCalendarDay[];
-  monthKey:string;
+  anchorDate:string;
   language:"fa-AF"|"ps-AF"|"en";
   selected:string;
   onSelect:(date:string)=>void;
@@ -398,7 +399,7 @@ function MonthView({
           onPress={()=>onSelect(day.date)}
           style={[
             styles.monthCell,
-            !day.date.startsWith(monthKey)&&styles.monthCellMuted,
+            !isSameDisplayMonth(day.date,anchorDate,language)&&styles.monthCellMuted,
             selected===day.date&&styles.monthCellSelected,
           ]}
         >
@@ -450,6 +451,7 @@ function DayView({
   setStatusFilter:(value:"ALL"|VenueCalendarEventType)=>void;
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
+  language:"fa-AF"|"ps-AF"|"en";
   busy:string|null;
   onCancelBooking:(id:string)=>void;
   onUnblock:(id:string)=>void;
@@ -555,7 +557,7 @@ function EventCard({
 }
 
 function TimetableVersions({
-  data,t,busy,onCreate,onEdit,onDuplicate,onPublish,onDelete,onArchive,
+  data,t,language,busy,onCreate,onEdit,onDuplicate,onPublish,onDelete,onArchive,
 }:{
   data:VenueTimetableListResponse|null;
   t:ReturnType<typeof useLocale>["t"];
@@ -584,7 +586,7 @@ function TimetableVersions({
 
     {data?.drafts.length?<View style={styles.versionSection}>
       <AppText weight="bold">{t("schedule.draftTimetables")}</AppText>
-      {data.drafts.map((item)=><VersionCard key={item.id} item={item} t={t} actions={[
+      {data.drafts.map((item)=><VersionCard key={item.id} item={item} t={t} language={language} actions={[
         {label:t("schedule.editWeekly"),onPress:()=>onEdit(item)},
         {label:t("schedule.publish"),onPress:()=>onPublish(item),loading:busy===`publish-${item.id}`},
         {label:t("schedule.duplicate"),onPress:()=>onDuplicate(item),loading:busy===`duplicate-${item.id}`},
@@ -594,7 +596,7 @@ function TimetableVersions({
 
     {data?.future.length?<View style={styles.versionSection}>
       <AppText weight="bold">{t("schedule.futureTimetables")}</AppText>
-      {data.future.map((item)=><VersionCard key={item.id} item={item} t={t} actions={[
+      {data.future.map((item)=><VersionCard key={item.id} item={item} t={t} language={language} actions={[
         {label:t("schedule.newVersion"),onPress:()=>onDuplicate(item),loading:busy===`duplicate-${item.id}`},
         {label:t("schedule.archiveTimetable"),onPress:()=>onArchive(item),loading:busy===`archive-${item.id}`},
       ]}/>)}
@@ -602,7 +604,7 @@ function TimetableVersions({
 
     {data?.archived.length?<View style={styles.versionSection}>
       <AppText weight="bold">{t("schedule.archivedTimetables")}</AppText>
-      {data.archived.slice(0,8).map((item)=><VersionCard key={item.id} item={item} t={t} actions={[
+      {data.archived.slice(0,8).map((item)=><VersionCard key={item.id} item={item} t={t} language={language} actions={[
         {label:t("schedule.newVersion"),onPress:()=>onDuplicate(item),loading:busy===`duplicate-${item.id}`},
       ]}/>)}
     </View>:null}
@@ -610,18 +612,23 @@ function TimetableVersions({
 }
 
 function VersionCard({
-  item,t,actions,
+  item,t,language,actions,
 }:{
   item:VenueTimetableDto;
   t:ReturnType<typeof useLocale>["t"];
+  language:"fa-AF"|"ps-AF"|"en";
   actions:Array<{label:string;onPress:()=>void;danger?:boolean;loading?:boolean}>;
 }){
   return <View style={styles.versionCard}>
     <View style={styles.titleRow}>
       <View style={{flex:1}}>
         <AppText weight="bold">{item.name}</AppText>
-        <AppText variant="caption" muted forceLtr>
-          {item.effectiveFrom} → {item.effectiveUntil??t("schedule.forever")}
+        <AppText variant="caption" muted>
+          {formatCalendarDate(item.effectiveFrom,language,{year:"numeric",month:"long",day:"numeric"})}
+          {" → "}
+          {item.effectiveUntil
+            ?formatCalendarDate(item.effectiveUntil,language,{year:"numeric",month:"long",day:"numeric"})
+            :t("schedule.forever")}
         </AppText>
       </View>
       <View style={styles.statusBadge}>
