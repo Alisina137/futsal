@@ -191,6 +191,10 @@ export function createApp(deps: AppDependencies) {
   });
 
   app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
+    if ((error as { type?: string } | null)?.type === "entity.too.large") {
+      sendError(response, 413, "MEDIA_TOO_LARGE", "Images must be 6 MB or smaller.");
+      return;
+    }
     if (error instanceof ZodError) {
       sendError(response, 400, "VALIDATION_ERROR", "The request is invalid.", error.issues);
       return;
