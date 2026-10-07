@@ -552,7 +552,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
         isNull(venuePostScheduledActions.executedAt),
         isNull(venuePostScheduledActions.cancelledAt),
       ))
-      .orderBy(asc(venuePostScheduledActions.executeAt))
+      .orderBy(asc(venuePostScheduledActions.executeAt),asc(venuePostScheduledActions.createdAt))
       .limit(250);
     for(const item of due){
       const post=await this.getPost(item.postId);
@@ -565,17 +565,17 @@ export class DrizzleMarketingRepository implements MarketingRepository {
         continue;
       }
       if(item.action==="PUBLISH"){
-        if(current.ctaType==="PROMOTION"&&current.ctaTargetId){
-          const promotion=await this.getPromotion(current.ctaTargetId);
-          if(!promotion||promotion.venueId!==current.venueId||promotion.status!=="ACTIVE"){
+        if(post.ctaType==="PROMOTION"&&post.ctaTargetId){
+          const promotion=await this.getPromotion(post.ctaTargetId);
+          if(!promotion||promotion.venueId!==post.venueId||promotion.status!=="ACTIVE"){
             await this.db.update(venuePostScheduledActions).set({cancelledAt:now}).where(eq(venuePostScheduledActions.id,item.id));
             continue;
           }
         }
         if(
-          current.ctaType==="COMPETITION"
-          &&current.ctaTargetId
-          &&!(await this.competitionBelongsToVenue(current.ctaTargetId,current.venueId))
+          post.ctaType==="COMPETITION"
+          &&post.ctaTargetId
+          &&!(await this.competitionBelongsToVenue(post.ctaTargetId,post.venueId))
         ){
           await this.db.update(venuePostScheduledActions).set({cancelledAt:now}).where(eq(venuePostScheduledActions.id,item.id));
           continue;
