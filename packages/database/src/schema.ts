@@ -234,6 +234,9 @@ export const venueAreas = pgTable(
   },
   (table) => [
     uniqueIndex("venue_areas_name_uq").on(table.venueId, table.name),
+    uniqueIndex("venue_areas_one_active_per_venue_uq")
+      .on(table.venueId)
+      .where(sql`${table.active} = true`),
     index("venue_areas_venue_id_idx").on(table.venueId),
   ],
 );
@@ -285,6 +288,7 @@ export const venueTimetablePeriods = pgTable(
     dayOfWeek: integer("day_of_week").notNull(),
     startsAt: time("starts_at").notNull(),
     endsAt: time("ends_at").notNull(),
+    priceAfn: integer("price_afn").notNull(),
   },
   (table) => [
     index("venue_timetable_periods_timetable_day_idx").on(table.timetableId, table.dayOfWeek),
