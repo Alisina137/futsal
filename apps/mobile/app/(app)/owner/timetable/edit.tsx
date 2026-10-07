@@ -329,7 +329,7 @@ export default function TimetableEditorScreen(){
           <View style={[styles.periodFields,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <TextField label={t("schedule.startTime")} value={period.startsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{startsAt:value})} forceLtr containerStyle={styles.periodField}/>
             <TextField label={t("schedule.endTime")} value={period.endsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{endsAt:value})} forceLtr containerStyle={styles.periodField}/>
-            <TextField label={t("schedule.slotPrice")} value={period.priceAfn} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{priceAfn:value})} keyboardType="number-pad" forceLtr containerStyle={styles.priceField}/>
+            <TextField label={t("schedule.slotPrice")} value={period.priceAfn} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{priceAfn:value})} keyboardType="number-pad" forceLtr hint={t("schedule.slotPriceHint")} containerStyle={styles.priceField}/>
           </View>
           {day.periods.length>1?<Button
             label={t("schedule.removePeriod")}
