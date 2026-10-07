@@ -9,7 +9,7 @@ import type {
   VenueTimetableDto,
   VenueTimetableListResponse,
 } from "@leaguekick/contracts";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
@@ -72,11 +72,13 @@ function statusColor(type:VenueCalendarEventType){
 }
 
 export default function OwnerScheduleScreen(){
+  const params=useLocalSearchParams<{date?:string}>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
-  const [view,setView]=useState<TimetableCalendarView>("WEEK");
-  const [anchorDate,setAnchorDate]=useState(todayKabul());
+  const initialDate=typeof params.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(params.date)?params.date:todayKabul();
+  const [view,setView]=useState<TimetableCalendarView>(typeof params.date==="string"?"DAY":"WEEK");
+  const [anchorDate,setAnchorDate]=useState(initialDate);
   const [areaId,setAreaId]=useState<string|null>(null);
   const [statusFilter,setStatusFilter]=useState<"ALL"|VenueCalendarEventType>("ALL");
   const [owner,setOwner]=useState<OwnerOnboardingStatus|null>(null);
