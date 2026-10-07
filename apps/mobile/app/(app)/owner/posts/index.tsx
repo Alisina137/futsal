@@ -156,7 +156,7 @@ export default function OwnerPostsScreen(){
   const coverImage=resolveMediaImageUrl(page?.pageCoverImageUrl);
   const initials=page?.name.trim().slice(0,2).toUpperCase()||"FT";
 
-  return <Screen embedded contentContainerStyle={styles.screen}>
+  return <Screen embedded style={styles.screen}>
     {page?<View style={styles.pageCard}>
       <View style={styles.cover}>
         {coverImage?<Image source={{uri:coverImage}} style={StyleSheet.absoluteFill} resizeMode="cover"/>
