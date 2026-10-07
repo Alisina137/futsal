@@ -14,11 +14,12 @@ import {
   venueBlocks,
   venueFollows,
   venuePosts,
+  venuePostScheduledActions,
   venuePromotions,
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, asc, count, desc, eq, gt, inArray, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, lt, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { MarketingRepository, MarketingSocialEntityRecord, MarketingVenueRecord } from "./marketing.types.js";
 
@@ -67,6 +68,18 @@ function promotionDto(row: {
   };
 }
 
+function scheduleDto(row: typeof venuePostScheduledActions.$inferSelect) {
+  return {
+    id: row.id,
+    postId: row.postId,
+    action: row.action,
+    executeAt: row.executeAt.toISOString(),
+    executedAt: row.executedAt?.toISOString() ?? null,
+    cancelledAt: row.cancelledAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 function postDto(row: {
   id: string;
   venueId: string;
@@ -75,10 +88,15 @@ function postDto(row: {
   imageUrl: string | null;
   ctaType: "NONE" | "VENUE" | "PROMOTION" | "COMPETITION";
   ctaTargetId: string | null;
+  postType: "GENERAL" | "ANNOUNCEMENT" | "PROMOTION" | "COMPETITION" | "RESULT";
+  visibility: "PUBLIC" | "FOLLOWERS" | "PRIVATE";
+  notifyFollowers: boolean;
   status: "PUBLISHED" | "UNPUBLISHED";
   publishedAt: Date;
   unpublishedAt: Date | null;
-}): VenuePostDto {
+  createdAt: Date;
+  updatedAt: Date;
+}, schedules: Array<typeof venuePostScheduledActions.$inferSelect> = []): VenuePostDto {
   return {
     id: row.id,
     venueId: row.venueId,
@@ -87,9 +105,15 @@ function postDto(row: {
     imageUrl: row.imageUrl,
     ctaType: row.ctaType,
     ctaTargetId: row.ctaTargetId,
+    postType: row.postType,
+    visibility: row.visibility,
+    notifyFollowers: row.notifyFollowers,
     status: row.status,
     publishedAt: row.publishedAt.toISOString(),
     unpublishedAt: row.unpublishedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    schedules: schedules.map(scheduleDto).sort((a,b)=>a.executeAt.localeCompare(b.executeAt)),
   };
 }
 
@@ -305,70 +329,155 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       imageUrl: venuePosts.imageUrl,
       ctaType: venuePosts.ctaType,
       ctaTargetId: venuePosts.ctaTargetId,
+      postType: venuePosts.postType,
+      visibility: venuePosts.visibility,
+      notifyFollowers: venuePosts.notifyFollowers,
       status: venuePosts.status,
       publishedAt: venuePosts.publishedAt,
       unpublishedAt: venuePosts.unpublishedAt,
+      createdAt: venuePosts.createdAt,
+      updatedAt: venuePosts.updatedAt,
     }).from(venuePosts).innerJoin(venues, eq(venuePosts.venueId, venues.id));
+  }
+
+  private async hydrateProjectedPost(row: Awaited<ReturnType<ReturnType<DrizzleMarketingRepository["postProjection"]>["limit"]>>[number]) {
+    const schedules = await this.db.select().from(venuePostScheduledActions)
+      .where(eq(venuePostScheduledActions.postId, row.id))
+      .orderBy(asc(venuePostScheduledActions.executeAt));
+    return postDto(row, schedules);
   }
 
   async createPost(input: {
     venueId: string;
     createdByUserId: string;
-    body: string;
-    imageUrl: string | null;
-    ctaType: "NONE" | "VENUE" | "PROMOTION" | "COMPETITION";
-    ctaTargetId: string | null;
+    request: import("@leaguekick/contracts").VenuePostCreateRequest;
     publishedAt: Date;
+    initialStatus: "PUBLISHED" | "UNPUBLISHED";
   }) {
+    const request=input.request;
     const [created] = await this.db.insert(venuePosts).values({
       venueId: input.venueId,
       createdByUserId: input.createdByUserId,
-      body: input.body,
-      imageUrl: input.imageUrl,
-      ctaType: input.ctaType,
-      ctaTargetId: input.ctaTargetId,
-      status: "PUBLISHED",
+      body: request.body.trim(),
+      imageUrl: request.imageUrl?.trim() || null,
+      ctaType: request.ctaType,
+      ctaTargetId: request.ctaTargetId ?? null,
+      postType: request.postType,
+      visibility: request.visibility,
+      notifyFollowers: request.notifyFollowers,
+      status: input.initialStatus,
       publishedAt: input.publishedAt,
+      unpublishedAt: input.initialStatus==="PUBLISHED"?null:input.publishedAt,
       createdAt: input.publishedAt,
       updatedAt: input.publishedAt,
     }).returning({ id: venuePosts.id });
     if (!created) throw new Error("Post could not be created.");
+
     await this.db.insert(socialPosts).values({
       entityType: "VENUE",
       entityId: input.venueId,
       createdByUserId: input.createdByUserId,
       legacyVenuePostId: created.id,
-      body: input.body,
-      imageUrl: input.imageUrl,
-      status: "PUBLISHED",
+      body: request.body.trim(),
+      imageUrl: request.imageUrl?.trim() || null,
+      postType: request.postType,
+      visibility: request.visibility,
+      status: input.initialStatus,
       publishedAt: input.publishedAt,
+      unpublishedAt: input.initialStatus==="PUBLISHED"?null:input.publishedAt,
       createdAt: input.publishedAt,
       updatedAt: input.publishedAt,
     }).onConflictDoNothing();
+
+    const scheduleRows = [
+      ...(request.publishMode==="SCHEDULED"&&request.publishAt
+        ? [{ action:"PUBLISH" as const, executeAt:new Date(request.publishAt) }]
+        : []),
+      ...request.schedules.map((item)=>({action:item.action,executeAt:new Date(item.executeAt)})),
+    ];
+    if(scheduleRows.length){
+      await this.db.insert(venuePostScheduledActions).values(scheduleRows.map((item)=>({
+        postId:created.id,
+        action:item.action,
+        executeAt:item.executeAt,
+        createdAt:input.publishedAt,
+      })));
+    }
+
     const post = await this.getPost(created.id);
     if (!post) throw new Error("Post could not be loaded.");
     return post;
   }
 
+  async updatePost(ownerUserId: string, postId: string, input: import("@leaguekick/contracts").VenuePostUpdateRequest, changedAt: Date) {
+    const [owned] = await this.db.select({id:venuePosts.id}).from(venuePosts)
+      .innerJoin(venues,eq(venuePosts.venueId,venues.id))
+      .where(and(eq(venuePosts.id,postId),eq(venues.ownerUserId,ownerUserId)))
+      .limit(1);
+    if(!owned)return null;
+    const patch:{
+      body?:string;imageUrl?:string|null;ctaType?:"NONE"|"VENUE"|"PROMOTION"|"COMPETITION";ctaTargetId?:string|null;
+      postType?:"GENERAL"|"ANNOUNCEMENT"|"PROMOTION"|"COMPETITION"|"RESULT";
+      visibility?:"PUBLIC"|"FOLLOWERS"|"PRIVATE";notifyFollowers?:boolean;updatedAt:Date;
+    }={updatedAt:changedAt};
+    if(input.body!==undefined)patch.body=input.body.trim();
+    if(input.imageUrl!==undefined)patch.imageUrl=input.imageUrl.trim()||null;
+    if(input.ctaType!==undefined)patch.ctaType=input.ctaType;
+    if(input.ctaTargetId!==undefined)patch.ctaTargetId=input.ctaTargetId;
+    if(input.postType!==undefined)patch.postType=input.postType;
+    if(input.visibility!==undefined)patch.visibility=input.visibility;
+    if(input.notifyFollowers!==undefined)patch.notifyFollowers=input.notifyFollowers;
+    await this.db.update(venuePosts).set(patch).where(eq(venuePosts.id,postId));
+    await this.db.update(socialPosts).set({
+      ...(patch.body!==undefined?{body:patch.body}:{}),
+      ...(patch.imageUrl!==undefined?{imageUrl:patch.imageUrl}:{}),
+      ...(patch.postType!==undefined?{postType:patch.postType}:{}),
+      ...(patch.visibility!==undefined?{visibility:patch.visibility}:{}),
+      updatedAt:changedAt,
+    }).where(eq(socialPosts.legacyVenuePostId,postId));
+    return this.getPost(postId);
+  }
+
+  async deletePost(ownerUserId:string,postId:string){
+    const rows=await this.db.delete(venuePosts).using(venues)
+      .where(and(eq(venuePosts.id,postId),eq(venuePosts.venueId,venues.id),eq(venues.ownerUserId,ownerUserId)))
+      .returning({id:venuePosts.id});
+    return rows.length>0;
+  }
+
   async listOwnerPosts(ownerUserId: string) {
     const rows = await this.postProjection()
       .where(eq(venues.ownerUserId, ownerUserId))
-      .orderBy(desc(venuePosts.publishedAt));
-    return rows.map(postDto);
+      .orderBy(desc(venuePosts.updatedAt));
+    return Promise.all(rows.map((row)=>this.hydrateProjectedPost(row)));
   }
 
-  async listPublishedPosts(venueIds?: string[]) {
+  async listPublishedPosts(venueIds?: string[], visibility:"PUBLIC"|"PUBLIC_OR_FOLLOWERS"="PUBLIC") {
     if (venueIds && venueIds.length === 0) return [];
+    const visibilityCondition=visibility==="PUBLIC"
+      ?eq(venuePosts.visibility,"PUBLIC")
+      :inArray(venuePosts.visibility,["PUBLIC","FOLLOWERS"]);
     const condition = venueIds
-      ? and(eq(venuePosts.status, "PUBLISHED"), eq(venues.status, "ACTIVE"), inArray(venuePosts.venueId, venueIds))
-      : and(eq(venuePosts.status, "PUBLISHED"), eq(venues.status, "ACTIVE"));
+      ? and(eq(venuePosts.status, "PUBLISHED"), visibilityCondition, eq(venues.status, "ACTIVE"), inArray(venuePosts.venueId, venueIds))
+      : and(eq(venuePosts.status, "PUBLISHED"), eq(venuePosts.visibility,"PUBLIC"), eq(venues.status, "ACTIVE"));
     const rows = await this.postProjection().where(condition).orderBy(desc(venuePosts.publishedAt));
-    return rows.map(postDto);
+    return Promise.all(rows.map((row)=>this.hydrateProjectedPost(row)));
+  }
+
+  async listVenuePosts(venueId:string,visibility:"PUBLIC"|"PUBLIC_OR_FOLLOWERS"){
+    const audience=visibility==="PUBLIC"?eq(venuePosts.visibility,"PUBLIC"):inArray(venuePosts.visibility,["PUBLIC","FOLLOWERS"]);
+    const rows=await this.postProjection().where(and(
+      eq(venuePosts.venueId,venueId),
+      eq(venuePosts.status,"PUBLISHED"),
+      audience,
+      eq(venues.status,"ACTIVE"),
+    )).orderBy(desc(venuePosts.publishedAt));
+    return Promise.all(rows.map((row)=>this.hydrateProjectedPost(row)));
   }
 
   async getPost(postId: string) {
     const [row] = await this.postProjection().where(eq(venuePosts.id, postId)).limit(1);
-    return row ? postDto(row) : null;
+    return row ? this.hydrateProjectedPost(row) : null;
   }
 
   async setPostStatus(ownerUserId: string, postId: string, status: "PUBLISHED" | "UNPUBLISHED", changedAt: Date) {
@@ -378,28 +487,87 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       .limit(1);
     if (!owned) return null;
     if (status === "PUBLISHED") {
-      await this.db.update(venuePosts).set({
-        status,
-        unpublishedAt: null,
-        publishedAt: changedAt,
-        updatedAt: changedAt,
-      }).where(eq(venuePosts.id, postId));
+      await this.db.update(venuePosts).set({status,unpublishedAt:null,publishedAt:changedAt,updatedAt:changedAt}).where(eq(venuePosts.id,postId));
     } else {
-      await this.db.update(venuePosts).set({
-        status,
-        unpublishedAt: changedAt,
-        updatedAt: changedAt,
-      }).where(eq(venuePosts.id, postId));
+      await this.db.update(venuePosts).set({status,unpublishedAt:changedAt,updatedAt:changedAt}).where(eq(venuePosts.id,postId));
     }
-
     await this.db.update(socialPosts).set({
       status,
-      unpublishedAt: status === "PUBLISHED" ? null : changedAt,
-      ...(status === "PUBLISHED" ? { publishedAt: changedAt } : {}),
-      updatedAt: changedAt,
-    }).where(eq(socialPosts.legacyVenuePostId, postId));
-
+      unpublishedAt:status==="PUBLISHED"?null:changedAt,
+      ...(status==="PUBLISHED"?{publishedAt:changedAt}:{}),
+      updatedAt:changedAt,
+    }).where(eq(socialPosts.legacyVenuePostId,postId));
     return this.getPost(postId);
+  }
+
+  async setPostVisibility(ownerUserId:string,postId:string,visibility:import("@leaguekick/contracts").VenuePostVisibility,changedAt:Date){
+    const [owned]=await this.db.select({id:venuePosts.id}).from(venuePosts)
+      .innerJoin(venues,eq(venuePosts.venueId,venues.id))
+      .where(and(eq(venuePosts.id,postId),eq(venues.ownerUserId,ownerUserId))).limit(1);
+    if(!owned)return null;
+    await this.db.update(venuePosts).set({visibility,updatedAt:changedAt}).where(eq(venuePosts.id,postId));
+    await this.db.update(socialPosts).set({visibility,updatedAt:changedAt}).where(eq(socialPosts.legacyVenuePostId,postId));
+    return this.getPost(postId);
+  }
+
+  async addPostSchedule(ownerUserId:string,postId:string,input:import("@leaguekick/contracts").VenuePostScheduleRequest,createdAt:Date){
+    const [owned]=await this.db.select({id:venuePosts.id}).from(venuePosts)
+      .innerJoin(venues,eq(venuePosts.venueId,venues.id))
+      .where(and(eq(venuePosts.id,postId),eq(venues.ownerUserId,ownerUserId))).limit(1);
+    if(!owned)return null;
+    const [row]=await this.db.insert(venuePostScheduledActions).values({
+      postId,action:input.action,executeAt:new Date(input.executeAt),createdAt,
+    }).returning();
+    return row?scheduleDto(row):null;
+  }
+
+  async cancelPostSchedule(ownerUserId:string,postId:string,scheduleId:string,cancelledAt:Date){
+    const [owned]=await this.db.select({id:venuePosts.id}).from(venuePosts)
+      .innerJoin(venues,eq(venuePosts.venueId,venues.id))
+      .where(and(eq(venuePosts.id,postId),eq(venues.ownerUserId,ownerUserId))).limit(1);
+    if(!owned)return null;
+    const [row]=await this.db.update(venuePostScheduledActions).set({cancelledAt})
+      .where(and(
+        eq(venuePostScheduledActions.id,scheduleId),
+        eq(venuePostScheduledActions.postId,postId),
+        isNull(venuePostScheduledActions.executedAt),
+        isNull(venuePostScheduledActions.cancelledAt),
+      )).returning();
+    return row?scheduleDto(row):null;
+  }
+
+  async refreshPostStates(now:Date){
+    const due=await this.db.select().from(venuePostScheduledActions)
+      .where(and(
+        lte(venuePostScheduledActions.executeAt,now),
+        isNull(venuePostScheduledActions.executedAt),
+        isNull(venuePostScheduledActions.cancelledAt),
+      ))
+      .orderBy(asc(venuePostScheduledActions.executeAt))
+      .limit(250);
+    for(const item of due){
+      const post=await this.getPost(item.postId);
+      if(!post){
+        await this.db.update(venuePostScheduledActions).set({executedAt:now}).where(eq(venuePostScheduledActions.id,item.id));
+        continue;
+      }
+      if(item.action==="DELETE"){
+        await this.db.delete(venuePosts).where(eq(venuePosts.id,item.postId));
+        continue;
+      }
+      if(item.action==="PUBLISH"){
+        await this.db.update(venuePosts).set({status:"PUBLISHED",publishedAt:now,unpublishedAt:null,updatedAt:now}).where(eq(venuePosts.id,item.postId));
+        await this.db.update(socialPosts).set({status:"PUBLISHED",publishedAt:now,unpublishedAt:null,updatedAt:now}).where(eq(socialPosts.legacyVenuePostId,item.postId));
+      }else if(item.action==="UNPUBLISH"){
+        await this.db.update(venuePosts).set({status:"UNPUBLISHED",unpublishedAt:now,updatedAt:now}).where(eq(venuePosts.id,item.postId));
+        await this.db.update(socialPosts).set({status:"UNPUBLISHED",unpublishedAt:now,updatedAt:now}).where(eq(socialPosts.legacyVenuePostId,item.postId));
+      }else{
+        const visibility=item.action==="MAKE_PUBLIC"?"PUBLIC":item.action==="MAKE_FOLLOWERS"?"FOLLOWERS":"PRIVATE";
+        await this.db.update(venuePosts).set({visibility,updatedAt:now}).where(eq(venuePosts.id,item.postId));
+        await this.db.update(socialPosts).set({visibility,updatedAt:now}).where(eq(socialPosts.legacyVenuePostId,item.postId));
+      }
+      await this.db.update(venuePostScheduledActions).set({executedAt:now}).where(eq(venuePostScheduledActions.id,item.id));
+    }
   }
 
   async getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null> {
@@ -476,6 +644,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       authorImageUrl: author.imageUrl,
       body: row.body,
       imageUrl: row.imageUrl,
+      postType: row.postType,
       publishedAt: row.publishedAt.toISOString(),
       deepLink: socialDeepLink(author.type, author.id),
       likedByMe: likeRows.some((item) => item.postId === row.id && item.userId === userId),
@@ -493,7 +662,10 @@ export class DrizzleMarketingRepository implements MarketingRepository {
 
     const followed = new Set(follows.map((item) => `${item.entityType}:${item.entityId}`));
     const candidates = await this.db.select().from(socialPosts)
-      .where(eq(socialPosts.status, "PUBLISHED"))
+      .where(and(
+        eq(socialPosts.status, "PUBLISHED"),
+        inArray(socialPosts.visibility, ["PUBLIC","FOLLOWERS"]),
+      ))
       .orderBy(desc(socialPosts.publishedAt))
       .limit(250);
     const rows = candidates
