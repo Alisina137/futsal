@@ -94,7 +94,7 @@ export default function OwnerScheduleScreen(){
   const focusedWeekKey=useRef<string|null>(null);
   const todayDate=useMemo(()=>todayKabul(),[]);
   const [busy,setBusy]=useState<string|null>(null);
-  const [selectedSlot,setSelectedSlot]=useState<VenueCalendarEvent|null>(null);
+  const [selectedSlot,setSelectedSlot]=useState<{event:VenueCalendarEvent;date:string}|null>(null);
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
 
@@ -241,13 +241,13 @@ export default function OwnerScheduleScreen(){
                 todayWeekRowY.current=y;
                 focusTodayWeekRow(calendar.from);
               }}
-              onSelectSlot={setSelectedSlot}
+              onSelectSlot={(event,date)=>setSelectedSlot({event,date})}
             />
             :<DaySlotView
               day={selectedDay}
               language={language}
               t={t}
-              onSelectSlot={setSelectedSlot}
+              onSelectSlot={(event,date)=>setSelectedSlot({event,date})}
             />
         :<DataLoadingState variant="list" minHeight={320}/>}
       {calendarLoading&&calendar?<View pointerEvents="none" style={styles.calendarRefreshIndicator}>
@@ -258,10 +258,11 @@ export default function OwnerScheduleScreen(){
     {renderedView==="MONTH"?<Legend t={t}/>:null}
 
     {selectedSlot?<SlotManager
-      event={selectedSlot}
+      event={selectedSlot.event}
+      date={selectedSlot.date}
       language={language}
       t={t}
-      busy={busy===`event-${selectedSlot.id}`}
+      busy={busy===`event-${selectedSlot.event.id}`}
       onClose={()=>setSelectedSlot(null)}
       onOpenDay={(date)=>{
         setSelectedSlot(null);
@@ -353,7 +354,7 @@ function WeekView({
   t:ReturnType<typeof useLocale>["t"];
   todayDate:string;
   onTodayRowLayout:(y:number)=>void;
-  onSelectSlot:(event:VenueCalendarEvent)=>void;
+  onSelectSlot:(event:VenueCalendarEvent,date:string)=>void;
 }){
   const timeRows=Array.from(new Set(
     days.flatMap((day)=>day.events
@@ -420,7 +421,7 @@ function WeekView({
                   key={event.id}
                   accessibilityRole="button"
                   accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${time}, ${event.priceAfn??0} AFN`}
-                  onPress={()=>onSelectSlot(event)}
+                  onPress={()=>onSelectSlot(event,day.date)}
                   style={({pressed})=>[
                     styles.weekSlot,
                     {backgroundColor:palette.background,borderColor:palette.border},
@@ -465,9 +466,10 @@ function SlotColorGuide({t}:{t:ReturnType<typeof useLocale>["t"]}){
 }
 
 function SlotManager({
-  event,language,t,busy,onClose,onOpenDay,onCancelBooking,onUnblock,
+  event,date,language,t,busy,onClose,onOpenDay,onCancelBooking,onUnblock,
 }:{
   event:VenueCalendarEvent;
+  date:string;
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
   busy:boolean;
@@ -476,7 +478,6 @@ function SlotManager({
   onCancelBooking:(id:string)=>void;
   onUnblock:(id:string)=>void;
 }){
-  const date=event.startsAt?localDateFromIso(event.startsAt):todayKabul();
   const palette=slotPalette[event.type];
   return <Modal visible transparent animationType="fade" onRequestClose={onClose}>
     <Pressable style={styles.slotModalOverlay} onPress={onClose}>
@@ -562,7 +563,7 @@ function DaySlotView({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatCalendarTime(event.startsAt!,language)}, ${event.priceAfn??0} AFN`}
-              onPress={()=>onSelectSlot(event)}
+              onPress={()=>onSelectSlot(event,day.date)}
               style={({pressed})=>[
                 styles.daySlotButton,
                 {backgroundColor:palette.background,borderColor:palette.border},
@@ -600,7 +601,7 @@ function DaySlotView({
         return <Pressable
           key={event.id}
           accessibilityRole="button"
-          onPress={()=>onSelectSlot(event)}
+          onPress={()=>onSelectSlot(event,day.date)}
           style={({pressed})=>[
             styles.dayClosedSlot,
             {backgroundColor:palette.background,borderColor:palette.border},
