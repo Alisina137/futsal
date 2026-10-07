@@ -27,7 +27,6 @@ export default function MyBookingsScreen(){
     {!loading&&items.length===0?<Card><AppText>{t("booking.noBookings")}</AppText></Card>:null}
     {items.map((item)=><Card key={item.id}>
       <AppText variant="bodyLarge" weight="bold">{item.venueName}</AppText>
-      <AppText>{item.areaName}</AppText>
       <AppText forceLtr>{item.startsAt}</AppText>
       <AppText weight="semibold">{item.priceAfn} AFN · {t(`booking.status.${item.status}` as never)}</AppText>
       {item.status!=="CANCELLED"&&Date.parse(item.startsAt)>Date.now()?<Button label={t("booking.cancel")} onPress={()=>void cancel(item.id)} variant="secondary"/>:null}
