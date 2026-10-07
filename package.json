@@ -9,7 +9,10 @@
   },
   "scripts": {
     "dev:api": "pnpm --filter @leaguekick/api dev",
-    "dev:mobile": "pnpm --filter @leaguekick/mobile exec expo start --tunnel --clear --go",
+    "dev:mobile": "node scripts/dev-mobile-usb.mjs",
+    "dev:mobile:usb": "node scripts/dev-mobile-usb.mjs",
+    "dev:mobile:lan": "pnpm --filter @leaguekick/mobile exec expo start --lan --clear --go",
+    "dev:mobile:tunnel": "pnpm --filter @leaguekick/mobile exec expo start --tunnel --clear --go",
     "dev:admin": "node scripts/dev-admin.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
