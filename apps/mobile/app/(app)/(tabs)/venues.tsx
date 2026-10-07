@@ -14,6 +14,7 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 
 export default function VenuesScreen(){
   const {t}=useLocale();
+  const [query,setQuery]=useState("");
   const [city,setCity]=useState("");
   const [venues,setVenues]=useState<PublicVenueDto[]>([]);
   const [loading,setLoading]=useState(true);
@@ -21,10 +22,10 @@ export default function VenuesScreen(){
 
   const load=useCallback(async()=>{
     setLoading(true); setError(null);
-    try{setVenues((await venueApi.list(city.trim()?{city:city.trim()}:undefined)).venues);}
+    try{setVenues((await venueApi.list({...(query.trim()?{q:query.trim()}:{}),...(city.trim()?{city:city.trim()}:{})})).venues);}
     catch{setError(t("booking.loadVenuesError"));}
     finally{setLoading(false);}
-  },[city,t]);
+  },[city,query,t]);
 
   useEffect(()=>{void load();},[]);
 
@@ -35,6 +36,7 @@ export default function VenuesScreen(){
       <AppText variant="title" weight="bold">{t("booking.venuesTitle")}</AppText>
       <AppText muted>{t("booking.venuesSubtitle")}</AppText>
     </View>
+    <TextField label={t("media.venueSearch")} value={query} onChangeText={setQuery} hint={t("media.venueSearchHint")}/>
     <TextField label={t("booking.cityFilter")} value={city} onChangeText={setCity}/>
     <Button label={t("booking.search")} onPress={()=>void load()} loading={loading}/>
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
