@@ -287,6 +287,33 @@ export class DrizzleTimetableRepository implements TimetableRepository {
     return exception(created);
   }
 
+  async getException(exceptionId: string) {
+    const [row] = await this.db.select()
+      .from(venueTimetableExceptions)
+      .where(eq(venueTimetableExceptions.id, exceptionId))
+      .limit(1);
+    return row ? exception(row) : null;
+  }
+
+  async updateException(input: {
+    exceptionId: string;
+    venueId: string;
+    exception: Parameters<TimetableRepository["updateException"]>[0]["exception"];
+  }) {
+    const [updated] = await this.db.update(venueTimetableExceptions).set({
+      areaId: input.exception.areaId,
+      date: input.exception.date,
+      isClosed: input.exception.isClosed,
+      periods: input.exception.periods,
+      note: input.exception.note?.trim() || null,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(venueTimetableExceptions.id, input.exceptionId),
+      eq(venueTimetableExceptions.venueId, input.venueId),
+    )).returning();
+    return updated ? exception(updated) : null;
+  }
+
   async deleteException(exceptionId: string, venueId: string) {
     const rows = await this.db.delete(venueTimetableExceptions).where(and(
       eq(venueTimetableExceptions.id, exceptionId),
