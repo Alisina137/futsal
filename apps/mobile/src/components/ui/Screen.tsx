@@ -1,15 +1,20 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewProps } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ScrollViewProps, type ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader } from "./AppHeader";
 
-type ScreenProps = ViewProps & { showHeader?: boolean; embedded?: boolean };
+type ScreenProps = ViewProps & {
+  showHeader?: boolean;
+  embedded?: boolean;
+  scrollRef?: ScrollViewProps["ref"];
+};
 
-export function Screen({ children, style, showHeader = false, embedded = false }: ScreenProps) {
+export function Screen({ children, style, showHeader = false, embedded = false, scrollRef }: ScreenProps) {
   const content = <>
     {!embedded && showHeader ? <AppHeader/> : null}
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
+        ref={scrollRef}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, style]}
