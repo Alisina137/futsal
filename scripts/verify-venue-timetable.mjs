@@ -169,7 +169,7 @@ assert(!editor.includes("weekTableBody:{flexDirection:\"column\"}"),"Weekly Time
 assert(schedule.includes("weekSlotGrid"),"Timetable Week view must render a slot grid.");
 assert(schedule.includes("timeRows=Array.from(new Set("),"Timetable Week view must divide the calendar into start-time rows.");
 assert(schedule.includes("rawTime(event.startsAt!)===time"),"Timetable Week view must place events into their matching start-time slot.");
-assert(schedule.includes("onSelectSlot(event)"),"Every populated Week slot must be clickable.");
+assert(schedule.includes("onSelectSlot(event,day.date)"),"Every populated Week slot must be clickable and preserve its exact calendar date.");
 assert(schedule.includes("selectedSlot"),"Week/Day slot selection must open exact-slot management.");
 assert(schedule.includes("<SlotManager"),"Week/Day slot clicks must open a management panel.");
 assert(schedule.includes('t("schedule.manageSlot")'),"Week slot management panel must be clearly titled.");
@@ -190,7 +190,7 @@ assert(schedule.includes("styles.daySlotTable"),"Day view must use a one-day tim
 assert(schedule.includes("slotPalette[event.type]"),"Day view must use the same status color palette as Week view.");
 assert(schedule.includes("styles.daySlotButton"),"Every timed Day slot must be rendered as an interactive slot.");
 assert(schedule.includes("styles.dayClosedSlot"),"Closed Day state must remain clickable for management.");
-assert(schedule.includes("onSelectSlot(event)"),"Day and Week slots must open the same management flow.");
+assert(schedule.includes("onSelectSlot(event,day.date)"),"Day and Week slots must open the same management flow with the exact calendar date.");
 assert(schedule.includes("<SlotManager"),"Slot management must be shared by Day and Week views.");
 assert(schedule.includes('event.type==="PROMOTION"'),"Slot manager must provide promotion-specific management.");
 assert(schedule.includes('event.type==="COMPETITION"'),"Slot manager must provide competition-specific management.");
