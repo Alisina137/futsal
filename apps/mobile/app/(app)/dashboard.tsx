@@ -1,8 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing } from "@leaguekick/design-tokens";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { View } from "react-native";
-import { OwnerDashboard } from "../../src/components/owner/OwnerDashboard";
 import { AppText } from "../../src/components/ui/AppText";
 import { Button } from "../../src/components/ui/Button";
 import { Card } from "../../src/components/ui/Card";
@@ -29,7 +28,7 @@ export default function DashboardScreen() {
   const role = resolveDashboardRole(session?.user.roles ?? []);
 
   if (role === "VENUE_OWNER") {
-    return <OwnerDashboard />;
+    return <Redirect href="/owner/competitions" />;
   }
 
   if (!role) {
