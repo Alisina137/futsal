@@ -26,6 +26,9 @@ export type BookingVenueRecord = {
   city: string;
   address: string;
   publicPhone: string;
+  pageProfileImageUrl?: string | null;
+  pageCoverImageUrl?: string | null;
+  pageBio?: string | null;
   latitude: number | null;
   longitude: number | null;
   timezone: string;
@@ -115,6 +118,9 @@ export function toPublicVenueDto(venue: BookingVenueRecord): PublicVenueDto {
     city: venue.city,
     address: venue.address,
     publicPhone: venue.publicPhone,
+    pageProfileImageUrl: venue.pageProfileImageUrl ?? null,
+    pageCoverImageUrl: venue.pageCoverImageUrl ?? null,
+    pageBio: venue.pageBio ?? null,
     latitude: venue.latitude,
     longitude: venue.longitude,
     timezone: venue.timezone,
