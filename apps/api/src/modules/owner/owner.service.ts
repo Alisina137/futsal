@@ -119,6 +119,12 @@ export class OwnerOnboardingService {
   }
 
   async saveSetup(ownerUserId: string, setup: OwnerVenueSetupRequest): Promise<OwnerOnboardingStatus> {
+    if (setup.areas.length !== 1) {
+      throw errors.badRequest(
+        "SINGLE_COURT_REQUIRED",
+        "Each venue-owner account can manage exactly one court. Create another account and subscription for another court.",
+      );
+    }
     const current = await this.normalizeAggregate(await this.repository.getByOwnerId(ownerUserId));
     if (current?.subscription && setupIdentityHash(setup) !== trialIdentityHash(current.venue)) {
       throw errors.conflict(
