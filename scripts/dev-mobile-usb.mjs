@@ -1,4 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import process from "node:process";
 
 function fail(message){
@@ -7,7 +9,7 @@ function fail(message){
 }
 
 function run(command,args){
-  const result=spawnSync(command,args,{encoding:"utf8",shell:process.platform==="win32"});
+  const result=spawnSync(command,args,{encoding:"utf8",shell:false});
   return {
     ok:result.status===0,
     stdout:(result.stdout??"").trim(),
@@ -15,8 +17,31 @@ function run(command,args){
   };
 }
 
-const adbVersion=run("adb",["version"]);
-if(!adbVersion.ok){
+function findAdb(){
+  const executable=process.platform==="win32"?"adb.exe":"adb";
+  const roots=[
+    process.env.ANDROID_HOME,
+    process.env.ANDROID_SDK_ROOT,
+    process.platform==="win32"&&process.env.LOCALAPPDATA
+      ?path.join(process.env.LOCALAPPDATA,"Android","Sdk")
+      :null,
+  ].filter(Boolean);
+
+  for(const root of roots){
+    const candidate=path.join(root,"platform-tools",executable);
+    if(existsSync(candidate))return candidate;
+  }
+
+  const lookup=spawnSync(process.platform==="win32"?"where":"which",["adb"],{encoding:"utf8",shell:false});
+  if(lookup.status===0){
+    const first=(lookup.stdout??"").split(/\\r?\\n/).map((value)=>value.trim()).find(Boolean);
+    if(first)return first;
+  }
+  return null;
+}
+
+const adb=findAdb();
+if(!adb){
   fail([
     "ADB was not found.",
     "Install Android Platform Tools, add adb to PATH, then reconnect your Android phone.",
@@ -24,7 +49,10 @@ if(!adbVersion.ok){
   ].join("\n"));
 }
 
-const devices=run("adb",["devices"]);
+const adbVersion=run(adb,["version"]);
+if(!adbVersion.ok) fail("ADB exists but could not start.");
+
+const devices=run(adb,["devices"]);
 if(!devices.ok) fail("Could not query Android devices with adb.");
 
 const connected=devices.stdout
@@ -50,7 +78,7 @@ if(!connected.length){
 }
 
 for(const port of [8081,4000]){
-  const reversed=run("adb",["reverse",`tcp:${port}`,`tcp:${port}`]);
+  const reversed=run(adb,["reverse",`tcp:${port}`,`tcp:${port}`]);
   if(!reversed.ok){
     fail(`Could not reverse Android port ${port}. ${reversed.stderr||reversed.stdout}`);
   }
