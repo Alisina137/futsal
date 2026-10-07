@@ -166,6 +166,13 @@ for(const key of [
 assert(schedule.includes("styles.weekTableRowAlt"),"Timetable Week rows must use structured alternating styling.");
 assert(schedule.includes("styles.weekTodayRow"),"Today's row must be highlighted in Timetable Week view.");
 assert(schedule.includes("focusTodayWeekRow"),"Timetable Week view must bring today's row into view for the current week.");
+assert(schedule.includes('t("schedule.openDay")'),"Timetable Week rows must expose an explicit clickable Open day affordance.");
+assert(schedule.includes("weekTableBody:{flexDirection:\"column\",gap:spacing.xs}"),"Timetable Week rows must have visible spacing between days.");
+assert(schedule.includes("minHeight:56"),"Timetable Week rows must use compact content-driven height rather than oversized whitespace.");
+assert(schedule.includes("weekOpenDayCue"),"Timetable Week rows must visually communicate that each day is clickable.");
+assert(schedule.includes("weekTableRowPressed"),"Timetable Week rows must provide pressed-state feedback.");
+assert(schedule.includes("weekMetricColumn:{width:76"),"Timetable Week metric columns must remain compact.");
+
 assert(editor.includes("calendarInputDate"),"Weekly editor must display Solar Hijri form dates for Dari/Pashto.");
 assert(editor.includes("selectedAreaIds"),"Weekly editor must support selected venue areas.");
 assert(editor.includes("defaultSlotDurationMinutes"),"Weekly editor must configure slot duration.");
@@ -192,4 +199,4 @@ for(const key of [
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: card-based Weekly Timetable editor restored; Timetable Week view uses a vertical, horizontally-scrollable status table with today focus.");
+console.log("Venue timetable verified: card-based Weekly Timetable editor restored; Timetable Week view uses compact, separated, clearly clickable rows with horizontal overflow and today focus.");
