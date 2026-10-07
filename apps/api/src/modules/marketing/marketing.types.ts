@@ -4,7 +4,12 @@ import type {
   SocialEntityType,
   SocialFeedPostDto,
   SocialPostCommentDto,
+  VenuePostCreateRequest,
   VenuePostDto,
+  VenuePostScheduleDto,
+  VenuePostScheduleRequest,
+  VenuePostUpdateRequest,
+  VenuePostVisibility,
 } from "@leaguekick/contracts";
 
 export type MarketingVenueRecord = {
@@ -52,16 +57,21 @@ export interface MarketingRepository {
   createPost(input: {
     venueId: string;
     createdByUserId: string;
-    body: string;
-    imageUrl: string | null;
-    ctaType: "NONE" | "VENUE" | "PROMOTION" | "COMPETITION";
-    ctaTargetId: string | null;
+    request: VenuePostCreateRequest;
     publishedAt: Date;
+    initialStatus: "PUBLISHED" | "UNPUBLISHED";
   }): Promise<VenuePostDto>;
+  updatePost(ownerUserId: string, postId: string, input: VenuePostUpdateRequest, changedAt: Date): Promise<VenuePostDto | null>;
+  deletePost(ownerUserId: string, postId: string): Promise<boolean>;
   listOwnerPosts(ownerUserId: string): Promise<VenuePostDto[]>;
-  listPublishedPosts(venueIds?: string[]): Promise<VenuePostDto[]>;
+  listPublishedPosts(venueIds?: string[], visibility?: "PUBLIC" | "PUBLIC_OR_FOLLOWERS"): Promise<VenuePostDto[]>;
+  listVenuePosts(venueId: string, visibility: "PUBLIC" | "PUBLIC_OR_FOLLOWERS"): Promise<VenuePostDto[]>;
   getPost(postId: string): Promise<VenuePostDto | null>;
   setPostStatus(ownerUserId: string, postId: string, status: "PUBLISHED" | "UNPUBLISHED", changedAt: Date): Promise<VenuePostDto | null>;
+  setPostVisibility(ownerUserId: string, postId: string, visibility: VenuePostVisibility, changedAt: Date): Promise<VenuePostDto | null>;
+  addPostSchedule(ownerUserId: string, postId: string, input: VenuePostScheduleRequest, createdAt: Date): Promise<VenuePostScheduleDto | null>;
+  cancelPostSchedule(ownerUserId: string, postId: string, scheduleId: string, cancelledAt: Date): Promise<VenuePostScheduleDto | null>;
+  refreshPostStates(now: Date): Promise<void>;
 
   followVenue(userId: string, venueId: string): Promise<void>;
   unfollowVenue(userId: string, venueId: string): Promise<void>;
