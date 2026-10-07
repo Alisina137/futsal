@@ -39,7 +39,7 @@ for (const marker of [
 
 requireText(
   cache,
-  'pathname.startsWith("/api/v1/owner/") return { ttlMs: 20_000, persist: false }',
+  'if (pathname.startsWith("/api/v1/owner/")) return { ttlMs: 20_000, persist: false };',
   "Owner operational data must remain memory-only",
 );
 requireText(
