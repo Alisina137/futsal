@@ -8,7 +8,7 @@ import type {
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
 import {
   formatCalendarDate,
@@ -246,7 +246,7 @@ export default function OwnerScheduleScreen(){
             anchorDate={renderedAnchorDate}
             language={language}
             selected={renderedAnchorDate}
-            onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}
+            onSelect={(date)=>{setStatusFilter("ALL");setAnchorDate(date);setView("DAY");}}
           />
           :renderedView==="WEEK"
             ?<WeekView
@@ -353,126 +353,53 @@ function WeekView({
   onSelect:(date:string)=>void;
   onTodayRowLayout:(y:number)=>void;
 }){
-  return <View>
-    <ScrollView
-      horizontal
-      nestedScrollEnabled
-      showsHorizontalScrollIndicator
-      contentContainerStyle={styles.weekTableScrollContent}
-    >
-      <View style={styles.weekTable}>
-        <View style={[styles.weekTableHeader,{flexDirection:language==="en"?"row":"row-reverse"}]}>
-          <WeekHeaderCell label={t("schedule.weeklyHeaderDay")} style={styles.weekDayColumn}/>
-          <WeekHeaderCell label={t("schedule.summaryAvailable")} style={styles.weekMetricColumn}/>
-          <WeekHeaderCell label={t("schedule.summaryBooked")} style={styles.weekMetricColumn}/>
-          <WeekHeaderCell label={t("schedule.summaryManual")} style={styles.weekMetricColumn}/>
-          <WeekHeaderCell label={t("schedule.summaryCompetition")} style={styles.weekMetricColumn}/>
-          <WeekHeaderCell label={t("schedule.summaryBlocked")} style={styles.weekMetricColumn}/>
-          <WeekHeaderCell label={t("schedule.event.PROMOTION")} style={styles.weekMetricColumn}/>
-          <WeekHeaderCell label={t("schedule.summaryRevenue")} style={styles.weekRevenueColumn}/>
-          <WeekHeaderCell label={t("schedule.weekViewActivity")} style={styles.weekActivityColumn}/>
+  return <View style={styles.weekList}>
+    {days.map((day)=>{
+      const isToday=day.date===todayDate;
+      return <Pressable
+        key={day.date}
+        accessibilityRole="button"
+        accessibilityState={{selected:isToday}}
+        onPress={()=>onSelect(day.date)}
+        onLayout={isToday?(event)=>onTodayRowLayout(event.nativeEvent.layout.y):undefined}
+        style={({pressed})=>[
+          styles.weekDayRow,
+          isToday&&styles.weekTodayRow,
+          pressed&&styles.weekDayRowPressed,
+        ]}
+      >
+        <View style={styles.weekDayInfo}>
+          <View style={styles.weekDayTitleLine}>
+            <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>
+              {formatCalendarDate(day.date,language,{weekday:"long"})}
+            </AppText>
+            {isToday?<View style={styles.weekTodayBadge}>
+              <AppText variant="caption" weight="bold" style={styles.weekTodayBadgeText}>
+                {t("schedule.today")}
+              </AppText>
+            </View>:null}
+          </View>
+          <AppText variant="caption" muted>
+            {formatCalendarDate(day.date,language,{month:"long",day:"numeric"})}
+          </AppText>
         </View>
 
-        <View style={styles.weekTableBody}>
-          {days.map((day,index)=>{
-            const isToday=day.date===todayDate;
-            const activity=day.events.filter((event)=>event.type!=="AVAILABLE").slice(0,2);
-            return <Pressable
-              key={day.date}
-              accessibilityRole="button"
-              accessibilityState={{selected:isToday}}
-              onPress={()=>onSelect(day.date)}
-              onLayout={isToday?(event)=>onTodayRowLayout(event.nativeEvent.layout.y):undefined}
-              style={({pressed})=>[
-                styles.weekTableRow,
-                {flexDirection:language==="en"?"row":"row-reverse"},
-                index%2===1&&styles.weekTableRowAlt,
-                isToday&&styles.weekTodayRow,
-                pressed&&styles.weekTableRowPressed,
-              ]}
-            >
-              <View style={[styles.weekTableCell,styles.weekDayColumn]}>
-                <View style={styles.weekDayTitleRow}>
-                  <AppText weight="bold" style={{flex:1}}>
-                    {formatCalendarDate(day.date,language,{weekday:"long"})}
-                  </AppText>
-                  <View style={styles.weekOpenDayCue}>
-                    <AppText variant="caption" weight="semibold" style={styles.weekOpenDayText}>
-                      {t("schedule.openDay")}
-                    </AppText>
-                    <Ionicons
-                      name={language==="en"?"chevron-forward":"chevron-back"}
-                      size={14}
-                      color={colors.primary}
-                    />
-                  </View>
-                </View>
-                <View style={styles.weekDateMeta}>
-                  <AppText variant="caption" muted>
-                    {formatCalendarDate(day.date,language,{month:"short",day:"numeric"})}
-                  </AppText>
-                  {isToday?<View style={styles.weekTodayBadge}>
-                    <AppText variant="caption" weight="bold" style={styles.weekTodayBadgeText}>
-                      {t("schedule.today")}
-                    </AppText>
-                  </View>:null}
-                  {day.closed?<AppText variant="caption" style={{color:colors.danger}}>
-                    {t("schedule.dayClosed")}
-                  </AppText>:null}
-                </View>
-              </View>
-
-              <WeekMetricCell value={day.availableCount} tone="success"/>
-              <WeekMetricCell value={day.bookedCount} tone="primary"/>
-              <WeekMetricCell value={day.manualCount} tone="primary"/>
-              <WeekMetricCell value={day.competitionCount} tone="warning"/>
-              <WeekMetricCell value={day.blockedCount} tone="danger"/>
-              <WeekMetricCell value={day.promotionCount} tone="accent"/>
-
-              <View style={[styles.weekTableCell,styles.weekRevenueColumn]}>
-                <AppText weight="bold" forceLtr>{day.revenueAfn} AFN</AppText>
-              </View>
-
-              <View style={[styles.weekTableCell,styles.weekActivityColumn]}>
-                {activity.length?activity.map((event)=><View key={event.id} style={styles.weekActivityItem}>
-                  <View style={[styles.dot,{backgroundColor:statusColor(event.type)}]}/>
-                  <AppText variant="caption" numberOfLines={1} style={{flex:1}}>
-                    {event.startsAt?formatCalendarTime(event.startsAt,language):""} {event.title}
-                  </AppText>
-                </View>):<AppText variant="caption" muted>{t("schedule.noEvents")}</AppText>}
-              </View>
-            </Pressable>;
-          })}
+        <View style={styles.weekReservationSummary}>
+          <Ionicons name="calendar-outline" size={18} color={colors.primary}/>
+          <View style={styles.weekReservationText}>
+            <AppText variant="caption" muted>{t("schedule.totalReservations")}</AppText>
+            <AppText variant="bodyLarge" weight="bold" style={{color:colors.primary}}>
+              {day.bookedCount}
+            </AppText>
+          </View>
+          <Ionicons
+            name={language==="en"?"chevron-forward":"chevron-back"}
+            size={20}
+            color={colors.textMuted}
+          />
         </View>
-      </View>
-    </ScrollView>
-  </View>;
-}
-
-function WeekHeaderCell({label,style}:{label:string;style:ViewStyle}){
-  return <View style={[styles.weekTableHeaderCell,style]}>
-    <AppText variant="caption" weight="bold" style={styles.weekTableHeaderText} numberOfLines={1}>
-      {label}
-    </AppText>
-  </View>;
-}
-
-function WeekMetricCell({
-  value,tone,
-}:{
-  value:number;
-  tone:"success"|"primary"|"warning"|"danger"|"accent";
-}){
-  const toneColor=
-    tone==="success"?colors.success
-      :tone==="warning"?colors.warning
-        :tone==="danger"?colors.danger
-          :tone==="accent"?colors.accent
-            :colors.primary;
-  return <View style={[styles.weekTableCell,styles.weekMetricColumn]}>
-    <View style={[styles.weekMetricBadge,{borderColor:toneColor}]}>
-      <AppText weight="bold" style={{color:toneColor}}>{value}</AppText>
-    </View>
+      </Pressable>;
+    })}
   </View>;
 }
 
@@ -645,71 +572,31 @@ const styles=StyleSheet.create({
   monthCell:{minHeight:78,borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,padding:spacing.xs,gap:2,backgroundColor:colors.surface},
   monthCellMuted:{opacity:.46},
   monthCellSelected:{borderColor:colors.primary,backgroundColor:colors.primarySoft,borderWidth:2},
-  weekTableScrollContent:{paddingBottom:spacing.xs,paddingHorizontal:2},
-  weekTable:{
-    minWidth:920,
-    backgroundColor:"transparent",
-  },
-  weekTableHeader:{
-    minHeight:38,
-    alignItems:"stretch",
-    backgroundColor:colors.primarySoft,
+  weekList:{gap:spacing.sm},
+  weekDayRow:{
+    flexDirection:"row",
+    alignItems:"center",
+    justifyContent:"space-between",
+    gap:spacing.md,
+    minHeight:64,
+    paddingHorizontal:spacing.md,
+    paddingVertical:spacing.sm,
     borderWidth:1,
     borderColor:colors.border,
     borderRadius:radius.md,
-    overflow:"hidden",
-    marginBottom:spacing.xs,
-  },
-  weekTableHeaderCell:{
-    justifyContent:"center",
-    paddingHorizontal:spacing.xs,
-    paddingVertical:spacing.xs,
-    borderRightWidth:1,
-    borderRightColor:colors.border,
-  },
-  weekTableHeaderText:{color:colors.primary},
-  weekTableBody:{flexDirection:"column",gap:spacing.xs},
-  weekTableRow:{
-    minHeight:56,
-    alignItems:"stretch",
-    borderWidth:1,
-    borderColor:colors.border,
-    borderRadius:radius.md,
-    overflow:"hidden",
     backgroundColor:colors.surface,
   },
-  weekTableRowAlt:{backgroundColor:colors.surface},
-  weekTableRowPressed:{
+  weekDayRowPressed:{
     backgroundColor:colors.primarySoft,
     borderColor:colors.primary,
-    opacity:.9,
   },
   weekTodayRow:{
     backgroundColor:colors.primarySoft,
     borderColor:colors.primary,
     borderWidth:2,
   },
-  weekTableCell:{
-    justifyContent:"center",
-    paddingHorizontal:spacing.xs,
-    paddingVertical:spacing.xs,
-    borderRightWidth:1,
-    borderRightColor:colors.border,
-  },
-  weekDayColumn:{width:168},
-  weekMetricColumn:{width:76,alignItems:"center"},
-  weekRevenueColumn:{width:108,alignItems:"center"},
-  weekActivityColumn:{width:190},
-  weekMetricBadge:{
-    minWidth:34,
-    height:28,
-    paddingHorizontal:spacing.xs,
-    borderRadius:radius.pill,
-    borderWidth:1,
-    alignItems:"center",
-    justifyContent:"center",
-    backgroundColor:colors.surface,
-  },
+  weekDayInfo:{flex:1,minWidth:0,gap:2},
+  weekDayTitleLine:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
   weekTodayBadge:{
     paddingHorizontal:spacing.xs,
     paddingVertical:2,
@@ -717,19 +604,13 @@ const styles=StyleSheet.create({
     backgroundColor:colors.primary,
   },
   weekTodayBadgeText:{color:colors.surface},
-  weekDayTitleRow:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
-  weekDateMeta:{flexDirection:"row",alignItems:"center",flexWrap:"wrap",gap:spacing.xs},
-  weekOpenDayCue:{
+  weekReservationSummary:{
     flexDirection:"row",
     alignItems:"center",
-    gap:2,
-    paddingHorizontal:spacing.xs,
-    minHeight:26,
-    borderRadius:radius.pill,
-    backgroundColor:colors.primarySoft,
+    gap:spacing.sm,
+    flexShrink:0,
   },
-  weekOpenDayText:{color:colors.primary},
-  weekActivityItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
+  weekReservationText:{alignItems:"flex-end",minWidth:76},
   dot:{width:8,height:8,borderRadius:4},
   titleRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
   eventIcon:{width:38,height:38,borderRadius:12,alignItems:"center",justifyContent:"center"},
