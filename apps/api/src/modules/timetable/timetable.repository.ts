@@ -226,6 +226,22 @@ export class DrizzleTimetableRepository implements TimetableRepository {
     return result;
   }
 
+  async truncatePublishedTimetable(input: {
+    timetableId: string;
+    venueId: string;
+    effectiveUntil: string;
+    updatedAt: Date;
+  }) {
+    await this.db.update(venueTimetables).set({
+      effectiveUntil: input.effectiveUntil,
+      updatedAt: input.updatedAt,
+    }).where(and(
+      eq(venueTimetables.id, input.timetableId),
+      eq(venueTimetables.venueId, input.venueId),
+      eq(venueTimetables.status, "PUBLISHED"),
+    ));
+  }
+
   async archiveTimetable(timetableId: string, venueId: string, archivedAt: Date) {
     const [row] = await this.db.update(venueTimetables).set({
       status: "ARCHIVED",
