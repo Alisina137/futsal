@@ -304,7 +304,7 @@ export const venueTimetableExceptions = pgTable(
     areaId: uuid("area_id").references(() => venueAreas.id, { onDelete: "cascade" }),
     date: varchar("date", { length: 10 }).notNull(),
     isClosed: boolean("is_closed").notNull().default(false),
-    periods: jsonb("periods").$type<Array<{ startsAt: string; endsAt: string }>>().notNull().default([]),
+    periods: jsonb("periods").$type<Array<{ startsAt: string; endsAt: string; priceAfn?: number | null }>>().notNull().default([]),
     note: varchar("note", { length: 240 }),
     createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
