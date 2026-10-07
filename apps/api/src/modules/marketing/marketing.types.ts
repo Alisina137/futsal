@@ -71,7 +71,8 @@ export interface MarketingRepository {
   setPostVisibility(ownerUserId: string, postId: string, visibility: VenuePostVisibility, changedAt: Date): Promise<VenuePostDto | null>;
   addPostSchedule(ownerUserId: string, postId: string, input: VenuePostScheduleRequest, createdAt: Date): Promise<VenuePostScheduleDto | null>;
   cancelPostSchedule(ownerUserId: string, postId: string, scheduleId: string, cancelledAt: Date): Promise<VenuePostScheduleDto | null>;
-  refreshPostStates(now: Date): Promise<void>;
+  refreshPostStates(now: Date): Promise<VenuePostDto[]>;
+  competitionBelongsToVenue(competitionId: string, venueId: string): Promise<boolean>;
 
   followVenue(userId: string, venueId: string): Promise<void>;
   unfollowVenue(userId: string, venueId: string): Promise<void>;
