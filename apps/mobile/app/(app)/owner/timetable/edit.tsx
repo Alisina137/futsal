@@ -30,16 +30,16 @@ import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
 
-type PeriodDraft={startsAt:string;endsAt:string};
+type PeriodDraft={startsAt:string;endsAt:string;priceAfn:string};
 type DayDraft={dayOfWeek:number;periods:PeriodDraft[]};
 
-function defaultDays(hours:VenueOpeningHourInput[]|undefined):DayDraft[]{
+function defaultDays(hours:VenueOpeningHourInput[]|undefined,defaultPrice:string):DayDraft[]{
   return Array.from({length:7},(_,dayOfWeek)=>{
     const hour=hours?.find((item)=>item.dayOfWeek===dayOfWeek);
     return {
       dayOfWeek,
       periods:hour&&!hour.isClosed&&hour.opensAt&&hour.closesAt
-        ?[{startsAt:hour.opensAt,endsAt:hour.closesAt}]
+        ?[{startsAt:hour.opensAt,endsAt:hour.closesAt,priceAfn:defaultPrice}]
         :[],
     };
   });
@@ -52,7 +52,11 @@ function dayFromTimetable(item:VenueTimetableDto,preferredAreaId:string|null):Da
       :[];
     const shared=item.periods.filter((period)=>period.dayOfWeek===dayOfWeek&&period.areaId===null);
     const chosen=specific.length?specific:shared;
-    return {dayOfWeek,periods:chosen.map((period)=>({startsAt:period.startsAt,endsAt:period.endsAt}))};
+    return {dayOfWeek,periods:chosen.map((period)=>({
+      startsAt:period.startsAt,
+      endsAt:period.endsAt,
+      priceAfn:String(period.priceAfn),
+    }))};
   });
 }
 
@@ -69,10 +73,8 @@ export default function TimetableEditorScreen(){
   const [effectiveUntil,setEffectiveUntil]=useState("");
   const [duration,setDuration]=useState("90");
   const [buffer,setBuffer]=useState("0");
-  const [allAreas,setAllAreas]=useState(true);
-  const [selectedAreaIds,setSelectedAreaIds]=useState<string[]>([]);
-  const [days,setDays]=useState<DayDraft[]>(defaultDays(undefined));
-  const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
+  const [defaultPrice,setDefaultPrice]=useState("0");
+  const [days,setDays]=useState<DayDraft[]>(defaultDays(undefined,"0"));
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState<"save"|"publish"|null>(null);
   const [error,setError]=useState<string|null>(null);
@@ -108,7 +110,9 @@ export default function TimetableEditorScreen(){
     try{
       const [status,versions]=await Promise.all([ownerApi.getStatus(token),ownerApi.timetables(token)]);
       const venueAreas=status.venue?.areas??[];
-      setAreas(venueAreas.map((area)=>({id:area.id,name:area.name})));
+      const court=venueAreas[0]??null;
+      const courtPrice=String(court?.basePriceAfn??0);
+      setDefaultPrice(courtPrice);
       const item=initialId
         ?[versions.current,...versions.drafts,...versions.future,...versions.archived].find((candidate)=>candidate?.id===initialId)??null
         :null;
@@ -123,14 +127,10 @@ export default function TimetableEditorScreen(){
         setEffectiveUntil(item.effectiveUntil?calendarInputDate(item.effectiveUntil,language):"");
         setDuration(String(item.defaultSlotDurationMinutes));
         setBuffer(String(item.bufferMinutes));
-        const specificIds=Array.from(new Set(item.periods.map((period)=>period.areaId).filter((value):value is string=>Boolean(value))));
         const shared=item.periods.some((period)=>period.areaId===null);
-        setAllAreas(shared||specificIds.length===0);
-        setSelectedAreaIds(shared?[]:specificIds);
-        setDays(dayFromTimetable(item,shared?null:specificIds[0]??null));
+        setDays(dayFromTimetable(item,shared?null:court?.id??null));
       }else{
-        setDays(defaultDays(status.venue?.openingHours));
-        setSelectedAreaIds(venueAreas.map((area)=>area.id));
+        setDays(defaultDays(status.venue?.openingHours,courtPrice));
       }
     }catch{
       setError(t("schedule.loadTimetableError"));
@@ -146,7 +146,7 @@ export default function TimetableEditorScreen(){
   }
 
   function toggleDay(day:DayDraft){
-    setDayPeriods(day.dayOfWeek,day.periods.length?[]:[{startsAt:"08:00",endsAt:"23:00"}]);
+    setDayPeriods(day.dayOfWeek,day.periods.length?[]:[{startsAt:"08:00",endsAt:"23:00",priceAfn:defaultPrice}]);
   }
 
   function updatePeriod(dayOfWeek:number,index:number,patch:Partial<PeriodDraft>){
@@ -172,7 +172,7 @@ export default function TimetableEditorScreen(){
     if(code==="DATE_RANGE")return t("schedule.validationDateRange");
     if(code==="DURATION")return t("schedule.validationDuration");
     if(code==="BUFFER")return t("schedule.validationBuffer");
-    if(code==="AREA")return t("schedule.validationArea");
+    if(code==="PRICE")return t("schedule.validationPrice");
     if(code==="EMPTY")return t("schedule.validationEmpty");
     if(code==="TIME")return t("schedule.validationTime");
     return t("schedule.validationOverlap");
@@ -205,8 +205,6 @@ export default function TimetableEditorScreen(){
       effectiveUntil,
       duration,
       buffer,
-      allAreas,
-      selectedAreaIds,
       days,
       language,
     });
@@ -293,22 +291,6 @@ export default function TimetableEditorScreen(){
       </View>
     </Card>
 
-    <Card>
-      <AppText variant="bodyLarge" weight="bold">{t("schedule.areaScope")}</AppText>
-      <View style={styles.scopeRow}>
-        <Choice label={t("schedule.allAreasScope")} active={allAreas} onPress={()=>setAllAreas(true)}/>
-        <Choice label={t("schedule.selectedAreas")} active={!allAreas} onPress={()=>setAllAreas(false)}/>
-      </View>
-      {!allAreas?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.areaChips}>
-        {areas.map((area)=>{
-          const active=selectedAreaIds.includes(area.id);
-          return <Choice key={area.id} label={area.name} active={active} onPress={()=>setSelectedAreaIds((current)=>
-            active?current.filter((id)=>id!==area.id):[...current,area.id]
-          )}/>;
-        })}
-      </ScrollView>:null}
-    </Card>
-
     <View
       style={{gap:spacing.md}}
       onLayout={(event)=>{
@@ -344,9 +326,10 @@ export default function TimetableEditorScreen(){
 
         {day.periods.map((period,index)=><View key={index} style={styles.periodBlock}>
           <AppText variant="caption" weight="semibold">{t("schedule.period")} {index+1}</AppText>
-          <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <TextField label={t("schedule.startTime")} value={period.startsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{startsAt:value})} forceLtr containerStyle={styles.field}/>
-            <TextField label={t("schedule.endTime")} value={period.endsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{endsAt:value})} forceLtr containerStyle={styles.field}/>
+          <View style={[styles.periodFields,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <TextField label={t("schedule.startTime")} value={period.startsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{startsAt:value})} forceLtr containerStyle={styles.periodField}/>
+            <TextField label={t("schedule.endTime")} value={period.endsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{endsAt:value})} forceLtr containerStyle={styles.periodField}/>
+            <TextField label={t("schedule.slotPrice")} value={period.priceAfn} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{priceAfn:value})} keyboardType="number-pad" forceLtr containerStyle={styles.priceField}/>
           </View>
           {day.periods.length>1?<Button
             label={t("schedule.removePeriod")}
@@ -364,7 +347,8 @@ export default function TimetableEditorScreen(){
               return;
             }
             setError(null);
-            setDayPeriods(day.dayOfWeek,[...day.periods,next]);
+            const priceAfn=day.periods.at(-1)?.priceAfn??defaultPrice;
+            setDayPeriods(day.dayOfWeek,[...day.periods,{...next,priceAfn}]);
           }}
           variant="secondary"
         />:null}
@@ -423,6 +407,9 @@ const styles=StyleSheet.create({
   back:{width:44,height:44,borderRadius:radius.md,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
   twoColumns:{gap:spacing.sm,alignItems:"flex-start"},
   field:{flex:1,minWidth:0},
+  periodFields:{gap:spacing.sm,alignItems:"flex-start",flexWrap:"wrap"},
+  periodField:{flexGrow:1,minWidth:120},
+  priceField:{flexGrow:1,minWidth:140},
   scopeRow:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   areaChips:{gap:spacing.sm,paddingVertical:spacing.xs},
   choice:{minHeight:40,paddingHorizontal:spacing.md,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
