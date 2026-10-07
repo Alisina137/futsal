@@ -8,7 +8,6 @@ import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
-import { OwnerTopNav } from "../../../src/components/owner/OwnerTopNav";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -51,10 +50,9 @@ export default function OwnerSubscriptionScreen() {
     }
   }
 
-  if(loading)return <Screen showHeader><OwnerTopNav/><DataLoadingState variant="detail" minHeight={500}/></Screen>;
+  if(loading)return <Screen embedded><DataLoadingState variant="detail" minHeight={500}/></Screen>;
 
-  return <Screen showHeader>
-    <OwnerTopNav/>
+  return <Screen embedded>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{t("phase7.subscription.title")}</AppText>
       <AppText muted>{t("phase7.subscription.subtitle")}</AppText>
