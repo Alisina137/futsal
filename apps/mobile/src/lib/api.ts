@@ -46,6 +46,10 @@ import type {
   PromotionDto,
   VenuePostCreateRequest,
   VenuePostDto,
+  VenueMediaAssetDto,
+  VenueMediaAssetPurpose,
+  VenueMediaPageDto,
+  VenueMediaPageUpdateRequest,
   VenueRefereeDto,
   VenueRefereeGrantRequest,
   OwnPlayerProfileDto,
@@ -96,6 +100,12 @@ const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").rep
 const REQUEST_TIMEOUT_MS = 12_000;
 const READ_RETRY_DELAY_MS = 300;
 const RETRYABLE_HTTP_STATUSES = new Set([502, 503, 504]);
+
+export function resolveMediaImageUrl(value:string|null|undefined){
+  if(!value)return null;
+  if(/^https?:\/\//i.test(value))return value;
+  return value.startsWith("/")?`${baseUrl}${value}`:value;
+}
 
 export class ApiRequestError extends Error {
   constructor(
@@ -223,6 +233,66 @@ async function probeApi(timeoutMs = 2_500) {
   }
 }
 
+export type LocalMediaUpload = {
+  uri:string;
+  mimeType:string;
+  size?:number|null;
+};
+
+async function uploadVenueMediaAsset(
+  accessToken:string,
+  purpose:VenueMediaAssetPurpose,
+  source:LocalMediaUpload,
+):Promise<{asset:VenueMediaAssetDto}>{
+  const localResponse=await fetch(source.uri);
+  const blob=await localResponse.blob();
+  const byteSize=source.size??blob.size;
+  if(byteSize>6*1024*1024){
+    throw new ApiRequestError("MEDIA_TOO_LARGE","Images must be 6 MB or smaller.",413,null,false);
+  }
+  const mimeType=(source.mimeType||blob.type||"application/octet-stream").toLowerCase();
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),30_000);
+  try{
+    const response=await fetch(`${baseUrl}/api/v1/owner/media-assets?purpose=${encodeURIComponent(purpose)}`,{
+      method:"POST",
+      headers:{
+        Authorization:`Bearer ${accessToken}`,
+        "Content-Type":mimeType,
+        Accept:"application/json",
+      },
+      body:blob,
+      signal:controller.signal,
+    });
+    const body=await response.json().catch(()=>null) as {asset:VenueMediaAssetDto}|ApiErrorBody|null;
+    if(!response.ok){
+      const errorBody=body as ApiErrorBody|null;
+      throw new ApiRequestError(
+        errorBody?.error?.code??"HTTP_ERROR",
+        errorBody?.error?.message??"Upload failed.",
+        response.status,
+        errorBody?.error?.requestId??null,
+        false,
+        errorBody?.error?.details,
+      );
+    }
+    await invalidateApiCacheAfterMutation("/api/v1/owner/media-assets",accessToken);
+    return body as {asset:VenueMediaAssetDto};
+  }catch(error){
+    if(error instanceof ApiRequestError)throw error;
+    const timedOut=error instanceof Error&&error.name==="AbortError";
+    throw new ApiRequestError(
+      timedOut?"TIMEOUT":"NETWORK_ERROR",
+      timedOut?"The upload timed out.":"Cannot reach the server.",
+      null,
+      null,
+      true,
+    );
+  }finally{
+    clearTimeout(timeout);
+  }
+}
+
 export const systemApi = {
   health: () => request<{ status: "ok"; service: string; version: string }>("/health"),
   probe: () => probeApi(),
@@ -254,6 +324,12 @@ export const authApi = {
 };
 
 export const ownerApi = {
+  mediaPage: (accessToken:string) =>
+    request<{page:VenueMediaPageDto}>("/api/v1/owner/media-page",{},accessToken),
+  updateMediaPage: (accessToken:string,input:VenueMediaPageUpdateRequest) =>
+    request<{page:VenueMediaPageDto}>("/api/v1/owner/media-page",{method:"PATCH",body:JSON.stringify(input)},accessToken),
+  uploadMediaAsset: (accessToken:string,purpose:VenueMediaAssetPurpose,source:LocalMediaUpload) =>
+    uploadVenueMediaAsset(accessToken,purpose,source),
   getStatus: (accessToken: string) => request<OwnerOnboardingStatus>("/api/v1/owner/onboarding", {}, accessToken),
   referees: (accessToken: string) =>
     request<{ referees: VenueRefereeDto[] }>("/api/v1/owner/referees", {}, accessToken),
