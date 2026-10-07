@@ -523,7 +523,7 @@ function DaySlotView({
   day:VenueCalendarDay|null;
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
-  onSelectSlot:(event:VenueCalendarEvent)=>void;
+  onSelectSlot:(event:VenueCalendarEvent,date:string)=>void;
 }){
   const timed=(day?.events??[])
     .filter((event)=>Boolean(event.startsAt))
