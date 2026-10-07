@@ -94,6 +94,17 @@ export function createOwnerScheduleRouter(booking: BookingService, tokens: Token
     } catch (error) { next(error); }
   });
 
+  router.put("/blocks/:blockId", writeLimiter, async (request, response, next) => {
+    try {
+      const input = venueBlockRequestSchema.parse(request.body);
+      response.json({ block: await booking.updateBlock(
+        request.auth!.userId,
+        routeIdSchema.parse(request.params.blockId),
+        input,
+      ) });
+    } catch (error) { next(error); }
+  });
+
   router.delete("/blocks/:blockId", writeLimiter, async (request, response, next) => {
     try {
       await booking.deleteBlock(request.auth!.userId, routeIdSchema.parse(request.params.blockId));
