@@ -1,4 +1,4 @@
-# LeagueKick — Authoritative Product Specification
+# Futsal — Authoritative Product Specification
 
 **Version:** 1.0  
 **Status:** Pre-implementation source of truth  
@@ -8,7 +8,7 @@
 **Languages:** Dari, Pashto, English  
 **Business model:** Free player experience + paid venue SaaS with a 3-day Premium trial  
 
-> **Naming note:** The supplied master prompt contains the application-name field “Futsal,” while the product description consistently names the application “LeagueKick.” This specification uses **LeagueKick** as the canonical working product name. Rename only by explicit product decision.
+> **Naming note:** The product owner explicitly renamed the application to **Futsal**. Futsal is the canonical product name from this revision forward.
 
 > **Source-of-truth note:** This document defines what the product should do and how users should experience it. A separate software-development workflow should govern repository inspection, coding, migrations, testing execution, Git operations, and deployment.
 
@@ -16,15 +16,15 @@
 
 # 1. Executive Summary
 
-LeagueKick is a mobile-first futsal venue marketplace, venue operating system, competition manager, and futsal community platform built initially for Afghanistan.
+Futsal is a mobile-first futsal venue marketplace, venue operating system, competition manager, and futsal community platform built initially for Afghanistan.
 
 Its primary commercial problem is not merely “futsal lacks an app.” It is that futsal venue capacity is perishable inventory. A 90-minute slot that passes unbooked can never be sold later. Many venues still coordinate availability through phone calls, WhatsApp, Facebook, notebooks, or in-person visits, so players cannot reliably see open times and venue owners cannot efficiently expose or discount unsold inventory. The result is lost revenue for owners and unnecessary friction for players.
 
-LeagueKick’s core loop is:
+Futsal’s core loop is:
 
 **Venue publishes real availability → player discovers a suitable slot → player reserves → venue calendar updates atomically → both sides receive confirmation → slot is fulfilled → utilization and revenue analytics improve future decisions.**
 
-Around that loop, LeagueKick adds a venue-specific social presence and competition system: venue owners can publish posts, promote empty slots, run leagues and tournaments, invite teams, schedule matches, record results, update standings and brackets, and track player statistics.
+Around that loop, Futsal adds a venue-specific social presence and competition system: venue owners can publish posts, promote empty slots, run leagues and tournaments, invite teams, schedule matches, record results, update standings and brackets, and track player statistics.
 
 The defining business rule is:
 
@@ -49,7 +49,7 @@ Competition and social features strengthen retention and create secondary revenu
 
 ## Core idea
 
-LeagueKick combines four connected product layers:
+Futsal combines four connected product layers:
 
 1. **Venue marketplace and booking** — discovery, availability, reservations, cancellations, confirmations, discounted inventory.
 2. **Venue operations** — owner calendar, manual bookings, blocked periods, pricing, staff permissions, revenue/occupancy analytics.
@@ -58,7 +58,7 @@ LeagueKick combines four connected product layers:
 
 ## Product thesis
 
-The strongest initial wedge is **venue utilization**, not social networking. If LeagueKick can help an owner sell even one or two additional otherwise-empty slots per week, the app can demonstrate concrete financial value. This makes the B2B subscription easier to justify than a product whose value is primarily exposure or community engagement.
+The strongest initial wedge is **venue utilization**, not social networking. If Futsal can help an owner sell even one or two additional otherwise-empty slots per week, the app can demonstrate concrete financial value. This makes the B2B subscription easier to justify than a product whose value is primarily exposure or community engagement.
 
 ## Highest-frequency workflows
 
@@ -105,7 +105,7 @@ The strongest initial wedge is **venue utilization**, not social networking. If 
 - Booking history and repeat-book shortcuts.
 - Followers receive useful availability and tournament notifications.
 - Teams accumulate competition history and statistics.
-- Owners rely on LeagueKick as the source of truth for their daily schedule.
+- Owners rely on Futsal as the source of truth for their daily schedule.
 
 ---
 
@@ -206,7 +206,7 @@ Launch city by city. Kabul is a natural pilot market, but the data model should 
 | Competition Admin | Run fair, visible competitions | Teams, fixtures, results, tables, brackets | Spreadsheet errors, slow updates | Medium | Event-heavy | Competition engine |
 | Referee | Know assignments and submit match info | View match, assignment, notes | Schedule changes, unclear venue/time | Low–medium | Event-heavy | Match assignment + notifications |
 | Fan | Follow local futsal | Fixtures, results, standings, posts | Information scattered across social media | Low–medium | Weekly | Public competition pages/feed |
-| Platform Admin | Operate LeagueKick safely | Venue review, billing, moderation, support | Fraud, abuse, billing exceptions | High | Daily | Admin console + audit logs |
+| Platform Admin | Operate Futsal safely | Venue review, billing, moderation, support | Fraud, abuse, billing exceptions | High | Daily | Admin console + audit logs |
 
 ---
 
@@ -216,7 +216,7 @@ No screenshots or explicit visual mockups were supplied with the master document
 
 Current product research does provide interaction references:
 
-- Playtomic demonstrates the value of a player-facing marketplace tied to club booking, customer management, occupancy, activities, and revenue reporting. Its manager documentation states that some management features are limited on mobile browsers, which supports LeagueKick’s decision to make owner operations genuinely mobile-first. [R1][R2]
+- Playtomic demonstrates the value of a player-facing marketplace tied to club booking, customer management, occupancy, activities, and revenue reporting. Its manager documentation states that some management features are limited on mobile browsers, which supports Futsal’s decision to make owner operations genuinely mobile-first. [R1][R2]
 - CourtReserve demonstrates configurable booking prices, public booking, memberships, reporting, and leagues, but its current public pricing begins at USD 199/month, making direct price imitation inappropriate for an Afghanistan-first launch. [R3]
 - EZFacility demonstrates integrated facility scheduling with automated league/tournament scheduling, standings, scorecards, officials, and registration. [R4]
 - OpenSports demonstrates mobile sports community management, events, leagues/tournaments, staff, schedules, chat, and payments. [R5]
@@ -229,7 +229,7 @@ Current product research does provide interaction references:
 
 # 7. UI Inspiration Synthesis
 
-LeagueKick should adopt the following patterns without cloning any competitor:
+Futsal should adopt the following patterns without cloning any competitor:
 
 - **Availability-first discovery:** date/time availability visible early, not hidden behind venue detail screens.
 - **Owner calendar as home:** owner landing experience should answer “what is happening today?” immediately.
@@ -298,7 +298,7 @@ Tournament administration with teams/divisions, pool play, brackets, schedules, 
 
 # 9. Competitor Analysis
 
-| Product | Audience | Strongest Use Case | Platform / Model | Relevant Capabilities | LeagueKick Lesson |
+| Product | Audience | Strongest Use Case | Platform / Model | Relevant Capabilities | Futsal Lesson |
 |---|---|---|---|---|---|
 | Maidan | Afghan futsal players/teams/venues | Futsal identity, matchmaking, scoring, booking requests | Coming mobile app; public pricing not documented | Trilingual RTL, teams, live scoring, careers, booking requests | Compete on owner economics and reliable inventory operations |
 | Futsaly | Afghan futsal ecosystem | Public information, competitions, venue discovery | Web platform; business model not publicly documented | Fixtures, standings, teams, sport halls | Make booking and B2B operations deeper than directory/discovery |
@@ -327,7 +327,7 @@ Tournament administration with teams/divisions, pool play, brackets, schedules, 
 
 ## Product influence
 
-LeagueKick should combine these strengths only where they reinforce the primary venue-utilization loop. It should not copy broad membership/academy functionality, generalized multi-sport complexity, or enterprise features that do not help a futsal venue sell and operate capacity.
+Futsal should combine these strengths only where they reinforce the primary venue-utilization loop. It should not copy broad membership/academy functionality, generalized multi-sport complexity, or enterprise features that do not help a futsal venue sell and operate capacity.
 
 ---
 
@@ -335,9 +335,9 @@ LeagueKick should combine these strengths only where they reinforce the primary 
 
 ## Verified product limitations / constraints
 
-- Playtomic Manager is a web app rather than a native owner app, and its own documentation says some features are limited on mobile and desktop may be needed for full access. LeagueKick should make the owner’s daily calendar genuinely mobile-native. [R2]
+- Playtomic Manager is a web app rather than a native owner app, and its own documentation says some features are limited on mobile and desktop may be needed for full access. Futsal should make the owner’s daily calendar genuinely mobile-native. [R2]
 - CourtReserve’s public pricing currently starts at USD 199/month, which is useful context but not a suitable pricing benchmark for an Afghanistan-first small-venue product. [R3]
-- OpenSports’ integrated online payment model is tied to Stripe; Stripe’s supported-country list does not list Afghanistan. LeagueKick therefore needs a locally viable payment strategy rather than assuming Stripe. [R5][R13]
+- OpenSports’ integrated online payment model is tied to Stripe; Stripe’s supported-country list does not list Afghanistan. Futsal therefore needs a locally viable payment strategy rather than assuming Stripe. [R5][R13]
 - Tournify and Challonge are strong competition tools but are not full venue inventory marketplaces. [R6][R7]
 - Bookteq is strong for facility bookings but is not positioned as a futsal-specific player/team social layer. [R11]
 
@@ -353,7 +353,7 @@ Recent Playtomic community discussions include frustration about fees, inconsist
 
 ## Assumptions requiring validation
 
-- Afghan venue owners will pay monthly if LeagueKick clearly fills additional slots.
+- Afghan venue owners will pay monthly if Futsal clearly fills additional slots.
 - Owners prefer one account per venue rather than a multi-location organization account.
 - Teams value persistent player statistics enough to improve retention.
 
@@ -368,34 +368,34 @@ These assumptions must be tested in pilot interviews and real usage.
 **Existing problem:** empty sessions expire unsold.  
 **Why users care:** owners lose revenue and players miss available opportunities.  
 **Competitor handling:** global booking platforms expose availability; not all are localized for Afghan futsal.  
-**LeagueKick solution:** “Available tonight,” “Tomorrow,” and “Discounted” inventory surfaces plus owner promotions.  
+**Futsal solution:** “Available tonight,” “Tomorrow,” and “Discounted” inventory surfaces plus owner promotions.  
 **Improvement:** directly ties software value to recovered revenue.
 
 ## Gap 2 — Afghanistan-first venue SaaS
 
 **Existing problem:** global systems may be expensive, broad, payment-dependent, or weakly localized.  
-**LeagueKick solution:** Dari/Pashto/English, RTL, AFN, low-bandwidth behavior, local payment options, simple one-venue account model.
+**Futsal solution:** Dari/Pashto/English, RTL, AFN, low-bandwidth behavior, local payment options, simple one-venue account model.
 
 ## Gap 3 — Booking + competition + venue social presence
 
 **Existing problem:** owners may need separate calendar, social channel, spreadsheet, and tournament tool.  
-**LeagueKick solution:** one venue profile connects inventory, posts, competitions, fixtures, standings and offers.
+**Futsal solution:** one venue profile connects inventory, posts, competitions, fixtures, standings and offers.
 
 ## Gap 4 — Operational mobile-first ownership
 
 **Existing problem:** some manager systems are desktop/web optimized.  
-**LeagueKick solution:** today’s schedule, walk-ins, blocking, discounts, results and posts are optimized for phone use.
+**Futsal solution:** today’s schedule, walk-ins, blocking, discounts, results and posts are optimized for phone use.
 
 ## Gap 5 — Local payment flexibility
 
 **Existing problem:** international payment assumptions may not hold in Afghanistan.  
-**LeagueKick solution:** pay-at-venue/manual payment first; optional HesabPay integration later; payment layer abstracted from booking logic. HesabPay documents hosted checkout, AFN, AfPay, wallet, cards, sandbox and webhooks. [R16]
+**Futsal solution:** pay-at-venue/manual payment first; optional HesabPay integration later; payment layer abstracted from booking logic. HesabPay documents hosted checkout, AFN, AfPay, wallet, cards, sandbox and webhooks. [R16]
 
 ---
 
 # 13. Product Vision
 
-LeagueKick should become the operating and demand platform for independent futsal venues: the place where venue capacity is published, players discover and reserve it, owners run the day, competitions create additional demand, and the resulting activity forms a trusted local futsal network.
+Futsal should become the operating and demand platform for independent futsal venues: the place where venue capacity is published, players discover and reserve it, owners run the day, competitions create additional demand, and the resulting activity forms a trusted local futsal network.
 
 Long-term user loop:
 
@@ -415,7 +415,7 @@ Long-term owner loop:
 
 ## For venue owners
 
-“Turn your venue calendar into a public sales channel, reduce empty sessions, manage bookings and competitions from your phone, and see whether LeagueKick is increasing utilization.”
+“Turn your venue calendar into a public sales channel, reduce empty sessions, manage bookings and competitions from your phone, and see whether Futsal is increasing utilization.”
 
 ## For teams and organizers
 
@@ -487,7 +487,7 @@ Owns exactly one venue account, controls staff/delegation, venue settings, subsc
 
 ## Platform Admin
 
-LeagueKick internal role with platform-wide moderation, venue review, subscription override, support, configuration and audit capabilities.
+Futsal internal role with platform-wide moderation, venue review, subscription override, support, configuration and audit capabilities.
 
 > Product persona “Fan” maps to Visitor or Registered User without requiring a player profile.
 
@@ -532,7 +532,7 @@ LeagueKick internal role with platform-wide moderation, venue review, subscripti
 # 19. Information Architecture
 
 ```text
-LeagueKick
+Futsal
 ├── Public / Discovery
 │   ├── Home
 │   ├── Venues
@@ -1474,7 +1474,7 @@ No third-party service should be mandatory for basic offline/cash venue operatio
 
 ## MVP decision: no generative AI required
 
-LeagueKick does not need an LLM to deliver its core value. Adding AI at launch would increase cost, latency, complexity and failure modes without solving the central booking problem.
+Futsal does not need an LLM to deliver its core value. Adding AI at launch would increase cost, latency, complexity and failure modes without solving the central booking problem.
 
 ## Deterministic “smart slot” recommendation (V1.1/V2)
 
@@ -1944,7 +1944,7 @@ Never expose stack traces, SQL, provider secrets or raw internal errors.
 - Weekly active players/owners.
 - Competition completion rate.
 
-North-star candidate for owner value: **incremental booked venue-hours / sessions through LeagueKick**, supplemented by paid venue retention.
+North-star candidate for owner value: **incremental booked venue-hours / sessions through Futsal**, supplemented by paid venue retention.
 
 ---
 
@@ -2348,7 +2348,7 @@ Legend: **Yes** = publicly documented capability; **Partial** = adjacent/limited
 
 ## 59.1 Local and booking-oriented products
 
-| Capability | LeagueKick Proposed | Maidan | Futsaly | Playtomic |
+| Capability | Futsal Proposed | Maidan | Futsaly | Playtomic |
 |---|---|---|---|---|
 | Afghan Dari/Pashto/English RTL | Yes | Yes | Afghan focus; full language scope not fully verified | No Afghan-specific focus |
 | Live venue availability | Yes | Yes / booking request described | Booking-ready information described | Yes |
@@ -2363,7 +2363,7 @@ Legend: **Yes** = publicly documented capability; **Partial** = adjacent/limited
 
 ## 59.2 Operations and competition products
 
-| Capability | LeagueKick Proposed | EZFacility | OpenSports | Tournify | Challonge |
+| Capability | Futsal Proposed | EZFacility | OpenSports | Tournify | Challonge |
 |---|---|---|---|---|---|
 | Venue/facility scheduling | Yes | Yes | Yes | No | No |
 | Public booking / registration | Yes | Yes | Yes | Competition registration | Competition registration |
@@ -2376,7 +2376,7 @@ Legend: **Yes** = publicly documented capability; **Partial** = adjacent/limited
 | Venue posts/community | Yes | Communication tools | Chat/events/community | Public event pages | Community announcements |
 | Afghanistan-specific localization/payment model | Yes | No documented focus | No documented focus | No documented focus | No documented focus |
 
-The matrices are not rankings. They show that LeagueKick’s intended differentiation is the **combination** of localized venue economics, operational inventory, and competition/community—not that competitors lack useful capabilities.
+The matrices are not rankings. They show that Futsal’s intended differentiation is the **combination** of localized venue economics, operational inventory, and competition/community—not that competitors lack useful capabilities.
 
 
 # 60. Risks and Mitigations
@@ -2521,7 +2521,7 @@ Core E2E journeys in Section 58; especially no double booking, one-venue enforce
 - One-account-one-venue is intentionally preferred over chain management.
 - Cash/pay-at-venue remains important at launch.
 - Phone-first auth is preferable, but final OTP provider requires regional validation.
-- “LeagueKick” is canonical working name despite the source field “Futsal.”
+- “Futsal” is the canonical product name by explicit product-owner decision.
 
 ## 28. Known risks
 
@@ -2600,6 +2600,6 @@ https://www.mapbox.com/pricing
 - Competition scope is limited enough for MVP while still matching the core product promise.
 - No AI dependency exists for MVP.
 - Payment architecture does not assume Stripe availability in Afghanistan.
-- The specification acknowledges emerging Afghan competitors and differentiates LeagueKick around owner ROI and inventory operations rather than nationality/localization alone.
+- The specification acknowledges emerging Afghan competitors and differentiates Futsal around owner ROI and inventory operations rather than nationality/localization alone.
 
-**This document is the authoritative LeagueKick product specification unless the product owner explicitly changes a requirement.**
+**This document is the authoritative Futsal product specification unless the product owner explicitly changes a requirement.**

@@ -27,7 +27,7 @@ export default function OwnerScheduleScreen(){
   async function cancelBooking(id:string){if(!session)return;try{await ownerApi.cancelBooking(session.accessToken,id);await load();}catch{setError(t("schedule.cancelError"));}}
   async function unblock(id:string){if(!session)return;try{await ownerApi.deleteBlock(session.accessToken,id);await load();}catch{setError(t("schedule.unblockError"));}}
 
-  return <Screen>
+  return <Screen showHeader>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("schedule.title")}</AppText>
       <AppText muted>{t("schedule.subtitle")}</AppText>

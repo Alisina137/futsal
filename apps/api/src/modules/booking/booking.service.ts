@@ -11,6 +11,7 @@ import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import type { BookingRepository, BookingVenueRecord } from "./booking.types.js";
 import { toPublicVenueDto } from "./booking.types.js";
+import type { NotificationPublisher } from "../notifications/notification.types.js";
 
 function effectiveEntitlement(venue: BookingVenueRecord, now: Date): "TRIAL" | "ACTIVE" | "EXPIRED" | "NONE" {
   const subscription = venue.subscription;
@@ -145,6 +146,7 @@ export class BookingService {
   constructor(
     private readonly repository: BookingRepository,
     private readonly now: () => Date = () => new Date(),
+    private readonly notifications?: NotificationPublisher,
   ) {}
 
   async listPublicVenues(filters: { city?: string; province?: string }): Promise<PublicVenueListResponse> {
@@ -177,7 +179,10 @@ export class BookingService {
 
     const open = localDateTimeToUtc(date, day.opensAt, venue.timezone);
     const close = localDateTimeToUtc(date, day.closesAt, venue.timezone);
-    const occupancies = await this.repository.listOccupancies(venue.id, open, close);
+    const [occupancies, promotionPrices] = await Promise.all([
+      this.repository.listOccupancies(venue.id, open, close),
+      this.repository.listActivePromotionPrices(venue.id, open, close, now),
+    ]);
     const slots: VenueAvailabilityResponse["slots"] = [];
 
     for (const area of venue.areas.filter((item) => item.active)) {
@@ -187,13 +192,20 @@ export class BookingService {
         const endsAt = new Date(cursor + durationMs);
         if (startsAt.getTime() <= now.getTime()) continue;
         if (occupancies.some((item) => item.areaId === area.id && intervalsOverlap(startsAt, endsAt, item.startsAt, item.endsAt))) continue;
+        const promotion = promotionPrices.find((item) =>
+          item.areaId === area.id &&
+          item.startsAt.getTime() === startsAt.getTime() &&
+          item.endsAt.getTime() === endsAt.getTime()
+        );
         slots.push({
           venueId: venue.id,
           areaId: area.id,
           areaName: area.name,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
-          priceAfn: area.basePriceAfn,
+          priceAfn: promotion?.discountedPriceAfn ?? area.basePriceAfn,
+          originalPriceAfn: promotion ? area.basePriceAfn : null,
+          promotionId: promotion?.id ?? null,
           currency: "AFN",
           status: "AVAILABLE",
         });
@@ -222,7 +234,7 @@ export class BookingService {
     const liveSlot = availability.slots.find((slot) => slot.areaId === area.id && slot.startsAt === startsAt.toISOString());
     if (!liveSlot) throw errors.conflict("SLOT_UNAVAILABLE", "That slot is no longer available.");
 
-    return this.repository.createBookingAtomic({
+    const created = await this.repository.createBookingAtomic({
       venueId: venue.id,
       areaId: area.id,
       playerUserId,
@@ -238,6 +250,19 @@ export class BookingService {
       cancellationPolicySnapshot: venue.cancellationPolicy,
       idempotencyKey: input.idempotencyKey,
     });
+    if (created.status === "CONFIRMED") {
+      try {
+        await this.notifications?.bookingConfirmed({
+          userId: playerUserId,
+          bookingId: created.id,
+          venueName: created.venueName,
+          startsAt: created.startsAt,
+        });
+      } catch {
+        // Notification delivery must never turn a committed booking into an apparent booking failure.
+      }
+    }
+    return created;
   }
 
   async listPlayerBookings(playerUserId: string) {
@@ -250,7 +275,17 @@ export class BookingService {
     if (booking.status === "CANCELLED") return booking;
     const now = this.now();
     if (Date.parse(booking.startsAt) <= now.getTime()) throw errors.badRequest("CANCELLATION_CLOSED", "This booking can no longer be cancelled.");
-    return this.repository.cancelBooking({ bookingId, cancelledByUserId: playerUserId, reason: reason?.trim() || null, cancelledAt: now });
+    const cancelled = await this.repository.cancelBooking({ bookingId, cancelledByUserId: playerUserId, reason: reason?.trim() || null, cancelledAt: now });
+    try {
+      await this.notifications?.bookingCancelled({
+        userId: playerUserId,
+        bookingId: cancelled.id,
+        venueName: cancelled.venueName,
+      });
+    } catch {
+      // Cancellation is authoritative even when notification persistence/delivery fails.
+    }
+    return cancelled;
   }
 
   async getOwnerSchedule(ownerUserId: string, date: string): Promise<OwnerScheduleResponse> {
@@ -335,11 +370,23 @@ export class BookingService {
     const booking = await this.repository.getBooking(bookingId);
     if (!booking || booking.venueId !== venue.id) throw errors.forbidden("BOOKING_ACCESS_DENIED", "You cannot manage this booking.");
     if (booking.status === "CANCELLED") return booking;
-    return this.repository.cancelBooking({
+    const cancelled = await this.repository.cancelBooking({
       bookingId,
       cancelledByUserId: ownerUserId,
       reason: reason?.trim() || null,
       cancelledAt: this.now(),
     });
+    if (cancelled.playerUserId) {
+      try {
+        await this.notifications?.bookingCancelled({
+          userId: cancelled.playerUserId,
+          bookingId: cancelled.id,
+          venueName: cancelled.venueName,
+        });
+      } catch {
+        // Owner cancellation remains successful independently of notification delivery.
+      }
+    }
+    return cancelled;
   }
 }

@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { ownerApi, ApiRequestError } from "../../lib/api";
+import { formatLocalDateTimeParts } from "../../lib/date-time";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
@@ -20,7 +21,7 @@ function remainingLabel(seconds: number | null) {
 
 export function OwnerDashboard() {
   const { session } = useAuth();
-  const { t, isRTL } = useLocale();
+  const { t, isRTL, language } = useLocale();
   const token = session?.accessToken;
   const [status, setStatus] = useState<OwnerOnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,10 +44,10 @@ export function OwnerDashboard() {
   useEffect(() => { void load(); }, [load]);
 
   if (loading) {
-    return <Screen><AppText>{t("common.loading")}</AppText></Screen>;
+    return <Screen showHeader><AppText>{t("common.loading")}</AppText></Screen>;
   }
 
-  return <Screen>
+  return <Screen showHeader>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{t("owner.dashboardTitle")}</AppText>
       <AppText muted>{t("owner.dashboardSubtitle")}</AppText>
@@ -71,12 +72,24 @@ export function OwnerDashboard() {
       <InfoRow label={t("owner.setupStatus")} value={status.setupComplete ? t("owner.complete") : t("owner.incomplete")} rtl={isRTL} />
       <InfoRow label={t("owner.subscriptionStatus")} value={t(`owner.subscription.${status.subscription.state}` as never)} rtl={isRTL} />
       {status.subscription.state === "TRIAL" ? <InfoRow label={t("owner.trialRemaining")} value={remainingLabel(status.subscription.remainingSeconds)} rtl={isRTL} ltr /> : null}
-      {status.subscription.trialEndsAt ? <InfoRow label={t("owner.trialEnds")} value={status.subscription.trialEndsAt} rtl={isRTL} ltr /> : null}
+      {status.subscription.trialEndsAt ? <TrialEndBlock
+        label={t("owner.trialEnds")}
+        value={status.subscription.trialEndsAt}
+        language={language}
+        rtl={isRTL}
+      /> : null}
       <Button
         label={status.subscription.state === "NOT_STARTED" ? t("owner.reviewSetup") : t("owner.manageSetup")}
         onPress={() => router.push("/owner/onboarding")}
         variant={status.subscription.state === "NOT_STARTED" ? "primary" : "secondary"}
       />
+    </Card> : null}
+
+    {status?.venue ? <Card>
+      <AppText variant="bodyLarge" weight="bold">{t("ownerMarketing.marketingTitle")}</AppText>
+      <AppText muted>{t("ownerMarketing.marketingBody")}</AppText>
+      <Button label={t("ownerMarketing.promotionsTitle")} onPress={() => router.push("/owner/promotions")} />
+      <Button label={t("ownerMarketing.postsTitle")} onPress={() => router.push("/owner/posts")} variant="secondary" />
     </Card> : null}
 
     {status?.subscription.state === "EXPIRED" ? <Card style={{ backgroundColor: colors.surfaceMuted }}>
@@ -90,5 +103,28 @@ function InfoRow({ label, value, rtl, ltr = false }: { label: string; value: str
   return <View style={{ flexDirection: rtl ? "row-reverse" : "row", justifyContent: "space-between", gap: spacing.md }}>
     <AppText muted>{label}</AppText>
     <AppText weight="semibold" forceLtr={ltr}>{value}</AppText>
+  </View>;
+}
+
+
+function TrialEndBlock({
+  label,
+  value,
+  language,
+  rtl,
+}: {
+  label: string;
+  value: string;
+  language: Parameters<typeof formatLocalDateTimeParts>[1];
+  rtl: boolean;
+}) {
+  const formatted = formatLocalDateTimeParts(value, language);
+
+  return <View style={{ gap: spacing.xs }}>
+    <AppText muted>{label}</AppText>
+    <View style={{ gap: 2, alignItems: rtl ? "flex-end" : "flex-start" }}>
+      <AppText weight="semibold">{formatted.date}</AppText>
+      <AppText variant="caption" muted>{formatted.time}</AppText>
+    </View>
   </View>;
 }

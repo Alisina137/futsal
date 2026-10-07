@@ -6,6 +6,9 @@ import {
   ownerVenueSetupRequestSchema,
   registerRequestSchema,
   venueBlockRequestSchema,
+  promotionCreateRequestSchema,
+  venuePostCreateRequestSchema,
+  pushDeviceRegisterRequestSchema,
 } from "./index";
 
 describe("shared auth contracts", () => {
@@ -23,6 +26,28 @@ describe("shared auth contracts", () => {
       preferredLanguage: "fa-AF",
       accountType: "PLAYER",
     }).success).toBe(true);
+  });
+
+  it("accepts an 8-character new password with a special character", () => {
+    expect(registerRequestSchema.safeParse({
+      displayName: "Ahmad",
+      phone: "0791234567",
+      username: "ahmad_8",
+      password: "Abcdefg!",
+      preferredLanguage: "fa-AF",
+      accountType: "PLAYER",
+    }).success).toBe(true);
+  });
+
+  it("rejects a new password without a special character", () => {
+    expect(registerRequestSchema.safeParse({
+      displayName: "Ahmad",
+      phone: "0791234567",
+      username: "ahmad_9",
+      password: "abcdefgh",
+      preferredLanguage: "fa-AF",
+      accountType: "PLAYER",
+    }).success).toBe(false);
   });
 });
 
@@ -91,5 +116,42 @@ describe("Phase 3 booking contracts", () => {
       endsAt: "2026-10-05T14:00:00+04:30",
       reason: "Maintenance",
     }).success).toBe(false);
+  });
+});
+
+
+describe("Phase 4 marketing contracts", () => {
+  it("accepts a discounted future-slot promotion request", () => {
+    expect(promotionCreateRequestSchema.safeParse({
+      areaId: "11111111-1111-4111-8111-111111111111",
+      startsAt: "2026-10-05T18:00:00+04:30",
+      discountedPriceAfn: 1400,
+      title: "Tonight discount",
+      note: "Limited empty slot",
+      notifyFollowers: true,
+    }).success).toBe(true);
+  });
+
+  it("requires structured CTA targets when needed", () => {
+    expect(venuePostCreateRequestSchema.safeParse({
+      body: "Tournament registration is open.",
+      ctaType: "PROMOTION",
+      ctaTargetId: null,
+    }).success).toBe(false);
+
+    expect(venuePostCreateRequestSchema.safeParse({
+      body: "Book tonight's discounted slot.",
+      imageUrl: "https://cdn.example.com/post.jpg",
+      ctaType: "PROMOTION",
+      ctaTargetId: "11111111-1111-4111-8111-111111111111",
+      notifyFollowers: true,
+    }).success).toBe(true);
+  });
+
+  it("validates push-device registration", () => {
+    expect(pushDeviceRegisterRequestSchema.safeParse({
+      expoPushToken: "ExponentPushToken[abcdefghijklmnopqrstuvwxyz]",
+      platform: "ANDROID",
+    }).success).toBe(true);
   });
 });

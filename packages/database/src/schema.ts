@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   doublePrecision,
@@ -31,6 +32,13 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", ["TRIAL", "A
 export const bookingModeEnum = pgEnum("booking_mode", ["INSTANT", "APPROVAL"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["PENDING", "CONFIRMED", "CANCELLED"]);
 export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
+export const promotionStatusEnum = pgEnum("promotion_status", ["ACTIVE", "CLOSED", "EXPIRED"]);
+export const postStatusEnum = pgEnum("post_status", ["PUBLISHED", "UNPUBLISHED"]);
+export const postCtaTypeEnum = pgEnum("post_cta_type", ["NONE", "VENUE", "PROMOTION", "COMPETITION"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST"]);
+export const notificationChannelEnum = pgEnum("notification_channel", ["IN_APP", "PUSH"]);
+export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", ["PENDING", "SENT", "SKIPPED", "FAILED"]);
+export const devicePlatformEnum = pgEnum("device_platform", ["ANDROID", "IOS"]);
 
 export const users = pgTable(
   "users",
@@ -246,6 +254,136 @@ export const bookings = pgTable(
   ],
 );
 
+
+export const venuePromotions = pgTable(
+  "venue_promotions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id").notNull().references(() => venueAreas.id, { onDelete: "cascade" }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    originalPriceAfn: integer("original_price_afn").notNull(),
+    discountedPriceAfn: integer("discounted_price_afn").notNull(),
+    status: promotionStatusEnum("status").notNull().default("ACTIVE"),
+    title: varchar("title", { length: 120 }).notNull(),
+    note: varchar("note", { length: 500 }),
+    notifyFollowers: boolean("notify_followers").notNull().default(true),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closeReason: varchar("close_reason", { length: 80 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("venue_promotions_active_slot_uq")
+      .on(table.areaId, table.startsAt, table.endsAt)
+      .where(sql`${table.status} = 'ACTIVE'`),
+    index("venue_promotions_venue_status_idx").on(table.venueId, table.status),
+    index("venue_promotions_area_time_idx").on(table.areaId, table.startsAt, table.endsAt),
+  ],
+);
+
+export const venuePosts = pgTable(
+  "venue_posts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    body: text("body").notNull(),
+    imageUrl: text("image_url"),
+    ctaType: postCtaTypeEnum("cta_type").notNull().default("NONE"),
+    ctaTargetId: uuid("cta_target_id"),
+    status: postStatusEnum("status").notNull().default("PUBLISHED"),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+    unpublishedAt: timestamp("unpublished_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("venue_posts_venue_status_idx").on(table.venueId, table.status),
+    index("venue_posts_published_at_idx").on(table.publishedAt),
+  ],
+);
+
+export const venueFollows = pgTable(
+  "venue_follows",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    venueId: uuid("venue_id").notNull().references(() => venues.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.venueId] }),
+    index("venue_follows_venue_idx").on(table.venueId),
+  ],
+);
+
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+    inAppEnabled: boolean("in_app_enabled").notNull().default(true),
+    pushEnabled: boolean("push_enabled").notNull().default(true),
+    promotionsEnabled: boolean("promotions_enabled").notNull().default(true),
+    venuePostsEnabled: boolean("venue_posts_enabled").notNull().default(true),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    type: notificationTypeEnum("type").notNull(),
+    title: varchar("title", { length: 160 }).notNull(),
+    body: varchar("body", { length: 500 }).notNull(),
+    deepLink: varchar("deep_link", { length: 500 }).notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    dedupeKey: varchar("dedupe_key", { length: 160 }).notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("notifications_user_dedupe_uq").on(table.userId, table.dedupeKey),
+    index("notifications_user_created_idx").on(table.userId, table.createdAt),
+  ],
+);
+
+export const pushDevices = pgTable(
+  "push_devices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    expoPushToken: varchar("expo_push_token", { length: 220 }).notNull(),
+    platform: devicePlatformEnum("platform").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("push_devices_token_uq").on(table.expoPushToken),
+    index("push_devices_user_idx").on(table.userId),
+  ],
+);
+
+export const notificationDeliveries = pgTable(
+  "notification_deliveries",
+  {
+    notificationId: uuid("notification_id").notNull().references(() => notifications.id, { onDelete: "cascade" }),
+    channel: notificationChannelEnum("channel").notNull(),
+    status: notificationDeliveryStatusEnum("status").notNull().default("PENDING"),
+    attempts: integer("attempts").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    error: varchar("error", { length: 500 }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.notificationId, table.channel] }),
+    index("notification_deliveries_status_idx").on(table.status),
+  ],
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
 export type VenueRow = typeof venues.$inferSelect;
@@ -254,3 +392,6 @@ export type VenueOpeningHourRow = typeof venueOpeningHours.$inferSelect;
 export type VenueSubscriptionRow = typeof venueSubscriptions.$inferSelect;
 export type VenueBlockRow = typeof venueBlocks.$inferSelect;
 export type BookingRow = typeof bookings.$inferSelect;
+export type VenuePromotionRow = typeof venuePromotions.$inferSelect;
+export type VenuePostRow = typeof venuePosts.$inferSelect;
+export type NotificationRow = typeof notifications.$inferSelect;

@@ -21,10 +21,20 @@ function PlayerHome({user}:{user:UserDto|undefined}){
   const {t,language,isRTL}=useLocale();
   const {isOnline}=useNetwork();
   const role=user?.roles[0]??"PLAYER";
-  return <Screen>
-    <View style={{gap:spacing.xs}}>
-      <AppText variant="title" weight="bold">{t("home.greeting",{name:user?.displayName??""})}</AppText>
-      <AppText muted>{t("home.foundationBody")}</AppText>
+  return <Screen showHeader>
+    <View style={{
+      backgroundColor:colors.primary,
+      borderRadius:20,
+      padding:spacing.lg,
+      gap:spacing.sm,
+      shadowColor:colors.primary,
+      shadowOpacity:0.18,
+      shadowRadius:14,
+      shadowOffset:{width:0,height:6},
+      elevation:4,
+    }}>
+      <AppText variant="title" weight="bold" style={{color:"#FFFFFF"}}>{t("home.greeting",{name:user?.displayName??""})}</AppText>
+      <AppText style={{color:"#DCE8FF"}}>{t("home.foundationBody")}</AppText>
     </View>
     <Card>
       <AppText weight="semibold" style={{color:colors.primary}}>{t("home.foundationTitle")}</AppText>

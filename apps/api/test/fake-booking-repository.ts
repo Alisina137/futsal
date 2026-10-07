@@ -6,6 +6,7 @@ import type {
   BookingVenueRecord,
   CreateBookingRecordInput,
   OccupancyRecord,
+  PromotionPriceRecord,
 } from "../src/modules/booking/booking.types.js";
 
 function overlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
@@ -16,6 +17,7 @@ export class FakeBookingRepository implements BookingRepository {
   venues = new Map<string, BookingVenueRecord>();
   bookings = new Map<string, BookingDto>();
   blocks = new Map<string, VenueBlockDto>();
+  promotionPrices: PromotionPriceRecord[] = [];
   private tail: Promise<void> = Promise.resolve();
 
   seedVenue(ownerUserId: string, options?: { trialEndsAt?: Date; status?: BookingVenueRecord["status"] }) {
@@ -82,6 +84,14 @@ export class FakeBookingRepository implements BookingRepository {
     return [...this.venues.values()].find((venue) => venue.ownerUserId === ownerUserId) ?? null;
   }
 
+  async listActivePromotionPrices(venueId: string, startsAt: Date, endsAt: Date, now: Date) {
+    const areaIds = new Set(this.venues.get(venueId)?.areas.map((area) => area.id) ?? []);
+    return this.promotionPrices.filter((promotion) =>
+      areaIds.has(promotion.areaId) &&
+      promotion.endsAt.getTime() > now.getTime() &&
+      overlap(promotion.startsAt, promotion.endsAt, startsAt, endsAt));
+  }
+
   async listOccupancies(venueId: string, startsAt: Date, endsAt: Date): Promise<OccupancyRecord[]> {
     const bookingRows: OccupancyRecord[] = [...this.bookings.values()]
       .filter((booking) => booking.venueId === venueId && booking.status !== "CANCELLED" &&
@@ -132,6 +142,8 @@ export class FakeBookingRepository implements BookingRepository {
         createdByUserId: input.createdByUserId,
       } as BookingDto & { idempotencyKey?: string; createdByUserId: string };
       this.bookings.set(booking.id, booking);
+      this.promotionPrices = this.promotionPrices.filter((promotion) =>
+        !(promotion.areaId === input.areaId && overlap(promotion.startsAt, promotion.endsAt, input.startsAt, input.endsAt)));
       return booking;
     });
   }
@@ -161,6 +173,8 @@ export class FakeBookingRepository implements BookingRepository {
         reason: input.reason,
       };
       this.blocks.set(block.id, block);
+      this.promotionPrices = this.promotionPrices.filter((promotion) =>
+        !(promotion.areaId === input.areaId && overlap(promotion.startsAt, promotion.endsAt, input.startsAt, input.endsAt)));
       return block;
     });
   }

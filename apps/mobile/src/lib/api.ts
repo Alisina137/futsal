@@ -14,6 +14,15 @@ import type {
   ManualBookingRequest,
   OwnerScheduleResponse,
   VenueBlockRequest,
+  FeedResponse,
+  FollowStateDto,
+  NotificationDto,
+  NotificationPreferences,
+  NotificationPreferencesUpdate,
+  PromotionCreateRequest,
+  PromotionDto,
+  VenuePostCreateRequest,
+  VenuePostDto,
 } from "@leaguekick/contracts";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
@@ -85,6 +94,20 @@ export const ownerApi = {
     request<void>(`/api/v1/owner/blocks/${blockId}`, { method: "DELETE" }, accessToken),
   cancelBooking: (accessToken: string, bookingId: string, reason?: string) =>
     request<{ booking: BookingDto }>(`/api/v1/owner/bookings/${bookingId}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason ?? "" }) }, accessToken),
+  promotions: (accessToken: string) =>
+    request<{ promotions: PromotionDto[]; generatedAt: string }>("/api/v1/owner/promotions", {}, accessToken),
+  createPromotion: (accessToken: string, input: PromotionCreateRequest) =>
+    request<{ promotion: PromotionDto }>("/api/v1/owner/promotions", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  closePromotion: (accessToken: string, promotionId: string) =>
+    request<{ promotion: PromotionDto }>(`/api/v1/owner/promotions/${promotionId}/close`, { method: "POST" }, accessToken),
+  posts: (accessToken: string) =>
+    request<{ posts: VenuePostDto[]; generatedAt: string }>("/api/v1/owner/posts", {}, accessToken),
+  createPost: (accessToken: string, input: VenuePostCreateRequest) =>
+    request<{ post: VenuePostDto }>("/api/v1/owner/posts", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  publishPost: (accessToken: string, postId: string) =>
+    request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}/publish`, { method: "POST" }, accessToken),
+  unpublishPost: (accessToken: string, postId: string) =>
+    request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}/unpublish`, { method: "POST" }, accessToken),
 };
 
 
@@ -108,4 +131,29 @@ export const bookingApi = {
     request<{ bookings: BookingDto[]; generatedAt: string }>("/api/v1/bookings/me", {}, accessToken),
   cancel: (accessToken: string, bookingId: string, reason?: string) =>
     request<{ booking: BookingDto }>(`/api/v1/bookings/${bookingId}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason ?? "" }) }, accessToken),
+};
+
+
+export const marketingApi = {
+  feed: (accessToken?: string, followingOnly = false) =>
+    request<FeedResponse>(followingOnly ? "/api/v1/feed/following" : "/api/v1/feed", {}, followingOnly ? accessToken : undefined),
+  followState: (accessToken: string, venueId: string) =>
+    request<FollowStateDto>(`/api/v1/venues/${venueId}/follow`, {}, accessToken),
+  follow: (accessToken: string, venueId: string) =>
+    request<FollowStateDto>(`/api/v1/venues/${venueId}/follow`, { method: "POST" }, accessToken),
+  unfollow: (accessToken: string, venueId: string) =>
+    request<FollowStateDto>(`/api/v1/venues/${venueId}/follow`, { method: "DELETE" }, accessToken),
+  post: (postId: string) => request<{ post: VenuePostDto }>(`/api/v1/posts/${postId}`),
+  promotion: (promotionId: string) => request<{ promotion: PromotionDto }>(`/api/v1/promotions/${promotionId}`),
+};
+
+export const notificationApi = {
+  list: (accessToken: string) =>
+    request<{ notifications: NotificationDto[]; generatedAt: string }>("/api/v1/notifications", {}, accessToken),
+  markRead: (accessToken: string, notificationId: string) =>
+    request<{ notification: NotificationDto }>(`/api/v1/notifications/${notificationId}/read`, { method: "POST" }, accessToken),
+  preferences: (accessToken: string) =>
+    request<{ preferences: NotificationPreferences }>("/api/v1/notifications/preferences", {}, accessToken),
+  updatePreferences: (accessToken: string, input: NotificationPreferencesUpdate) =>
+    request<{ preferences: NotificationPreferences }>("/api/v1/notifications/preferences", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
 };

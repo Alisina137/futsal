@@ -48,6 +48,14 @@ export type OccupancyRecord = {
   kind: "BOOKING" | "BLOCK";
 };
 
+export type PromotionPriceRecord = {
+  id: string;
+  areaId: string;
+  startsAt: Date;
+  endsAt: Date;
+  discountedPriceAfn: number;
+};
+
 export type CreateBookingRecordInput = {
   venueId: string;
   areaId: string;
@@ -71,6 +79,7 @@ export interface BookingRepository {
   getVenueRecordByAreaId(areaId: string): Promise<BookingVenueRecord | null>;
   getOwnerVenueRecord(ownerUserId: string): Promise<BookingVenueRecord | null>;
   listOccupancies(venueId: string, startsAt: Date, endsAt: Date): Promise<OccupancyRecord[]>;
+  listActivePromotionPrices(venueId: string, startsAt: Date, endsAt: Date, now: Date): Promise<PromotionPriceRecord[]>;
   createBookingAtomic(input: CreateBookingRecordInput): Promise<BookingDto>;
   createBlockAtomic(input: {
     venueId: string;
