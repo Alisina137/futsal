@@ -318,6 +318,16 @@ export const ownerApi = {
     request<{ posts: VenuePostDto[]; generatedAt: string }>("/api/v1/owner/posts", {}, accessToken),
   createPost: (accessToken: string, input: VenuePostCreateRequest) =>
     request<{ post: VenuePostDto }>("/api/v1/owner/posts", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  updatePost: (accessToken: string, postId: string, input: import("@leaguekick/contracts").VenuePostUpdateRequest) =>
+    request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}`, { method: "PUT", body: JSON.stringify(input) }, accessToken),
+  deletePost: (accessToken: string, postId: string) =>
+    request<{ deleted: boolean }>(`/api/v1/owner/posts/${postId}`, { method: "DELETE" }, accessToken),
+  setPostVisibility: (accessToken: string, postId: string, visibility: import("@leaguekick/contracts").VenuePostVisibility) =>
+    request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}/visibility`, { method: "PATCH", body: JSON.stringify({ visibility }) }, accessToken),
+  addPostSchedule: (accessToken: string, postId: string, input: import("@leaguekick/contracts").VenuePostScheduleRequest) =>
+    request<{ schedule: import("@leaguekick/contracts").VenuePostScheduleDto }>(`/api/v1/owner/posts/${postId}/schedules`, { method: "POST", body: JSON.stringify(input) }, accessToken),
+  cancelPostSchedule: (accessToken: string, postId: string, scheduleId: string) =>
+    request<{ schedule: import("@leaguekick/contracts").VenuePostScheduleDto }>(`/api/v1/owner/posts/${postId}/schedules/${scheduleId}`, { method: "DELETE" }, accessToken),
   publishPost: (accessToken: string, postId: string) =>
     request<{ post: VenuePostDto }>(`/api/v1/owner/posts/${postId}/publish`, { method: "POST" }, accessToken),
   unpublishPost: (accessToken: string, postId: string) =>
@@ -357,6 +367,14 @@ export const bookingApi = {
 export const marketingApi = {
   feed: (accessToken?: string, followingOnly = false) =>
     request<FeedResponse>(followingOnly ? "/api/v1/feed/following" : "/api/v1/feed", {}, followingOnly ? accessToken : undefined),
+  venuePosts: (venueId: string, accessToken?: string) =>
+    request<{ posts: VenuePostDto[]; generatedAt: string }>(
+      accessToken ? `/api/v1/venues/${venueId}/posts/following` : `/api/v1/venues/${venueId}/posts`,
+      {},
+      accessToken,
+    ),
+  venuePostForUser: (accessToken: string, postId: string) =>
+    request<{ post: VenuePostDto }>(`/api/v1/social/venue-posts/${postId}`, {}, accessToken),
   socialFeed: (accessToken: string) =>
     request<SocialFeedResponse>("/api/v1/social/feed", {}, accessToken),
   socialFollowState: (accessToken: string, entityType: SocialEntityType, entityId: string) =>
