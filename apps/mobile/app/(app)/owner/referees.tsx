@@ -67,9 +67,9 @@ export default function VenueRefereesScreen() {
     }
   }
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
+  if(loading)return <Screen embedded><DataLoadingState variant="list" minHeight={500}/></Screen>;
 
-  return <Screen showHeader>
+  return <Screen embedded>
     <View style={{ gap: spacing.xs }}>
       <AppText variant="title" weight="bold">{t("roles.venueRefereesTitle")}</AppText>
       <AppText muted>{t("roles.venueRefereesBody")}</AppText>
