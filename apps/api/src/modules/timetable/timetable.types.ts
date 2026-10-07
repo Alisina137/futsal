@@ -89,6 +89,12 @@ export interface TimetableRepository {
     archiveIds: string[];
     publishedAt: Date;
   }): Promise<TimetableRecord>;
+  truncatePublishedTimetable(input: {
+    timetableId: string;
+    venueId: string;
+    effectiveUntil: string;
+    updatedAt: Date;
+  }): Promise<void>;
   archiveTimetable(timetableId: string, venueId: string, archivedAt: Date): Promise<TimetableRecord | null>;
   listExceptions(venueId: string, from?: string, to?: string): Promise<TimetableExceptionRecord[]>;
   createException(input: {
