@@ -89,11 +89,14 @@ export default function TimetableEditorScreen(){
 
   const focusTodayCard=useCallback(()=>{
     if(focusedToday.current||dayListY.current===null||todayCardY.current===null)return;
-    focusedToday.current=true;
     requestAnimationFrame(()=>{
-      screenScrollRef.current?.scrollTo({
-        y:Math.max(0,dayListY.current!+todayCardY.current!-spacing.sm),
-        animated:false,
+      requestAnimationFrame(()=>{
+        if(focusedToday.current||dayListY.current===null||todayCardY.current===null)return;
+        focusedToday.current=true;
+        screenScrollRef.current?.scrollTo({
+          y:Math.max(0,dayListY.current+todayCardY.current-spacing.sm),
+          animated:false,
+        });
       });
     });
   },[]);
