@@ -676,9 +676,13 @@ export const venueTimetableExceptionRequestSchema = z.object({
 });
 export type VenueTimetableExceptionRequest = z.infer<typeof venueTimetableExceptionRequestSchema>;
 
-export const venueTimetableExceptionDtoSchema = venueTimetableExceptionRequestSchema.safeExtend({
+export const venueTimetableExceptionDtoSchema = z.object({
   id: z.string().uuid(),
   venueId: z.string().uuid(),
+  areaId: z.string().uuid().nullable(),
+  date: dateOnlySchema,
+  isClosed: z.boolean(),
+  periods: z.array(venueTimetableExceptionPeriodSchema).max(12),
   note: z.string().nullable(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
