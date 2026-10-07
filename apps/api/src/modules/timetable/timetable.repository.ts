@@ -75,7 +75,10 @@ export class DrizzleTimetableRepository implements TimetableRepository {
   }
 
   private async venue(row: typeof venues.$inferSelect): Promise<TimetableVenueRecord> {
-    const areas = await this.db.select().from(venueAreas).where(eq(venueAreas.venueId, row.id));
+    const areas = await this.db.select().from(venueAreas).where(and(
+      eq(venueAreas.venueId, row.id),
+      eq(venueAreas.active, true),
+    ));
     return {
       id: row.id,
       ownerUserId: row.ownerUserId,
