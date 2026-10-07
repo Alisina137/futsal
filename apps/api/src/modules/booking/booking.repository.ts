@@ -119,10 +119,11 @@ export class DrizzleBookingRepository implements BookingRepository {
     };
   }
 
-  async listPublicVenueRecords(filters: { city?: string; province?: string }): Promise<BookingVenueRecord[]> {
+  async listPublicVenueRecords(filters: { city?: string; province?: string; q?: string }): Promise<BookingVenueRecord[]> {
     const conditions = [eq(venues.status, "ACTIVE")];
     if (filters.city) conditions.push(eq(venues.city, filters.city));
     if (filters.province) conditions.push(eq(venues.province, filters.province));
+    if (filters.q) conditions.push(ilike(venues.name, `%${filters.q}%`));
     const rows = await this.db.select().from(venues).where(and(...conditions));
     return Promise.all(rows.map((row) => this.hydrateVenue(row)));
   }
