@@ -10,6 +10,9 @@ import type {
   SocialPostCommentUpdateRequest,
   VenuePostCreateRequest,
   VenuePostDto,
+  VenuePostScheduleRequest,
+  VenuePostUpdateRequest,
+  VenuePostVisibility,
 } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import type { BookingService } from "../booking/booking.service.js";
@@ -40,6 +43,57 @@ export class MarketingService {
     private readonly now: () => Date = () => new Date(),
     private readonly notifications?: NotificationPublisher,
   ) {}
+
+  private async notifyVenuePost(post:VenuePostDto){
+    if(!post.notifyFollowers||post.visibility==="PRIVATE")return;
+    const venue=await this.repository.getVenue(post.venueId);
+    if(!venue)return;
+    try{
+      await this.notifications?.venuePostPublished({
+        venueId:venue.id,
+        postId:post.id,
+        venueName:venue.name,
+        followerUserIds:await this.repository.listFollowerUserIds(venue.id),
+      });
+    }catch{
+      // Post state remains authoritative even if notification fan-out fails.
+    }
+  }
+
+  private async refreshMedia(){
+    const now=this.now();
+    await this.repository.refreshPromotionStates(now);
+    const newlyPublished=await this.repository.refreshPostStates(now);
+    await Promise.all(newlyPublished.map((post)=>this.notifyVenuePost(post)));
+  }
+
+  private async normalizePostCta(
+    venueId:string,
+    ctaType:"NONE"|"VENUE"|"PROMOTION"|"COMPETITION",
+    requestedTargetId:string|null|undefined,
+  ){
+    if(ctaType==="VENUE")return venueId;
+    if(ctaType==="NONE")return null;
+    const targetId=requestedTargetId??null;
+    if(!targetId)throw errors.badRequest("INVALID_POST_CTA","Choose a valid target for this post.");
+    if(ctaType==="PROMOTION"){
+      const promotion=await this.repository.getPromotion(targetId);
+      if(!promotion||promotion.venueId!==venueId||promotion.status!=="ACTIVE"){
+        throw errors.badRequest("INVALID_POST_CTA","Choose an active promotion from this venue.");
+      }
+      return targetId;
+    }
+    if(!(await this.repository.competitionBelongsToVenue(targetId,venueId))){
+      throw errors.badRequest("INVALID_POST_CTA","Choose a competition managed by this venue.");
+    }
+    return targetId;
+  }
+
+  private assertFutureSchedule(input:VenuePostScheduleRequest,now:Date){
+    if(new Date(input.executeAt).getTime()<=now.getTime()){
+      throw errors.badRequest("MEDIA_SCHEDULE_IN_PAST","Scheduled media actions must be in the future.");
+    }
+  }
 
   private async ownerVenue(ownerUserId: string, requireWrite = true) {
     const venue = await this.repository.getOwnerVenue(ownerUserId);
@@ -121,116 +175,152 @@ export class MarketingService {
   }
 
   async createPost(ownerUserId: string, input: VenuePostCreateRequest): Promise<VenuePostDto> {
-    await this.repository.refreshPromotionStates(this.now());
-    const venue = await this.ownerVenue(ownerUserId, true);
-    let targetId: string | null = input.ctaTargetId ?? null;
+    await this.refreshMedia();
+    const venue=await this.ownerVenue(ownerUserId,true);
+    const now=this.now();
+    const targetId=await this.normalizePostCta(venue.id,input.ctaType,input.ctaTargetId);
 
-    if (input.ctaType === "VENUE") {
-      targetId = venue.id;
-    } else if (input.ctaType === "PROMOTION") {
-      const promotion = targetId ? await this.repository.getPromotion(targetId) : null;
-      if (!promotion || promotion.venueId !== venue.id || promotion.status !== "ACTIVE") {
-        throw errors.badRequest("INVALID_POST_CTA", "Choose an active promotion from this venue.");
+    if(input.publishMode==="SCHEDULED"){
+      if(!input.publishAt||new Date(input.publishAt).getTime()<=now.getTime()){
+        throw errors.badRequest("MEDIA_SCHEDULE_IN_PAST","Scheduled publication must be in the future.");
       }
-    } else if (input.ctaType === "COMPETITION") {
-      throw errors.badRequest("CTA_NOT_AVAILABLE", "Competition CTAs become available with the competition phase.");
-    } else {
-      targetId = null;
     }
+    input.schedules.forEach((schedule)=>this.assertFutureSchedule(schedule,now));
 
-    const post = await this.repository.createPost({
-      venueId: venue.id,
-      createdByUserId: ownerUserId,
-      body: input.body.trim(),
-      imageUrl: input.imageUrl?.trim() || null,
-      ctaType: input.ctaType,
-      ctaTargetId: targetId,
-      publishedAt: this.now(),
+    const request:VenuePostCreateRequest={...input,ctaTargetId:targetId};
+    const post=await this.repository.createPost({
+      venueId:venue.id,
+      createdByUserId:ownerUserId,
+      request,
+      publishedAt:now,
+      initialStatus:input.publishMode==="NOW"?"PUBLISHED":"UNPUBLISHED",
     });
-    if (input.notifyFollowers) {
-      try {
-        await this.notifications?.venuePostPublished({
-          venueId: venue.id,
-          postId: post.id,
-          venueName: venue.name,
-          followerUserIds: await this.repository.listFollowerUserIds(venue.id),
-        });
-      } catch {
-        // Publishing the post succeeds even if follower notification fan-out fails.
-      }
-    }
+
+    if(input.publishMode==="NOW")await this.notifyVenuePost(post);
     return post;
   }
 
-  async listOwnerPosts(ownerUserId: string) {
-    await this.ownerVenue(ownerUserId, false);
-    return { posts: await this.repository.listOwnerPosts(ownerUserId), generatedAt: this.now().toISOString() };
+  async listOwnerPosts(ownerUserId:string){
+    await this.ownerVenue(ownerUserId,false);
+    await this.refreshMedia();
+    return {posts:await this.repository.listOwnerPosts(ownerUserId),generatedAt:this.now().toISOString()};
+  }
+
+  async updatePost(ownerUserId:string,postId:string,input:VenuePostUpdateRequest){
+    const venue=await this.ownerVenue(ownerUserId,true);
+    await this.refreshMedia();
+    const current=await this.repository.getPost(postId);
+    if(!current||current.venueId!==venue.id)throw errors.forbidden("POST_ACCESS_DENIED","You cannot manage this post.");
+    const ctaType=input.ctaType??current.ctaType;
+    const targetId=await this.normalizePostCta(
+      venue.id,
+      ctaType,
+      input.ctaTargetId!==undefined?input.ctaTargetId:current.ctaTargetId,
+    );
+    const updated=await this.repository.updatePost(ownerUserId,postId,{...input,ctaType,ctaTargetId:targetId},this.now());
+    if(!updated)throw errors.forbidden("POST_ACCESS_DENIED","You cannot manage this post.");
+    return updated;
+  }
+
+  async deletePost(ownerUserId:string,postId:string){
+    await this.ownerVenue(ownerUserId,false);
+    if(!(await this.repository.deletePost(ownerUserId,postId))){
+      throw errors.forbidden("POST_ACCESS_DENIED","You cannot manage this post.");
+    }
+    return {deleted:true};
   }
 
   async setPostPublished(ownerUserId: string, postId: string, published: boolean) {
-    const venue = await this.ownerVenue(ownerUserId, published);
-    if (published) {
-      await this.repository.refreshPromotionStates(this.now());
-      const current = await this.repository.getPost(postId);
-      if (!current || current.venueId !== venue.id) {
-        throw errors.forbidden("POST_ACCESS_DENIED", "You cannot manage this post.");
-      }
-      if (current.ctaType === "PROMOTION" && current.ctaTargetId) {
-        const promotion = await this.repository.getPromotion(current.ctaTargetId);
-        if (!promotion || promotion.venueId !== venue.id || promotion.status !== "ACTIVE") {
-          throw errors.badRequest("INVALID_POST_CTA", "This post links to a promotion that is no longer active.");
-        }
-      }
+    const venue=await this.ownerVenue(ownerUserId,published);
+    await this.refreshMedia();
+    if(published){
+      const current=await this.repository.getPost(postId);
+      if(!current||current.venueId!==venue.id)throw errors.forbidden("POST_ACCESS_DENIED","You cannot manage this post.");
+      await this.normalizePostCta(venue.id,current.ctaType,current.ctaTargetId);
     }
-
-    const post = await this.repository.setPostStatus(
-      ownerUserId,
-      postId,
-      published ? "PUBLISHED" : "UNPUBLISHED",
-      this.now(),
-    );
-    if (!post) throw errors.forbidden("POST_ACCESS_DENIED", "You cannot manage this post.");
+    const post=await this.repository.setPostStatus(ownerUserId,postId,published?"PUBLISHED":"UNPUBLISHED",this.now());
+    if(!post)throw errors.forbidden("POST_ACCESS_DENIED","You cannot manage this post.");
+    if(published)await this.notifyVenuePost(post);
     return post;
   }
 
-  async getPublicPost(postId: string) {
-    const post = await this.repository.getPost(postId);
-    if (!post || post.status !== "PUBLISHED") throw errors.badRequest("POST_NOT_FOUND", "This post is not public.");
-    const venue = await this.repository.getVenue(post.venueId);
-    if (!venue || venue.status !== "ACTIVE") throw errors.badRequest("POST_NOT_FOUND", "This post is not public.");
+  async setPostVisibility(ownerUserId:string,postId:string,visibility:VenuePostVisibility){
+    await this.ownerVenue(ownerUserId,true);
+    const post=await this.repository.setPostVisibility(ownerUserId,postId,visibility,this.now());
+    if(!post)throw errors.forbidden("POST_ACCESS_DENIED","You cannot manage this post.");
     return post;
+  }
+
+  async addPostSchedule(ownerUserId:string,postId:string,input:VenuePostScheduleRequest){
+    await this.ownerVenue(ownerUserId,true);
+    this.assertFutureSchedule(input,this.now());
+    const schedule=await this.repository.addPostSchedule(ownerUserId,postId,input,this.now());
+    if(!schedule)throw errors.forbidden("POST_ACCESS_DENIED","You cannot manage this post.");
+    return schedule;
+  }
+
+  async cancelPostSchedule(ownerUserId:string,postId:string,scheduleId:string){
+    await this.ownerVenue(ownerUserId,false);
+    const schedule=await this.repository.cancelPostSchedule(ownerUserId,postId,scheduleId,this.now());
+    if(!schedule)throw errors.badRequest("MEDIA_SCHEDULE_NOT_FOUND","This pending media action is no longer available.");
+    return schedule;
+  }
+
+  async getPublicPost(postId:string){
+    await this.refreshMedia();
+    const post=await this.repository.getPost(postId);
+    if(!post||post.status!=="PUBLISHED"||post.visibility!=="PUBLIC"){
+      throw errors.badRequest("POST_NOT_FOUND","This post is not public.");
+    }
+    const venue=await this.repository.getVenue(post.venueId);
+    if(!venue||venue.status!=="ACTIVE")throw errors.badRequest("POST_NOT_FOUND","This post is not public.");
+    return post;
+  }
+
+  async getVenuePostForUser(userId:string,postId:string){
+    await this.refreshMedia();
+    const post=await this.repository.getPost(postId);
+    if(!post||post.status!=="PUBLISHED"||post.visibility==="PRIVATE"){
+      throw errors.badRequest("POST_NOT_FOUND","This post is not available.");
+    }
+    if(post.visibility==="FOLLOWERS"&&!(await this.repository.isFollowing(userId,post.venueId))){
+      throw errors.forbidden("POST_FOLLOWERS_ONLY","Follow this venue to view this post.");
+    }
+    return post;
+  }
+
+  async venuePosts(venueId:string,userId?:string){
+    await this.refreshMedia();
+    const venue=await this.repository.getVenue(venueId);
+    if(!venue||venue.status!=="ACTIVE")throw errors.badRequest("VENUE_NOT_FOUND","Venue not found.");
+    const following=userId?await this.repository.isFollowing(userId,venueId):false;
+    return {
+      posts:await this.repository.listVenuePosts(venueId,following?"PUBLIC_OR_FOLLOWERS":"PUBLIC"),
+      generatedAt:this.now().toISOString(),
+    };
   }
 
   async feed(userId?: string, followingOnly = false): Promise<FeedResponse> {
-    await this.repository.refreshPromotionStates(this.now());
-    const venueIds = followingOnly
-      ? userId
-        ? await this.repository.listFollowedVenueIds(userId)
-        : []
-      : undefined;
-
-    const [promotions, posts] = await Promise.all([
+    await this.refreshMedia();
+    const venueIds=followingOnly
+      ?userId?await this.repository.listFollowedVenueIds(userId):[]
+      :undefined;
+    const [promotions,posts]=await Promise.all([
       this.repository.listActivePromotions(venueIds),
-      this.repository.listPublishedPosts(venueIds),
+      this.repository.listPublishedPosts(venueIds,followingOnly?"PUBLIC_OR_FOLLOWERS":"PUBLIC"),
     ]);
+    return {generatedAt:this.now().toISOString(),items:mergeFeed(promotions,posts).slice(0,100)};
+  }
 
-    return {
-      generatedAt: this.now().toISOString(),
-      items: mergeFeed(promotions, posts).slice(0, 100),
-    };
+  async socialFeed(userId:string):Promise<SocialFeedResponse>{
+    await this.refreshMedia();
+    return {generatedAt:this.now().toISOString(),items:await this.repository.listSocialFeed(userId)};
   }
 
   private async requireSocialEntity(entityType: SocialEntityType, entityId: string) {
     const entity = await this.repository.getSocialEntity(entityType, entityId);
     if (!entity) throw errors.badRequest("SOCIAL_ENTITY_NOT_FOUND", "This page is not available.");
     return entity;
-  }
-
-  async socialFeed(userId: string): Promise<SocialFeedResponse> {
-    return {
-      generatedAt: this.now().toISOString(),
-      items: await this.repository.listSocialFeed(userId),
-    };
   }
 
   async socialFollowState(
