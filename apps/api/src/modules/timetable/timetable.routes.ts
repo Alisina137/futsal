@@ -84,6 +84,17 @@ export function createOwnerTimetableRouter(timetable: TimetableService, tokens: 
     } catch (error) { next(error); }
   });
 
+  router.put("/timetable-exceptions/:exceptionId", writeLimiter, async (request, response, next) => {
+    try {
+      const input = venueTimetableExceptionRequestSchema.parse(request.body);
+      response.json(await timetable.updateException(
+        request.auth!.userId,
+        idSchema.parse(request.params.exceptionId),
+        input,
+      ));
+    } catch (error) { next(error); }
+  });
+
   router.delete("/timetable-exceptions/:exceptionId", writeLimiter, async (request, response, next) => {
     try {
       response.json(await timetable.deleteException(
