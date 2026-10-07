@@ -6,7 +6,7 @@ import {
 
 export type TimetableDayDraft={
   dayOfWeek:number;
-  periods:Array<{startsAt:string;endsAt:string}>;
+  periods:Array<{startsAt:string;endsAt:string;priceAfn:string}>;
 };
 
 export type TimetableDraftValidationError=
@@ -15,7 +15,7 @@ export type TimetableDraftValidationError=
   |"DATE_RANGE"
   |"DURATION"
   |"BUFFER"
-  |"AREA"
+  |"PRICE"
   |"EMPTY"
   |"TIME"
   |"OVERLAP";
@@ -83,8 +83,6 @@ export function buildTimetableDraft(input:{
   effectiveUntil:string;
   duration:string;
   buffer:string;
-  allAreas:boolean;
-  selectedAreaIds:string[];
   days:TimetableDayDraft[];
   language:TimetableCalendarLanguage;
 }):{draft:VenueTimetableDraftRequest|null;error:TimetableDraftValidationError|null}{
@@ -107,13 +105,12 @@ export function buildTimetableDraft(input:{
   if(!Number.isInteger(bufferMinutes)||bufferMinutes<0||bufferMinutes>60){
     return {draft:null,error:"BUFFER"};
   }
-  if(!input.allAreas&&!input.selectedAreaIds.length)return {draft:null,error:"AREA"};
-
   const normalizedDays=input.days.map((day)=>({
     dayOfWeek:day.dayOfWeek,
     periods:day.periods.map((period)=>({
       startsAt:normalizeLocalizedDigits(period.startsAt),
       endsAt:normalizeLocalizedDigits(period.endsAt),
+      priceText:normalizeLocalizedDigits(period.priceAfn),
     })),
   }));
   if(!normalizedDays.some((day)=>day.periods.length))return {draft:null,error:"EMPTY"};
@@ -122,6 +119,10 @@ export function buildTimetableDraft(input:{
     for(const period of day.periods){
       if(!validTime(period.startsAt)||!validTime(period.endsAt)||period.startsAt>=period.endsAt){
         return {draft:null,error:"TIME"};
+      }
+      const price=Number(period.priceText);
+      if(!Number.isInteger(price)||price<0||price>1_000_000){
+        return {draft:null,error:"PRICE"};
       }
     }
     const sorted=[...day.periods].sort((a,b)=>a.startsAt.localeCompare(b.startsAt));
@@ -132,16 +133,14 @@ export function buildTimetableDraft(input:{
     }
   }
 
-  const scopes:(string|null)[]=input.allAreas?[null]:input.selectedAreaIds;
   const periods=normalizedDays.flatMap((day)=>
-    day.periods.flatMap((period)=>
-      scopes.map((areaId)=>({
-        areaId,
-        dayOfWeek:day.dayOfWeek,
-        startsAt:period.startsAt,
-        endsAt:period.endsAt,
-      }))
-    )
+    day.periods.map((period)=>({
+      areaId:null,
+      dayOfWeek:day.dayOfWeek,
+      startsAt:period.startsAt,
+      endsAt:period.endsAt,
+      priceAfn:Number(period.priceText),
+    }))
   );
 
   return {
