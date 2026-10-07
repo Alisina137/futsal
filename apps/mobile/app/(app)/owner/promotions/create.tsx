@@ -1,6 +1,6 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
 import type { AvailabilitySlotDto } from "@leaguekick/contracts";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, Switch, View } from "react-native";
 import { ApiRequestError, ownerApi, venueApi } from "../../../../src/lib/api";
@@ -18,9 +18,10 @@ function todayKabul(){
 }
 
 export default function CreatePromotionScreen(){
+  const params=useLocalSearchParams<{areaId?:string;date?:string;start?:string}>();
   const {session}=useAuth();
   const {t}=useLocale();
-  const [date,setDate]=useState(todayKabul());
+  const [date,setDate]=useState(typeof params.date==="string"?params.date:todayKabul());
   const [slots,setSlots]=useState<AvailabilitySlotDto[]>([]);
   const [selected,setSelected]=useState<AvailabilitySlotDto|null>(null);
   const [title,setTitle]=useState("");
@@ -38,13 +39,24 @@ export default function CreatePromotionScreen(){
       const status=await ownerApi.getStatus(session.accessToken);
       if(!status.venue)throw new Error("VENUE_REQUIRED");
       const response=await venueApi.availability(status.venue.id,date);
-      setSlots(response.slots.filter((slot)=>!slot.promotionId));
+      const nextSlots=response.slots.filter((slot)=>!slot.promotionId);
+      setSlots(nextSlots);
+      const requestedArea=typeof params.areaId==="string"?params.areaId:"";
+      const requestedStart=typeof params.start==="string"?params.start:"";
+      const preferred=nextSlots.find((slot)=>
+        slot.areaId===requestedArea
+        &&(!requestedStart||new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(slot.startsAt))===requestedStart)
+      );
+      if(preferred){
+        setSelected(preferred);
+        setTitle((current)=>current.trim()?current:t("ownerMarketing.defaultPromotionTitle"));
+      }
     }catch(cause){
       if(cause instanceof ApiRequestError&&cause.code==="VENUE_NOT_BOOKABLE")setError(t("ownerMarketing.entitlementRequired"));
       else setError(t("ownerMarketing.loadSlotsError"));
       setSlots([]);
     }finally{setLoading(false);}
-  },[date,session,t]);
+  },[date,params.areaId,params.start,session,t]);
 
   useEffect(()=>{void load();},[load]);
 
