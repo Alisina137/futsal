@@ -13,6 +13,8 @@ type CacheEntry<T> = {
 const STORAGE_PREFIX = "futsal.api-read-cache.v1";
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlightReads = new Map<string, Promise<unknown>>();
+const inFlightRequestIds = new Map<string, number>();
+let nextInFlightRequestId = 0;
 let activeUserId: string | null = null;
 let cacheEpoch = 0;
 
@@ -110,7 +112,10 @@ async function removeKeysMatching(predicate: (key: string) => boolean) {
     if (predicate(key)) memoryCache.delete(key);
   }
   for (const key of [...inFlightReads.keys()]) {
-    if (predicate(key)) inFlightReads.delete(key);
+    if (predicate(key)) {
+      inFlightReads.delete(key);
+      inFlightRequestIds.delete(key);
+    }
   }
   const keys = (await AsyncStorage.getAllKeys().catch(() => [] as string[])).filter((key) =>
     key.startsWith(`${STORAGE_PREFIX}|`) && predicate(key)
@@ -176,8 +181,8 @@ export async function cachedApiRead<T>(
   if (existing) return existing;
 
   const requestEpoch = cacheEpoch;
-  let request: Promise<T>;
-  request = (async () => {
+  const requestId = ++nextInFlightRequestId;
+  const request = (async () => {
     try {
       const value = await loader();
       if (cacheEpoch === requestEpoch) {
@@ -192,10 +197,14 @@ export async function cachedApiRead<T>(
       if (cached && isNetworkFailure(error)) return cached.value;
       throw error;
     } finally {
-      if (inFlightReads.get(key) === request) inFlightReads.delete(key);
+      if (inFlightRequestIds.get(key) === requestId) {
+        inFlightRequestIds.delete(key);
+        inFlightReads.delete(key);
+      }
     }
   })();
 
+  inFlightRequestIds.set(key, requestId);
   inFlightReads.set(key, request);
   return request;
 }
@@ -221,5 +230,6 @@ export async function clearAllApiReadCache() {
   activeUserId = null;
   cacheEpoch += 1;
   inFlightReads.clear();
+  inFlightRequestIds.clear();
   await removeKeysMatching((key) => key.startsWith(`${STORAGE_PREFIX}|`));
 }
