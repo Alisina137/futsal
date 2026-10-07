@@ -14,6 +14,7 @@ const STORAGE_PREFIX = "futsal.api-read-cache.v1";
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlightReads = new Map<string, Promise<unknown>>();
 let activeUserId: string | null = null;
+let cacheEpoch = 0;
 
 export function setApiCacheUserScope(userId: string | null) {
   activeUserId = userId;
@@ -108,6 +109,9 @@ async function removeKeysMatching(predicate: (key: string) => boolean) {
   for (const key of [...memoryCache.keys()]) {
     if (predicate(key)) memoryCache.delete(key);
   }
+  for (const key of [...inFlightReads.keys()]) {
+    if (predicate(key)) inFlightReads.delete(key);
+  }
   const keys = (await AsyncStorage.getAllKeys()).filter((key) =>
     key.startsWith(`${STORAGE_PREFIX}|`) && predicate(key)
   );
@@ -115,12 +119,14 @@ async function removeKeysMatching(predicate: (key: string) => boolean) {
 }
 
 async function clearScope(scope: string) {
+  cacheEpoch += 1;
   const prefix = `${STORAGE_PREFIX}|${scope}|`;
   await removeKeysMatching((key) => key.startsWith(prefix));
 }
 
 async function clearPublicPrefixes(prefixes: string[]) {
   if (!prefixes.length) return;
+  cacheEpoch += 1;
   const base = `${STORAGE_PREFIX}|public|`;
   await removeKeysMatching((key) =>
     key.startsWith(base) && prefixes.some((prefix) => key.slice(base.length).startsWith(prefix))
@@ -168,12 +174,16 @@ export async function cachedApiRead<T>(
   const existing = inFlightReads.get(key) as Promise<T> | undefined;
   if (existing) return existing;
 
-  const request = (async () => {
+  const requestEpoch = cacheEpoch;
+  let request: Promise<T>;
+  request = (async () => {
     try {
       const value = await loader();
-      const entry: CacheEntry<T> = { value, cachedAt: Date.now() };
-      memoryCache.set(key, entry);
-      if (policy.persist) await writePersistent(key, entry);
+      if (cacheEpoch === requestEpoch) {
+        const entry: CacheEntry<T> = { value, cachedAt: Date.now() };
+        memoryCache.set(key, entry);
+        if (policy.persist) await writePersistent(key, entry);
+      }
       return value;
     } catch (error) {
       // Stale cache is a network-only fallback. Authorization, suspension,
@@ -181,7 +191,7 @@ export async function cachedApiRead<T>(
       if (cached && isNetworkFailure(error)) return cached.value;
       throw error;
     } finally {
-      inFlightReads.delete(key);
+      if (inFlightReads.get(key) === request) inFlightReads.delete(key);
     }
   })();
 
@@ -208,6 +218,7 @@ export async function clearActiveUserApiCache() {
 
 export async function clearAllApiReadCache() {
   activeUserId = null;
+  cacheEpoch += 1;
   inFlightReads.clear();
   await removeKeysMatching((key) => key.startsWith(`${STORAGE_PREFIX}|`));
 }
