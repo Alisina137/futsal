@@ -13,6 +13,7 @@ import {
   venueAreas,
   venueBlocks,
   venueFollows,
+  venueMediaAssets,
   venuePosts,
   venuePostScheduledActions,
   venuePromotions,
@@ -136,7 +137,12 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       id: row.id,
       ownerUserId: row.ownerUserId,
       name: row.name,
+      city: row.city,
+      province: row.province,
       timezone: row.timezone,
+      pageProfileImageUrl: row.pageProfileImageUrl,
+      pageCoverImageUrl: row.pageCoverImageUrl,
+      pageBio: row.pageBio,
       status: row.status,
       subscription: subscription ? {
         status: subscription.status,
@@ -604,12 +610,67 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     return Boolean(row);
   }
 
+  async createMediaAsset(input:{
+    venueId:string;
+    ownerUserId:string;
+    purpose:import("@leaguekick/contracts").VenueMediaAssetPurpose;
+    publicToken:string;
+    mimeType:string;
+    byteSize:number;
+    dataBase64:string;
+    createdAt:Date;
+  }){
+    const [asset]=await this.db.insert(venueMediaAssets).values({
+      venueId:input.venueId,
+      ownerUserId:input.ownerUserId,
+      purpose:input.purpose,
+      publicToken:input.publicToken,
+      mimeType:input.mimeType,
+      byteSize:input.byteSize,
+      dataBase64:input.dataBase64,
+      createdAt:input.createdAt,
+    }).returning();
+    if(!asset)throw new Error("Media asset could not be stored.");
+    return {...asset,purpose:asset.purpose as import("@leaguekick/contracts").VenueMediaAssetPurpose};
+  }
+
+  async getMediaAsset(assetId:string,publicToken:string){
+    const [asset]=await this.db.select().from(venueMediaAssets)
+      .where(and(eq(venueMediaAssets.id,assetId),eq(venueMediaAssets.publicToken,publicToken)))
+      .limit(1);
+    return asset?{...asset,purpose:asset.purpose as import("@leaguekick/contracts").VenueMediaAssetPurpose}:null;
+  }
+
+  async updateVenueMediaPage(
+    ownerUserId:string,
+    input:import("@leaguekick/contracts").VenueMediaPageUpdateRequest,
+    updatedAt:Date,
+  ){
+    const patch:{
+      pageProfileImageUrl?:string|null;
+      pageCoverImageUrl?:string|null;
+      pageBio?:string|null;
+      updatedAt:Date;
+    }={updatedAt};
+    if(input.pageProfileImageUrl!==undefined)patch.pageProfileImageUrl=input.pageProfileImageUrl;
+    if(input.pageCoverImageUrl!==undefined)patch.pageCoverImageUrl=input.pageCoverImageUrl;
+    if(input.pageBio!==undefined)patch.pageBio=input.pageBio?.trim()||null;
+    const [row]=await this.db.update(venues).set(patch)
+      .where(eq(venues.ownerUserId,ownerUserId))
+      .returning();
+    return row?this.hydrateVenue(row):null;
+  }
+
   async getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null> {
     if (entityType === "VENUE") {
-      const [row] = await this.db.select({ id: venues.id, name: venues.name }).from(venues)
+      const [row] = await this.db.select({
+        id:venues.id,
+        name:venues.name,
+        imageUrl:venues.pageProfileImageUrl,
+      }).from(venues)
         .where(and(eq(venues.id, entityId), eq(venues.status, "ACTIVE")))
         .limit(1);
-      return row ? { id: row.id, type: entityType, name: row.name, imageUrl: null } : null;
+      return row ? { id: row.id, type: entityType, name: row.name, imageUrl: row.imageUrl } : null;
     }
     if (entityType === "TEAM") {
       const [row] = await this.db.select({ id: teams.id, name: teams.name, imageUrl: teams.logoUrl }).from(teams)
