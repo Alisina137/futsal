@@ -147,21 +147,24 @@ assert(editor.includes("focusTodayCard"),"Weekly editor must focus today's card 
 assert(editor.includes("scrollRef={screenScrollRef}"),"Weekly editor must control its own scroll position to reveal today's card.");
 assert(!editor.includes("weekTableBody:{flexDirection:\"column\"}"),"Weekly Timetable editor must remain card-based and must not use the Week-view status table.");
 
-assert(schedule.includes("styles.weekList"),"Timetable Week view must render a simple vertical list of days.");
-assert(schedule.includes('t("schedule.totalReservations")'),"Timetable Week list must show only the total reservation count for each day.");
-assert(schedule.includes("day.bookedCount"),"Timetable Week list total must use the day total booking count.");
-assert(schedule.includes("styles.weekDayRowPressed"),"Timetable Week day rows must clearly feel clickable.");
-assert(schedule.includes("styles.weekTodayRow"),"Today's row must remain highlighted in Timetable Week view.");
-assert(schedule.includes("focusTodayWeekRow"),"Timetable Week view must bring today's row into view for the current week.");
-assert(!schedule.includes("WeekHeaderCell"),"Timetable Week list must not expose the old detailed table columns.");
-assert(!schedule.includes("WeekMetricCell"),"Timetable Week list must keep detailed status metrics out of the weekly list.");
-assert(schedule.includes('setStatusFilter("ALL");setAnchorDate(date);setView("DAY")'),"Selecting a week day must open that day detail with all statuses visible.");
-assert(schedule.includes('event.type==="ONLINE_BOOKING"'),"Day detail summary must calculate online reservations separately.");
-assert(schedule.includes('t("schedule.summaryOnline")'),"Day detail summary must label online reservations separately.");
-assert(schedule.includes('renderedView==="DAY"&&selectedDay?<Summary'),"Detailed status summary must stay hidden in Week mode and appear only in Day detail.");
-assert(schedule.includes('t("schedule.event.PROMOTION"),day.promotionCount'),"Day detail summary must include promotions.");
-assert(schedule.includes('onSelect={(date)=>{setStatusFilter("ALL");setAnchorDate(date);setView("DAY");}}'),"Selecting a week day must reset filters and open the full Day detail view.");
-
+assert(schedule.includes("weekSlotGrid"),"Timetable Week view must render a slot grid.");
+assert(schedule.includes("timeRows=Array.from(new Set("),"Timetable Week view must divide the calendar into start-time rows.");
+assert(schedule.includes("rawTime(event.startsAt!)===time"),"Timetable Week view must place events into their matching start-time slot.");
+assert(schedule.includes("onSelectSlot(event)"),"Every populated Week slot must be clickable.");
+assert(schedule.includes("selectedWeekSlot"),"Week slot selection must open exact-slot management.");
+assert(schedule.includes("<WeekSlotManager"),"Week slot clicks must open a management panel.");
+assert(schedule.includes('t("schedule.manageSlot")'),"Week slot management panel must be clearly titled.");
+assert(schedule.includes('t("schedule.slotColorGuide")'),"Week view must include a slot background-color guide.");
+assert(schedule.includes('AVAILABLE:{background:"#DCFCE7"'),"Available slots must use a green background.");
+assert(schedule.includes('ONLINE_BOOKING:{background:"#FEE2E2"'),"Online reservation slots must use a red background.");
+assert(schedule.includes('MANUAL_BOOKING:{background:"#DBEAFE"'),"Manual reservation slots must use a blue background.");
+assert(schedule.includes('COMPETITION:{background:"#FEF3C7"'),"Competition slots must use an amber background.");
+assert(schedule.includes('BLOCKED:{background:"#E2E8F0"'),"Blocked slots must use a gray background.");
+assert(schedule.includes('PROMOTION:{background:"#F3E8FF"'),"Promotion slots must use a distinct promotion background.");
+assert(schedule.includes("showAreaName={areaId===null}"),"All-areas Week view must preserve area identity for exact slot management.");
+assert(schedule.includes("event.areaName"),"Week slot cells must identify the area when multiple venue areas are shown.");
+assert(schedule.includes("formatCalendarTime(event.startsAt!,language)"),"Each Week slot must display its start time.");
+assert(schedule.includes("styles.weekSlotPressed"),"Week slots must provide pressed-state feedback.");
 
 assert(editor.includes("calendarInputDate"),"Weekly editor must display Solar Hijri form dates for Dari/Pashto.");
 assert(editor.includes("selectedAreaIds"),"Weekly editor must support selected venue areas.");
@@ -186,9 +189,12 @@ for(const key of [
   "schedule.weekViewActivity",
   "schedule.totalReservations",
   "schedule.summaryOnline",
+  "schedule.manageSlot",
+  "schedule.slotColorGuideBody",
+  "schedule.slotColorGuide",
 ]){
   const count=localization.split(`"${key}"`).length-1;
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: Weekly Timetable editor stays card-based; Timetable Week view is a simple clickable day/reservation list and Day view exposes detailed reservation statuses.");
+console.log("Venue timetable verified: Weekly Timetable editor stays card-based; Timetable Week view is a color-coded clickable slot matrix with exact-slot management and guidance.");
