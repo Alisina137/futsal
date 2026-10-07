@@ -54,6 +54,8 @@ assert(ownerTopNav.includes("usePathname"), "Venue Owner navigation must derive 
 assert(ownerTopNav.includes('pathname==="/dashboard"||pathname.startsWith("/owner/competitions")'), "Venue Owner dashboard must focus the Competitions tab by default.");
 assert(ownerTopNav.includes("itemActive") && ownerTopNav.includes("accessibilityState={{selected}}"), "Venue Owner navigation must visibly and accessibly highlight the active tab.");
 assert(ownerTopNav.includes("router.replace(item.href)"), "Venue Owner navigation must switch sections as tab-like navigation.");
+assert(ownerTopNav.includes("focusActive") && ownerTopNav.includes("scrollTo({x,y:0,animated})"), "Venue Owner navigation must keep the active tab scrolled into view after route changes.");
+assert(ownerTopNav.includes("onContentSizeChange") && ownerTopNav.includes("handleItemLayout"), "Venue Owner navigation must measure its scroll content and tabs before restoring active-tab focus.");
 
 const ownerCompetitionRoute = ownerTopNav.indexOf('href:"/owner/competitions"');
 const ownerScheduleRoute = ownerTopNav.indexOf('href:"/schedule"');
