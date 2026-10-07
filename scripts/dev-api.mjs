@@ -9,10 +9,13 @@ function commandPath(name){
   if(process.platform!=="win32")return name;
   const lookup=spawnSync("where",[name],{encoding:"utf8",shell:false});
   if(lookup.status!==0)return null;
-  return (lookup.stdout??"")
+  const candidates=(lookup.stdout??"")
     .split(/\r?\n/)
     .map((value)=>value.trim())
-    .find(Boolean)??null;
+    .filter(Boolean);
+  return candidates.find((value)=>/\.(?:exe|cmd|bat)$/i.test(value))
+    ??candidates[0]
+    ??null;
 }
 
 function start(label,command,args,env=process.env){
