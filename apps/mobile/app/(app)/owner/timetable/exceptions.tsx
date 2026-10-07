@@ -3,7 +3,7 @@ import type { VenueTimetableExceptionDto, VenueTimetableListResponse } from "@le
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
-import { ownerApi } from "../../../../src/lib/api";
+import { ApiRequestError, ownerApi } from "../../../../src/lib/api";
 import { formatCalendarDate, todayKabul } from "../../../../src/lib/timetable-calendar";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
@@ -46,7 +46,11 @@ export default function TimetableExceptionsScreen(){
     if(!token)return;
     setBusy(id);setError(null);
     try{await ownerApi.deleteTimetableException(token,id);await load();}
-    catch{setError(t("schedule.exceptionDeleteError"));}
+    catch(caught){
+      if(caught instanceof ApiRequestError&&caught.code==="TIMETABLE_EXCEPTION_DELETE_CONFLICT"){
+        setError(t("schedule.specialDeleteConflict"));
+      }else setError(t("schedule.exceptionDeleteError"));
+    }
     finally{setBusy(null);}
   }
 
