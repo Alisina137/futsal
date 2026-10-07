@@ -1,8 +1,7 @@
-import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { OwnerOnboardingStatus } from "@leaguekick/contracts";
+import { colors, spacing } from "@leaguekick/design-tokens";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -17,22 +16,22 @@ function todayKabul(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kab
 function afghanistanIso(date:string,time:string){return `${date}T${time}:00+04:30`;}
 
 export default function ManualBookingScreen(){
-  const params=useLocalSearchParams<{areaId?:string;date?:string;start?:string;end?:string}>();
+  const params=useLocalSearchParams<{areaId?:string;date?:string;start?:string;end?:string;price?:string}>();
   const {session}=useAuth(); const {t,isRTL}=useLocale();
-  const [owner,setOwner]=useState<OwnerOnboardingStatus|null>(null);
   const [areaId,setAreaId]=useState(typeof params.areaId==="string"?params.areaId:"");
   const [date,setDate]=useState(typeof params.date==="string"?params.date:todayKabul());
   const [start,setStart]=useState(typeof params.start==="string"?params.start:"18:00");
   const [end,setEnd]=useState(typeof params.end==="string"?params.end:"19:30");
-  const [name,setName]=useState(""); const [phone,setPhone]=useState(""); const [price,setPrice]=useState(""); const [note,setNote]=useState("");
+  const [name,setName]=useState(""); const [phone,setPhone]=useState(""); const [price,setPrice]=useState(typeof params.price==="string"?params.price:""); const [note,setNote]=useState("");
   const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
 
   useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((next)=>{
-    setOwner(next);
-    const requested=typeof params.areaId==="string"?params.areaId:"";
-    const valid=next.venue?.areas.some((area)=>area.id===requested)??false;
-    setAreaId(valid?requested:(next.venue?.areas[0]?.id??""));
-  }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[params.areaId,session,t]);
+    const court=next.venue?.areas[0]??null;
+    setAreaId(court?.id??"");
+    if(!(typeof params.price==="string"&&params.price.trim())&&!price&&court){
+      setPrice(String(court.basePriceAfn));
+    }
+  }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[params.price,session,t]);
 
   async function submit(){if(!session||!areaId)return;setBusy(true);setError(null);try{
     await ownerApi.createManualBooking(session.accessToken,{areaId,startsAt:afghanistanIso(date,start),endsAt:afghanistanIso(date,end),customerName:name,customerPhone:phone, ...(price.trim()?{priceAfn:Number(price)}:{}),note});
@@ -47,12 +46,6 @@ export default function ManualBookingScreen(){
 
   return <Screen embedded>
     <AppText variant="title" weight="bold">{t("schedule.manualTitle")}</AppText>
-    <Card>
-      <AppText weight="semibold">{t("schedule.area")}</AppText>
-      <View style={{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap",gap:spacing.sm}}>
-        {owner?.venue?.areas.map((area)=><Pressable key={area.id} onPress={()=>{setAreaId(area.id);if(!price)setPrice(String(area.basePriceAfn));}} style={{padding:spacing.md,borderRadius:radius.md,borderWidth:1,borderColor:areaId===area.id?colors.primary:colors.border,backgroundColor:areaId===area.id?colors.primarySoft:colors.surface}}><AppText>{area.name}</AppText></Pressable>)}
-      </View>
-    </Card>
     <TextField label={t("booking.date")} value={date} onChangeText={setDate} forceLtr/>
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
       <TextField label={t("schedule.startTime")} value={start} onChangeText={setStart} forceLtr containerStyle={{flex:1}}/>
