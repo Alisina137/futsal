@@ -651,6 +651,7 @@ export type VenueTimetableDto = z.infer<typeof venueTimetableDtoSchema>;
 export const venueTimetableExceptionPeriodSchema = z.object({
   startsAt: hhmmSchema,
   endsAt: hhmmSchema,
+  priceAfn: z.number().int().min(0).max(1_000_000).nullable().default(null),
 }).superRefine((value, ctx) => {
   if (value.startsAt >= value.endsAt) {
     ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End time must be after start time." });
