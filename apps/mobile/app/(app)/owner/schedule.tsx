@@ -526,7 +526,31 @@ function EventCard({
       loading={busy}
       variant="danger"
     />:null}
-    {event.type==="BLOCKED"?<Button label={t("schedule.unblock")} onPress={onUnblock} loading={busy} variant="secondary"/>:null}
+    {event.type==="BLOCKED"?<View style={styles.actionGrid}>
+      <Button
+        label={t("schedule.editBlock")}
+        onPress={()=>router.push({
+          pathname:"/owner/block-time",
+          params:{
+            blockId:event.id,
+            areaId:event.areaId??"",
+            date,
+            start,
+            end,
+            reason:event.title,
+          },
+        })}
+        variant="secondary"
+        style={styles.actionButton}
+      />
+      <Button
+        label={t("schedule.unblock")}
+        onPress={onUnblock}
+        loading={busy}
+        variant="danger"
+        style={styles.actionButton}
+      />
+    </View>:null}
   </Card>;
 }
 
