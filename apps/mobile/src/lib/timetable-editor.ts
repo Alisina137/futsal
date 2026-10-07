@@ -1,4 +1,8 @@
 import type { VenueTimetableDraftRequest } from "@leaguekick/contracts";
+import {
+  calendarInputToGregorian,
+  type TimetableCalendarLanguage,
+} from "./timetable-calendar";
 
 export type TimetableDayDraft={
   dayOfWeek:number;
@@ -24,12 +28,6 @@ export function normalizeLocalizedDigits(value:string){
     .replace(/[۰-۹]/g,(digit)=>String(persianDigits.indexOf(digit)))
     .replace(/[٠-٩]/g,(digit)=>String(arabicDigits.indexOf(digit)))
     .trim();
-}
-
-function validDate(value:string){
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
-  const parsed=new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===value;
 }
 
 function validTime(value:string){
@@ -88,17 +86,20 @@ export function buildTimetableDraft(input:{
   allAreas:boolean;
   selectedAreaIds:string[];
   days:TimetableDayDraft[];
+  language:TimetableCalendarLanguage;
 }):{draft:VenueTimetableDraftRequest|null;error:TimetableDraftValidationError|null}{
   const name=input.name.trim();
-  const effectiveFrom=normalizeLocalizedDigits(input.effectiveFrom);
-  const effectiveUntil=normalizeLocalizedDigits(input.effectiveUntil);
+  const fromInput=normalizeLocalizedDigits(input.effectiveFrom);
+  const untilInput=normalizeLocalizedDigits(input.effectiveUntil);
+  const effectiveFrom=calendarInputToGregorian(fromInput,input.language);
+  const effectiveUntil=untilInput?calendarInputToGregorian(untilInput,input.language):null;
   const durationText=normalizeLocalizedDigits(input.duration);
   const bufferText=normalizeLocalizedDigits(input.buffer);
   const defaultSlotDurationMinutes=Number(durationText);
   const bufferMinutes=Number(bufferText);
 
   if(name.length<2)return {draft:null,error:"NAME"};
-  if(!validDate(effectiveFrom)||(effectiveUntil&&!validDate(effectiveUntil)))return {draft:null,error:"DATE"};
+  if(!effectiveFrom||(untilInput&&!effectiveUntil))return {draft:null,error:"DATE"};
   if(effectiveUntil&&effectiveUntil<effectiveFrom)return {draft:null,error:"DATE_RANGE"};
   if(!Number.isInteger(defaultSlotDurationMinutes)||defaultSlotDurationMinutes<30||defaultSlotDurationMinutes>240){
     return {draft:null,error:"DURATION"};
@@ -147,7 +148,7 @@ export function buildTimetableDraft(input:{
     draft:{
       name,
       effectiveFrom,
-      effectiveUntil:effectiveUntil||null,
+      effectiveUntil,
       defaultSlotDurationMinutes,
       bufferMinutes,
       periods,
