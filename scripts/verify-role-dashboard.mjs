@@ -35,6 +35,11 @@ assert(dashboard.includes("dashboard.normalUnavailableTitle"), "Normal-user dire
 assert(!ownerDashboard.includes('t("owner.dashboardTitle")'), "Venue Owner dashboard must not render the dashboard title.");
 assert(!ownerDashboard.includes('t("owner.dashboardSubtitle")'), "Venue Owner dashboard must not render the old dashboard subtitle.");
 assert(ownerDashboard.includes("<OwnerTopNav"), "Venue Owner dashboard must render the shared top navigation.");
+assert(!ownerDashboard.includes('t("home.discoveryTitle")'), "Venue Owner dashboard must not show the futsal discovery card.");
+assert(!ownerDashboard.includes('t("home.discoveryBody")'), "Venue Owner dashboard must not show the discovery subtitle.");
+assert(!ownerDashboard.includes('t("owner.setupStatus")'), "Venue Owner dashboard must not show the venue settings/status card.");
+assert(!ownerDashboard.includes('t("competition.ownerQuickAccessBody")'), "Venue Owner dashboard must not show the competition management shortcut card.");
+assert(!ownerDashboard.includes('t("ownerMarketing.marketingTitle")'), "Venue Owner dashboard must not show the marketing shortcut card.");
 
 assert(ownerTopNav.includes("<ScrollView") && ownerTopNav.includes("horizontal"), "Venue Owner top navigation must scroll horizontally.");
 assert(ownerTopNav.includes('flexWrap:"nowrap"'), "Venue Owner top navigation must stay on one line.");
@@ -46,6 +51,7 @@ assert(
   "Venue Owner navigation must keep top and bottom divider lines.",
 );
 assert(ownerTopNav.includes("usePathname"), "Venue Owner navigation must derive the current section from the route.");
+assert(ownerTopNav.includes('pathname==="/dashboard"||pathname.startsWith("/owner/competitions")'), "Venue Owner dashboard must focus the Competitions tab by default.");
 assert(ownerTopNav.includes("itemActive") && ownerTopNav.includes("accessibilityState={{selected}}"), "Venue Owner navigation must visibly and accessibly highlight the active tab.");
 assert(ownerTopNav.includes("router.replace(item.href)"), "Venue Owner navigation must switch sections as tab-like navigation.");
 
