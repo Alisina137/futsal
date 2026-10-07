@@ -4,7 +4,7 @@ import type { FollowStateDto, PublicVenueDto, VenueAvailabilityResponse, VenuePo
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
-import { ApiRequestError, marketingApi, venueApi } from "../../../src/lib/api";
+import { ApiRequestError, marketingApi, resolveMediaImageUrl, venueApi } from "../../../src/lib/api";
 import { readAvailabilityCache, writeAvailabilityCache } from "../../../src/lib/availability-cache";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -96,29 +96,38 @@ export default function VenueDetailScreen(){
 
   return <Screen showHeader>
     {venue?<>
-      <View style={styles.hero}>
-        <View style={styles.heroMark}>
-          <Ionicons name="football-outline" size={36} color={colors.primary}/>
+      <View style={styles.pageHeader}>
+        <View style={styles.publicCover}>
+          {resolveMediaImageUrl(venue.pageCoverImageUrl)
+            ?<Image source={{uri:resolveMediaImageUrl(venue.pageCoverImageUrl)!}} style={StyleSheet.absoluteFill} resizeMode="cover"/>
+            :<View style={styles.publicCoverFallback}><Ionicons name="football-outline" size={54} color="#BFDBFE"/></View>}
         </View>
-        <View style={styles.heroCopy}>
-          <View style={styles.typeBadge}>
-            <AppText variant="caption" weight="bold" style={styles.typeBadgeText}>{t("social.entity.VENUE")}</AppText>
+        <View style={styles.publicIdentity}>
+          <View style={styles.publicAvatarFrame}>
+            {resolveMediaImageUrl(venue.pageProfileImageUrl)
+              ?<Image source={{uri:resolveMediaImageUrl(venue.pageProfileImageUrl)!}} style={styles.publicAvatar} resizeMode="cover"/>
+              :<View style={[styles.publicAvatar,styles.publicAvatarFallback]}>
+                <AppText variant="title" weight="bold" style={{color:colors.primary}}>{venue.name.trim().slice(0,2).toUpperCase()}</AppText>
+              </View>}
           </View>
-          <AppText variant="title" weight="bold" style={styles.heroTitle}>{venue.name}</AppText>
-          <View style={[styles.inline,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <Ionicons name="location-outline" size={16} color="#DCE8FF"/>
-            <AppText style={styles.heroMuted}>{venue.city}, {venue.province}</AppText>
+          <AppText variant="title" weight="bold" style={{textAlign:"center"}}>{venue.name}</AppText>
+          <View style={[styles.publicMeta,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="location-outline" size={15} color={colors.textMuted}/>
+            <AppText variant="caption" muted>{venue.city}, {venue.province}</AppText>
+            {followState?<><View style={styles.publicDot}/><AppText variant="caption" muted>{t("social.followers",{count:followState.followerCount})}</AppText></>:null}
           </View>
-          {followState?<AppText variant="caption" style={styles.heroMuted}>{t("social.followers",{count:followState.followerCount})}</AppText>:null}
+          {venue.pageBio?<AppText style={styles.publicBio}>{venue.pageBio}</AppText>:null}
+          {followState?<View style={styles.publicFollow}>
+            <Button
+              label={followState.following?t("social.unfollow"):t("social.follow")}
+              onPress={()=>void toggleFollow()}
+              loading={followBusy}
+              variant={followState.following?"secondary":"primary"}
+              style={{flex:1}}
+            />
+          </View>:null}
         </View>
       </View>
-
-      {followState?<Button
-        label={followState.following?t("social.unfollow"):t("social.follow")}
-        onPress={()=>void toggleFollow()}
-        loading={followBusy}
-        variant={followState.following?"secondary":"primary"}
-      />:null}
 
       <View style={styles.statGrid}>
         <ProfileStat icon="flash-outline" value={t(`publicProfile.bookingMode.${venue.bookingMode}` as never)} label={t("publicProfile.bookingMode")}/>
@@ -236,7 +245,7 @@ function VenuePagePost({
       <AppText variant="caption" muted>{published.date}</AppText>
     </View>
     <AppText>{post.body}</AppText>
-    {post.imageUrl?<Image source={{uri:post.imageUrl}} style={styles.pagePostImage} resizeMode="cover"/>:null}
+    {resolveMediaImageUrl(post.imageUrl)?<Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={styles.pagePostImage} resizeMode="cover"/>:null}
     <View style={[styles.postActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {post.ctaType!=="NONE"&&post.ctaType!=="VENUE"?<Button
         label={t("feed.openCta")}
@@ -276,29 +285,17 @@ function InfoRow({icon,value,rtl,ltr=false}:{icon:keyof typeof Ionicons.glyphMap
 }
 
 const styles=StyleSheet.create({
-  hero:{
-    borderRadius:radius.lg,
-    padding:spacing.lg,
-    backgroundColor:colors.primary,
-    alignItems:"center",
-    gap:spacing.md,
-  },
-  heroMark:{
-    width:82,
-    height:82,
-    borderRadius:41,
-    alignItems:"center",
-    justifyContent:"center",
-    backgroundColor:"#FFFFFF",
-    borderWidth:4,
-    borderColor:"#DCE8FF",
-  },
-  heroCopy:{alignItems:"center",gap:spacing.xs},
-  heroTitle:{color:"#FFFFFF",textAlign:"center"},
-  heroMuted:{color:"#DCE8FF",textAlign:"center"},
-  typeBadge:{paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill,backgroundColor:"rgba(255,255,255,0.16)"},
-  typeBadgeText:{color:"#FFFFFF"},
-  inline:{alignItems:"center",gap:4},
+  pageHeader:{borderRadius:radius.lg,overflow:"hidden",borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface},
+  publicCover:{height:190,backgroundColor:"#1E40AF"},
+  publicCoverFallback:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:"#1E3A8A"},
+  publicIdentity:{alignItems:"center",paddingHorizontal:spacing.md,paddingBottom:spacing.md},
+  publicAvatarFrame:{width:112,height:112,borderRadius:56,marginTop:-50,padding:4,backgroundColor:"#FFFFFF"},
+  publicAvatar:{width:"100%",height:"100%",borderRadius:52},
+  publicAvatarFallback:{alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
+  publicMeta:{alignItems:"center",justifyContent:"center",gap:spacing.xs,flexWrap:"wrap",marginTop:4},
+  publicDot:{width:3,height:3,borderRadius:2,backgroundColor:colors.textMuted},
+  publicBio:{textAlign:"center",marginTop:spacing.sm,maxWidth:560},
+  publicFollow:{width:"100%",marginTop:spacing.md},
   statGrid:{flexDirection:"row",gap:spacing.sm},
   statCard:{flex:1,alignItems:"center",gap:spacing.xs,padding:spacing.md},
   statIcon:{width:36,height:36,borderRadius:18,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
