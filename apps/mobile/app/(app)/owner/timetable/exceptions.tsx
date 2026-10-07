@@ -166,7 +166,7 @@ function ExceptionSection({
 
         <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Button label={t("schedule.viewSpecialDay")} onPress={()=>onViewDay(item)} variant="secondary" style={styles.actionButton}/>
-          {editable?<Button label={t("common.edit")} onPress={()=>onEdit(item)} variant="secondary" style={styles.actionButton}/>:null}
+          {editable?<Button label={t("schedule.editAction")} onPress={()=>onEdit(item)} variant="secondary" style={styles.actionButton}/>:null}
           <Button
             label={t("schedule.deleteException")}
             onPress={()=>onDelete(item)}
