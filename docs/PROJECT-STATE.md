@@ -496,3 +496,5 @@ Pilot release / launch signoff after the Phase 8 live-device and operations chec
 - Venue timetable calendar keeps Today on a separate full-width row above Previous / date-range / Next navigation, preventing overlap on narrow screens and in RTL.
 
 - Mobile API reads now use a scoped two-tier cache for responsiveness: fresh read-mostly data can come from memory/AsyncStorage without another request, duplicate in-flight GETs are coalesced, private owner/booking/notification/team-invitation data is memory-only, live availability/auth/admin/account-status reads bypass the generic cache, network failures may fall back only to stale cached reads, and successful writes invalidate affected cache scopes before subsequent reads.
+
+- Venue timetable Month/Week/Day navigation now immediately replaces the slot content area with a centered loader plus calendar-shaped skeleton while the requested range loads; Today, Previous/Next, view switches, month date selection, and Open Day all trigger the same slot-area loading state.
