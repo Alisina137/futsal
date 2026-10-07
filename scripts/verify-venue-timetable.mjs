@@ -9,6 +9,7 @@ function assert(value,message){
 
 const schema=read("packages/database/src/schema.ts");
 const migration=read("packages/database/drizzle/0015_venue_timetable.sql");
+const pricingMigration=read("packages/database/drizzle/0016_single_court_slot_pricing.sql");
 const contracts=read("packages/contracts/src/index.ts");
 const repository=read("apps/api/src/modules/timetable/timetable.repository.ts");
 const service=read("apps/api/src/modules/timetable/timetable.service.ts");
@@ -17,6 +18,12 @@ const booking=read("apps/api/src/modules/booking/booking.service.ts");
 const bookingRepository=read("apps/api/src/modules/booking/booking.repository.ts");
 const bookingRoutes=read("apps/api/src/modules/booking/booking.routes.ts");
 const blockEditor=read("apps/mobile/app/(app)/owner/block-time.tsx");
+const manualEditor=read("apps/mobile/app/(app)/owner/manual-booking.tsx");
+const ownerSetup=read("apps/mobile/app/(app)/owner/onboarding.tsx");
+const ownerService=read("apps/api/src/modules/owner/owner.service.ts");
+const ownerRepository=read("apps/api/src/modules/owner/owner.repository.ts");
+const publicVenue=read("apps/mobile/app/(app)/venues/[venueId].tsx");
+const bookingConfirm=read("apps/mobile/app/(app)/booking/confirm.tsx");
 const app=read("apps/api/src/app.ts");
 const server=read("apps/api/src/server.ts");
 const mobileApi=read("apps/mobile/src/lib/api.ts");
@@ -41,6 +48,14 @@ for(const marker of [
 assert(migration.includes('CREATE TABLE "venue_timetables"'),"Venue timetable migration missing version table.");
 assert(migration.includes('CREATE TABLE "venue_timetable_periods"'),"Venue timetable migration missing periods table.");
 assert(migration.includes('CREATE TABLE "venue_timetable_exceptions"'),"Venue timetable migration missing exceptions table.");
+assert(pricingMigration.includes("venue_areas_one_active_per_venue_uq"),"Single-court migration must enforce one active court per venue.");
+assert(pricingMigration.includes("ADD COLUMN IF NOT EXISTS price_afn"),"Slot-pricing migration must add timetable period price.");
+assert(schema.includes('priceAfn: integer("price_afn").notNull()'),"Timetable period schema must persist slot price.");
+assert(schema.includes("venue_areas_one_active_per_venue_uq"),"Database schema must enforce one active court per venue.");
+assert(contracts.includes('.length(1, "A venue owner account can manage exactly one court.")'),"Venue setup contract must allow exactly one court.");
+assert(contracts.includes("priceAfn: z.number().int().min(0).max(1_000_000)"),"Timetable period contract must require a slot price.");
+assert(ownerService.includes("SINGLE_COURT_REQUIRED"),"Owner service must enforce the one-court account rule.");
+assert(ownerRepository.includes("eq(venueAreas.active, true)"),"Owner status must expose only the active single court.");
 
 for(const marker of [
   "venueTimetableDraftRequestSchema",
@@ -67,6 +82,10 @@ assert(service.includes("intervalAllowedBy("),"Timetable publish must validate e
 assert(service.includes('item.type !== "PROMOTION"'),"Promotions must not block timetable publishing.");
 assert(service.includes("archiveIds"),"Publishing must preserve version history by archiving overlapping schedules.");
 assert(service.includes("bufferMinutes"),"Timetable service must honor booking buffer.");
+assert(service.includes("period.priceAfn ?? area.basePriceAfn"),"Calendar availability must inherit weekly timetable period prices.");
+assert(service.includes("return allowedPeriod"),"Timetable interval validation must return the matched priced period.");
+assert(booking.includes("period.priceAfn ?? area.basePriceAfn"),"Public availability must use weekly timetable prices.");
+assert(booking.includes("timetablePriceAfn"),"Manual bookings must inherit the weekly timetable price when not overridden.");
 assert(repository.includes("competitionMatches"),"Timetable calendar/conflicts must include competition occupancy.");
 assert(repository.includes("venuePromotions"),"Timetable calendar must include promotions.");
 assert(booking.includes("this.timetable.resolveDay"),"Public availability must use the published timetable.");
@@ -161,13 +180,29 @@ assert(schedule.includes('MANUAL_BOOKING:{background:"#DBEAFE"'),"Manual reserva
 assert(schedule.includes('COMPETITION:{background:"#FEF3C7"'),"Competition slots must use an amber background.");
 assert(schedule.includes('BLOCKED:{background:"#E2E8F0"'),"Blocked slots must use a gray background.");
 assert(schedule.includes('PROMOTION:{background:"#F3E8FF"'),"Promotion slots must use a distinct promotion background.");
-assert(schedule.includes("showAreaName={areaId===null}"),"All-areas Week view must preserve area identity for exact slot management.");
-assert(schedule.includes("event.areaName"),"Week slot cells must identify the area when multiple venue areas are shown.");
+assert(!schedule.includes("showAreaName"),"Week slots must not expose multi-court labels.");
+assert(!schedule.includes('t("schedule.area")'),"Main timetable must not expose a court selector.");
+assert(schedule.includes('event.priceAfn!==null?\`\${event.priceAfn} AFN\`:"—"'),"Week slots must display price instead of court name.");
 assert(schedule.includes("formatCalendarTime(event.startsAt!,language)"),"Each Week slot must display its start time.");
 assert(schedule.includes("styles.weekSlotPressed"),"Week slots must provide pressed-state feedback.");
+assert(schedule.includes("function DaySlotView"),"Day view must render timetable entries as clickable slots.");
+assert(schedule.includes("onSelectSlot(event)"),"Day and Week slots must open the same management flow.");
+assert(schedule.includes("<SlotManager"),"Slot management must be shared by Day and Week views.");
+assert(schedule.includes('event.type==="PROMOTION"'),"Slot manager must provide promotion-specific management.");
+assert(schedule.includes('event.type==="COMPETITION"'),"Slot manager must provide competition-specific management.");
+assert(schedule.includes('event.type==="CLOSED"'),"Closed-day state must open timetable management actions.");
+assert(!manualEditor.includes('t("schedule.area")'),"Manual booking must not expose a court selector.");
+assert(!blockEditor.includes('t("schedule.area")'),"Block time must not expose a court selector.");
+assert(!exception.includes('t("schedule.exceptionArea")'),"Special hours must not expose court scope choices.");
+assert(ownerSetup.includes("owner.stepAreaBody"),"Venue setup must explain the one-court account rule.");
+assert(!publicVenue.includes("publicProfile.playingAreas"),"Public venue profile must not advertise multiple playing areas.");
+assert(!bookingConfirm.includes("params.areaName"),"Booking confirmation must not expose a court name.");
 
 assert(editor.includes("calendarInputDate"),"Weekly editor must display Solar Hijri form dates for Dari/Pashto.");
-assert(editor.includes("selectedAreaIds"),"Weekly editor must support selected venue areas.");
+assert(!editor.includes("selectedAreaIds")&&!editor.includes("allAreas")&&!editor.includes('t("schedule.areaScope")'),"Weekly editor must not expose multi-court scope controls.");
+assert(editor.includes('t("schedule.slotPrice")'),"Weekly editor must edit a price for every operating period.");
+assert(editor.includes("priceAfn:String(period.priceAfn)"),"Weekly editor must load existing period prices.");
+assert(editor.includes("priceAfn:defaultPrice"),"New weekly periods must inherit the single court base price.");
 assert(editor.includes("defaultSlotDurationMinutes"),"Weekly editor must configure slot duration.");
 assert(editor.includes("bufferMinutes"),"Weekly editor must configure booking buffer.");
 assert(editor.includes("saveDraft")||editor.includes('t("schedule.saveDraft")'),"Weekly editor must save drafts.");
@@ -192,9 +227,15 @@ for(const key of [
   "schedule.manageSlot",
   "schedule.slotColorGuideBody",
   "schedule.slotColorGuide",
+  "schedule.slotPrice",
+  "schedule.slotPriceHint",
+  "schedule.validationPrice",
+  "schedule.managePromotions",
+  "schedule.manageCompetitions",
+  "booking.availableSlot",
 ]){
   const count=localization.split(`"${key}"`).length-1;
   assert(count===3,`Timetable localization missing for ${key}; found ${count}.`);
 }
 
-console.log("Venue timetable verified: Weekly Timetable editor stays card-based; Timetable Week view is a color-coded clickable slot matrix with exact-slot management and guidance.");
+console.log("Venue timetable verified: one court per owner venue, per-period slot pricing, priced Week/Day slot views, and status-aware exact-slot management.");
