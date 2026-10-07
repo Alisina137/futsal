@@ -147,6 +147,8 @@ assert(schedule.includes("renderedView")&&schedule.includes("renderedAnchorDate"
 assert(!schedule.includes('calendarLoading?<DataLoadingState variant="list"'),"Calendar navigation must not replace existing timetable content with a full skeleton.");
 assert(schedule.includes("calendarRefreshIndicator"),"Calendar navigation must use a small in-place refresh indicator.");
 assert(schedule.includes('t("schedule.previous")')&&schedule.includes('t("schedule.next")'),"Timetable calendar navigation must use explicit Previous/Next text controls.");
+assert(schedule.includes("styles.todayRow")&&schedule.includes('todayRow:{width:"100%"'),"Today control must stay on its own full-width row above calendar navigation.");
+assert(schedule.includes('navButtons:{width:"100%"'),"Previous/date/Next navigation must have its own full-width row.");
 assert(!schedule.includes('name={isRTL?"chevron-forward":"chevron-back"}')&&!schedule.includes('name={isRTL?"chevron-back":"chevron-forward"}'),"Timetable calendar navigation must not use ambiguous direction chevrons.");
 assert(schedule.includes("Initial page shell only"),"Page-level loading must stay separate from calendar range refreshes.");
 assert(schedule.includes("statusFilters"),"Venue timetable must offer status filters.");
