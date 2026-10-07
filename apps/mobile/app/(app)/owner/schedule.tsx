@@ -614,7 +614,7 @@ function VersionCard({
         key={action.label}
         label={action.label}
         onPress={action.onPress}
-        loading={action.loading}
+        loading={action.loading ?? false}
         variant={action.danger?"danger":"secondary"}
         style={styles.actionButton}
       />)}
