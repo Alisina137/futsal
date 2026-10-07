@@ -5,7 +5,6 @@ import { View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
-import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
@@ -25,11 +24,9 @@ export default function BlockTimeScreen(){
   const blockId=typeof params.blockId==="string"?params.blockId:null;
   const [reason,setReason]=useState(typeof params.reason==="string"?params.reason:"");
   const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
-  useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((next)=>{
-    const requested=typeof params.areaId==="string"?params.areaId:"";
-    const valid=next.venue?.areas.some((area)=>area.id===requested)??false;
-    setAreaId(valid?requested:(next.venue?.areas[0]?.id??""));
-  }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[params.areaId,session,t]);
+  useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((status)=>{
+    setAreaId(status.venue?.areas[0]?.id??"");
+  }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[session,t]);
 
   async function submit(){if(!session||!areaId)return;setBusy(true);setError(null);try{
     const input={areaId,startsAt:afghanistanIso(date,start),endsAt:afghanistanIso(date,end),reason};
