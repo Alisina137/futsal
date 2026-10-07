@@ -169,14 +169,18 @@ function periodsFor(
   const specificException = exceptions.find((item) => item.date === date && item.areaId === areaId);
   const allException = exceptions.find((item) => item.date === date && item.areaId === null);
   const special = specificException ?? allException;
-  if (special) return special.isClosed ? [] : special.periods;
+  if (special) {
+    return special.isClosed
+      ? []
+      : special.periods.map(({ startsAt, endsAt }) => ({ startsAt, endsAt, priceAfn: null }));
+  }
 
   if (!record) return null;
   const day = weekdayForDate(date);
   const specific = record.periods.filter((item) => item.dayOfWeek === day && item.areaId === areaId);
   const shared = record.periods.filter((item) => item.dayOfWeek === day && item.areaId === null);
   const chosen = specific.length ? specific : shared;
-  return chosen.map(({ startsAt, endsAt }) => ({ startsAt, endsAt }));
+  return chosen.map(({ startsAt, endsAt, priceAfn }) => ({ startsAt, endsAt, priceAfn }));
 }
 
 function ensureAreaReferences(venue: TimetableVenueRecord, periods: Array<{ areaId: string | null }>) {
@@ -187,7 +191,7 @@ function ensureAreaReferences(venue: TimetableVenueRecord, periods: Array<{ area
 
 function legacyPeriods(fallback?: { isClosed: boolean; opensAt: string | null; closesAt: string | null }) {
   if (!fallback || fallback.isClosed || !fallback.opensAt || !fallback.closesAt) return [];
-  return [{ startsAt: fallback.opensAt, endsAt: fallback.closesAt }];
+  return [{ startsAt: fallback.opensAt, endsAt: fallback.closesAt, priceAfn: null }];
 }
 
 export class TimetableService {
@@ -420,12 +424,13 @@ export class TimetableService {
       areaId: input.areaId,
       ...(input.fallback ? { fallback: input.fallback } : {}),
     });
-    const allowed = resolved.periods.some((period) => {
+    const allowedPeriod = resolved.periods.find((period) => {
       const open = localDateTimeToUtc(date, period.startsAt, input.timeZone);
       const close = localDateTimeToUtc(date, period.endsAt, input.timeZone);
       return input.startsAt.getTime() >= open.getTime() && input.endsAt.getTime() <= close.getTime();
     });
-    if (!allowed) throw errors.badRequest("OUTSIDE_TIMETABLE", "This interval is outside the published venue timetable.");
+    if (!allowedPeriod) throw errors.badRequest("OUTSIDE_TIMETABLE", "This interval is outside the published venue timetable.");
+    return allowedPeriod;
   }
 
   async calendar(ownerUserId: string, from: string, to: string, areaId: string | null): Promise<VenueTimetableCalendarResponse> {
@@ -503,7 +508,7 @@ export class TimetableService {
               startsAt: startsAt.toISOString(),
               endsAt: endsAt.toISOString(),
               title: promotion?.title ?? "Available",
-              priceAfn: promotion?.priceAfn ?? area.basePriceAfn,
+              priceAfn: promotion?.priceAfn ?? period.priceAfn ?? area.basePriceAfn,
             });
           }
         }
@@ -512,6 +517,17 @@ export class TimetableService {
       for (const event of eventsForDate) {
         if (areaId && event.areaId !== areaId) continue;
         if (event.type === "PROMOTION") continue;
+        const area = selectedAreas.find((candidate) => candidate.id === event.areaId);
+        const eventPeriods = periodsFor(record, exceptions, date, event.areaId) ?? [];
+        const eventStartTime = new Intl.DateTimeFormat("en-GB", {
+          timeZone: venue.timezone,
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).format(event.startsAt);
+        const timetablePeriod = eventPeriods.find((period) =>
+          eventStartTime >= period.startsAt && eventStartTime < period.endsAt
+        );
         events.push({
           id: event.id,
           type: event.type === "BOOKING"
@@ -526,7 +542,7 @@ export class TimetableService {
           startsAt: event.startsAt.toISOString(),
           endsAt: event.endsAt.toISOString(),
           title: event.title,
-          priceAfn: event.priceAfn,
+          priceAfn: event.priceAfn ?? timetablePeriod?.priceAfn ?? area?.basePriceAfn ?? null,
         });
       }
 
