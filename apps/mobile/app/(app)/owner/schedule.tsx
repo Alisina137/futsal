@@ -1,7 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type {
-  OwnerOnboardingStatus,
   VenueCalendarDay,
   VenueCalendarEvent,
   VenueCalendarEventType,
@@ -83,9 +82,6 @@ export default function OwnerScheduleScreen(){
   const initialDate=typeof params.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(params.date)?params.date:todayKabul();
   const [view,setView]=useState<TimetableCalendarView>(typeof params.date==="string"?"DAY":"WEEK");
   const [anchorDate,setAnchorDate]=useState(initialDate);
-  const [areaId,setAreaId]=useState<string|null>(null);
-  const [statusFilter,setStatusFilter]=useState<"ALL"|VenueCalendarEventType>("ALL");
-  const [owner,setOwner]=useState<OwnerOnboardingStatus|null>(null);
   const [calendar,setCalendar]=useState<Awaited<ReturnType<typeof ownerApi.timetableCalendar>>|null>(null);
   const [renderedView,setRenderedView]=useState<TimetableCalendarView>(view);
   const [renderedAnchorDate,setRenderedAnchorDate]=useState(anchorDate);
@@ -98,7 +94,7 @@ export default function OwnerScheduleScreen(){
   const focusedWeekKey=useRef<string|null>(null);
   const todayDate=useMemo(()=>todayKabul(),[]);
   const [busy,setBusy]=useState<string|null>(null);
-  const [selectedWeekSlot,setSelectedWeekSlot]=useState<VenueCalendarEvent|null>(null);
+  const [selectedSlot,setSelectedSlot]=useState<VenueCalendarEvent|null>(null);
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
 
@@ -120,11 +116,6 @@ export default function OwnerScheduleScreen(){
     });
   },[]);
 
-  const loadMeta=useCallback(async()=>{
-    if(!token)return;
-    setOwner(await ownerApi.getStatus(token));
-  },[token]);
-
   const loadCalendar=useCallback(async()=>{
     if(!token)return;
     const requestId=++calendarRequestId.current;
@@ -132,33 +123,23 @@ export default function OwnerScheduleScreen(){
     const requestedAnchorDate=anchorDate;
     setCalendarLoading(true);
     try{
-      const next=await ownerApi.timetableCalendar(token,range.from,range.to,areaId);
+      const next=await ownerApi.timetableCalendar(token,range.from,range.to,null);
       if(requestId!==calendarRequestId.current)return;
       weekListY.current=null;
       todayWeekRowY.current=null;
       focusedWeekKey.current=null;
-      setSelectedWeekSlot(null);
+      setSelectedSlot(null);
       setCalendar(next);
       setRenderedView(requestedView);
       setRenderedAnchorDate(requestedAnchorDate);
     }finally{
       if(requestId===calendarRequestId.current)setCalendarLoading(false);
     }
-  },[anchorDate,areaId,range.from,range.to,token,view]);
+  },[anchorDate,range.from,range.to,token,view]);
 
   useEffect(()=>{
-    if(!token){
-      setLoading(false);
-      return;
-    }
-    let active=true;
-    setLoading(true);
-    setError(null);
-    void loadMeta()
-      .catch(()=>{if(active)setError(t("schedule.loadTimetableError"));})
-      .finally(()=>{if(active)setLoading(false);});
-    return ()=>{active=false;};
-  },[loadMeta,token]); // Initial page shell load only; calendar/language changes stay in-place.
+    setLoading(false);
+  },[token]); // Initial page shell only; calendar changes stay in-place.
 
   useEffect(()=>{
     void loadCalendar().catch(()=>setError(t("schedule.calendarError")));
@@ -166,7 +147,7 @@ export default function OwnerScheduleScreen(){
 
   async function refresh(){
     setError(null);
-    try{await Promise.all([loadMeta(),loadCalendar()]);}
+    try{await loadCalendar();}
     catch{setError(t("schedule.loadTimetableError"));}
   }
 
@@ -189,7 +170,6 @@ export default function OwnerScheduleScreen(){
   if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={560}/></Screen>;
 
   const selectedDay=calendar?.days.find((day)=>day.date===renderedAnchorDate)??calendar?.days[0]??null;
-  const areas=owner?.venue?.areas??[];
 
   return <Screen embedded scrollRef={screenScrollRef}>
     {error?<Card style={styles.errorCard}>
@@ -229,11 +209,6 @@ export default function OwnerScheduleScreen(){
         </Pressable>)}
       </View>
 
-      <AppText weight="semibold">{t("schedule.area")}</AppText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        <FilterChip label={t("schedule.allAreas")} active={areaId===null} onPress={()=>setAreaId(null)}/>
-        {areas.map((area)=><FilterChip key={area.id} label={area.name} active={areaId===area.id} onPress={()=>setAreaId(area.id)}/>)}
-      </ScrollView>
     </Card>
 
     {renderedView==="DAY"&&selectedDay?<Summary day={selectedDay} t={t}/>:null}
@@ -254,7 +229,7 @@ export default function OwnerScheduleScreen(){
             anchorDate={renderedAnchorDate}
             language={language}
             selected={renderedAnchorDate}
-            onSelect={(date)=>{setStatusFilter("ALL");setAnchorDate(date);setView("DAY");}}
+            onSelect={(date)=>{setAnchorDate(date);setView("DAY");}}
           />
           :renderedView==="WEEK"
             ?<WeekView
@@ -262,22 +237,17 @@ export default function OwnerScheduleScreen(){
               language={language}
               t={t}
               todayDate={todayDate}
-              showAreaName={areaId===null}
               onTodayRowLayout={(y)=>{
                 todayWeekRowY.current=y;
                 focusTodayWeekRow(calendar.from);
               }}
-              onSelectSlot={setSelectedWeekSlot}
+              onSelectSlot={setSelectedSlot}
             />
-            :<DayView
+            :<DaySlotView
               day={selectedDay}
-              statusFilter={statusFilter}
-              setStatusFilter={setStatusFilter}
               language={language}
               t={t}
-              busy={busy}
-              onCancelBooking={(id)=>void cancelBooking(id)}
-              onUnblock={(id)=>void unblock(id)}
+              onSelectSlot={setSelectedSlot}
             />
         :<DataLoadingState variant="list" minHeight={320}/>}
       {calendarLoading&&calendar?<View pointerEvents="none" style={styles.calendarRefreshIndicator}>
@@ -285,17 +255,16 @@ export default function OwnerScheduleScreen(){
       </View>:null}
     </View>
 
-    {renderedView!=="WEEK"?<Legend t={t}/>:null}
+    {renderedView==="MONTH"?<Legend t={t}/>:null}
 
-    {selectedWeekSlot?<WeekSlotManager
-      event={selectedWeekSlot}
+    {selectedSlot?<SlotManager
+      event={selectedSlot}
       language={language}
       t={t}
-      busy={busy===`event-${selectedWeekSlot.id}`}
+      busy={busy===`event-${selectedSlot.id}`}
       onClose={()=>setSelectedWeekSlot(null)}
       onOpenDay={(date)=>{
         setSelectedWeekSlot(null);
-        setStatusFilter("ALL");
         setAnchorDate(date);
         setView("DAY");
       }}
@@ -377,13 +346,12 @@ function MonthView({
 }
 
 function WeekView({
-  days,language,t,todayDate,showAreaName,onTodayRowLayout,onSelectSlot,
+  days,language,t,todayDate,onTodayRowLayout,onSelectSlot,
 }:{
   days:VenueCalendarDay[];
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
   todayDate:string;
-  showAreaName:boolean;
   onTodayRowLayout:(y:number)=>void;
   onSelectSlot:(event:VenueCalendarEvent)=>void;
 }){
@@ -451,7 +419,7 @@ function WeekView({
                 return <Pressable
                   key={event.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${event.areaName}, ${time}`}
+                  accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${time}, ${event.priceAfn??0} AFN`}
                   onPress={()=>onSelectSlot(event)}
                   style={({pressed})=>[
                     styles.weekSlot,
@@ -462,13 +430,9 @@ function WeekView({
                   <AppText weight="bold" forceLtr style={{color:palette.text}}>
                     {formatCalendarTime(event.startsAt!,language)}
                   </AppText>
-                  {showAreaName?<AppText
-                    variant="caption"
-                    numberOfLines={1}
-                    style={{color:palette.text}}
-                  >
-                    {event.areaName}
-                  </AppText>:null}
+                  <AppText variant="caption" weight="semibold" forceLtr style={{color:palette.text}}>
+                    {event.priceAfn!==null?`${event.priceAfn} AFN`:"—"}
+                  </AppText>
                 </Pressable>;
               }):<View style={styles.weekEmptySlot}/>}
             </View>;
@@ -500,7 +464,7 @@ function SlotColorGuide({t}:{t:ReturnType<typeof useLocale>["t"]}){
   </Card>;
 }
 
-function WeekSlotManager({
+function SlotManager({
   event,language,t,busy,onClose,onOpenDay,onCancelBooking,onUnblock,
 }:{
   event:VenueCalendarEvent;
@@ -552,37 +516,63 @@ function WeekSlotManager({
   </Modal>;
 }
 
-function DayView({
-  day,statusFilter,setStatusFilter,language,t,busy,onCancelBooking,onUnblock,
+function DaySlotView({
+  day,language,t,onSelectSlot,
 }:{
   day:VenueCalendarDay|null;
-  statusFilter:"ALL"|VenueCalendarEventType;
-  setStatusFilter:(value:"ALL"|VenueCalendarEventType)=>void;
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
-  busy:string|null;
-  onCancelBooking:(id:string)=>void;
-  onUnblock:(id:string)=>void;
+  onSelectSlot:(event:VenueCalendarEvent)=>void;
 }){
-  const events=(day?.events??[]).filter((event)=>statusFilter==="ALL"||event.type===statusFilter);
-  return <View style={{gap:spacing.md}}>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-      {statusFilters.map((status)=><FilterChip
-        key={status}
-        label={status==="ALL"?t("schedule.allStatuses"):t(`schedule.event.${status}` as never)}
-        active={statusFilter===status}
-        onPress={()=>setStatusFilter(status)}
-      />)}
-    </ScrollView>
-    {!events.length?<Card><AppText muted>{t("schedule.noEvents")}</AppText></Card>:events.map((event)=><EventCard
-      key={event.id}
-      event={event}
-      language={language}
-      t={t}
-      busy={busy===`event-${event.id}`}
-      onCancelBooking={()=>onCancelBooking(event.id)}
-      onUnblock={()=>onUnblock(event.id)}
-    />)}
+  const timed=(day?.events??[]).filter((event)=>Boolean(event.startsAt));
+  const closed=(day?.events??[]).filter((event)=>event.type==="CLOSED"&&!event.startsAt);
+  return <View style={styles.daySlotSection}>
+    <SlotColorGuide t={t}/>
+    {timed.length?<View style={styles.daySlotGrid}>
+      {timed.map((event)=>{
+        const palette=slotPalette[event.type];
+        return <Pressable
+          key={event.id}
+          accessibilityRole="button"
+          onPress={()=>onSelectSlot(event)}
+          style={({pressed})=>[
+            styles.daySlot,
+            {backgroundColor:palette.background,borderColor:palette.border},
+            pressed&&styles.weekSlotPressed,
+          ]}
+        >
+          <View style={styles.daySlotTop}>
+            <AppText variant="bodyLarge" weight="bold" forceLtr style={{color:palette.text}}>
+              {formatCalendarTime(event.startsAt!,language)}
+            </AppText>
+            <Ionicons name={eventIcon(event.type)} size={18} color={palette.text}/>
+          </View>
+          <AppText variant="caption" weight="semibold" style={{color:palette.text}}>
+            {t(`schedule.event.${event.type}` as never)}
+          </AppText>
+          <AppText weight="bold" forceLtr style={{color:palette.text}}>
+            {event.priceAfn!==null?`${event.priceAfn} AFN`:"—"}
+          </AppText>
+        </Pressable>;
+      })}
+    </View>:null}
+    {closed.map((event)=>{
+      const palette=slotPalette.CLOSED;
+      return <Pressable
+        key={event.id}
+        onPress={()=>onSelectSlot(event)}
+        style={({pressed})=>[
+          styles.dayClosedSlot,
+          {backgroundColor:palette.background,borderColor:palette.border},
+          pressed&&styles.weekSlotPressed,
+        ]}
+      >
+        <Ionicons name="lock-closed-outline" size={20} color={palette.text}/>
+        <AppText weight="bold" style={{color:palette.text}}>{t("schedule.event.CLOSED")}</AppText>
+        <AppText variant="caption" muted>{t("schedule.manageSlot")}</AppText>
+      </Pressable>;
+    })}
+    {!timed.length&&!closed.length?<Card><AppText muted>{t("schedule.noEvents")}</AppText></Card>:null}
   </View>;
 }
 
@@ -605,7 +595,7 @@ function EventCard({
         <Ionicons name={eventIcon(event.type)} size={20} color={statusColor(event.type)}/>
       </View>
       <View style={{flex:1,gap:2}}>
-        <AppText weight="bold">{t(`schedule.event.${event.type}` as never)} · {event.areaName}</AppText>
+        <AppText weight="bold">{t(`schedule.event.${event.type}` as never)}</AppText>
         <AppText variant="caption" muted>{event.title}</AppText>
       </View>
       {event.priceAfn!==null?<AppText weight="bold" forceLtr>{event.priceAfn} AFN</AppText>:null}
@@ -614,7 +604,7 @@ function EventCard({
     {event.type==="AVAILABLE"?<View style={styles.actionGrid}>
       <Button
         label={t("schedule.addManual")}
-        onPress={()=>router.push({pathname:"/owner/manual-booking",params:{areaId:event.areaId??"",date,start,end}})}
+        onPress={()=>router.push({pathname:"/owner/manual-booking",params:{areaId:event.areaId??"",date,start,end,price:event.priceAfn!==null?String(event.priceAfn):""}})}
         style={styles.actionButton}
       />
       <Button
@@ -661,6 +651,30 @@ function EventCard({
         style={styles.actionButton}
       />
     </View>:null}
+    {event.type==="PROMOTION"?<Button
+      label={t("schedule.managePromotions")}
+      onPress={()=>router.push("/owner/promotions")}
+      variant="secondary"
+    />:null}
+    {event.type==="COMPETITION"?<Button
+      label={t("schedule.manageCompetitions")}
+      onPress={()=>router.push("/owner/competitions")}
+      variant="secondary"
+    />:null}
+    {event.type==="CLOSED"?<View style={styles.actionGrid}>
+      <Button
+        label={t("schedule.editWeekly")}
+        onPress={()=>router.push("/owner/timetable/weekly")}
+        variant="secondary"
+        style={styles.actionButton}
+      />
+      <Button
+        label={t("schedule.specialHours")}
+        onPress={()=>router.push("/owner/timetable/exceptions")}
+        variant="secondary"
+        style={styles.actionButton}
+      />
+    </View>:null}
   </Card>;
 }
 
@@ -676,11 +690,6 @@ function Legend({t}:{t:ReturnType<typeof useLocale>["t"]}){
   </Card>;
 }
 
-function FilterChip({label,active,onPress}:{label:string;active:boolean;onPress:()=>void}){
-  return <Pressable onPress={onPress} style={[styles.chip,active&&styles.chipActive]}>
-    <AppText variant="caption" weight="semibold" numberOfLines={1} style={active?styles.chipTextActive:undefined}>{label}</AppText>
-  </Pressable>;
-}
 
 const styles=StyleSheet.create({
   errorCard:{borderColor:colors.danger},
@@ -804,6 +813,29 @@ const styles=StyleSheet.create({
   },
   weekSlotPressed:{opacity:.72,transform:[{scale:.98}]},
   weekEmptySlot:{minHeight:40},
+  daySlotSection:{gap:spacing.md},
+  daySlotGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  daySlot:{
+    flexGrow:1,
+    flexBasis:"46%",
+    minWidth:150,
+    minHeight:94,
+    padding:spacing.md,
+    borderRadius:radius.md,
+    borderWidth:1,
+    gap:4,
+    justifyContent:"center",
+  },
+  daySlotTop:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  dayClosedSlot:{
+    minHeight:72,
+    padding:spacing.md,
+    borderRadius:radius.md,
+    borderWidth:1,
+    flexDirection:"row",
+    alignItems:"center",
+    gap:spacing.sm,
+  },
   slotModalOverlay:{
     flex:1,
     justifyContent:"center",
