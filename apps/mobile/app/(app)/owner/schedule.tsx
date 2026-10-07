@@ -8,7 +8,7 @@ import type {
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
 import {
   formatCalendarDate,
@@ -61,12 +61,18 @@ function eventIcon(type:VenueCalendarEventType):keyof typeof Ionicons.glyphMap{
   return "lock-closed-outline";
 }
 
+const slotPalette:Record<VenueCalendarEventType,{background:string;border:string;text:string}>={
+  AVAILABLE:{background:"#DCFCE7",border:"#86EFAC",text:"#166534"},
+  ONLINE_BOOKING:{background:"#FEE2E2",border:"#FCA5A5",text:"#991B1B"},
+  MANUAL_BOOKING:{background:"#DBEAFE",border:"#93C5FD",text:"#1D4ED8"},
+  COMPETITION:{background:"#FEF3C7",border:"#FCD34D",text:"#92400E"},
+  BLOCKED:{background:"#E2E8F0",border:"#94A3B8",text:"#475569"},
+  PROMOTION:{background:"#F3E8FF",border:"#C084FC",text:"#7E22CE"},
+  CLOSED:{background:"#F1F5F9",border:"#CBD5E1",text:"#64748B"},
+};
+
 function statusColor(type:VenueCalendarEventType){
-  if(type==="AVAILABLE")return colors.success;
-  if(type==="BLOCKED"||type==="CLOSED")return colors.danger;
-  if(type==="COMPETITION")return colors.warning;
-  if(type==="PROMOTION")return colors.accent;
-  return colors.primary;
+  return slotPalette[type].text;
 }
 
 export default function OwnerScheduleScreen(){
@@ -92,6 +98,7 @@ export default function OwnerScheduleScreen(){
   const focusedWeekKey=useRef<string|null>(null);
   const todayDate=useMemo(()=>todayKabul(),[]);
   const [busy,setBusy]=useState<string|null>(null);
+  const [selectedWeekSlot,setSelectedWeekSlot]=useState<VenueCalendarEvent|null>(null);
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
 
@@ -130,6 +137,7 @@ export default function OwnerScheduleScreen(){
       weekListY.current=null;
       todayWeekRowY.current=null;
       focusedWeekKey.current=null;
+      setSelectedWeekSlot(null);
       setCalendar(next);
       setRenderedView(requestedView);
       setRenderedAnchorDate(requestedAnchorDate);
@@ -254,11 +262,12 @@ export default function OwnerScheduleScreen(){
               language={language}
               t={t}
               todayDate={todayDate}
+              showAreaName={areaId===null}
               onTodayRowLayout={(y)=>{
                 todayWeekRowY.current=y;
                 focusTodayWeekRow(calendar.from);
               }}
-              onSelect={(date)=>{setStatusFilter("ALL");setAnchorDate(date);setView("DAY");}}
+              onSelectSlot={setSelectedWeekSlot}
             />
             :<DayView
               day={selectedDay}
@@ -276,7 +285,29 @@ export default function OwnerScheduleScreen(){
       </View>:null}
     </View>
 
-    <Legend t={t}/>
+    {renderedView!=="WEEK"?<Legend t={t}/>:null}
+
+    {selectedWeekSlot?<WeekSlotManager
+      event={selectedWeekSlot}
+      language={language}
+      t={t}
+      busy={busy===`event-${selectedWeekSlot.id}`}
+      onClose={()=>setSelectedWeekSlot(null)}
+      onOpenDay={(date)=>{
+        setSelectedWeekSlot(null);
+        setStatusFilter("ALL");
+        setAnchorDate(date);
+        setView("DAY");
+      }}
+      onCancelBooking={(id)=>{
+        setSelectedWeekSlot(null);
+        void cancelBooking(id);
+      }}
+      onUnblock={(id)=>{
+        setSelectedWeekSlot(null);
+        void unblock(id);
+      }}
+    />:null}
   </Screen>;
 }
 
@@ -346,64 +377,179 @@ function MonthView({
 }
 
 function WeekView({
-  days,language,t,todayDate,onSelect,onTodayRowLayout,
+  days,language,t,todayDate,showAreaName,onTodayRowLayout,onSelectSlot,
 }:{
   days:VenueCalendarDay[];
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
   todayDate:string;
-  onSelect:(date:string)=>void;
+  showAreaName:boolean;
   onTodayRowLayout:(y:number)=>void;
+  onSelectSlot:(event:VenueCalendarEvent)=>void;
 }){
-  return <View style={styles.weekList}>
-    {days.map((day)=>{
-      const isToday=day.date===todayDate;
-      return <Pressable
-        key={day.date}
-        accessibilityRole="button"
-        accessibilityState={{selected:isToday}}
-        onPress={()=>onSelect(day.date)}
-        onLayout={isToday?(event)=>onTodayRowLayout(event.nativeEvent.layout.y):undefined}
-        style={({pressed})=>[
-          styles.weekDayRow,
-          {flexDirection:language==="en"?"row":"row-reverse"},
-          isToday&&styles.weekTodayRow,
-          pressed&&styles.weekDayRowPressed,
-        ]}
-      >
-        <View style={styles.weekDayInfo}>
-          <View style={[styles.weekDayTitleLine,{flexDirection:language==="en"?"row":"row-reverse"}]}>
-            <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>
-              {formatCalendarDate(day.date,language,{weekday:"long"})}
-            </AppText>
-            {isToday?<View style={styles.weekTodayBadge}>
-              <AppText variant="caption" weight="bold" style={styles.weekTodayBadgeText}>
-                {t("schedule.today")}
-              </AppText>
-            </View>:null}
+  const timeRows=Array.from(new Set(
+    days.flatMap((day)=>day.events
+      .filter((event)=>Boolean(event.startsAt))
+      .map((event)=>rawTime(event.startsAt!))
+    ),
+  )).sort();
+
+  if(!timeRows.length){
+    return <Card><AppText muted>{t("schedule.noEvents")}</AppText></Card>;
+  }
+
+  return <View style={styles.weekSlotSection}>
+    <SlotColorGuide t={t}/>
+    <ScrollView
+      horizontal
+      nestedScrollEnabled
+      showsHorizontalScrollIndicator
+      contentContainerStyle={styles.weekSlotScroll}
+    >
+      <View style={styles.weekSlotGrid}>
+        <View style={[styles.weekSlotHeader,{flexDirection:language==="en"?"row":"row-reverse"}]}>
+          <View style={styles.weekTimeHeader}>
+            <Ionicons name="time-outline" size={16} color={colors.textMuted}/>
           </View>
-          <AppText variant="caption" muted>
-            {formatCalendarDate(day.date,language,{month:"long",day:"numeric"})}
-          </AppText>
+          {days.map((day)=>{
+            const isToday=day.date===todayDate;
+            return <View
+              key={day.date}
+              onLayout={isToday?(event)=>onTodayRowLayout(event.nativeEvent.layout.y):undefined}
+              style={[styles.weekDayHeader,isToday&&styles.weekDayHeaderToday]}
+            >
+              <AppText variant="caption" weight="bold">
+                {formatCalendarDate(day.date,language,{weekday:"short"})}
+              </AppText>
+              <AppText variant="caption" muted>
+                {formatCalendarDate(day.date,language,{month:"short",day:"numeric"})}
+              </AppText>
+              {isToday?<View style={styles.weekTodayBadge}>
+                <AppText variant="caption" weight="bold" style={styles.weekTodayBadgeText}>
+                  {t("schedule.today")}
+                </AppText>
+              </View>:null}
+            </View>;
+          })}
         </View>
 
-        <View style={[styles.weekReservationSummary,{flexDirection:language==="en"?"row":"row-reverse"}]}>
-          <Ionicons name="calendar-outline" size={18} color={colors.primary}/>
-          <View style={styles.weekReservationText}>
-            <AppText variant="caption" muted>{t("schedule.totalReservations")}</AppText>
-            <AppText variant="bodyLarge" weight="bold" style={{color:colors.primary}}>
-              {day.bookedCount}
+        {timeRows.map((time)=><View
+          key={time}
+          style={[styles.weekSlotTimeRow,{flexDirection:language==="en"?"row":"row-reverse"}]}
+        >
+          <View style={styles.weekTimeCell}>
+            <AppText variant="caption" weight="semibold" forceLtr>{time}</AppText>
+          </View>
+
+          {days.map((day)=>{
+            const cellEvents=day.events.filter((event)=>
+              Boolean(event.startsAt)&&rawTime(event.startsAt!)===time
+            );
+            return <View key={`${day.date}-${time}`} style={styles.weekSlotCell}>
+              {cellEvents.length?cellEvents.map((event)=>{
+                const palette=slotPalette[event.type];
+                return <Pressable
+                  key={event.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${event.areaName}, ${time}`}
+                  onPress={()=>onSelectSlot(event)}
+                  style={({pressed})=>[
+                    styles.weekSlot,
+                    {backgroundColor:palette.background,borderColor:palette.border},
+                    pressed&&styles.weekSlotPressed,
+                  ]}
+                >
+                  <AppText weight="bold" forceLtr style={{color:palette.text}}>
+                    {formatCalendarTime(event.startsAt!,language)}
+                  </AppText>
+                  {showAreaName?<AppText
+                    variant="caption"
+                    numberOfLines={1}
+                    style={{color:palette.text}}
+                  >
+                    {event.areaName}
+                  </AppText>:null}
+                </Pressable>;
+              }):<View style={styles.weekEmptySlot}/>}
+            </View>;
+          })}
+        </View>)}
+      </View>
+    </ScrollView>
+  </View>;
+}
+
+function SlotColorGuide({t}:{t:ReturnType<typeof useLocale>["t"]}){
+  return <Card style={styles.slotGuideCard}>
+    <View style={styles.slotGuideHeader}>
+      <Ionicons name="color-palette-outline" size={19} color={colors.primary}/>
+      <View style={{flex:1}}>
+        <AppText weight="bold">{t("schedule.slotColorGuide")}</AppText>
+        <AppText variant="caption" muted>{t("schedule.slotColorGuideBody")}</AppText>
+      </View>
+    </View>
+    <View style={styles.slotGuideItems}>
+      {statusFilters.filter((item)=>item!=="ALL").map((type)=>{
+        const palette=slotPalette[type];
+        return <View key={type} style={styles.slotGuideItem}>
+          <View style={[styles.slotGuideSwatch,{backgroundColor:palette.background,borderColor:palette.border}]}/>
+          <AppText variant="caption">{t(`schedule.event.${type}` as never)}</AppText>
+        </View>;
+      })}
+    </View>
+  </Card>;
+}
+
+function WeekSlotManager({
+  event,language,t,busy,onClose,onOpenDay,onCancelBooking,onUnblock,
+}:{
+  event:VenueCalendarEvent;
+  language:"fa-AF"|"ps-AF"|"en";
+  t:ReturnType<typeof useLocale>["t"];
+  busy:boolean;
+  onClose:()=>void;
+  onOpenDay:(date:string)=>void;
+  onCancelBooking:(id:string)=>void;
+  onUnblock:(id:string)=>void;
+}){
+  const date=event.startsAt?localDateFromIso(event.startsAt):todayKabul();
+  const palette=slotPalette[event.type];
+  return <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <Pressable style={styles.slotModalOverlay} onPress={onClose}>
+      <Pressable style={styles.slotModalCard} onPress={()=>{}}>
+        <View style={styles.slotModalHeader}>
+          <View style={[styles.slotModalIcon,{backgroundColor:palette.background,borderColor:palette.border}]}>
+            <Ionicons name={eventIcon(event.type)} size={21} color={palette.text}/>
+          </View>
+          <View style={{flex:1}}>
+            <AppText variant="bodyLarge" weight="bold">{t("schedule.manageSlot")}</AppText>
+            <AppText variant="caption" muted>
+              {formatCalendarDate(date,language,{weekday:"long",month:"short",day:"numeric"})}
             </AppText>
           </View>
-          <Ionicons
-            name={language==="en"?"chevron-forward":"chevron-back"}
-            size={20}
-            color={colors.textMuted}
-          />
+          <Pressable accessibilityRole="button" onPress={onClose} style={styles.slotModalClose}>
+            <Ionicons name="close" size={20} color={colors.text}/>
+          </Pressable>
         </View>
-      </Pressable>;
-    })}
-  </View>;
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.slotModalBody}>
+          <EventCard
+            event={event}
+            language={language}
+            t={t}
+            busy={busy}
+            onCancelBooking={()=>onCancelBooking(event.id)}
+            onUnblock={()=>onUnblock(event.id)}
+          />
+          <Button
+            label={t("schedule.openDay")}
+            onPress={()=>onOpenDay(date)}
+            variant="secondary"
+          />
+        </ScrollView>
+      </Pressable>
+    </Pressable>
+  </Modal>;
 }
 
 function DayView({
@@ -575,45 +721,132 @@ const styles=StyleSheet.create({
   monthCell:{minHeight:78,borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,padding:spacing.xs,gap:2,backgroundColor:colors.surface},
   monthCellMuted:{opacity:.46},
   monthCellSelected:{borderColor:colors.primary,backgroundColor:colors.primarySoft,borderWidth:2},
-  weekList:{gap:spacing.sm},
-  weekDayRow:{
-    flexDirection:"row",
-    alignItems:"center",
-    justifyContent:"space-between",
-    gap:spacing.md,
-    minHeight:64,
-    paddingHorizontal:spacing.md,
-    paddingVertical:spacing.sm,
+  weekSlotSection:{gap:spacing.md},
+  slotGuideCard:{gap:spacing.sm},
+  slotGuideHeader:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
+  slotGuideItems:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  slotGuideItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
+  slotGuideSwatch:{width:18,height:18,borderRadius:5,borderWidth:1},
+  weekSlotScroll:{paddingBottom:spacing.xs},
+  weekSlotGrid:{
+    minWidth:1010,
     borderWidth:1,
     borderColor:colors.border,
-    borderRadius:radius.md,
+    borderRadius:radius.lg,
+    overflow:"hidden",
     backgroundColor:colors.surface,
   },
-  weekDayRowPressed:{
+  weekSlotHeader:{
+    alignItems:"stretch",
     backgroundColor:colors.primarySoft,
-    borderColor:colors.primary,
+    borderBottomWidth:1,
+    borderBottomColor:colors.border,
   },
-  weekTodayRow:{
-    backgroundColor:colors.primarySoft,
-    borderColor:colors.primary,
-    borderWidth:2,
+  weekTimeHeader:{
+    width:70,
+    minHeight:68,
+    alignItems:"center",
+    justifyContent:"center",
+    borderRightWidth:1,
+    borderRightColor:colors.border,
   },
-  weekDayInfo:{flex:1,minWidth:0,gap:2},
-  weekDayTitleLine:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
+  weekDayHeader:{
+    width:134,
+    minHeight:68,
+    alignItems:"center",
+    justifyContent:"center",
+    gap:2,
+    padding:spacing.xs,
+    borderRightWidth:1,
+    borderRightColor:colors.border,
+  },
+  weekDayHeaderToday:{backgroundColor:"#DBEAFE"},
   weekTodayBadge:{
     paddingHorizontal:spacing.xs,
-    paddingVertical:2,
+    paddingVertical:1,
     borderRadius:radius.pill,
     backgroundColor:colors.primary,
   },
   weekTodayBadgeText:{color:colors.surface},
-  weekReservationSummary:{
+  weekSlotTimeRow:{
+    alignItems:"stretch",
+    borderBottomWidth:1,
+    borderBottomColor:colors.border,
+  },
+  weekTimeCell:{
+    width:70,
+    minHeight:52,
+    alignItems:"center",
+    justifyContent:"center",
+    padding:spacing.xs,
+    backgroundColor:colors.surfaceMuted,
+    borderRightWidth:1,
+    borderRightColor:colors.border,
+  },
+  weekSlotCell:{
+    width:134,
+    minHeight:52,
+    padding:4,
+    justifyContent:"center",
+    gap:4,
+    borderRightWidth:1,
+    borderRightColor:colors.border,
+    backgroundColor:colors.surface,
+  },
+  weekSlot:{
+    minHeight:40,
+    paddingHorizontal:spacing.xs,
+    paddingVertical:5,
+    borderRadius:radius.sm,
+    borderWidth:1,
+    alignItems:"center",
+    justifyContent:"center",
+  },
+  weekSlotPressed:{opacity:.72,transform:[{scale:.98}]},
+  weekEmptySlot:{minHeight:40},
+  slotModalOverlay:{
+    flex:1,
+    justifyContent:"center",
+    padding:spacing.md,
+    backgroundColor:colors.overlay,
+  },
+  slotModalCard:{
+    width:"100%",
+    maxWidth:560,
+    maxHeight:"82%",
+    alignSelf:"center",
+    borderRadius:radius.lg,
+    backgroundColor:colors.background,
+    borderWidth:1,
+    borderColor:colors.border,
+    overflow:"hidden",
+  },
+  slotModalHeader:{
     flexDirection:"row",
     alignItems:"center",
     gap:spacing.sm,
-    flexShrink:0,
+    padding:spacing.md,
+    backgroundColor:colors.surface,
+    borderBottomWidth:1,
+    borderBottomColor:colors.border,
   },
-  weekReservationText:{alignItems:"flex-end",minWidth:76},
+  slotModalIcon:{
+    width:42,
+    height:42,
+    borderRadius:radius.md,
+    borderWidth:1,
+    alignItems:"center",
+    justifyContent:"center",
+  },
+  slotModalClose:{
+    width:38,
+    height:38,
+    borderRadius:radius.pill,
+    alignItems:"center",
+    justifyContent:"center",
+    backgroundColor:colors.surfaceMuted,
+  },
+  slotModalBody:{padding:spacing.md,gap:spacing.md},
   dot:{width:8,height:8,borderRadius:4},
   titleRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
   eventIcon:{width:38,height:38,borderRadius:12,alignItems:"center",justifyContent:"center"},
