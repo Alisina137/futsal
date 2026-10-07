@@ -206,4 +206,79 @@ describe("Phase 4 marketing API", () => {
     const unavailable = await request(app).get(`/api/v1/posts/${created.body.post.id}`);
     expect(unavailable.status).toBe(400);
   });
+
+  it("keeps followers-only venue posts off the public page and reveals them after follow", async () => {
+    const { app, bookingRepository, marketingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334477");
+    const player = await register(app, authRepository, "PLAYER", "0703334488");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    seedMarketingFromBooking(marketingRepository, venue);
+
+    const created = await request(app).post("/api/v1/owner/posts")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`)
+      .send({
+        body: "Followers get this venue update first.",
+        postType: "ANNOUNCEMENT",
+        visibility: "FOLLOWERS",
+        publishMode: "NOW",
+        notifyFollowers: false,
+      });
+    expect(created.status).toBe(201);
+
+    const publicPage = await request(app).get(`/api/v1/venues/${venue.id}/posts`);
+    expect(publicPage.status).toBe(200);
+    expect(publicPage.body.posts).toHaveLength(0);
+
+    const beforeFollow = await request(app).get(`/api/v1/venues/${venue.id}/posts/following`)
+      .set("Authorization", `Bearer ${player.body.accessToken}`);
+    expect(beforeFollow.status).toBe(200);
+    expect(beforeFollow.body.posts).toHaveLength(0);
+
+    await request(app).post(`/api/v1/venues/${venue.id}/follow`)
+      .set("Authorization", `Bearer ${player.body.accessToken}`);
+
+    const afterFollow = await request(app).get(`/api/v1/venues/${venue.id}/posts/following`)
+      .set("Authorization", `Bearer ${player.body.accessToken}`);
+    expect(afterFollow.status).toBe(200);
+    expect(afterFollow.body.posts.map((post: { id: string }) => post.id)).toContain(created.body.post.id);
+  });
+
+  it("executes scheduled media visibility and deletion actions from server time", async () => {
+    const { app, bookingRepository, marketingRepository, authRepository, clock } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334499");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    seedMarketingFromBooking(marketingRepository, venue);
+
+    const created = await request(app).post("/api/v1/owner/posts")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`)
+      .send({
+        body: "Temporary public post.",
+        postType: "GENERAL",
+        visibility: "PUBLIC",
+        publishMode: "NOW",
+        notifyFollowers: false,
+        schedules: [
+          { action: "MAKE_PRIVATE", executeAt: "2026-10-04T00:10:00.000Z" },
+          { action: "DELETE", executeAt: "2026-10-04T00:20:00.000Z" },
+        ],
+      });
+    expect(created.status).toBe(201);
+    const postId = created.body.post.id as string;
+
+    clock.now = new Date("2026-10-04T00:11:00.000Z");
+    const privateState = await request(app).get("/api/v1/owner/posts")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`);
+    expect(privateState.status).toBe(200);
+    expect(privateState.body.posts.find((post: { id: string }) => post.id === postId)?.visibility).toBe("PRIVATE");
+
+    const publicPage = await request(app).get(`/api/v1/venues/${venue.id}/posts`);
+    expect(publicPage.body.posts.map((post: { id: string }) => post.id)).not.toContain(postId);
+
+    clock.now = new Date("2026-10-04T00:21:00.000Z");
+    const deletedState = await request(app).get("/api/v1/owner/posts")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`);
+    expect(deletedState.status).toBe(200);
+    expect(deletedState.body.posts.map((post: { id: string }) => post.id)).not.toContain(postId);
+  });
+
 });
