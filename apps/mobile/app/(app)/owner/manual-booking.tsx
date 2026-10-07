@@ -5,7 +5,6 @@ import { View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
-import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
@@ -28,9 +27,9 @@ export default function ManualBookingScreen(){
   useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((next)=>{
     const court=next.venue?.areas[0]??null;
     setAreaId(court?.id??"");
-    if(!(typeof params.price==="string"&&params.price.trim())&&!price&&court){
-      setPrice(String(court.basePriceAfn));
-    }
+    setPrice(typeof params.price==="string"&&params.price.trim()
+      ?params.price
+      :court?String(court.basePriceAfn):"");
   }).catch(()=>setError(t("owner.loadError"))).finally(()=>setLoading(false));},[params.price,session,t]);
 
   async function submit(){if(!session||!areaId)return;setBusy(true);setError(null);try{
