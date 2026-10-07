@@ -281,4 +281,61 @@ describe("Phase 4 marketing API", () => {
     expect(deletedState.body.posts.map((post: { id: string }) => post.id)).not.toContain(postId);
   });
 
+
+  it("uploads durable venue media and saves the public page cover, profile photo, and bio", async () => {
+    const { app, bookingRepository, marketingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334501");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    seedMarketingFromBooking(marketingRepository, venue);
+
+    const imageBytes = Buffer.from([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82]);
+
+    const profile = await request(app)
+      .post("/api/v1/owner/media-assets?purpose=PROFILE")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`)
+      .set("Content-Type", "image/png")
+      .send(imageBytes);
+    expect(profile.status).toBe(201);
+    expect(profile.body.asset.imageUrl).toMatch(/^\/api\/v1\/media-assets\//);
+
+    const cover = await request(app)
+      .post("/api/v1/owner/media-assets?purpose=COVER")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`)
+      .set("Content-Type", "image/png")
+      .send(imageBytes);
+    expect(cover.status).toBe(201);
+
+    const saved = await request(app)
+      .patch("/api/v1/owner/media-page")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`)
+      .send({
+        pageProfileImageUrl: profile.body.asset.imageUrl,
+        pageCoverImageUrl: cover.body.asset.imageUrl,
+        pageBio: "Kabul futsal, competitions, discounts and community updates.",
+      });
+    expect(saved.status).toBe(200);
+    expect(saved.body.page.pageProfileImageUrl).toBe(profile.body.asset.imageUrl);
+    expect(saved.body.page.pageCoverImageUrl).toBe(cover.body.asset.imageUrl);
+    expect(saved.body.page.pageBio).toContain("community");
+
+    const served = await request(app).get(profile.body.asset.imageUrl);
+    expect(served.status).toBe(200);
+    expect(served.headers["content-type"]).toContain("image/png");
+    expect(Buffer.isBuffer(served.body)).toBe(true);
+  });
+
+  it("rejects oversized or non-image venue media uploads", async () => {
+    const { app, bookingRepository, marketingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0703334502");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    seedMarketingFromBooking(marketingRepository, venue);
+
+    const invalid = await request(app)
+      .post("/api/v1/owner/media-assets?purpose=POST")
+      .set("Authorization", `Bearer ${owner.body.accessToken}`)
+      .set("Content-Type", "text/plain")
+      .send("not-an-image");
+    expect(invalid.status).toBeGreaterThanOrEqual(400);
+  });
+
 });
