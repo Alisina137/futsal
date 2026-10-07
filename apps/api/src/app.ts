@@ -23,6 +23,8 @@ import { createCompetitionRouter, createOwnerCompetitionRouter } from "./modules
 import type { CompetitionService } from "./modules/competition/competition.service.js";
 import { createAdminRouter, createOwnerCommercialRouter } from "./modules/commercial/commercial.routes.js";
 import type { CommercialService } from "./modules/commercial/commercial.service.js";
+import { createOwnerTimetableRouter } from "./modules/timetable/timetable.routes.js";
+import type { TimetableService } from "./modules/timetable/timetable.service.js";
 
 export type AppDependencies = {
   authService: AuthService;
@@ -34,6 +36,7 @@ export type AppDependencies = {
   teamService?: TeamService;
   competitionService?: CompetitionService;
   commercialService?: CommercialService;
+  timetableService?: TimetableService;
   trustProxyHops?: number;
   corsOrigin?: string;
   appVersion?: string;
@@ -164,6 +167,10 @@ export function createApp(deps: AppDependencies) {
   if (deps.commercialService) {
     app.use("/api/v1/owner", createOwnerCommercialRouter(deps.commercialService, deps.tokenService));
     app.use("/api/v1/admin", createAdminRouter(deps.commercialService, deps.tokenService));
+  }
+
+  if (deps.timetableService) {
+    app.use("/api/v1/owner", createOwnerTimetableRouter(deps.timetableService, deps.tokenService));
   }
 
   app.get("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {
