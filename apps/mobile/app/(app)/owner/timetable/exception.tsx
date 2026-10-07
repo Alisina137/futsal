@@ -87,9 +87,12 @@ export default function TimetableExceptionScreen(){
 
   function useRegularSchedule(){
     if(!gregorianDate||!timetableData){setError(t("schedule.validationDate"));return;}
-    const timetable=[timetableData.current,...timetableData.future]
-      .filter((item):item is NonNullable<typeof item>=>Boolean(item))
-      .find((item)=>item.effectiveFrom<=gregorianDate&&(!item.effectiveUntil||item.effectiveUntil>=gregorianDate));
+    const candidates=timetableData.current
+      ?[timetableData.current,...timetableData.future]
+      :[...timetableData.future];
+    const timetable=candidates.find((item)=>
+      item.effectiveFrom<=gregorianDate&&(!item.effectiveUntil||item.effectiveUntil>=gregorianDate)
+    );
     if(!timetable){setError(t("schedule.specialRequiresWeekly"));return;}
     const weekday=new Date(`${gregorianDate}T00:00:00Z`).getUTCDay();
     const regular=timetable.periods
