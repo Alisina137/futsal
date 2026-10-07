@@ -1,8 +1,7 @@
-import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { OwnerOnboardingStatus } from "@leaguekick/contracts";
+import { colors, spacing } from "@leaguekick/design-tokens";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -19,7 +18,6 @@ function afghanistanIso(date:string,time:string){return `${date}T${time}:00+04:3
 export default function BlockTimeScreen(){
   const params=useLocalSearchParams<{blockId?:string;areaId?:string;date?:string;start?:string;end?:string;reason?:string}>();
   const {session}=useAuth(); const {t,isRTL}=useLocale();
-  const [owner,setOwner]=useState<OwnerOnboardingStatus|null>(null);
   const [areaId,setAreaId]=useState(typeof params.areaId==="string"?params.areaId:"");
   const [date,setDate]=useState(typeof params.date==="string"?params.date:todayKabul());
   const [start,setStart]=useState(typeof params.start==="string"?params.start:"12:00");
@@ -28,7 +26,6 @@ export default function BlockTimeScreen(){
   const [reason,setReason]=useState(typeof params.reason==="string"?params.reason:"");
   const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
   useEffect(()=>{if(!session){setLoading(false);return;}setLoading(true);ownerApi.getStatus(session.accessToken).then((next)=>{
-    setOwner(next);
     const requested=typeof params.areaId==="string"?params.areaId:"";
     const valid=next.venue?.areas.some((area)=>area.id===requested)??false;
     setAreaId(valid?requested:(next.venue?.areas[0]?.id??""));
@@ -49,9 +46,6 @@ export default function BlockTimeScreen(){
 
   return <Screen embedded>
     <AppText variant="title" weight="bold">{t(blockId?"schedule.editBlock":"schedule.blockTitle")}</AppText>
-    <Card><AppText weight="semibold">{t("schedule.area")}</AppText><View style={{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap",gap:spacing.sm}}>
-      {owner?.venue?.areas.map((area)=><Pressable key={area.id} onPress={()=>setAreaId(area.id)} style={{padding:spacing.md,borderRadius:radius.md,borderWidth:1,borderColor:areaId===area.id?colors.primary:colors.border,backgroundColor:areaId===area.id?colors.primarySoft:colors.surface}}><AppText>{area.name}</AppText></Pressable>)}
-    </View></Card>
     <TextField label={t("booking.date")} value={date} onChangeText={setDate} forceLtr/>
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
       <TextField label={t("schedule.startTime")} value={start} onChangeText={setStart} forceLtr containerStyle={{flex:1}}/>
