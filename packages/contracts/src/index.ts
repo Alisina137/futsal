@@ -627,6 +627,10 @@ export const publicVenueDtoSchema = z.object({
   longitude: z.number().nullable(),
   timezone: z.string(),
   bookingMode: z.enum(["INSTANT","APPROVAL"]),
+  onlineBookingEnabled: z.boolean(),
+  minimumBookingNoticeMinutes: z.number().int().min(0),
+  maximumAdvanceBookingDays: z.number().int().min(1),
+  cancellationPolicy: z.string(),
   areas: z.array(venueAreaDtoSchema),
 });
 export type PublicVenueDto = z.infer<typeof publicVenueDtoSchema>;
