@@ -14,7 +14,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
-    "verify": "pnpm verify:admin-web && pnpm verify:suspension && pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:dev-api && pnpm verify:data-cache && pnpm verify:media && pnpm verify:analysis && pnpm verify:timetable && pnpm verify:loading-ux && pnpm verify:mobile-rtl && pnpm verify:navigation && pnpm verify:role-dashboard && pnpm verify:normal-user && pnpm verify:social-comments && pnpm verify:team-directory && pnpm verify:role-demo && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
+    "verify": "pnpm verify:admin-web && pnpm verify:suspension && pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:dev-api && pnpm verify:data-cache && pnpm verify:media && pnpm verify:analysis && pnpm verify:venue-settings && pnpm verify:timetable && pnpm verify:loading-ux && pnpm verify:mobile-rtl && pnpm verify:navigation && pnpm verify:role-dashboard && pnpm verify:normal-user && pnpm verify:social-comments && pnpm verify:team-directory && pnpm verify:role-demo && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "pnpm --filter @leaguekick/database db:generate",
     "db:migrate": "pnpm --dir packages/database run db:migrate",
     "verify:phase3": "node scripts/verify-phase3-resilience.mjs",
@@ -41,7 +41,8 @@
     "verify:role-demo": "node scripts/verify-role-demo-seed.mjs",
     "verify:role-dashboard": "node scripts/verify-role-dashboard.mjs",
     "verify:social-comments": "node scripts/verify-social-comments-profiles.mjs",
-    "verify:analysis": "node scripts/verify-owner-analytics.mjs"
+    "verify:analysis": "node scripts/verify-owner-analytics.mjs",
+    "verify:venue-settings": "node scripts/verify-venue-settings.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
