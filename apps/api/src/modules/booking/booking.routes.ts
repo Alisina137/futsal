@@ -117,6 +117,15 @@ export function createOwnerScheduleRouter(booking: BookingService, tokens: Token
     } catch (error) { next(error); }
   });
 
+  router.post("/bookings/:bookingId/confirm", writeLimiter, async (request,response,next)=>{
+    try{
+      response.json({booking:await booking.confirmOwnerBooking(
+        request.auth!.userId,
+        routeIdSchema.parse(request.params.bookingId),
+      )});
+    }catch(error){next(error);}
+  });
+
   router.post("/bookings/:bookingId/cancel", writeLimiter, async (request, response, next) => {
     try {
       const input = bookingCancelRequestSchema.parse(request.body ?? {});
