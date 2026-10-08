@@ -6,6 +6,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { VenueLocationWebMap } from "../../../src/components/owner/VenueLocationWebMap";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -26,6 +27,11 @@ export default function VenueSettingsScreen(){
   const {t,isRTL}=useLocale();
   const [locationPickerOpen,setLocationPickerOpen]=useState(false);
   const [draftMapPoint,setDraftMapPoint]=useState<MapPoint|null>(null);
+  const [draftLatitude,setDraftLatitude]=useState("");
+  const [draftLongitude,setDraftLongitude]=useState("");
+  const [mapProvider,setMapProvider]=useState<"OSM"|"GOOGLE">("OSM");
+  const [mapWebUnavailable,setMapWebUnavailable]=useState(false);
+  const [mapWebReady,setMapWebReady]=useState(false);
   const [data,setData]=useState<OwnerVenueSettingsDto|null>(null);
   const [section,setSection]=useState<Section>("GENERAL");
   const [loading,setLoading]=useState(true);
@@ -101,8 +107,38 @@ export default function VenueSettingsScreen(){
     setLongitude("");
   }
 
+  function acceptDraftPoint(point:MapPoint){
+    const next={
+      latitude:Number(point.latitude.toFixed(6)),
+      longitude:Number(point.longitude.toFixed(6)),
+    };
+    if(!Number.isFinite(next.latitude)||!Number.isFinite(next.longitude)||
+      next.latitude < -90||next.latitude > 90||next.longitude < -180||next.longitude > 180)return;
+    setDraftMapPoint(next);
+    setDraftLatitude(String(next.latitude));
+    setDraftLongitude(String(next.longitude));
+  }
+
+  function editDraftCoordinates(nextLatitude:string,nextLongitude:string){
+    setDraftLatitude(nextLatitude);
+    setDraftLongitude(nextLongitude);
+    if(nextLatitude.trim()===""||nextLongitude.trim()===""){setDraftMapPoint(null);return;}
+    const latitudeValue=Number(nextLatitude);
+    const longitudeValue=Number(nextLongitude);
+    if(!Number.isFinite(latitudeValue)||!Number.isFinite(longitudeValue)||
+      latitudeValue < -90||latitudeValue > 90||longitudeValue < -180||longitudeValue > 180){
+      setDraftMapPoint(null);return;
+    }
+    setDraftMapPoint({latitude:latitudeValue,longitude:longitudeValue});
+  }
+
   function openLocationPicker(){
     setDraftMapPoint(mapCoordinate);
+    setDraftLatitude(latitude);
+    setDraftLongitude(longitude);
+    setMapProvider("OSM");
+    setMapWebUnavailable(false);
+    setMapWebReady(false);
     setLocationPickerOpen(true);
   }
 
@@ -334,27 +370,60 @@ export default function VenueSettingsScreen(){
             <Ionicons name="close" size={24} color={colors.text}/>
           </Pressable>
         </View>
-        <MapView
-          provider={PROVIDER_GOOGLE}
-          style={styles.fullMap}
-          initialRegion={draftMapPoint?{...draftMapPoint,latitudeDelta:.012,longitudeDelta:.012}:DEFAULT_MAP_REGION}
-          mapType="standard"
-          onPress={(event)=>setDraftMapPoint(event.nativeEvent.coordinate)}
-          showsCompass
-          showsUserLocation={false}
-          toolbarEnabled={false}
-        >
-          {draftMapPoint?<Marker
-            coordinate={draftMapPoint}
-            draggable
-            title={data.name}
-            description={t("venueSettings.mapMarkerHint")}
-            onDragEnd={(event)=>setDraftMapPoint(event.nativeEvent.coordinate)}
-          />:null}
-        </MapView>
+        <View style={[styles.mapProviderRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Pressable accessibilityRole="button" accessibilityState={{selected:mapProvider==="OSM"}}
+            onPress={()=>{setMapProvider("OSM");setMapWebUnavailable(false);setMapWebReady(false);}}
+            style={[styles.mapProviderButton,mapProvider==="OSM"&&styles.mapProviderSelected]}>
+            <AppText variant="caption" weight="bold" style={mapProvider==="OSM"?styles.mapProviderTextSelected:undefined}>{t("venueSettings.mapAlternative")}</AppText>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityState={{selected:mapProvider==="GOOGLE"}}
+            onPress={()=>setMapProvider("GOOGLE")}
+            style={[styles.mapProviderButton,mapProvider==="GOOGLE"&&styles.mapProviderSelected]}>
+            <AppText variant="caption" weight="bold" style={mapProvider==="GOOGLE"?styles.mapProviderTextSelected:undefined}>{t("venueSettings.mapGoogle")}</AppText>
+          </Pressable>
+        </View>
+        <View style={styles.mapViewport}>
+          {mapProvider==="OSM"
+            ?<VenueLocationWebMap
+              initialPoint={mapCoordinate}
+              onPick={acceptDraftPoint}
+              onReady={()=>{setMapWebReady(true);setMapWebUnavailable(false);}}
+              onFailed={()=>{setMapWebUnavailable(true);setMapWebReady(false);}}
+            />
+            :<MapView
+              provider={PROVIDER_GOOGLE}
+              style={styles.fullMap}
+              initialRegion={draftMapPoint?{...draftMapPoint,latitudeDelta:.012,longitudeDelta:.012}:DEFAULT_MAP_REGION}
+              mapType="standard"
+              onPress={(event)=>acceptDraftPoint(event.nativeEvent.coordinate)}
+              showsCompass
+              showsUserLocation={false}
+              toolbarEnabled={false}
+            >
+              {draftMapPoint?<Marker
+                coordinate={draftMapPoint}
+                draggable
+                title={data.name}
+                description={t("venueSettings.mapMarkerHint")}
+                onDragEnd={(event)=>acceptDraftPoint(event.nativeEvent.coordinate)}
+              />:null}
+            </MapView>}
+          {mapProvider==="OSM"&&!mapWebReady&&!mapWebUnavailable
+            ?<View pointerEvents="none" style={styles.mapBusyNotice}>
+              <AppText variant="caption" muted>{t("venueSettings.mapLoading")}</AppText>
+            </View>:null}
+          {mapProvider==="OSM"&&mapWebUnavailable
+            ?<View pointerEvents="none" style={styles.mapErrorNotice}>
+              <AppText variant="caption" style={{color:colors.danger}}>{t("venueSettings.mapUnavailable")}</AppText>
+            </View>:null}
+        </View>
         <View style={styles.mapModalFooter}>
           <AppText variant="caption" muted>{draftMapPoint?t("venueSettings.coordinatesSelected"):t("venueSettings.mapTapHint")}</AppText>
           {draftMapPoint?<AppText weight="semibold" forceLtr>{draftMapPoint.latitude.toFixed(6)} , {draftMapPoint.longitude.toFixed(6)}</AppText>:null}
+          <View style={[styles.mapInputRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <TextField label={t("venueSettings.latitude")} value={draftLatitude} onChangeText={(value)=>editDraftCoordinates(value,draftLongitude)} keyboardType="numbers-and-punctuation" forceLtr containerStyle={{flex:1}}/>
+            <TextField label={t("venueSettings.longitude")} value={draftLongitude} onChangeText={(value)=>editDraftCoordinates(draftLatitude,value)} keyboardType="numbers-and-punctuation" forceLtr containerStyle={{flex:1}}/>
+          </View>
           <View style={[styles.mapModalButtons,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <Button label={t("venueSettings.cancelMapPicker")} onPress={()=>setLocationPickerOpen(false)} variant="secondary" style={{flex:1}}/>
             <Button label={t("venueSettings.confirmOnMap")} onPress={confirmLocation} disabled={!draftMapPoint} style={{flex:1}}/>
@@ -418,8 +487,16 @@ const styles=StyleSheet.create({
   mapModalSafe:{flex:1,backgroundColor:colors.background},
   mapModalHeader:{alignItems:"center",gap:spacing.md,padding:spacing.md,backgroundColor:colors.surface,borderBottomWidth:1,borderBottomColor:colors.border},
   mapModalClose:{width:44,height:44,justifyContent:"center",alignItems:"center",borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
+  mapProviderRow:{gap:spacing.xs,padding:spacing.sm,backgroundColor:colors.surface,borderBottomWidth:1,borderBottomColor:colors.border},
+  mapProviderButton:{flex:1,minHeight:40,paddingHorizontal:spacing.sm,alignItems:"center",justifyContent:"center",borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.surfaceMuted},
+  mapProviderSelected:{backgroundColor:colors.primary,borderColor:colors.primary},
+  mapProviderTextSelected:{color:"#FFFFFF"},
+  mapViewport:{flex:1,minHeight:230,position:"relative"},
   fullMap:{flex:1,width:"100%"},
+  mapBusyNotice:{position:"absolute",top:spacing.md,left:spacing.md,right:spacing.md,padding:spacing.sm,backgroundColor:"#FFFFFFE8",borderRadius:radius.md,alignItems:"center"},
+  mapErrorNotice:{position:"absolute",top:spacing.md,left:spacing.md,right:spacing.md,padding:spacing.md,backgroundColor:"#FFF3F3",borderRadius:radius.md,borderColor:"#FCA5A5",borderWidth:1},
   mapModalFooter:{gap:spacing.sm,padding:spacing.md,backgroundColor:colors.surface,borderTopWidth:1,borderTopColor:colors.border},
+  mapInputRow:{gap:spacing.sm},
   mapModalButtons:{gap:spacing.sm},
   mapActions:{alignItems:"center",gap:spacing.sm},
   clearMapButton:{minHeight:38,flexDirection:"row",alignItems:"center",gap:4,paddingHorizontal:spacing.sm,borderRadius:radius.md,borderWidth:1,borderColor:"#FECACA",backgroundColor:"#FEF2F2"},

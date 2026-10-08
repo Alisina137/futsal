@@ -26,6 +26,8 @@ const publicVenue=read("apps/mobile/app/(app)/venues/[venueId].tsx");
 const mobileApi=read("apps/mobile/src/lib/api.ts");
 const localization=read("packages/localization/src/index.ts");
 const mobilePackage=read("apps/mobile/package.json");
+const mobileLock=read("pnpm-lock.yaml");
+const venueWebMap=read("apps/mobile/src/components/owner/VenueLocationWebMap.tsx");
 const bookingTests=read("apps/api/test/booking.test.ts");
 const ownerTests=read("apps/api/test/owner.test.ts");
 
@@ -97,6 +99,20 @@ assert(bookingRepository.includes("confirmBooking")&&bookingRepository.includes(
 assert(timetableRepository.includes("bookingStatus")&&timetableService.includes("bookingStatus"),"Venue Time Table must carry pending booking state.");
 
 assert(mobilePackage.includes('"react-native-maps": "1.27.2"'),"Venue Settings map picker dependency missing.");
+assert(mobilePackage.includes('"react-native-webview": "13.16.1"')&&mobileLock.includes("react-native-webview@13.16.1:"),
+  "Expo Go WebView map fallback dependency and lockfile are required.");
+for(const marker of [
+  'from "react-native-webview"',
+  "leaflet@1.9.4",
+  "tile.openstreetmap.org",
+  "onMessage={receive}",
+  'send("pick"',
+  'send("error")',
+  "Number.isFinite(latitude)",
+  "onPick({latitude,longitude})",
+]){
+  assert(venueWebMap.includes(marker),`Map WebView fallback missing: ${marker}`);
+}
 const mapConfig=read("apps/mobile/app.config.js");
 assert(mapConfig.includes("react-native-maps")&&mapConfig.includes("GOOGLE_MAPS_ANDROID_API_KEY"),"Standalone Android Google Maps build must support environment-provided key without hardcoding it.");
 
@@ -124,17 +140,24 @@ for(const marker of [
   'coordinateMapButton',
   'styles.coordinateFields',
   'locationPickerOpen?<Modal',
-  'onPress={(event)=>setDraftMapPoint(event.nativeEvent.coordinate)}',
+  'onPress={(event)=>acceptDraftPoint(event.nativeEvent.coordinate)}',
   "draggable",
-  "onDragEnd={(event)=>setDraftMapPoint(event.nativeEvent.coordinate)}",
+  "onDragEnd={(event)=>acceptDraftPoint(event.nativeEvent.coordinate)}",
   "setLatitude(String(next.latitude))",
   "setLongitude(String(next.longitude))",
   'editable={false}',
   'locationPickerOpen?<Modal',
   'openLocationPicker',
   'confirmLocation',
-  'setDraftMapPoint(event.nativeEvent.coordinate)',
+  'acceptDraftPoint',
   'setMapPoint(draftMapPoint)',
+  'mapProvider==="OSM"',
+  '<VenueLocationWebMap',
+  'setMapProvider("OSM")',
+  'mapWebUnavailable',
+  'editDraftCoordinates',
+  'value={draftLatitude}',
+  'value={draftLongitude}',
   'disabled={!draftMapPoint}',
 ]){
   assert(settingsPage.includes(marker),`Venue map picker missing: ${marker}`);
@@ -146,8 +169,9 @@ assert(locationSection.indexOf('styles.coordinateFields')>=0
 assert((settingsPage.match(/<MapView\b/g)??[]).length===1
   && settingsPage.indexOf("<MapView")>settingsPage.indexOf("locationPickerOpen?<Modal"),
   "Google Map must open in fullscreen modal, not consume Venue Settings layout.");
-assert(settingsPage.includes('onPress={confirmLocation}')&&settingsPage.includes('setMapPoint(draftMapPoint)'),
-  "Confirm must fill both coordinate fields.");
+assert(settingsPage.includes('onPress={confirmLocation}')&&settingsPage.includes('setMapPoint(draftMapPoint)')&&
+  settingsPage.includes('editDraftCoordinates(draftLatitude,value)')&&settingsPage.includes('editDraftCoordinates(value,draftLongitude)'),
+  "Native/alternative map and manual coordinates must confirm into venue latitude and longitude.");
 assert(ownerNav.includes('href:"/owner/settings"'),"Last Venue Owner tab must open the dedicated Venue Settings page.");
 assert(!ownerNav.includes('labelKey:"owner.dashboardNav.settings",href:"/owner/onboarding"'),"Venue Settings tab must not route back to onboarding.");
 
@@ -172,6 +196,10 @@ for(const key of [
   "venueSettings.clearLocation",
   "venueSettings.chooseOnMap",
   "venueSettings.mapButton",
+  "venueSettings.mapAlternative",
+  "venueSettings.mapGoogle",
+  "venueSettings.mapLoading",
+  "venueSettings.mapUnavailable",
   "venueSettings.confirmOnMap",
   "venueSettings.cancelMapPicker",
   "venueSettings.mapPickSubtitle",
