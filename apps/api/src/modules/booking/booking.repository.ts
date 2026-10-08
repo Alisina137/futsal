@@ -103,6 +103,9 @@ export class DrizzleBookingRepository implements BookingRepository {
       longitude: row.longitude,
       timezone: row.timezone,
       bookingMode: row.bookingMode,
+      onlineBookingEnabled: row.onlineBookingEnabled,
+      minimumBookingNoticeMinutes: row.minimumBookingNoticeMinutes,
+      maximumAdvanceBookingDays: row.maximumAdvanceBookingDays,
       cancellationPolicy: row.cancellationPolicy,
       status: row.status,
       areas: areas.map((area) => ({
@@ -527,6 +530,18 @@ export class DrizzleBookingRepository implements BookingRepository {
       .where(and(eq(venueBlocks.venueId, venueId), lt(venueBlocks.startsAt, endsAt), gt(venueBlocks.endsAt, startsAt)));
     return rows.map((row) => ({ ...row, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt.toISOString() }))
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  }
+
+  async confirmBooking(bookingId:string,confirmedAt:Date){
+    const [updated]=await this.db.update(bookings).set({
+      status:"CONFIRMED",
+      updatedAt:confirmedAt,
+    }).where(and(
+      eq(bookings.id,bookingId),
+      eq(bookings.status,"PENDING"),
+    )).returning({id:bookings.id});
+    if(!updated)throw errors.badRequest("BOOKING_NOT_PENDING","This booking is no longer pending approval.");
+    return this.projectBooking(updated.id);
   }
 
   async cancelBooking(input: { bookingId: string; cancelledByUserId: string; reason: string | null; cancelledAt: Date }) {
