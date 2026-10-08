@@ -97,6 +97,8 @@ assert(bookingRepository.includes("confirmBooking")&&bookingRepository.includes(
 assert(timetableRepository.includes("bookingStatus")&&timetableService.includes("bookingStatus"),"Venue Time Table must carry pending booking state.");
 
 assert(mobilePackage.includes('"react-native-maps": "1.27.2"'),"Venue Settings map picker dependency missing.");
+const mapConfig=read("apps/mobile/app.config.js");
+assert(mapConfig.includes("react-native-maps")&&mapConfig.includes("GOOGLE_MAPS_ANDROID_API_KEY"),"Standalone Android Google Maps build must support environment-provided key without hardcoding it.");
 
 for(const marker of [
   'type Section="GENERAL"|"BOOKING"|"COURT"|"ACCESS"',
@@ -123,6 +125,12 @@ for(const marker of [
   "setLatitude(String(next.latitude))",
   "setLongitude(String(next.longitude))",
   'editable={false}',
+  'locationPickerOpen?<Modal',
+  'openLocationPicker',
+  'confirmLocation',
+  'setDraftMapPoint(event.nativeEvent.coordinate)',
+  'setMapPoint(draftMapPoint)',
+  'disabled={!draftMapPoint}',
 ]){
   assert(settingsPage.includes(marker),`Venue map picker missing: ${marker}`);
 }
@@ -148,6 +156,10 @@ for(const key of [
   "venueSettings.mapMarkerHint",
   "venueSettings.coordinatesSelected",
   "venueSettings.clearLocation",
+  "venueSettings.chooseOnMap",
+  "venueSettings.confirmOnMap",
+  "venueSettings.cancelMapPicker",
+  "venueSettings.mapPickSubtitle",
   "schedule.approveBooking",
   "schedule.pendingApproval",
 ]){

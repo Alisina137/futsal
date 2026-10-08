@@ -3,7 +3,8 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { OwnerVenueSettingsDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -18,11 +19,14 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 type Section="GENERAL"|"BOOKING"|"COURT"|"ACCESS";
 const sections:Section[]=["GENERAL","BOOKING","COURT","ACCESS"];
 const DEFAULT_MAP_REGION={latitude:34.5553,longitude:69.2075,latitudeDelta:.08,longitudeDelta:.08};
+type MapPoint={latitude:number;longitude:number};
 
 export default function VenueSettingsScreen(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const mapRef=useRef<MapView|null>(null);
+  const [locationPickerOpen,setLocationPickerOpen]=useState(false);
+  const [draftMapPoint,setDraftMapPoint]=useState<MapPoint|null>(null);
   const [data,setData]=useState<OwnerVenueSettingsDto|null>(null);
   const [section,setSection]=useState<Section>("GENERAL");
   const [loading,setLoading]=useState(true);
@@ -97,6 +101,17 @@ export default function VenueSettingsScreen(){
   function clearMapPoint(){
     setLatitude("");
     setLongitude("");
+  }
+
+  function openLocationPicker(){
+    setDraftMapPoint(mapCoordinate);
+    setLocationPickerOpen(true);
+  }
+
+  function confirmLocation(){
+    if(!draftMapPoint)return;
+    setMapPoint(draftMapPoint);
+    setLocationPickerOpen(false);
   }
 
   function validate(){
@@ -192,6 +207,7 @@ export default function VenueSettingsScreen(){
 
       <SectionTitle icon="location-outline" title={t("venueSettings.mapTitle")} body={t("venueSettings.mapBody")}/>
       <Card style={styles.card}>
+        <Button label={t("venueSettings.chooseOnMap")} onPress={openLocationPicker} icon={<Ionicons name="map-outline" size={20} color="#FFFFFF"/>}/>
         <View style={styles.mapShell}>
           <MapView
             ref={mapRef}
@@ -316,6 +332,51 @@ export default function VenueSettingsScreen(){
     </>:null}
 
     {section!=="ACCESS"?<Button label={t("venueSettings.save")} onPress={()=>void save()} loading={saving}/>:null}
+
+    {locationPickerOpen?<Modal
+      visible
+      animationType="slide"
+      onRequestClose={()=>setLocationPickerOpen(false)}
+      statusBarTranslucent
+    >
+      <SafeAreaView style={styles.mapModalSafe} edges={["top","bottom","left","right"]}>
+        <View style={[styles.mapModalHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={{flex:1,gap:2}}>
+            <AppText variant="bodyLarge" weight="bold">{t("venueSettings.mapTitle")}</AppText>
+            <AppText variant="caption" muted>{t("venueSettings.mapPickSubtitle")}</AppText>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t("venueSettings.cancelMapPicker")} onPress={()=>setLocationPickerOpen(false)} style={styles.mapModalClose}>
+            <Ionicons name="close" size={24} color={colors.text}/>
+          </Pressable>
+        </View>
+        <MapView
+          provider={PROVIDER_GOOGLE}
+          style={styles.fullMap}
+          initialRegion={draftMapPoint?{...draftMapPoint,latitudeDelta:.012,longitudeDelta:.012}:DEFAULT_MAP_REGION}
+          mapType="standard"
+          onPress={(event)=>setDraftMapPoint(event.nativeEvent.coordinate)}
+          showsCompass
+          showsUserLocation={false}
+          toolbarEnabled={false}
+        >
+          {draftMapPoint?<Marker
+            coordinate={draftMapPoint}
+            draggable
+            title={data.name}
+            description={t("venueSettings.mapMarkerHint")}
+            onDragEnd={(event)=>setDraftMapPoint(event.nativeEvent.coordinate)}
+          />:null}
+        </MapView>
+        <View style={styles.mapModalFooter}>
+          <AppText variant="caption" muted>{draftMapPoint?t("venueSettings.coordinatesSelected"):t("venueSettings.mapTapHint")}</AppText>
+          {draftMapPoint?<AppText weight="semibold" forceLtr>{draftMapPoint.latitude.toFixed(6)} , {draftMapPoint.longitude.toFixed(6)}</AppText>:null}
+          <View style={[styles.mapModalButtons,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button label={t("venueSettings.cancelMapPicker")} onPress={()=>setLocationPickerOpen(false)} variant="secondary" style={{flex:1}}/>
+            <Button label={t("venueSettings.confirmOnMap")} onPress={confirmLocation} disabled={!draftMapPoint} style={{flex:1}}/>
+          </View>
+        </View>
+      </SafeAreaView>
+    </Modal>:null}
   </Screen>;
 }
 
@@ -365,6 +426,12 @@ const styles=StyleSheet.create({
   card:{gap:spacing.md},
   mapShell:{height:320,borderRadius:radius.lg,overflow:"hidden",borderWidth:1,borderColor:colors.border,backgroundColor:colors.surfaceMuted},
   map:{width:"100%",height:"100%"},
+  mapModalSafe:{flex:1,backgroundColor:colors.background},
+  mapModalHeader:{alignItems:"center",gap:spacing.md,padding:spacing.md,backgroundColor:colors.surface,borderBottomWidth:1,borderBottomColor:colors.border},
+  mapModalClose:{width:44,height:44,justifyContent:"center",alignItems:"center",borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
+  fullMap:{flex:1,width:"100%"},
+  mapModalFooter:{gap:spacing.sm,padding:spacing.md,backgroundColor:colors.surface,borderTopWidth:1,borderTopColor:colors.border},
+  mapModalButtons:{gap:spacing.sm},
   mapHintOverlay:{position:"absolute",top:spacing.sm,left:spacing.sm,right:spacing.sm,alignItems:"center"},
   mapHintPill:{flexDirection:"row",alignItems:"center",gap:spacing.xs,paddingHorizontal:spacing.sm,paddingVertical:spacing.xs,borderRadius:radius.pill,backgroundColor:"rgba(255,255,255,.94)",borderWidth:1,borderColor:colors.border},
   mapActions:{alignItems:"center",gap:spacing.sm},
