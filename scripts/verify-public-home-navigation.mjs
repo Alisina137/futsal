@@ -23,7 +23,13 @@ for(const [key,href,icon,page] of paths){
   assert(bar.includes(`key:"${key}",href:"${href}"`),`Top navigation route missing: ${key}`);
   assert(bar.includes(`icon:"${icon}"`),`Top navigation icon missing: ${key}`);
   const code=read(page);
-  assert((code.match(/<Screen showHeader publicNav>/g)??[]).length>=2,`Top bar must be visible both during loading and content: ${key}`);
+  if(key==="home"){
+    assert(code.includes("<Screen showHeader publicNav")&&code.includes('{loading?<DataLoadingState'),
+      "Home must keep the top navigation mounted while feed content loads.");
+  }else{
+    assert((code.match(/<Screen showHeader publicNav>/g)??[]).length>=2,
+      `Top bar must be visible both during loading and content: ${key}`);
+  }
 }
 assert(screen.indexOf("<PublicTopNavigation/>")<screen.indexOf("<KeyboardAvoidingView"),
   "Top navigation must be fixed above the scrollable page content.");
