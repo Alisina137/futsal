@@ -24,7 +24,7 @@ const localization = read("packages/localization/src/index.ts");
 assert(schema.includes("socialFollows") && schema.includes("socialPosts") && schema.includes("socialPostLikes") && schema.includes("socialPostComments"), "social persistence schema missing");
 assert(migration.includes('INSERT INTO "social_follows"') && migration.includes('FROM "venue_follows"'), "venue follow backfill missing");
 assert(migration.includes('INSERT INTO "social_posts"') && migration.includes('FROM "venue_posts"'), "venue post backfill missing");
-assert(contracts.includes('z.enum(["VENUE", "TEAM", "COMPETITION"])'), "social entity contract missing");
+assert(contracts.includes('z.enum(["VENUE", "TEAM", "COMPETITION", "USER"])'), "social entity contract missing");
 assert(repository.includes('entityType: "VENUE"') && repository.includes("legacyVenuePostId"), "future venue posts must mirror into social posts");
 assert(repository.includes("listSocialFeed") && repository.includes("likeSocialPost") && repository.includes("addSocialComment"), "social repository interactions missing");
 assert(service.includes("socialFollowState") && service.includes("socialFeed") && service.includes("SOCIAL_POST_NOT_FOUND"), "social service validation missing");

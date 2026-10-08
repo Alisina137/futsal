@@ -125,6 +125,13 @@ export interface MarketingRepository {
   unfollowEntity(userId: string, entityType: SocialEntityType, entityId: string): Promise<void>;
   isFollowingEntity(userId: string, entityType: SocialEntityType, entityId: string): Promise<boolean>;
   socialFollowerCount(entityType: SocialEntityType, entityId: string): Promise<number>;
+  listUserPosts(viewerId:string,userId:string):Promise<SocialFeedPostDto[]>;
+  createUserPost(userId:string,body:string,imageUrl:string|null,createdAt:Date):Promise<SocialFeedPostDto>;
+  deleteUserPost(userId:string,postId:string):Promise<boolean>;
+  createUserPostImage(input:{ownerUserId:string;publicToken:string;mimeType:string;byteSize:number;dataBase64:string}):
+    Promise<{id:string;ownerUserId:string;publicToken:string;mimeType:string;byteSize:number;dataBase64:string}>;
+  getUserPostImage(assetId:string,publicToken:string):
+    Promise<{id:string;ownerUserId:string;publicToken:string;mimeType:string;byteSize:number;dataBase64:string}|null>;
   listSocialFeed(userId: string): Promise<SocialFeedPostDto[]>;
   getSocialPost(userId: string, postId: string): Promise<SocialFeedPostDto | null>;
   likeSocialPost(userId: string, postId: string): Promise<SocialFeedPostDto | null>;

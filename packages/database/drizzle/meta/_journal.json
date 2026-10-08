@@ -148,6 +148,13 @@
       "when": 1791358200000,
       "tag": "0020_account_profile_images",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791493200000,
+      "tag": "0021_social_home_user_posts",
+      "breakpoints": true
     }
   ]
 }

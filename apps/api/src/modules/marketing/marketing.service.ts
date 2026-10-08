@@ -7,6 +7,7 @@ import type {
   SocialEntityType,
   SocialFeedResponse,
   SocialFollowStateDto,
+  SocialUserPostCreateRequest,
   SocialPostCommentCreateRequest,
   SocialPostCommentUpdateRequest,
   VenuePostCreateRequest,
@@ -413,6 +414,73 @@ export class MarketingService {
       this.repository.listPublishedPosts(venueIds,followingOnly?"PUBLIC_OR_FOLLOWERS":"PUBLIC"),
     ]);
     return {generatedAt:this.now().toISOString(),items:mergeFeed(promotions,posts).slice(0,100)};
+  }
+
+
+  async publicUserProfile(viewerId:string,userId:string){
+    const profile=await this.repository.getSocialEntity("USER",userId);
+    if(!profile)throw errors.badRequest("USER_NOT_FOUND","This account is unavailable.");
+    const [posts,followState]=await Promise.all([
+      this.repository.listUserPosts(viewerId,userId),
+      this.socialFollowState(viewerId,"USER",userId),
+    ]);
+    return {profile,posts,followState};
+  }
+
+  async createUserPost(userId:string,input:SocialUserPostCreateRequest){
+    const user=await this.repository.getSocialEntity("USER",userId);
+    if(!user)throw errors.forbidden("ACCOUNT_UNAVAILABLE","An active account is required.");
+    let imageUrl=input.imageUrl??null;
+    if(imageUrl){
+      const match=/^\/api\/v1\/social\/post-images\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{32,64})$/.exec(imageUrl);
+      if(!match)throw errors.badRequest("INVALID_POST_IMAGE","Choose a photo from your device.");
+      const asset=await this.repository.getUserPostImage(match[1]!,match[2]!);
+      if(!asset||asset.ownerUserId!==userId)throw errors.forbidden("POST_IMAGE_NOT_OWNED","This photo belongs to another account.");
+    }
+    if(!input.body.trim()&&!imageUrl)throw errors.badRequest("EMPTY_POST","Write a post or attach a photo.");
+    return {post:await this.repository.createUserPost(userId,input.body.trim(),imageUrl,this.now())};
+  }
+
+  async deleteUserPost(userId:string,postId:string){
+    if(!(await this.repository.deleteUserPost(userId,postId))){
+      throw errors.forbidden("POST_ACCESS_DENIED","Only the author can remove this post.");
+    }
+    return {deleted:true};
+  }
+
+  async createUserPostImage(userId:string,mimeType:string,bytes:Buffer){
+    if(!(await this.repository.getSocialEntity("USER",userId))){
+      throw errors.forbidden("ACCOUNT_UNAVAILABLE","An active account is required.");
+    }
+    const kind=mimeType.toLowerCase().split(";")[0]!.trim();
+    if(!["image/jpeg","image/png","image/webp","image/heic","image/heif"].includes(kind)){
+      throw errors.badRequest("MEDIA_TYPE_NOT_ALLOWED","Select a JPG, PNG, WEBP or HEIC image.");
+    }
+    if(!bytes.length)throw errors.badRequest("MEDIA_EMPTY","Select a non-empty photo.");
+    if(bytes.length>5*1024*1024)throw errors.badRequest("MEDIA_TOO_LARGE","Photos must be at most 5 MB.");
+    const valid=kind==="image/jpeg"
+      ?bytes.length>=3&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255
+      :kind==="image/png"
+      ?bytes.length>=8&&bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
+      :kind==="image/webp"
+      ?bytes.toString("ascii",0,4)==="RIFF"&&bytes.toString("ascii",8,12)==="WEBP"
+      :bytes.length>=12&&bytes.toString("ascii",4,8)==="ftyp"
+        &&["heic","heix","hevc","hevx","mif1","msf1"].includes(bytes.toString("ascii",8,12));
+    if(!valid)throw errors.badRequest("MEDIA_INVALID_IMAGE","The file is not a valid photo.");
+    const row=await this.repository.createUserPostImage({
+      ownerUserId:userId,
+      publicToken:randomBytes(24).toString("base64url"),
+      mimeType:kind,
+      byteSize:bytes.length,
+      dataBase64:bytes.toString("base64"),
+    });
+    return {imageUrl:`/api/v1/social/post-images/${row.id}/${row.publicToken}`};
+  }
+
+  async publicUserPostImage(assetId:string,publicToken:string){
+    const asset=await this.repository.getUserPostImage(assetId,publicToken);
+    if(!asset)throw errors.badRequest("MEDIA_ASSET_NOT_FOUND","This photo is unavailable.");
+    return asset;
   }
 
   async socialFeed(userId:string):Promise<SocialFeedResponse>{

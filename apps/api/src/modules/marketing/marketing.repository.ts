@@ -8,6 +8,7 @@ import {
   socialPostComments,
   socialPostLikes,
   socialPosts,
+  socialUserPostImages,
   teams,
   users,
   venueAreas,
@@ -124,6 +125,7 @@ function postDto(row: {
 function socialDeepLink(entityType: SocialEntityType, entityId: string) {
   if (entityType === "VENUE") return `/venues/${entityId}`;
   if (entityType === "TEAM") return `/teams/${entityId}`;
+  if (entityType === "USER") return `/people/${entityId}`;
   return `/competitions/${entityId}`;
 }
 
@@ -663,6 +665,11 @@ export class DrizzleMarketingRepository implements MarketingRepository {
   }
 
   async getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null> {
+    if(entityType==="USER"){
+      const [row]=await this.db.select({id:users.id,name:users.displayName,imageUrl:users.profileImageUrl})
+        .from(users).where(and(eq(users.id,entityId),eq(users.status,"ACTIVE"))).limit(1);
+      return row?{id:row.id,type:"USER",name:row.name,imageUrl:row.imageUrl}:null;
+    }
     if (entityType === "VENUE") {
       const [row] = await this.db.select({
         id:venues.id,
@@ -753,12 +760,69 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     };
   }
 
+  async listUserPosts(viewerId:string,userId:string):Promise<SocialFeedPostDto[]>{
+    const rows=await this.db.select().from(socialPosts).where(and(
+      eq(socialPosts.entityType,"USER"),
+      eq(socialPosts.entityId,userId),
+      eq(socialPosts.status,"PUBLISHED"),
+      eq(socialPosts.visibility,"PUBLIC"),
+    )).orderBy(desc(socialPosts.publishedAt)).limit(100);
+    const data=await Promise.all(rows.map(row=>this.hydrateSocialPost(viewerId,row)));
+    return data.filter((row):row is SocialFeedPostDto=>Boolean(row));
+  }
+
+  async createUserPost(userId:string,body:string,imageUrl:string|null,createdAt:Date):Promise<SocialFeedPostDto>{
+    const user=await this.getSocialEntity("USER",userId);
+    if(!user)throw errors.forbidden("ACCOUNT_UNAVAILABLE","Your account is not active.");
+    const [row]=await this.db.insert(socialPosts).values({
+      entityType:"USER",
+      entityId:userId,
+      createdByUserId:userId,
+      body,
+      imageUrl,
+      postType:"GENERAL",
+      visibility:"PUBLIC",
+      status:"PUBLISHED",
+      publishedAt:createdAt,
+      createdAt,
+      updatedAt:createdAt,
+    }).returning();
+    if(!row)throw errors.badRequest("POST_NOT_CREATED","Could not publish this post.");
+    const dto=await this.hydrateSocialPost(userId,row);
+    if(!dto)throw errors.badRequest("POST_NOT_CREATED","Could not open this post.");
+    return dto;
+  }
+
+  async deleteUserPost(userId:string,postId:string):Promise<boolean>{
+    const rows=await this.db.delete(socialPosts).where(and(
+      eq(socialPosts.id,postId),
+      eq(socialPosts.entityType,"USER"),
+      eq(socialPosts.entityId,userId),
+      eq(socialPosts.createdByUserId,userId),
+    )).returning({id:socialPosts.id});
+    return rows.length>0;
+  }
+
+  async createUserPostImage(input:{ownerUserId:string;publicToken:string;mimeType:string;byteSize:number;dataBase64:string}){
+    const [row]=await this.db.insert(socialUserPostImages).values(input).returning();
+    if(!row)throw errors.badRequest("MEDIA_UPLOAD_FAILED","Could not save the photo.");
+    return row;
+  }
+
+  async getUserPostImage(assetId:string,publicToken:string){
+    const [row]=await this.db.select().from(socialUserPostImages).where(and(
+      eq(socialUserPostImages.id,assetId),
+      eq(socialUserPostImages.publicToken,publicToken),
+    )).limit(1);
+    return row??null;
+  }
+
   async listSocialFeed(userId: string): Promise<SocialFeedPostDto[]> {
     const follows = await this.db.select({
       entityType: socialFollows.entityType,
       entityId: socialFollows.entityId,
     }).from(socialFollows).where(eq(socialFollows.userId, userId));
-    const followed = new Set(follows.map((item) => `${item.entityType}:${item.entityId}`));
+    const followed = new Set([...follows.map((item) => `${item.entityType}:${item.entityId}`),`USER:${userId}`]);
     const candidates = await this.db.select().from(socialPosts)
       .where(and(
         eq(socialPosts.status, "PUBLISHED"),

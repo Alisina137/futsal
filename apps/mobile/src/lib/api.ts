@@ -41,6 +41,7 @@ import type {
   SocialPostCommentCreateRequest,
   SocialPostCommentUpdateRequest,
   SocialPostCommentDto,
+  SocialUserPostCreateRequest,
   NotificationDto,
   NotificationPreferences,
   NotificationPreferencesUpdate,
@@ -243,7 +244,7 @@ export type LocalMediaUpload = {
   size?:number|null;
 };
 
-async function uploadNativeImage<T extends {asset:VenueMediaAssetDto}|{user:UserDto}>(
+async function uploadNativeImage<T extends {asset:VenueMediaAssetDto}|{user:UserDto}|{imageUrl:string}>(
   accessToken:string,
   source:LocalMediaUpload,
   destination:string,
@@ -308,7 +309,7 @@ async function uploadNativeImage<T extends {asset:VenueMediaAssetDto}|{user:User
         errorBody?.error?.details,
       );
     }
-    if(!body||(!("asset" in body)&&!("user" in body))){
+    if(!body||(!("asset" in body)&&!("user" in body)&&!("imageUrl" in body))){
       throw new ApiRequestError("INVALID_UPLOAD_RESPONSE","The server returned an invalid upload response.",response.status,null,false);
     }
     await invalidateApiCacheAfterMutation(destination,accessToken);
@@ -508,6 +509,16 @@ export const marketingApi = {
     request<{ post: VenuePostDto }>(`/api/v1/social/venue-posts/${postId}`, {}, accessToken),
   socialFeed: (accessToken: string) =>
     request<SocialFeedResponse>("/api/v1/social/feed", {}, accessToken),
+  publicUserProfile: (accessToken:string,userId:string) =>
+    request<{profile:{id:string;type:"USER";name:string;imageUrl:string|null};posts:SocialFeedPostDto[];followState:SocialFollowStateDto}>(
+      `/api/v1/social/people/${userId}`,{},accessToken),
+  createUserPost: (accessToken:string,input:SocialUserPostCreateRequest) =>
+    request<{post:SocialFeedPostDto}>("/api/v1/social/user-posts",
+      {method:"POST",body:JSON.stringify(input)},accessToken),
+  deleteUserPost: (accessToken:string,postId:string) =>
+    request<{deleted:boolean}>(`/api/v1/social/user-posts/${postId}`,{method:"DELETE"},accessToken),
+  uploadUserPostImage: (accessToken:string,source:LocalMediaUpload) =>
+    uploadNativeImage<{imageUrl:string}>(accessToken,source,"/api/v1/social/post-images"),
   socialFollowState: (accessToken: string, entityType: SocialEntityType, entityId: string) =>
     request<SocialFollowStateDto>(`/api/v1/social/follows/${entityType}/${entityId}`, {}, accessToken),
   socialFollow: (accessToken: string, entityType: SocialEntityType, entityId: string) =>

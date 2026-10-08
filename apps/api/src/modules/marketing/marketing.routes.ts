@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   promotionCreateRequestSchema,
   socialEntityTypeSchema,
+  socialUserPostCreateRequestSchema,
   socialPostCommentCreateRequestSchema,
   socialPostCommentUpdateRequestSchema,
   venuePostCreateRequestSchema,
@@ -59,6 +60,52 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
   router.get("/feed/following", requireAuth(tokens), async (request, response, next) => {
     try { response.json(await marketing.feed(request.auth!.userId, true)); }
     catch (error) { next(error); }
+  });
+
+
+  router.get("/social/people/:userId",requireAuth(tokens),async(request,response,next)=>{
+    try{
+      const id=routeIdSchema.parse(request.params.userId);
+      response.json(await marketing.publicUserProfile(request.auth!.userId,id));
+    }catch(error){next(error);}
+  });
+
+  router.get("/social/post-images/:assetId/:publicToken", async(request,response,next)=>{
+    try{
+      const id=routeIdSchema.parse(request.params.assetId);
+      const token=z.string().regex(/^[A-Za-z0-9_-]{32,64}$/).parse(request.params.publicToken);
+      const image=await marketing.publicUserPostImage(id,token);
+      response.setHeader("Content-Type",image.mimeType);
+      response.setHeader("Content-Length",String(image.byteSize));
+      response.setHeader("Cache-Control","public,max-age=31536000,immutable");
+      response.setHeader("Cross-Origin-Resource-Policy","cross-origin");
+      response.send(Buffer.from(image.dataBase64,"base64"));
+    }catch(error){next(error);}
+  });
+
+  const personalPostLimiter=rateLimit({windowMs:60_000,limit:10,standardHeaders:"draft-8",legacyHeaders:false});
+
+  router.post("/social/post-images",requireAuth(tokens),personalPostLimiter,
+    raw({type:"image/*",limit:"5mb"}),async(request,response,next)=>{
+      try{
+        const type=String(request.headers["content-type"]??"").split(";")[0]!.trim();
+        if(!Buffer.isBuffer(request.body))throw errors.badRequest("MEDIA_BODY_REQUIRED","Choose a photo.");
+        response.status(201).json(await marketing.createUserPostImage(request.auth!.userId,type,request.body));
+      }catch(error){next(error);}
+    });
+
+  router.post("/social/user-posts",requireAuth(tokens),personalPostLimiter,async(request,response,next)=>{
+    try{
+      const input=socialUserPostCreateRequestSchema.parse(request.body);
+      response.status(201).json(await marketing.createUserPost(request.auth!.userId,input));
+    }catch(error){next(error);}
+  });
+
+  router.delete("/social/user-posts/:postId",requireAuth(tokens),personalPostLimiter,async(request,response,next)=>{
+    try{
+      const id=routeIdSchema.parse(request.params.postId);
+      response.json(await marketing.deleteUserPost(request.auth!.userId,id));
+    }catch(error){next(error);}
   });
 
   router.get("/social/feed", requireAuth(tokens), async (request, response, next) => {

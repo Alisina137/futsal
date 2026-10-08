@@ -41,7 +41,7 @@ export const postCtaTypeEnum = pgEnum("post_cta_type", ["NONE", "VENUE", "PROMOT
 export const venuePostTypeEnum = pgEnum("venue_post_type", ["GENERAL", "ANNOUNCEMENT", "PROMOTION", "COMPETITION", "RESULT"]);
 export const venuePostVisibilityEnum = pgEnum("venue_post_visibility", ["PUBLIC", "FOLLOWERS", "PRIVATE"]);
 export const venuePostScheduledActionEnum = pgEnum("venue_post_scheduled_action", ["PUBLISH", "UNPUBLISH", "MAKE_PUBLIC", "MAKE_FOLLOWERS", "MAKE_PRIVATE", "DELETE"]);
-export const socialEntityTypeEnum = pgEnum("social_entity_type", ["VENUE", "TEAM", "COMPETITION"]);
+export const socialEntityTypeEnum = pgEnum("social_entity_type", ["VENUE", "TEAM", "COMPETITION", "USER"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE"]);
 export const notificationChannelEnum = pgEnum("notification_channel", ["IN_APP", "PUSH"]);
 export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", ["PENDING", "SENT", "SKIPPED", "FAILED"]);
@@ -605,6 +605,20 @@ export const socialPosts = pgTable(
     index("social_posts_entity_status_idx").on(table.entityType, table.entityId, table.status),
     index("social_posts_published_at_idx").on(table.publishedAt),
   ],
+);
+
+export const socialUserPostImages = pgTable(
+  "social_user_post_images",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerUserId: uuid("owner_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    publicToken: varchar("public_token", { length: 64 }).notNull().unique(),
+    mimeType: varchar("mime_type", { length: 40 }).notNull(),
+    byteSize: integer("byte_size").notNull(),
+    dataBase64: text("data_base64").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("social_user_post_images_owner_idx").on(table.ownerUserId)],
 );
 
 export const socialPostLikes = pgTable(

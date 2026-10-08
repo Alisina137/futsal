@@ -1,6 +1,6 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
 import type { Ref } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewProps } from "react-native";
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader } from "./AppHeader";
 import { PublicTopNavigation } from "./PublicTopNavigation";
@@ -10,15 +10,18 @@ type ScreenProps = ViewProps & {
   publicNav?: boolean;
   embedded?: boolean;
   scrollRef?: Ref<ScrollView>;
+  refreshing?:boolean;
+  onRefresh?:()=>void;
 };
 
-export function Screen({ children, style, showHeader = false, publicNav = false, embedded = false, scrollRef }: ScreenProps) {
+export function Screen({ children, style, showHeader = false, publicNav = false, embedded = false, scrollRef, refreshing = false, onRefresh }: ScreenProps) {
   const content = <>
     {!embedded && showHeader ? <AppHeader/> : null}
     {!embedded && showHeader && publicNav ? <PublicTopNavigation/> : null}
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         ref={scrollRef}
+        refreshControl={onRefresh?<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]}/>:undefined}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, style]}

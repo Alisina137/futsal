@@ -77,6 +77,62 @@ function seedMarketingFromBooking(marketingRepository: FakeMarketingRepository, 
 }
 
 describe("Phase 4 marketing API", () => {
+  it("creates public text and photo posts for every normal user, supports profiles and protects owned uploads",async()=>{
+    const {app,authRepository}=setup();
+    const a=await register(app,authRepository,"PLAYER","0703334601");
+    const b=await register(app,authRepository,"PLAYER","0703334602");
+    const tokenA=`Bearer ${a.body.accessToken}`,tokenB=`Bearer ${b.body.accessToken}`;
+
+    expect((await request(app).post("/api/v1/social/user-posts").send({body:"Unauthorized"})).status).toBe(401);
+    expect((await request(app).post("/api/v1/social/user-posts").set("Authorization",tokenA).send({body:""})).status).toBe(400);
+
+    const created=await request(app).post("/api/v1/social/user-posts")
+      .set("Authorization",tokenA).send({body:"Saturday futsal with friends!"});
+    expect(created.status).toBe(201);
+    expect(created.body.post.authorType).toBe("USER");
+    expect(created.body.post.authorId).toBe(a.body.user.id);
+    expect(created.body.post.body).toBe("Saturday futsal with friends!");
+
+    const home=await request(app).get("/api/v1/social/feed").set("Authorization",tokenA);
+    expect(home.status).toBe(200);
+    expect(home.body.items.some((post:{id:string})=>post.id===created.body.post.id)).toBe(true);
+    const profile=await request(app).get(`/api/v1/social/people/${a.body.user.id}`).set("Authorization",tokenB);
+    expect(profile.status).toBe(200);
+    expect(profile.body.profile.type).toBe("USER");
+    expect(profile.body.posts[0].id).toBe(created.body.post.id);
+
+    const png=Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000000","hex");
+    const image=await request(app).post("/api/v1/social/post-images")
+      .set("Authorization",tokenA).set("Content-Type","image/png").send(png);
+    expect(image.status).toBe(201);
+    expect(image.body.imageUrl).toMatch(/^\/api\/v1\/social\/post-images\/[\da-f-]{36}\/[A-Za-z0-9_-]{32}$/);
+    const downloaded=await request(app).get(image.body.imageUrl);
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.body).toEqual(png);
+
+    const forged=await request(app).post("/api/v1/social/user-posts")
+      .set("Authorization",tokenB).send({body:"Not my image",imageUrl:image.body.imageUrl});
+    expect(forged.status).toBe(403);
+
+    const broken=await request(app).post("/api/v1/social/post-images")
+      .set("Authorization",tokenA).set("Content-Type","image/png").send(Buffer.from("bad"));
+    expect(broken.status).toBe(400);
+    expect(broken.body.error.code).toBe("MEDIA_INVALID_IMAGE");
+
+    const photoPost=await request(app).post("/api/v1/social/user-posts")
+      .set("Authorization",tokenA).send({body:"",imageUrl:image.body.imageUrl});
+    expect(photoPost.status).toBe(201);
+    expect(photoPost.body.post.imageUrl).toBe(image.body.imageUrl);
+    const forbidden=await request(app).delete(`/api/v1/social/user-posts/${photoPost.body.post.id}`)
+      .set("Authorization",tokenB);
+    expect(forbidden.status).toBe(403);
+    const deleted=await request(app).delete(`/api/v1/social/user-posts/${photoPost.body.post.id}`)
+      .set("Authorization",tokenA);
+    expect(deleted.status).toBe(200);
+    expect(deleted.body.deleted).toBe(true);
+  });
+
+
   it("creates a promotion only for a live available slot and exposes it in feed", async () => {
     const { app, bookingRepository, marketingRepository, authRepository } = setup();
     const owner = await register(app, authRepository, "VENUE_OWNER", "0703334400");

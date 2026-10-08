@@ -1095,7 +1095,7 @@ export const followStateDtoSchema = z.object({
 });
 export type FollowStateDto = z.infer<typeof followStateDtoSchema>;
 
-export const socialEntityTypeSchema = z.enum(["VENUE", "TEAM", "COMPETITION"]);
+export const socialEntityTypeSchema = z.enum(["VENUE", "TEAM", "COMPETITION", "USER"]);
 export type SocialEntityType = z.infer<typeof socialEntityTypeSchema>;
 
 export const socialFollowStateDtoSchema = z.object({
@@ -1105,6 +1105,14 @@ export const socialFollowStateDtoSchema = z.object({
   followerCount: z.number().int().min(0),
 });
 export type SocialFollowStateDto = z.infer<typeof socialFollowStateDtoSchema>;
+
+export const socialUserPostCreateRequestSchema = z.object({
+  body: z.string().trim().max(3000).default(""),
+  imageUrl: z.string().trim().max(250).nullable().optional(),
+}).refine(input => Boolean(input.body || input.imageUrl), {
+  message: "Post text or an image is required.",
+});
+export type SocialUserPostCreateRequest = z.infer<typeof socialUserPostCreateRequestSchema>;
 
 export const socialPostCommentCreateRequestSchema = z.object({
   body: z.string().trim().min(1).max(1_000),

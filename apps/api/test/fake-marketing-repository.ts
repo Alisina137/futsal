@@ -14,6 +14,8 @@ export class FakeMarketingRepository implements MarketingRepository {
   posts = new Map<string, VenuePostDto>();
   mediaAssets = new Map<string, Awaited<ReturnType<MarketingRepository["createMediaAsset"]>>>();
   follows = new Set<string>();
+  userSocialPosts = new Map<string,SocialFeedPostDto>();
+  userPostImages = new Map<string,{id:string;ownerUserId:string;publicToken:string;mimeType:string;byteSize:number;dataBase64:string}>();
   onPromotionCreated?: (promotion: PromotionDto) => void;
 
   seedVenue(venue: MarketingVenueRecord) {
@@ -331,6 +333,7 @@ export class FakeMarketingRepository implements MarketingRepository {
   async listFollowerUserIds(venueId:string){return [...this.follows].filter((key)=>key.endsWith(`:${venueId}`)).map((key)=>key.slice(0,key.length-venueId.length-1));}
 
   async getSocialEntity(entityType:SocialEntityType,entityId:string){
+    if(entityType==="USER")return {id:entityId,type:"USER" as const,name:"Futsal Member",imageUrl:null};
     if(entityType!=="VENUE")return null;
     const venue=this.venues.get(entityId);
     return venue?{id:venue.id,type:"VENUE" as const,name:venue.name,imageUrl:venue.pageProfileImageUrl??null}:null;
@@ -347,8 +350,39 @@ export class FakeMarketingRepository implements MarketingRepository {
   async socialFollowerCount(entityType:SocialEntityType,entityId:string){
     return entityType==="VENUE"?this.followerCount(entityId):0;
   }
-  async listSocialFeed(_userId:string):Promise<SocialFeedPostDto[]>{return [];}
-  async getSocialPost(_userId:string,_postId:string):Promise<SocialFeedPostDto|null>{return null;}
+  async listUserPosts(_viewerId:string,userId:string):Promise<SocialFeedPostDto[]>{
+    return [...this.userSocialPosts.values()].filter(post=>post.authorId===userId).reverse();
+  }
+  async createUserPost(userId:string,body:string,imageUrl:string|null,createdAt:Date):Promise<SocialFeedPostDto>{
+    const id=randomUUID();
+    const post:SocialFeedPostDto={
+      id,authorId:userId,authorType:"USER",authorName:"Futsal Member",
+      authorImageUrl:null,body,imageUrl,postType:"GENERAL",
+      publishedAt:createdAt.toISOString(),deepLink:`/people/${userId}`,
+      likedByMe:false,likeCount:0,commentCount:0,
+    };
+    this.userSocialPosts.set(id,post);
+    return post;
+  }
+  async deleteUserPost(userId:string,postId:string){
+    const post=this.userSocialPosts.get(postId);
+    if(!post||post.authorId!==userId)return false;
+    this.userSocialPosts.delete(postId);
+    return true;
+  }
+  async createUserPostImage(input:{ownerUserId:string;publicToken:string;mimeType:string;byteSize:number;dataBase64:string}){
+    const asset={id:randomUUID(),...input};
+    this.userPostImages.set(asset.id,asset);
+    return asset;
+  }
+  async getUserPostImage(assetId:string,publicToken:string){
+    const asset=this.userPostImages.get(assetId);
+    return asset?.publicToken===publicToken?asset:null;
+  }
+  async listSocialFeed(userId:string):Promise<SocialFeedPostDto[]>{
+    return [...this.userSocialPosts.values()].filter(post=>post.authorId===userId).reverse();
+  }
+  async getSocialPost(_userId:string,postId:string):Promise<SocialFeedPostDto|null>{return this.userSocialPosts.get(postId)??null;}
   async likeSocialPost(_userId:string,_postId:string):Promise<SocialFeedPostDto|null>{return null;}
   async unlikeSocialPost(_userId:string,_postId:string):Promise<SocialFeedPostDto|null>{return null;}
   async listSocialComments(_userId:string,_postId:string):Promise<SocialPostCommentDto[]>{return [];}
