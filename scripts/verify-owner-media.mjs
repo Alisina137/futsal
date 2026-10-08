@@ -163,8 +163,9 @@ for(const marker of [
 for(const marker of [
   "expo-image-picker",
   "expo-document-picker",
+  "expo-file-system",
 ]){
-  assert(mobilePackage.includes(marker),`Native media picker dependency missing: ${marker}`);
+  assert(mobilePackage.includes(marker),`Native media picker/upload dependency missing: ${marker}`);
 }
 for(const marker of [
   "launchImageLibraryAsync",
@@ -174,6 +175,13 @@ for(const marker of [
   assert(mediaPicker.includes(marker),`Native image picker capability missing: ${marker}`);
 }
 assert(mobileApi.includes("uploadVenueMediaAsset")&&mobileApi.includes("resolveMediaImageUrl"),"Mobile Media API must upload and resolve durable images.");
+assert(mobileApi.includes('import { fetch as expoFetch } from "expo/fetch";'),"Media upload must use Expo fetch for native files.");
+assert(mobileApi.includes('import { File } from "expo-file-system";'),"Media upload must use Expo File instead of React Native Blob conversion.");
+assert(mobileApi.includes("body:file"),"Media upload must send the selected native file directly.");
+const uploadStart=mobileApi.indexOf("async function uploadVenueMediaAsset");
+const uploadEnd=mobileApi.indexOf("export const systemApi",uploadStart);
+const uploadSource=mobileApi.slice(uploadStart,uploadEnd);
+assert(!uploadSource.includes(".blob()"),"Media upload must not call Response.blob(); it causes React Native Blob/base64 overhead and Android LogBox warnings.");
 
 assert(venueDirectory.includes("media.venueSearch")&&venueDirectory.includes("query.trim()"),"Users must be able to search venue pages by name.");
 for(const marker of [
