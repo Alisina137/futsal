@@ -3,16 +3,19 @@ import type { Ref } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader } from "./AppHeader";
+import { PublicTopNavigation } from "./PublicTopNavigation";
 
 type ScreenProps = ViewProps & {
   showHeader?: boolean;
+  publicNav?: boolean;
   embedded?: boolean;
   scrollRef?: Ref<ScrollView>;
 };
 
-export function Screen({ children, style, showHeader = false, embedded = false, scrollRef }: ScreenProps) {
+export function Screen({ children, style, showHeader = false, publicNav = false, embedded = false, scrollRef }: ScreenProps) {
   const content = <>
     {!embedded && showHeader ? <AppHeader/> : null}
+    {!embedded && showHeader && publicNav ? <PublicTopNavigation/> : null}
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         ref={scrollRef}

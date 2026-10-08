@@ -96,9 +96,9 @@ export default function NotificationsScreen(){
     return t(`notifications.body.${item.type}` as never);
   }
 
-  if(loading)return <Screen><DataLoadingState variant="dashboard" minHeight={460}/></Screen>;
+  if(loading)return <Screen showHeader publicNav><DataLoadingState variant="dashboard" minHeight={460}/></Screen>;
 
-  return <Screen>
+  return <Screen showHeader publicNav>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("notifications.title")}</AppText>
       <AppText muted>{t("notifications.subtitle")}</AppText>

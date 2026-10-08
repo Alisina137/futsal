@@ -20,8 +20,9 @@ export function AppHeader(){
   const pathname=usePathname();
   const [menuOpen,setMenuOpen]=useState(false);
   const user=session?.user;
+  const isPlatformAdmin=user?.roles.includes("PLATFORM_ADMIN")??false;
   const hasDashboard=user?.roles.some((role)=>
-    ["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE","PLATFORM_ADMIN"].includes(role)
+    ["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE"].includes(role)
   )??false;
 
   const initials=useMemo(()=>{
@@ -29,7 +30,10 @@ export function AppHeader(){
     return words.slice(0,2).map((word)=>word[0]?.toUpperCase()??"").join("")||"LK";
   },[user?.displayName]);
 
-  const items:Array<{key:string;label:string;icon:IconName;href:string}>= [
+  const items:Array<{key:string;label:string;icon:IconName;href:string}>=isPlatformAdmin?[
+    {key:"admin",label:t("phase7.admin.title"),icon:"shield-checkmark-outline",href:"/admin"},
+    {key:"profile",label:t("profile.title"),icon:"person-circle-outline",href:"/settings"},
+  ]:[
     {
       key:"home",
       label:t("home.title"),

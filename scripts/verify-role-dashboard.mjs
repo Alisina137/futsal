@@ -25,10 +25,12 @@ const authLayout = read("apps/mobile/app/(auth)/_layout.tsx");
 const tabsLayout = read("apps/mobile/app/(app)/(tabs)/_layout.tsx");
 const screen = read("apps/mobile/src/components/ui/Screen.tsx");
 
-for (const role of ["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE","PLATFORM_ADMIN"]) {
-  assert(header.includes(role), `Dashboard hamburger eligibility missing role: ${role}`);
+for (const role of ["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE"]) {
+  assert(header.includes(role), `Dashboard hamburger eligibility missing regular role: ${role}`);
   assert(dashboard.includes(role), `Dashboard route does not resolve role: ${role}`);
 }
+assert(header.includes("isPlatformAdmin")&&header.includes('href:"/admin"'),
+  "Platform Admin must have its own navigation, not the regular five public pages.");
 
 assert(dashboard.includes("resolveDashboardRole"), "Role-aware dashboard resolver missing.");
 assert(dashboard.includes('role === "VENUE_OWNER"') && dashboard.includes('<Redirect href="/owner/competitions" />'), "Venue Owner dashboard must enter the persistent owner shell at Competitions.");

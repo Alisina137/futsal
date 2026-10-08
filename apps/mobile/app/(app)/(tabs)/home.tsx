@@ -46,28 +46,22 @@ function SocialHome(){
     setItems((current)=>current.map((item)=>item.id===next.id?next:item));
   }
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
+  if(loading)return <Screen showHeader publicNav><DataLoadingState variant="list" minHeight={500}/></Screen>;
 
-  return <Screen showHeader>
-    <View style={{gap:spacing.xs}}>
-      <AppText variant="title" weight="bold">{t("home.title")}</AppText>
-      <AppText muted>{t("social.homeSubtitle")}</AppText>
-    </View>
-
-    <View style={[styles.topActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <Button
-        label={t("notifications.title")}
-        onPress={()=>router.push("/notifications")}
-        variant="secondary"
-        style={{flex:1}}
-      />
-      <Button
-        label={t("common.retry")}
+  return <Screen showHeader publicNav>
+    <View style={[styles.feedHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={{flex:1,gap:2,alignItems:isRTL?"flex-end":"flex-start"}}>
+        <AppText weight="bold" variant="bodyLarge">{t("social.latestPosts")}</AppText>
+        <AppText variant="caption" muted>{t("social.homeSubtitle")}</AppText>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("common.retry")}
         onPress={()=>void load()}
-        loading={loading}
-        variant="secondary"
-        style={{flex:1}}
-      />
+        style={({pressed})=>[styles.refreshButton,pressed&&styles.pressed]}
+      >
+        <Ionicons name="refresh-outline" size={21} color={colors.primary}/>
+      </Pressable>
     </View>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
@@ -154,7 +148,7 @@ function SocialPostCard({
   async function sharePost(){
     try{
       await Share.share({
-        message:`${post.authorName}\n\n${post.body}\n\nLeagueKick`,
+        message:`${post.authorName}\n\n${post.body}\n\nFutsal`,
       });
     }catch{
       setError(t("social.shareError"));
@@ -254,9 +248,8 @@ function SocialAction({
 }
 
 const styles=StyleSheet.create({
-  topActions:{
-    gap:spacing.sm,
-  },
+  feedHeading:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  refreshButton:{width:46,height:46,borderRadius:23,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   emptyCard:{
     gap:spacing.md,
     padding:spacing.lg,

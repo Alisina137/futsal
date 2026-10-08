@@ -29,9 +29,9 @@ export default function VenuesScreen(){
 
   useEffect(()=>{void load();},[]);
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={460}/></Screen>;
+  if(loading)return <Screen showHeader publicNav><DataLoadingState variant="list" minHeight={460}/></Screen>;
 
-  return <Screen showHeader>
+  return <Screen showHeader publicNav>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("booking.venuesTitle")}</AppText>
       <AppText muted>{t("booking.venuesSubtitle")}</AppText>

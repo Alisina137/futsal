@@ -23,6 +23,7 @@ import {
 import { and, asc, count, desc, eq, gt, inArray, isNull, lt, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { MarketingRepository, MarketingSocialEntityRecord, MarketingVenueRecord } from "./marketing.types.js";
+import { selectPersonalizedSocialPosts } from "./social-feed-ranking.js";
 
 function discountPercent(original: number, discounted: number) {
   if (original <= 0) return 0;
@@ -757,8 +758,6 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       entityType: socialFollows.entityType,
       entityId: socialFollows.entityId,
     }).from(socialFollows).where(eq(socialFollows.userId, userId));
-    if (follows.length === 0) return [];
-
     const followed = new Set(follows.map((item) => `${item.entityType}:${item.entityId}`));
     const candidates = await this.db.select().from(socialPosts)
       .where(and(
@@ -767,9 +766,9 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       ))
       .orderBy(desc(socialPosts.publishedAt))
       .limit(250);
-    const rows = candidates
-      .filter((row) => followed.has(`${row.entityType}:${row.entityId}`))
-      .slice(0, 100);
+    // New users see public discovery posts. Followed entities take priority;
+    // follower-only content is NEVER recommended to non-followers.
+    const rows = selectPersonalizedSocialPosts(candidates, followed, 100);
     if (rows.length === 0) return [];
 
     const ids = rows.map((row) => row.id);

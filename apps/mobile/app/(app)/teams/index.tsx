@@ -51,9 +51,9 @@ export default function TeamsDirectoryScreen(){
     }
   }
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
+  if(loading)return <Screen showHeader publicNav><DataLoadingState variant="list" minHeight={500}/></Screen>;
 
-  return <Screen showHeader>
+  return <Screen showHeader publicNav>
     <View style={{gap:spacing.xs}}>
       <AppText variant="title" weight="bold">{t("teams.title")}</AppText>
       <AppText muted>{t("teams.directorySubtitle")}</AppText>
