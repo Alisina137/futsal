@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import type {
   OwnerOnboardingStatus,
   OwnerVenueDto,
+  OwnerVenueSettingsDto,
+  OwnerVenueSettingsUpdateRequest,
   OwnerVenueSetupRequest,
   VenueRefereeGrantRequest,
   VenueSubscriptionDto,
@@ -46,6 +48,13 @@ function toVenueDto(venue: OwnerVenueRecord): OwnerVenueDto {
     address: venue.address,
     latitude: venue.latitude,
     longitude: venue.longitude,
+    timezone: venue.timezone,
+    bookingMode: venue.bookingMode,
+    onlineBookingEnabled: venue.onlineBookingEnabled,
+    minimumBookingNoticeMinutes: venue.minimumBookingNoticeMinutes,
+    maximumAdvanceBookingDays: venue.maximumAdvanceBookingDays,
+    cancellationPolicy: venue.cancellationPolicy,
+    verificationStatus: venue.verificationStatus,
     status: venue.status,
     setupCompletedAt: venue.setupCompletedAt?.toISOString() ?? null,
     areas: venue.areas,
@@ -151,6 +160,65 @@ export class OwnerOnboardingService {
       completedAt: this.now(),
     });
     return this.toStatus(await this.normalizeAggregate(aggregate));
+  }
+
+  private toVenueSettings(aggregate: OwnerAggregate): OwnerVenueSettingsDto {
+    const court = aggregate.venue.areas[0];
+    if (!court) throw errors.badRequest("COURT_REQUIRED", "This venue does not have an active court.");
+    return {
+      venueId: aggregate.venue.id,
+      identityLocked: Boolean(aggregate.subscription),
+      name: aggregate.venue.name,
+      province: aggregate.venue.province,
+      city: aggregate.venue.city,
+      address: aggregate.venue.address,
+      publicPhone: aggregate.venue.publicPhone,
+      whatsappPhone: aggregate.venue.whatsappPhone,
+      latitude: aggregate.venue.latitude,
+      longitude: aggregate.venue.longitude,
+      timezone: aggregate.venue.timezone,
+      bookingMode: aggregate.venue.bookingMode,
+      onlineBookingEnabled: aggregate.venue.onlineBookingEnabled,
+      minimumBookingNoticeMinutes: aggregate.venue.minimumBookingNoticeMinutes,
+      maximumAdvanceBookingDays: aggregate.venue.maximumAdvanceBookingDays,
+      cancellationPolicy: aggregate.venue.cancellationPolicy,
+      verificationStatus: aggregate.venue.verificationStatus,
+      venueStatus: aggregate.venue.status,
+      court,
+      subscription: toSubscriptionDto(aggregate.subscription, this.now()),
+    };
+  }
+
+  async getVenueSettings(ownerUserId: string) {
+    const aggregate = await this.normalizeAggregate(await this.repository.getByOwnerId(ownerUserId));
+    if (!aggregate) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
+    return { settings: this.toVenueSettings(aggregate) };
+  }
+
+  async updateVenueSettings(ownerUserId: string, input: OwnerVenueSettingsUpdateRequest) {
+    const current = await this.normalizeAggregate(await this.repository.getByOwnerId(ownerUserId));
+    if (!current) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
+    if (current.venue.status === "SUSPENDED") {
+      throw errors.forbidden("VENUE_SUSPENDED", "This venue is suspended.");
+    }
+
+    let publicPhone: string;
+    let whatsappPhone: string | null = null;
+    try {
+      publicPhone = normalizeAfghanistanPhone(input.publicPhone);
+      if (input.whatsappPhone) whatsappPhone = normalizeAfghanistanPhone(input.whatsappPhone);
+    } catch {
+      throw errors.badRequest("INVALID_VENUE_PHONE", "Enter a valid Afghanistan venue phone number.");
+    }
+
+    const updated = await this.repository.updateVenueSettings({
+      ownerUserId,
+      settings: input,
+      publicPhone,
+      whatsappPhone,
+      updatedAt: this.now(),
+    });
+    return { settings: this.toVenueSettings(await this.normalizeAggregate(updated) ?? updated) };
   }
 
   async startTrial(ownerUserId: string): Promise<OwnerOnboardingStatus> {
