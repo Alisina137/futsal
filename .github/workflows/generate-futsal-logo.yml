@@ -7,6 +7,10 @@ on:
     paths:
       - "apps/mobile/assets/branding/premium-futsal-logo.svg"
       - "scripts/generate-futsal-logo.py"
+      - "scripts/verify-app-branding.mjs"
+      - "apps/mobile/app.json"
+      - "apps/mobile/src/components/ui/AppHeader.tsx"
+      - "apps/mobile/src/components/auth/AuthHero.tsx"
       - ".github/workflows/generate-futsal-logo.yml"
   workflow_dispatch:
 
