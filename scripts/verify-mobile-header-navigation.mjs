@@ -37,7 +37,9 @@ const venuesIndex = header.indexOf('href:"/venues"');
 const teamsIndex = header.indexOf('href:"/teams"');
 const competitionsIndex = header.indexOf('href:"/competitions"');
 const bookingsIndex = header.indexOf('href:"/bookings"');
-const profileIndex = header.indexOf('href:"/settings"');
+// The platform-admin drawer is a separate menu and appears earlier in source.
+// Compare the regular-user Profile item with the shared links, not admin Profile.
+const profileIndex = header.indexOf('href:"/settings"', homeIndex);
 assert(homeIndex < dashboardIndex && dashboardIndex < venuesIndex, "Conditional Dashboard must be directly after Home for role users.");
 assert(venuesIndex < teamsIndex && teamsIndex < competitionsIndex && competitionsIndex < bookingsIndex && bookingsIndex < profileIndex, "Shared order must be Venues, Teams, Competitions, My Reserves, Profile.");
 assert(header.includes('href:"/settings"'), "Hamburger menu must include Profile.");
