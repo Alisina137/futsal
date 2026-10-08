@@ -2,15 +2,25 @@ import type { Database } from "@leaguekick/database";
 import {
   auditLogs,
   bookings,
+  competitionMatches,
+  competitions,
+  competitionTeams,
   platformSettings,
+  socialPostComments,
+  socialPostLikes,
   socialPosts,
   subscriptionPayments,
   userRoles,
   users,
   venueAreas,
+  venueBlocks,
+  venueFollows,
   venueOpeningHours,
   venuePosts,
   venuePromotions,
+  venueTimetableExceptions,
+  venueTimetablePeriods,
+  venueTimetables,
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
@@ -169,10 +179,29 @@ export class DrizzleCommercialRepository implements CommercialRepository {
     });
   }
 
-  async analyticsSnapshot(ownerUserId: string, startsAt: Date, endsAt: Date): Promise<OwnerAnalyticsSnapshot | null> {
+  async analyticsSnapshot(
+    ownerUserId: string,
+    startsAt: Date,
+    endsAt: Date,
+    from: string,
+    to: string,
+  ): Promise<OwnerAnalyticsSnapshot | null> {
     const venue = await this.getOwnerVenue(ownerUserId);
     if (!venue) return null;
-    const [areaRows, hourRows, bookingRows] = await Promise.all([
+
+    const [
+      areaRows,
+      hourRows,
+      bookingRows,
+      timetableRows,
+      exceptionRows,
+      blockRows,
+      promotionRows,
+      followerRows,
+      postRows,
+      competitionRows,
+      competitionMatchRows,
+    ] = await Promise.all([
       this.db
         .select({ id: venueAreas.id })
         .from(venueAreas)
@@ -183,11 +212,19 @@ export class DrizzleCommercialRepository implements CommercialRepository {
         .where(eq(venueOpeningHours.venueId, venue.id)),
       this.db
         .select({
+          id: bookings.id,
+          areaId: bookings.areaId,
+          playerUserId: bookings.playerUserId,
+          customerName: bookings.customerName,
+          customerPhone: bookings.customerPhone,
           status: bookings.status,
           source: bookings.source,
           startsAt: bookings.startsAt,
           endsAt: bookings.endsAt,
           priceAfn: bookings.priceAfn,
+          cancellationReason: bookings.cancellationReason,
+          cancelledAt: bookings.cancelledAt,
+          createdAt: bookings.createdAt,
         })
         .from(bookings)
         .where(and(
@@ -195,6 +232,107 @@ export class DrizzleCommercialRepository implements CommercialRepository {
           gte(bookings.startsAt, startsAt),
           lt(bookings.startsAt, endsAt),
         )),
+      this.db
+        .select()
+        .from(venueTimetables)
+        .where(and(
+          eq(venueTimetables.venueId, venue.id),
+          or(eq(venueTimetables.status, "PUBLISHED"), eq(venueTimetables.status, "ARCHIVED")),
+        )),
+      this.db
+        .select()
+        .from(venueTimetableExceptions)
+        .where(and(
+          eq(venueTimetableExceptions.venueId, venue.id),
+          gte(venueTimetableExceptions.date, from),
+          lt(venueTimetableExceptions.date, to === "9999-12-31" ? to : `${to.slice(0,8)}${String(Number(to.slice(8,10))+1).padStart(2,"0")}`),
+        )),
+      this.db
+        .select({ areaId: venueBlocks.areaId, startsAt: venueBlocks.startsAt, endsAt: venueBlocks.endsAt })
+        .from(venueBlocks)
+        .where(and(
+          eq(venueBlocks.venueId, venue.id),
+          gte(venueBlocks.startsAt, startsAt),
+          lt(venueBlocks.startsAt, endsAt),
+        )),
+      this.db
+        .select({
+          id: venuePromotions.id,
+          areaId: venuePromotions.areaId,
+          startsAt: venuePromotions.startsAt,
+          endsAt: venuePromotions.endsAt,
+          originalPriceAfn: venuePromotions.originalPriceAfn,
+          discountedPriceAfn: venuePromotions.discountedPriceAfn,
+          status: venuePromotions.status,
+          createdAt: venuePromotions.createdAt,
+        })
+        .from(venuePromotions)
+        .where(and(
+          eq(venuePromotions.venueId, venue.id),
+          gte(venuePromotions.startsAt, startsAt),
+          lt(venuePromotions.startsAt, endsAt),
+        )),
+      this.db
+        .select({ createdAt: venueFollows.createdAt })
+        .from(venueFollows)
+        .where(eq(venueFollows.venueId, venue.id)),
+      this.db
+        .select({ id: socialPosts.id, publishedAt: socialPosts.publishedAt })
+        .from(socialPosts)
+        .where(and(
+          eq(socialPosts.entityType, "VENUE"),
+          eq(socialPosts.entityId, venue.id),
+          eq(socialPosts.status, "PUBLISHED"),
+          gte(socialPosts.publishedAt, startsAt),
+          lt(socialPosts.publishedAt, endsAt),
+        )),
+      this.db
+        .select({
+          id: competitions.id,
+          status: competitions.status,
+          registrationFeeAfn: competitions.registrationFeeAfn,
+          startsAt: competitions.startsAt,
+          completedAt: competitions.completedAt,
+          createdAt: competitions.createdAt,
+        })
+        .from(competitions)
+        .where(eq(competitions.venueId, venue.id)),
+      this.db
+        .select({
+          competitionId: competitionMatches.competitionId,
+          status: competitionMatches.status,
+          startsAt: competitionMatches.startsAt,
+          endsAt: competitionMatches.endsAt,
+        })
+        .from(competitionMatches)
+        .where(and(
+          eq(competitionMatches.venueId, venue.id),
+          gte(competitionMatches.startsAt, startsAt),
+          lt(competitionMatches.startsAt, endsAt),
+        )),
+    ]);
+
+    const timetableIds = timetableRows.map((item) => item.id);
+    const postIds = postRows.map((item) => item.id);
+    const competitionIds = competitionRows.map((item) => item.id);
+
+    const [periodRows, likeRows, commentRows, competitionTeamRows] = await Promise.all([
+      timetableIds.length
+        ? this.db.select().from(venueTimetablePeriods).where(inArray(venueTimetablePeriods.timetableId, timetableIds))
+        : Promise.resolve([]),
+      postIds.length
+        ? this.db.select({ postId: socialPostLikes.postId }).from(socialPostLikes).where(inArray(socialPostLikes.postId, postIds))
+        : Promise.resolve([]),
+      postIds.length
+        ? this.db.select({ postId: socialPostComments.postId }).from(socialPostComments).where(inArray(socialPostComments.postId, postIds))
+        : Promise.resolve([]),
+      competitionIds.length
+        ? this.db.select({
+            competitionId: competitionTeams.competitionId,
+            status: competitionTeams.status,
+            feeStatus: competitionTeams.feeStatus,
+          }).from(competitionTeams).where(inArray(competitionTeams.competitionId, competitionIds))
+        : Promise.resolve([]),
     ]);
 
     return {
@@ -209,6 +347,40 @@ export class DrizzleCommercialRepository implements CommercialRepository {
         }))
         .sort((a, b) => a.dayOfWeek - b.dayOfWeek),
       bookings: bookingRows,
+      timetables: timetableRows.map((row) => ({
+        id: row.id,
+        status: row.status as "PUBLISHED" | "ARCHIVED",
+        effectiveFrom: row.effectiveFrom,
+        effectiveUntil: row.effectiveUntil,
+        periods: periodRows
+          .filter((period) => period.timetableId === row.id)
+          .map((period) => ({
+            areaId: period.areaId,
+            dayOfWeek: period.dayOfWeek,
+            startsAt: trimDbTime(period.startsAt) ?? "00:00",
+            endsAt: trimDbTime(period.endsAt) ?? "00:00",
+            priceAfn: period.priceAfn,
+          })),
+      })),
+      exceptions: exceptionRows.map((row) => ({
+        date: row.date,
+        areaId: row.areaId,
+        isClosed: row.isClosed,
+        periods: row.periods,
+      })),
+      blocks: blockRows,
+      promotions: promotionRows,
+      followerCount: followerRows.length,
+      followerCreatedAt: followerRows.map((row) => row.createdAt),
+      posts: postRows.map((post) => ({
+        id: post.id,
+        publishedAt: post.publishedAt,
+        likeCount: likeRows.filter((like) => like.postId === post.id).length,
+        commentCount: commentRows.filter((comment) => comment.postId === post.id).length,
+      })),
+      competitions: competitionRows,
+      competitionTeams: competitionTeamRows,
+      competitionMatches: competitionMatchRows,
     };
   }
 
