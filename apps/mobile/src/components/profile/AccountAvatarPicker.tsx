@@ -135,7 +135,7 @@ const styles=StyleSheet.create({
     borderColor:"#BCD4FF",borderWidth:2,backgroundColor:colors.primarySoft},
   avatarImage:{height:"100%",width:"100%"},
   fallback:{flex:1,alignItems:"center",justifyContent:"center"},
-  overlay:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(15,23,42,.48)",alignItems:"center",justifyContent:"center"},
+  overlay:{position:"absolute",top:0,bottom:0,left:0,right:0,backgroundColor:"rgba(15,23,42,.48)",alignItems:"center",justifyContent:"center"},
   actions:{gap:spacing.sm,flexWrap:"wrap"},
   action:{minHeight:48,minWidth:122,flexGrow:1,paddingHorizontal:spacing.sm,borderWidth:1,borderRadius:radius.md,
     borderColor:colors.border,backgroundColor:colors.surface,alignItems:"center",justifyContent:"center",flexDirection:"row",gap:spacing.xs},
