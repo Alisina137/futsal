@@ -41,11 +41,86 @@ export type CommercialSettingsRecord = {
 };
 
 export type AnalyticsBookingRecord = {
+  id: string;
+  areaId: string;
+  playerUserId: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
   status: "PENDING" | "CONFIRMED" | "CANCELLED";
   source: "ONLINE" | "MANUAL";
   startsAt: Date;
   endsAt: Date;
   priceAfn: number;
+  cancellationReason: string | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+};
+
+export type AnalyticsTimetableRecord = {
+  id: string;
+  status: "PUBLISHED" | "ARCHIVED";
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  periods: Array<{
+    areaId: string | null;
+    dayOfWeek: number;
+    startsAt: string;
+    endsAt: string;
+    priceAfn: number;
+  }>;
+};
+
+export type AnalyticsExceptionRecord = {
+  date: string;
+  areaId: string | null;
+  isClosed: boolean;
+  periods: Array<{ startsAt: string; endsAt: string; priceAfn?: number | null }>;
+};
+
+export type AnalyticsBlockRecord = {
+  areaId: string;
+  startsAt: Date;
+  endsAt: Date;
+};
+
+export type AnalyticsPromotionRecord = {
+  id: string;
+  areaId: string;
+  startsAt: Date;
+  endsAt: Date;
+  originalPriceAfn: number;
+  discountedPriceAfn: number;
+  status: "ACTIVE" | "CLOSED" | "EXPIRED";
+  createdAt: Date;
+};
+
+export type AnalyticsSocialPostRecord = {
+  id: string;
+  publishedAt: Date;
+  likeCount: number;
+  commentCount: number;
+};
+
+export type AnalyticsCompetitionRecord = {
+  id: string;
+  status: "DRAFT" | "REGISTRATION_OPEN" | "REGISTRATION_CLOSED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED" | "CANCELLED";
+  registrationFeeAfn: number;
+  startsAt: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+};
+
+export type AnalyticsCompetitionTeamRecord = {
+  competitionId: string;
+  status: "INVITED" | "APPLIED" | "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
+  feeStatus: "UNPAID" | "PENDING" | "PAID" | "WAIVED";
+};
+
+export type AnalyticsCompetitionMatchRecord = {
+  competitionId: string;
+  status: "UNSCHEDULED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "POSTPONED" | "CANCELLED" | "CORRECTED";
+  startsAt: Date | null;
+  endsAt: Date | null;
 };
 
 export type OwnerAnalyticsSnapshot = {
@@ -53,6 +128,16 @@ export type OwnerAnalyticsSnapshot = {
   activeAreaCount: number;
   openingHours: VenueOpeningHourInput[];
   bookings: AnalyticsBookingRecord[];
+  timetables: AnalyticsTimetableRecord[];
+  exceptions: AnalyticsExceptionRecord[];
+  blocks: AnalyticsBlockRecord[];
+  promotions: AnalyticsPromotionRecord[];
+  followerCount: number;
+  followerCreatedAt: Date[];
+  posts: AnalyticsSocialPostRecord[];
+  competitions: AnalyticsCompetitionRecord[];
+  competitionTeams: AnalyticsCompetitionTeamRecord[];
+  competitionMatches: AnalyticsCompetitionMatchRecord[];
 };
 
 export interface CommercialRepository {
@@ -61,7 +146,7 @@ export interface CommercialRepository {
   getSettings(): Promise<CommercialSettingsRecord | null>;
   listPayments(venueId: string): Promise<SubscriptionPaymentDto[]>;
   requestReactivation(ownerUserId: string, venueId: string, createdAt: Date): Promise<void>;
-  analyticsSnapshot(ownerUserId: string, startsAt: Date, endsAt: Date): Promise<OwnerAnalyticsSnapshot | null>;
+  analyticsSnapshot(ownerUserId: string, startsAt: Date, endsAt: Date, from: string, to: string): Promise<OwnerAnalyticsSnapshot | null>;
 
   adminDashboard(now: Date): Promise<{
     activeUsers: number;
