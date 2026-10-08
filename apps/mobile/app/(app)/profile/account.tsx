@@ -1,8 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
-import { ApiRequestError } from "../../../src/lib/api";
+import { ApiRequestError, resolveMediaImageUrl } from "../../../src/lib/api";
+import { AccountAvatarPicker } from "../../../src/components/profile/AccountAvatarPicker";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -11,16 +12,15 @@ import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
-type Field="displayName"|"profileImageUrl"|"age"|"email"|"city"|"bio";
+type Field="displayName"|"age"|"email"|"city"|"bio";
 type FieldErrors=Partial<Record<Field,string>>;
 
 export default function AccountProfileScreen(){
-  const {session,updateProfile}=useAuth();
+  const {session,updateProfile,uploadProfileImage}=useAuth();
   const {t,isRTL}=useLocale();
   const user=session?.user;
 
   const [displayName,setDisplayName]=useState("");
-  const [profileImageUrl,setProfileImageUrl]=useState("");
   const [age,setAge]=useState("");
   const [email,setEmail]=useState("");
   const [city,setCity]=useState("");
@@ -33,17 +33,13 @@ export default function AccountProfileScreen(){
   useEffect(()=>{
     if(!user) return;
     setDisplayName(user.displayName===user.username?"":user.displayName);
-    setProfileImageUrl(user.profileImageUrl??"");
     setAge(user.age?String(user.age):"");
     setEmail(user.email??"");
     setCity(user.city??"");
     setBio(user.bio??"");
-  },[user]);
+  },[user?.id]);
 
-  const previewImage=useMemo(()=>{
-    const value=profileImageUrl.trim();
-    return value.startsWith("https://")?value:null;
-  },[profileImageUrl]);
+  const previewImage=resolveMediaImageUrl(user?.profileImageUrl);
 
   function clearFieldError(field:Field){
     setFieldErrors((current)=>{
@@ -59,13 +55,11 @@ export default function AccountProfileScreen(){
   function validate(){
     const next:FieldErrors={};
     const name=displayName.trim();
-    const image=profileImageUrl.trim();
     const emailValue=email.trim();
     const cityValue=city.trim();
     const bioValue=bio.trim();
 
     if(name&&name.length<2) next.displayName=t("validation.displayName");
-    if(image&&!/^https:\/\/\S+$/i.test(image)) next.profileImageUrl=t("profile.imageInvalid");
 
     if(age.trim()){
       const numeric=Number(age);
@@ -89,7 +83,6 @@ export default function AccountProfileScreen(){
     try{
       await updateProfile({
         displayName:displayName.trim(),
-        profileImageUrl:profileImageUrl.trim(),
         age:age.trim()?Number(age):null,
         email:email.trim(),
         city:city.trim(),
@@ -140,17 +133,10 @@ export default function AccountProfileScreen(){
         autoComplete="name"
       />
 
-      <TextField
-        label={t("profile.image")}
-        placeholder="https://example.com/profile.jpg"
-        hint={t("profile.imageHint")}
-        error={fieldErrors.profileImageUrl}
-        value={profileImageUrl}
-        onChangeText={(value)=>{setProfileImageUrl(value);clearFieldError("profileImageUrl");}}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="url"
-        forceLtr
+      <AccountAvatarPicker
+        value={user?.profileImageUrl??null}
+        onUpload={uploadProfileImage}
+        disabled={busy}
       />
 
       <TextField

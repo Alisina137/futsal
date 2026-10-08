@@ -1,7 +1,7 @@
 import type { AccountProfileUpdateRequest, AuthResponse, LoginRequest, RegisterRequest } from "@leaguekick/contracts";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
-import { ApiRequestError, authApi, setAccountAccessListener } from "../lib/api";
+import { ApiRequestError, authApi, setAccountAccessListener, type LocalMediaUpload } from "../lib/api";
 import { clearActiveUserApiCache, setApiCacheUserScope } from "../lib/api-cache";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "../lib/auth-storage";
 
@@ -16,6 +16,7 @@ type AuthContextValue = {
   signIn: (input: LoginRequest) => Promise<AuthResponse>;
   register: (input: RegisterRequest) => Promise<AuthResponse>;
   updateProfile: (input: AccountProfileUpdateRequest) => Promise<AuthResponse>;
+  uploadProfileImage: (source:LocalMediaUpload) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
   revalidate: () => Promise<AccountCheckResult>;
 };
@@ -159,6 +160,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return adopt({ ...session, user });
   }, [adopt, session]);
 
+  const uploadProfileImage = useCallback(async (source:LocalMediaUpload)=>{
+    if(!session)throw new Error("Authentication is required.");
+    const {user}=await authApi.uploadProfileImage(session.accessToken,source);
+    return adopt({...session,user});
+  },[adopt,session]);
+
   const signOut = useCallback(async () => {
     const current = session;
     await clearSession();
@@ -173,10 +180,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       register,
       updateProfile,
+      uploadProfileImage,
       signOut,
       revalidate: checkAccount,
     }),
-    [status, accessState, session, signIn, register, updateProfile, signOut, checkAccount],
+    [status, accessState, session, signIn, register, updateProfile, uploadProfileImage, signOut, checkAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

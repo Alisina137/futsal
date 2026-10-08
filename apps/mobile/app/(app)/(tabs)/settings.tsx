@@ -1,3 +1,4 @@
+import { resolveMediaImageUrl } from "../../../src/lib/api";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { PaidRole } from "@leaguekick/contracts";
@@ -60,7 +61,7 @@ export default function ProfileScreen(){
     <View style={styles.hero}>
       <View style={[styles.heroTop,direction]}>
         {user?.profileImageUrl
-          ?<Image source={{uri:user.profileImageUrl}} style={styles.avatarImage}/>
+          ?<Image source={{uri:resolveMediaImageUrl(user.profileImageUrl)!}} style={styles.avatarImage}/>
           :<View style={styles.avatar}>
             <AppText variant="bodyLarge" weight="bold" style={{color:colors.primary}}>{initials}</AppText>
           </View>}

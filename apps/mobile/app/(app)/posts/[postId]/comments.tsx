@@ -185,7 +185,7 @@ export default function PostCommentsScreen(){
         const editing=editingId===comment.id;
         return <View key={comment.id} style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"flex-start",gap:spacing.sm}}>
           {comment.profileImageUrl
-            ?<Image source={{uri:comment.profileImageUrl}} style={{width:38,height:38,borderRadius:19}}/>
+            ?<Image source={{uri:resolveMediaImageUrl(comment.profileImageUrl)!}} style={{width:38,height:38,borderRadius:19}}/>
             :<View style={{width:38,height:38,borderRadius:19,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft}}>
               <AppText variant="caption" weight="bold" style={{color:colors.primary}}>{comment.displayName.slice(0,2).toUpperCase()}</AppText>
             </View>}

@@ -1,3 +1,4 @@
+import { resolveMediaImageUrl } from "../../lib/api";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing, touchTarget } from "@leaguekick/design-tokens";
 import { router, usePathname } from "expo-router";
@@ -86,7 +87,7 @@ export function AppHeader(){
         style={({pressed})=>[styles.profileButton,pressed&&styles.buttonPressed]}
       >
         {user?.profileImageUrl
-          ?<Image source={{uri:user.profileImageUrl}} style={styles.profileImage}/>
+          ?<Image source={{uri:resolveMediaImageUrl(user.profileImageUrl)!}} style={styles.profileImage}/>
           :<AppText weight="bold" style={{color:colors.primary}}>{initials}</AppText>}
       </Pressable>
     </View>

@@ -1,0 +1,36 @@
+import { existsSync, readFileSync } from "node:fs";
+function read(path){const url=new URL(`../${path}`,import.meta.url);if(!existsSync(url))throw new Error(`Missing: ${path}`);return readFileSync(url,"utf8");}
+function assert(condition,message){if(!condition)throw new Error(message);}
+const profile=read("apps/mobile/app/(app)/profile/account.tsx");
+const picker=read("apps/mobile/src/components/profile/AccountAvatarPicker.tsx");
+const provider=read("apps/mobile/src/providers/AuthProvider.tsx");
+const client=read("apps/mobile/src/lib/api.ts");
+const server=read("apps/api/src/app.ts");
+const service=read("apps/api/src/modules/auth/auth.service.ts");
+const repository=read("apps/api/src/modules/auth/auth.repository.ts");
+const types=read("apps/api/src/modules/auth/auth.types.ts");
+const fake=read("apps/api/test/fake-auth-repository.ts");
+const tests=read("apps/api/test/auth.test.ts");
+const schema=read("packages/database/src/schema.ts");
+const journal=read("packages/database/drizzle/meta/_journal.json");
+const migration=read("packages/database/drizzle/0020_account_profile_images.sql");
+const header=read("apps/mobile/src/components/ui/AppHeader.tsx");
+const settings=read("apps/mobile/app/(app)/(tabs)/settings.tsx");
+const comments=read("apps/mobile/app/(app)/posts/[postId]/comments.tsx");
+const localization=read("packages/localization/src/index.ts");
+for(const marker of ["AccountAvatarPicker","onUpload={uploadProfileImage}","resolveMediaImageUrl","disabled={busy}"])assert(profile.includes(marker),`Missing Account Profile feature: ${marker}`);
+assert(!profile.includes('placeholder="https://example.com/profile.jpg"'),"Account image must not require manually entering an image URL.");
+for(const marker of ["launchImageLibraryAsync","getDocumentAsync",'type:"image/*"',"copyToCacheDirectory:true",'allowsEditing:true',"upload(source","MEDIA_INVALID_IMAGE","busy","media.chooseGallery","media.chooseFiles"])assert(picker.includes(marker),`Missing Gallery/Files upload behavior: ${marker}`);
+assert(provider.includes("uploadProfileImage")&&provider.includes("adopt({...session,user})"),"Avatar upload must refresh the authenticated session and all profile/header surfaces.");
+assert(client.includes("uploadNativeImage")&&client.includes('"/api/v1/users/me/avatar"')&&client.includes("body:file")&&client.includes('source.uri.startsWith("content://")'),"Native upload must send Android Files/gallery image with expo/fetch.");
+assert(client.includes("uploadVenueMediaAsset"),"Account avatar upload must not break owner media.");
+assert(server.includes('app.post("/api/v1/users/me/avatar"')&&server.includes('app.get("/api/v1/users/avatars/:userId/:publicToken"')&&server.includes('raw({type:"image/*",limit:"6mb"})')&&server.includes("requireAuth(deps.tokenService)"),"Authenticated media upload and opaque public URLs required.");
+for(const marker of ["MEDIA_TOO_LARGE","MEDIA_TYPE_NOT_ALLOWED","MEDIA_INVALID_IMAGE","this.ensureActive(user)","publicProfileImage","saveProfileImage","bytes.toString(\"base64\")"])assert(service.includes(marker),`Server image validation missing: ${marker}`);
+assert(service.includes("input.profileImageUrl===undefined?user.profileImageUrl"),"Saving account info must preserve existing uploaded avatar.");
+for(const marker of ["accountProfileImages","onConflictDoUpdate","profileImageUrl:imageUrl","publicProfileImage"])assert(repository.includes(marker),`Avatar store missing: ${marker}`);
+assert(types.includes("saveProfileImage")&&types.includes("publicProfileImage")&&fake.includes("profileImages"),"Authenticated repository and test fake must support account avatars.");
+assert(schema.includes("accountProfileImages")&&journal.includes("0020_account_profile_images")&&migration.includes('CREATE TABLE "account_profile_images"'),"Profile media schema and registered migration missing.");
+assert(tests.includes("allows normal accounts to upload an avatar")&&tests.includes("MEDIA_INVALID_IMAGE"),"Server avatar regression test missing.");
+assert(header.includes("resolveMediaImageUrl(user.profileImageUrl)")&&settings.includes("resolveMediaImageUrl(user.profileImageUrl)")&&comments.includes("resolveMediaImageUrl(comment.profileImageUrl)"),"Uploaded internal profile URLs must resolve in header/profile/comments.");
+assert(localization.split('"profile.avatarUploadHint"').length-1===3,"Gallery/Files account upload help must be localized in English, Dari, Pashto.");
+console.log("Account avatar flow verified: Gallery, Files, authenticated native upload, server-side validation, persisted avatar, immediate session/profile/header update, and locales.");

@@ -176,7 +176,7 @@ for(const marker of [
 }
 assert(mobileApi.includes("uploadVenueMediaAsset")&&mobileApi.includes("resolveMediaImageUrl"),"Mobile Media API must upload and resolve durable images.");
 assert(mobileApi.includes('import { fetch as expoFetch } from "expo/fetch";'),"Media upload must use Expo fetch for native files.");
-assert(mobileApi.includes('import { File } from "expo-file-system";'),"Media upload must use Expo File instead of React Native Blob conversion.");
+assert(mobileApi.includes('import { File, Paths } from "expo-file-system";'),"Media upload must use Expo File/Paths instead of React Native Blob conversion.");
 assert(mobileApi.includes("body:file"),"Media upload must send the selected native file directly.");
 assert(mediaPicker.includes('type:"image/*"')&&mediaPicker.includes("copyToCacheDirectory:true"),"System Files picker must cache images from all image providers.");
 assert(mediaPicker.includes('asset.mimeType?.startsWith("image/")?asset.mimeType:mimeFromName(asset.name)'),"Android Files generic MIME types must use image filename.");

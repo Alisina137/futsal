@@ -243,11 +243,11 @@ export type LocalMediaUpload = {
   size?:number|null;
 };
 
-async function uploadVenueMediaAsset(
+async function uploadNativeImage<T extends {asset:VenueMediaAssetDto}|{user:UserDto}>(
   accessToken:string,
-  purpose:VenueMediaAssetPurpose,
   source:LocalMediaUpload,
-):Promise<{asset:VenueMediaAssetDto}>{
+  destination:string,
+):Promise<T>{
   let file:File;
   let stagedFile:File|null=null;
   try{
@@ -286,7 +286,7 @@ async function uploadVenueMediaAsset(
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),30_000);
   try{
-    const response=await expoFetch(`${baseUrl}/api/v1/owner/media-assets?purpose=${encodeURIComponent(purpose)}`,{
+    const response=await expoFetch(`${baseUrl}${destination}`,{
       method:"POST",
       headers:{
         Authorization:`Bearer ${accessToken}`,
@@ -296,7 +296,7 @@ async function uploadVenueMediaAsset(
       body:file,
       signal:controller.signal,
     });
-    const body=await response.json().catch(()=>null) as {asset:VenueMediaAssetDto}|ApiErrorBody|null;
+    const body=await response.json().catch(()=>null) as T|ApiErrorBody|null;
     if(!response.ok){
       const errorBody=body as ApiErrorBody|null;
       throw new ApiRequestError(
@@ -308,11 +308,11 @@ async function uploadVenueMediaAsset(
         errorBody?.error?.details,
       );
     }
-    if(!body||!("asset" in body)){
+    if(!body||(!("asset" in body)&&!("user" in body))){
       throw new ApiRequestError("INVALID_UPLOAD_RESPONSE","The server returned an invalid upload response.",response.status,null,false);
     }
-    await invalidateApiCacheAfterMutation("/api/v1/owner/media-assets",accessToken);
-    return body;
+    await invalidateApiCacheAfterMutation(destination,accessToken);
+    return body as T;
   }catch(error){
     if(error instanceof ApiRequestError)throw error;
     const timedOut=error instanceof Error&&error.name==="AbortError";
@@ -327,6 +327,16 @@ async function uploadVenueMediaAsset(
     clearTimeout(timeout);
     if(stagedFile?.exists)stagedFile.delete();
   }
+}
+
+async function uploadVenueMediaAsset(
+  accessToken:string,
+  purpose:VenueMediaAssetPurpose,
+  source:LocalMediaUpload,
+):Promise<{asset:VenueMediaAssetDto}>{
+  return uploadNativeImage<{asset:VenueMediaAssetDto}>(
+    accessToken,source,`/api/v1/owner/media-assets?purpose=${encodeURIComponent(purpose)}`,
+  );
 }
 
 export const systemApi = {
@@ -356,6 +366,8 @@ export const authApi = {
     request<{ offer: RoleSubscriptionOfferDto }>(`/api/v1/auth/role-subscriptions/${role}/request`, { method: "POST", body: JSON.stringify(input) }, accessToken),
   updateProfile: (accessToken: string, input: AccountProfileUpdateRequest) =>
     request<{ user: UserDto }>("/api/v1/users/me", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+  uploadProfileImage: (accessToken:string,source:LocalMediaUpload) =>
+    uploadNativeImage<{user:UserDto}>(accessToken,source,"/api/v1/users/me/avatar"),
   me: (accessToken: string) => request<{ user: UserDto }>("/api/v1/users/me", {}, accessToken),
 };
 
