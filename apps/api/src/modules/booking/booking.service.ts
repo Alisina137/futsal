@@ -161,6 +161,12 @@ export class BookingService {
     const venue = await this.repository.getVenueRecord(venueId);
     assertBookableVenue(venue, now);
 
+    if (!venue.onlineBookingEnabled) {
+      return { venue: toPublicVenueDto(venue), date, generatedAt: now.toISOString(), live: true, slots: [] };
+    }
+
+    const earliestOnlineStart = now.getTime() + venue.minimumBookingNoticeMinutes * 60_000;
+    const latestOnlineStart = now.getTime() + venue.maximumAdvanceBookingDays * 24 * 60 * 60_000;
     const dayBoundsValue = dayBounds(date, venue.timezone);
     const [occupancies, promotionPrices] = await Promise.all([
       this.repository.listOccupancies(venue.id, dayBoundsValue.startsAt, dayBoundsValue.endsAt),
@@ -197,6 +203,8 @@ export class BookingService {
           const startsAt = new Date(cursor);
           const endsAt = new Date(cursor + durationMs);
           if (startsAt.getTime() <= now.getTime()) continue;
+          if (startsAt.getTime() < earliestOnlineStart) continue;
+          if (startsAt.getTime() > latestOnlineStart) continue;
           if (occupancies.some((item) => item.areaId === area.id && intervalsOverlap(startsAt, endsAt, item.startsAt, item.endsAt))) continue;
           const promotion = promotionPrices.find((item) =>
             item.areaId === area.id &&
@@ -233,6 +241,17 @@ export class BookingService {
 
     const venue = await this.repository.getVenueRecordByAreaId(input.areaId);
     assertBookableVenue(venue, now);
+    if (!venue.onlineBookingEnabled) {
+      throw errors.badRequest("ONLINE_BOOKING_PAUSED", "This venue has temporarily paused online booking.");
+    }
+    const earliestOnlineStart = now.getTime() + venue.minimumBookingNoticeMinutes * 60_000;
+    if (startsAt.getTime() < earliestOnlineStart) {
+      throw errors.badRequest("BOOKING_NOTICE_REQUIRED", "This booking is too close to the start time for this venue.");
+    }
+    const latestOnlineStart = now.getTime() + venue.maximumAdvanceBookingDays * 24 * 60 * 60_000;
+    if (startsAt.getTime() > latestOnlineStart) {
+      throw errors.badRequest("BOOKING_TOO_FAR_AHEAD", "This venue does not accept bookings that far in advance.");
+    }
 
     const area = venue.areas.find((candidate) => candidate.id === input.areaId && candidate.active);
     if (!area) throw errors.badRequest("AREA_NOT_AVAILABLE", "This playing area is unavailable.");
@@ -437,6 +456,32 @@ export class BookingService {
     if (!(await this.repository.deleteBlock(ownerUserId, blockId))) {
       throw errors.badRequest("BLOCK_NOT_FOUND", "The block was not found.");
     }
+  }
+
+  async confirmOwnerBooking(ownerUserId:string,bookingId:string){
+    const venue=await this.repository.getOwnerVenueRecord(ownerUserId);
+    if(!venue)throw errors.badRequest("VENUE_REQUIRED","Complete venue setup first.");
+    const booking=await this.repository.getBooking(bookingId);
+    if(!booking||booking.venueId!==venue.id)throw errors.forbidden("BOOKING_ACCESS_DENIED","You cannot manage this booking.");
+    if(booking.status==="CONFIRMED")return booking;
+    if(booking.status!=="PENDING")throw errors.badRequest("BOOKING_NOT_PENDING","This booking is no longer pending approval.");
+    if(Date.parse(booking.startsAt)<=this.now().getTime()){
+      throw errors.badRequest("BOOKING_ALREADY_STARTED","This booking can no longer be approved.");
+    }
+    const confirmed=await this.repository.confirmBooking(bookingId,this.now());
+    if(confirmed.playerUserId){
+      try{
+        await this.notifications?.bookingConfirmed({
+          userId:confirmed.playerUserId,
+          bookingId:confirmed.id,
+          venueName:confirmed.venueName,
+          startsAt:confirmed.startsAt,
+        });
+      }catch{
+        // Approval remains authoritative even if notification delivery fails.
+      }
+    }
+    return confirmed;
   }
 
   async cancelOwnerBooking(ownerUserId: string, bookingId: string, reason?: string) {
