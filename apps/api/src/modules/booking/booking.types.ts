@@ -129,6 +129,10 @@ export function toPublicVenueDto(venue: BookingVenueRecord): PublicVenueDto {
     longitude: venue.longitude,
     timezone: venue.timezone,
     bookingMode: venue.bookingMode,
+    onlineBookingEnabled: venue.onlineBookingEnabled,
+    minimumBookingNoticeMinutes: venue.minimumBookingNoticeMinutes,
+    maximumAdvanceBookingDays: venue.maximumAdvanceBookingDays,
+    cancellationPolicy: venue.cancellationPolicy,
     areas: venue.areas.filter((area) => area.active).map((area) => ({
       id: area.id,
       name: area.name,
