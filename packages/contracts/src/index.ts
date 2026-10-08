@@ -890,6 +890,7 @@ export const venueCalendarEventSchema = z.object({
   endsAt: isoDateTimeSchema.nullable(),
   title: z.string(),
   priceAfn: z.number().int().min(0).nullable(),
+  bookingStatus: bookingStatusSchema.nullable().optional(),
 });
 export type VenueCalendarEvent = z.infer<typeof venueCalendarEventSchema>;
 
