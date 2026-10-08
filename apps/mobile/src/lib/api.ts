@@ -6,6 +6,8 @@ import type {
   AuthResponse,
   LoginRequest,
   OwnerOnboardingStatus,
+  OwnerVenueSettingsDto,
+  OwnerVenueSettingsUpdateRequest,
   OwnerVenueSetupRequest,
   PublicVenueDto,
   PublicVenueListResponse,
@@ -324,6 +326,10 @@ export const authApi = {
 };
 
 export const ownerApi = {
+  settings: (accessToken:string) =>
+    request<{settings:OwnerVenueSettingsDto}>("/api/v1/owner/settings",{},accessToken),
+  updateSettings: (accessToken:string,input:OwnerVenueSettingsUpdateRequest) =>
+    request<{settings:OwnerVenueSettingsDto}>("/api/v1/owner/settings",{method:"PATCH",body:JSON.stringify(input)},accessToken),
   mediaPage: (accessToken:string) =>
     request<{page:VenueMediaPageDto}>("/api/v1/owner/media-page",{},accessToken),
   updateMediaPage: (accessToken:string,input:VenueMediaPageUpdateRequest) =>
@@ -382,6 +388,8 @@ export const ownerApi = {
     ),
   deleteBlock: (accessToken: string, blockId: string) =>
     request<void>(`/api/v1/owner/blocks/${blockId}`, { method: "DELETE" }, accessToken),
+  confirmBooking: (accessToken:string,bookingId:string) =>
+    request<{booking:BookingDto}>(`/api/v1/owner/bookings/${bookingId}/confirm`,{method:"POST"},accessToken),
   cancelBooking: (accessToken: string, bookingId: string, reason?: string) =>
     request<{ booking: BookingDto }>(`/api/v1/owner/bookings/${bookingId}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason ?? "" }) }, accessToken),
   promotions: (accessToken: string) =>
