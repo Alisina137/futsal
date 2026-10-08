@@ -143,7 +143,7 @@ const locationSection=settingsPage.slice(settingsPage.indexOf('<SectionTitle ico
 assert(locationSection.indexOf('styles.coordinateFields')>=0
   && locationSection.indexOf("onPress={openLocationPicker}")>locationSection.indexOf('styles.coordinateFields'),
   "Google Maps button must appear NEXT TO latitude and longitude inputs.");
-assert((settingsPage.match(/<MapView\\b/g)??[]).length===1
+assert((settingsPage.match(/<MapView\b/g)??[]).length===1
   && settingsPage.indexOf("<MapView")>settingsPage.indexOf("locationPickerOpen?<Modal"),
   "Google Map must open in fullscreen modal, not consume Venue Settings layout.");
 assert(settingsPage.includes('onPress={confirmLocation}')&&settingsPage.includes('setMapPoint(draftMapPoint)'),
