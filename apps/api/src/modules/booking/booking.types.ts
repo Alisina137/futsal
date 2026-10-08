@@ -33,6 +33,9 @@ export type BookingVenueRecord = {
   longitude: number | null;
   timezone: string;
   bookingMode: BookingMode;
+  onlineBookingEnabled: boolean;
+  minimumBookingNoticeMinutes: number;
+  maximumAdvanceBookingDays: number;
   cancellationPolicy: string;
   status: "DRAFT" | "READY" | "ACTIVE" | "SUSPENDED";
   areas: BookingAreaRecord[];
@@ -107,6 +110,7 @@ export interface BookingRepository {
   listPlayerBookings(playerUserId: string): Promise<BookingDto[]>;
   listVenueBookings(venueId: string, startsAt: Date, endsAt: Date): Promise<BookingDto[]>;
   listVenueBlocks(venueId: string, startsAt: Date, endsAt: Date): Promise<VenueBlockDto[]>;
+  confirmBooking(bookingId: string, confirmedAt: Date): Promise<BookingDto>;
   cancelBooking(input: { bookingId: string; cancelledByUserId: string; reason: string | null; cancelledAt: Date }): Promise<BookingDto>;
 }
 
