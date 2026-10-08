@@ -42,6 +42,13 @@ class FakeOwnerRepository implements OwnerOnboardingRepository {
       address: input.setup.venue.address,
       latitude: input.setup.venue.latitude ?? null,
       longitude: input.setup.venue.longitude ?? null,
+      timezone: previous?.venue.timezone ?? "Asia/Kabul",
+      bookingMode: previous?.venue.bookingMode ?? "INSTANT",
+      onlineBookingEnabled: previous?.venue.onlineBookingEnabled ?? true,
+      minimumBookingNoticeMinutes: previous?.venue.minimumBookingNoticeMinutes ?? 0,
+      maximumAdvanceBookingDays: previous?.venue.maximumAdvanceBookingDays ?? 30,
+      cancellationPolicy: previous?.venue.cancellationPolicy ?? "Cancellation is allowed before the booking start time.",
+      verificationStatus: previous?.venue.verificationStatus ?? "PENDING",
       status: previous?.venue.status === "ACTIVE" ? "ACTIVE" : "READY",
       setupCompletedAt: previous?.venue.setupCompletedAt ?? input.completedAt,
       areas: input.setup.areas.map((area, index) => ({
@@ -81,6 +88,34 @@ class FakeOwnerRepository implements OwnerOnboardingRepository {
       subscription,
     });
     return subscription;
+  }
+
+  async updateVenueSettings(input: Parameters<OwnerOnboardingRepository["updateVenueSettings"]>[0]) {
+    const current = this.venues.get(input.ownerUserId);
+    if (!current) throw new Error("Venue missing.");
+    const court = current.venue.areas[0];
+    if (!court) throw new Error("Court missing.");
+    const venue: OwnerVenueRecord = {
+      ...current.venue,
+      publicPhone: input.publicPhone,
+      whatsappPhone: input.whatsappPhone,
+      latitude: input.settings.latitude,
+      longitude: input.settings.longitude,
+      bookingMode: input.settings.bookingMode,
+      onlineBookingEnabled: input.settings.onlineBookingEnabled,
+      minimumBookingNoticeMinutes: input.settings.minimumBookingNoticeMinutes,
+      maximumAdvanceBookingDays: input.settings.maximumAdvanceBookingDays,
+      cancellationPolicy: input.settings.cancellationPolicy,
+      areas: [{
+        ...court,
+        name: input.settings.courtName,
+        defaultSessionDurationMinutes: input.settings.defaultSessionDurationMinutes,
+        basePriceAfn: input.settings.basePriceAfn,
+      }],
+    };
+    const aggregate = { ...current, venue };
+    this.venues.set(input.ownerUserId, aggregate);
+    return aggregate;
   }
 
   async markExpired(venueId: string) {
