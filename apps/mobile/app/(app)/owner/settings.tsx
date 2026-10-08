@@ -3,7 +3,7 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { OwnerVenueSettingsDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -195,7 +195,7 @@ export default function VenueSettingsScreen(){
         <View style={styles.mapShell}>
           <MapView
             ref={mapRef}
-            provider={Platform.OS==="android"?PROVIDER_GOOGLE:undefined}
+            provider={PROVIDER_GOOGLE}
             style={styles.map}
             initialRegion={mapCoordinate?{...mapCoordinate,latitudeDelta:.012,longitudeDelta:.012}:DEFAULT_MAP_REGION}
             mapType="standard"
