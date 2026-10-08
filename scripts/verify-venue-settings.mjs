@@ -25,6 +25,7 @@ const schedule=read("apps/mobile/app/(app)/owner/schedule.tsx");
 const publicVenue=read("apps/mobile/app/(app)/venues/[venueId].tsx");
 const mobileApi=read("apps/mobile/src/lib/api.ts");
 const localization=read("packages/localization/src/index.ts");
+const mobilePackage=read("apps/mobile/package.json");
 const bookingTests=read("apps/api/test/booking.test.ts");
 const ownerTests=read("apps/api/test/owner.test.ts");
 
@@ -95,6 +96,8 @@ assert(bookingRoutes.includes('"/bookings/:bookingId/confirm"'),"Owner approval 
 assert(bookingRepository.includes("confirmBooking")&&bookingRepository.includes('status:"CONFIRMED"'),"Pending booking confirmation persistence is missing.");
 assert(timetableRepository.includes("bookingStatus")&&timetableService.includes("bookingStatus"),"Venue Time Table must carry pending booking state.");
 
+assert(mobilePackage.includes('"react-native-maps": "1.27.2"'),"Venue Settings map picker dependency missing.");
+
 for(const marker of [
   'type Section="GENERAL"|"BOOKING"|"COURT"|"ACCESS"',
   "onlineBookingEnabled",
@@ -109,6 +112,19 @@ for(const marker of [
   'router.push("/owner/referees")',
 ]){
   assert(settingsPage.includes(marker),`Venue Settings mobile control missing: ${marker}`);
+}
+for(const marker of [
+  'from "react-native-maps"',
+  "PROVIDER_GOOGLE",
+  "DEFAULT_MAP_REGION",
+  "onPress={(event)=>setMapPoint(event.nativeEvent.coordinate)}",
+  "draggable",
+  "onDragEnd={(event)=>setMapPoint(event.nativeEvent.coordinate)}",
+  "setLatitude(String(next.latitude))",
+  "setLongitude(String(next.longitude))",
+  'editable={false}',
+]){
+  assert(settingsPage.includes(marker),`Venue map picker missing: ${marker}`);
 }
 assert(ownerNav.includes('href:"/owner/settings"'),"Last Venue Owner tab must open the dedicated Venue Settings page.");
 assert(!ownerNav.includes('labelKey:"owner.dashboardNav.settings",href:"/owner/onboarding"'),"Venue Settings tab must not route back to onboarding.");
@@ -128,6 +144,10 @@ for(const key of [
   "venueSettings.minimumNotice",
   "venueSettings.advanceDays",
   "venueSettings.cancellationPolicy",
+  "venueSettings.mapTapHint",
+  "venueSettings.mapMarkerHint",
+  "venueSettings.coordinatesSelected",
+  "venueSettings.clearLocation",
   "schedule.approveBooking",
   "schedule.pendingApproval",
 ]){
