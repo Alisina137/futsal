@@ -2,8 +2,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { OwnerVenueSettingsDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -16,10 +17,12 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 
 type Section="GENERAL"|"BOOKING"|"COURT"|"ACCESS";
 const sections:Section[]=["GENERAL","BOOKING","COURT","ACCESS"];
+const DEFAULT_MAP_REGION={latitude:34.5553,longitude:69.2075,latitudeDelta:.08,longitudeDelta:.08};
 
 export default function VenueSettingsScreen(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
+  const mapRef=useRef<MapView|null>(null);
   const [data,setData]=useState<OwnerVenueSettingsDto|null>(null);
   const [section,setSection]=useState<Section>("GENERAL");
   const [loading,setLoading]=useState(true);
@@ -77,6 +80,24 @@ export default function VenueSettingsScreen(){
     latitude:latitude.trim()===""?null:Number(latitude),
     longitude:longitude.trim()===""?null:Number(longitude),
   }),[advanceDays,basePrice,duration,latitude,longitude,noticeMinutes]);
+
+  const mapCoordinate=useMemo(()=>{
+    if(numeric.latitude===null||numeric.longitude===null)return null;
+    if(!Number.isFinite(numeric.latitude)||!Number.isFinite(numeric.longitude))return null;
+    return {latitude:numeric.latitude,longitude:numeric.longitude};
+  },[numeric.latitude,numeric.longitude]);
+
+  function setMapPoint(point:{latitude:number;longitude:number}){
+    const next={latitude:Number(point.latitude.toFixed(6)),longitude:Number(point.longitude.toFixed(6))};
+    setLatitude(String(next.latitude));
+    setLongitude(String(next.longitude));
+    mapRef.current?.animateToRegion({...next,latitudeDelta:.012,longitudeDelta:.012},220);
+  }
+
+  function clearMapPoint(){
+    setLatitude("");
+    setLongitude("");
+  }
 
   function validate(){
     if(publicPhone.trim().length<9)return t("venueSettings.validation.phone");
@@ -171,11 +192,51 @@ export default function VenueSettingsScreen(){
 
       <SectionTitle icon="location-outline" title={t("venueSettings.mapTitle")} body={t("venueSettings.mapBody")}/>
       <Card style={styles.card}>
-        <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <TextField label={t("venueSettings.latitude")} value={latitude} onChangeText={setLatitude} keyboardType="decimal-pad" forceLtr containerStyle={{flex:1}}/>
-          <TextField label={t("venueSettings.longitude")} value={longitude} onChangeText={setLongitude} keyboardType="decimal-pad" forceLtr containerStyle={{flex:1}}/>
+        <View style={styles.mapShell}>
+          <MapView
+            ref={mapRef}
+            provider={Platform.OS==="android"?PROVIDER_GOOGLE:undefined}
+            style={styles.map}
+            initialRegion={mapCoordinate?{...mapCoordinate,latitudeDelta:.012,longitudeDelta:.012}:DEFAULT_MAP_REGION}
+            mapType="standard"
+            onPress={(event)=>setMapPoint(event.nativeEvent.coordinate)}
+            showsCompass
+            toolbarEnabled={false}
+          >
+            {mapCoordinate?<Marker
+              coordinate={mapCoordinate}
+              draggable
+              title={data.name}
+              description={t("venueSettings.mapMarkerHint")}
+              onDragEnd={(event)=>setMapPoint(event.nativeEvent.coordinate)}
+            />:null}
+          </MapView>
+          <View pointerEvents="none" style={styles.mapHintOverlay}>
+            <View style={styles.mapHintPill}>
+              <Ionicons name="location-outline" size={17} color={colors.primary}/>
+              <AppText variant="caption" weight="semibold">{t("venueSettings.mapTapHint")}</AppText>
+            </View>
+          </View>
         </View>
-        <AppText variant="caption" muted>{t("venueSettings.coordinatesHint")}</AppText>
+
+        <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <TextField label={t("venueSettings.latitude")} value={latitude} editable={false} forceLtr containerStyle={{flex:1}}/>
+          <TextField label={t("venueSettings.longitude")} value={longitude} editable={false} forceLtr containerStyle={{flex:1}}/>
+        </View>
+
+        <View style={[styles.mapActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={{flex:1}}>
+            <AppText variant="caption" muted>{mapCoordinate?t("venueSettings.coordinatesSelected"):t("venueSettings.coordinatesHint")}</AppText>
+          </View>
+          {mapCoordinate?<Pressable
+            accessibilityRole="button"
+            onPress={clearMapPoint}
+            style={({pressed})=>[styles.clearMapButton,pressed&&{opacity:.7}]}
+          >
+            <Ionicons name="close-circle-outline" size={18} color={colors.danger}/>
+            <AppText variant="caption" weight="semibold" style={{color:colors.danger}}>{t("venueSettings.clearLocation")}</AppText>
+          </Pressable>:null}
+        </View>
       </Card>
     </>:null}
 
@@ -302,6 +363,12 @@ const styles=StyleSheet.create({
   sectionTitle:{flexDirection:"row",alignItems:"center",gap:spacing.sm,marginTop:spacing.xs},
   sectionIcon:{width:40,height:40,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   card:{gap:spacing.md},
+  mapShell:{height:320,borderRadius:radius.lg,overflow:"hidden",borderWidth:1,borderColor:colors.border,backgroundColor:colors.surfaceMuted},
+  map:{width:"100%",height:"100%"},
+  mapHintOverlay:{position:"absolute",top:spacing.sm,left:spacing.sm,right:spacing.sm,alignItems:"center"},
+  mapHintPill:{flexDirection:"row",alignItems:"center",gap:spacing.xs,paddingHorizontal:spacing.sm,paddingVertical:spacing.xs,borderRadius:radius.pill,backgroundColor:"rgba(255,255,255,.94)",borderWidth:1,borderColor:colors.border},
+  mapActions:{alignItems:"center",gap:spacing.sm},
+  clearMapButton:{minHeight:38,flexDirection:"row",alignItems:"center",gap:4,paddingHorizontal:spacing.sm,borderRadius:radius.md,borderWidth:1,borderColor:"#FECACA",backgroundColor:"#FEF2F2"},
   readRow:{gap:2,paddingVertical:spacing.xs,borderBottomWidth:1,borderBottomColor:colors.border},
   twoColumns:{gap:spacing.sm},
   switchRow:{alignItems:"center",gap:spacing.md},
