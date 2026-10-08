@@ -1239,7 +1239,7 @@ const en = {
   "phase7.analytics.insight.promotion": "Promotions are not converting",
   "phase7.analytics.insight.promotionBody": "Promotions were created, but no matching discounted slot was booked in this period.",
   "phase7.analytics.insight.peak": "Peak demand pattern",
-  "phase7.analytics.insight.peakBody": "Your strongest booking pattern is around {day} at {hour}."
+  "phase7.analytics.insight.peakBody": "Your strongest booking pattern is around {day} at {hour}.",
   "phase7.admin.title": "Platform administration",
   "phase7.admin.subtitle": "Operate users, venues, subscriptions, verification, moderation, configuration, and audit records.",
   "phase7.admin.denied": "Platform Administrator access is required.",
@@ -2615,7 +2615,7 @@ const fa = {
   "phase7.analytics.insight.promotion": "تخفیف‌ها تبدیل نمی‌شوند",
   "phase7.analytics.insight.promotionBody": "تخفیف ایجاد شده اما هیچ زمان تخفیفی منطبق در این دوره رزرو نشده است.",
   "phase7.analytics.insight.peak": "الگوی اوج تقاضا",
-  "phase7.analytics.insight.peakBody": "قوی‌ترین الگوی رزرو شما حدود {day} ساعت {hour} است."
+  "phase7.analytics.insight.peakBody": "قوی‌ترین الگوی رزرو شما حدود {day} ساعت {hour} است.",
   "phase7.admin.title": "مدیریت پلتفرم",
   "phase7.admin.subtitle": "مدیریت کاربران، میدان‌ها، اشتراک‌ها، تأیید، محتوا، تنظیمات و گزارش حسابرسی.",
   "phase7.admin.denied": "دسترسی مدیر پلتفرم لازم است.",
@@ -3989,7 +3989,7 @@ const ps = {
   "phase7.analytics.insight.promotion": "تخفیفونه بک نه راوړي",
   "phase7.analytics.insight.promotionBody": "تخفیفونه جوړ شوي، خو په دې موده کې اړوند تخفیفي وخت بک شوی نه دی.",
   "phase7.analytics.insight.peak": "د تقاضا اوج",
-  "phase7.analytics.insight.peakBody": "ستاسو د بک تر ټولو قوي بڼه شاوخوا {day} په {hour} ده."
+  "phase7.analytics.insight.peakBody": "ستاسو د بک تر ټولو قوي بڼه شاوخوا {day} په {hour} ده.",
   "phase7.admin.title": "د پلاتفورم اداره",
   "phase7.admin.subtitle": "کارنان، میدانونه، ګډونونه، تایید، محتوا، تنظیمات او د پلټنې ریکارډونه اداره کړئ.",
   "phase7.admin.denied": "د پلاتفورم مدیر لاسرسی اړین دی.",
