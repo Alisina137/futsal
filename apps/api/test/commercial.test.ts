@@ -42,8 +42,14 @@ class FakeCommercialRepository implements CommercialRepository {
   async getSettings(): Promise<CommercialSettingsRecord | null> { return null; }
   async listPayments() { return []; }
   async requestReactivation() { this.requested = true; }
-  async analyticsSnapshot(ownerUserId: string) {
+  async analyticsSnapshot(
+    ownerUserId: string,
+    _startsAt: Date,
+    _endsAt: Date,
+    from: string,
+  ) {
     if (ownerUserId !== this.venue.ownerUserId) return null;
+    const current = from === "2026-10-05";
     return {
       venue: this.venue,
       activeAreaCount: 1,
@@ -53,22 +59,48 @@ class FakeCommercialRepository implements CommercialRepository {
         opensAt: "08:00",
         closesAt: "22:00",
       })),
-      bookings: [
+      bookings: current ? [
         {
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          areaId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          playerUserId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          customerName: null,
+          customerPhone: null,
           status: "CONFIRMED" as const,
           source: "ONLINE" as const,
           startsAt: new Date("2026-10-05T04:00:00.000Z"),
           endsAt: new Date("2026-10-05T05:30:00.000Z"),
           priceAfn: 1800,
+          cancellationReason: null,
+          cancelledAt: null,
+          createdAt: new Date("2026-10-04T12:00:00.000Z"),
         },
         {
+          id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+          areaId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          playerUserId: null,
+          customerName: "Cancelled customer",
+          customerPhone: "0700000000",
           status: "CANCELLED" as const,
           source: "MANUAL" as const,
           startsAt: new Date("2026-10-05T06:00:00.000Z"),
           endsAt: new Date("2026-10-05T07:30:00.000Z"),
           priceAfn: 1800,
+          cancellationReason: "Customer changed plans",
+          cancelledAt: new Date("2026-10-05T02:00:00.000Z"),
+          createdAt: new Date("2026-10-04T13:00:00.000Z"),
         },
-      ],
+      ] : [],
+      timetables: [],
+      exceptions: [],
+      blocks: [],
+      promotions: [],
+      followerCount: 12,
+      followerCreatedAt: current ? [new Date("2026-10-05T05:00:00.000Z")] : [],
+      posts: [],
+      competitions: [],
+      competitionTeams: [],
+      competitionMatches: [],
     };
   }
   async adminDashboard() {
@@ -167,6 +199,14 @@ describe("Phase 7 commercial SaaS API", () => {
     expect(result.grossBookingValueAfn).toBe(1800);
     expect(result.bookedMinutes).toBe(90);
     expect(result.availableMinutes).toBe(14 * 60);
+    expect(result.averageBookingValueAfn).toBe(1800);
+    expect(result.uniqueCustomerCount).toBe(1);
+    expect(result.newFollowerCount).toBe(1);
+    expect(result.daily).toHaveLength(1);
+    expect(result.weekdays).toHaveLength(7);
+    expect(result.hours).toHaveLength(24);
+    expect(result.comparison.previousFrom).toBe("2026-10-04");
+    expect(result.comparison.previousTo).toBe("2026-10-04");
   });
 
   it("protects platform admin routes with PLATFORM_ADMIN role", async () => {
