@@ -45,6 +45,13 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
       address: row.address,
       latitude: row.latitude,
       longitude: row.longitude,
+      timezone: row.timezone,
+      bookingMode: row.bookingMode,
+      onlineBookingEnabled: row.onlineBookingEnabled,
+      minimumBookingNoticeMinutes: row.minimumBookingNoticeMinutes,
+      maximumAdvanceBookingDays: row.maximumAdvanceBookingDays,
+      cancellationPolicy: row.cancellationPolicy,
+      verificationStatus: row.verificationStatus,
       status: row.status,
       setupCompletedAt: row.setupCompletedAt,
       areas: areas.map((area) => ({
@@ -213,6 +220,50 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
 
     const aggregate = await this.getByOwnerId(input.ownerUserId);
     if (!aggregate) throw new Error("Venue setup could not be loaded after save.");
+    return aggregate;
+  }
+
+  async updateVenueSettings(input: {
+    ownerUserId: string;
+    settings: import("@leaguekick/contracts").OwnerVenueSettingsUpdateRequest;
+    publicPhone: string;
+    whatsappPhone: string | null;
+    updatedAt: Date;
+  }): Promise<OwnerAggregate> {
+    await this.db.transaction(async (tx) => {
+      const [venue] = await tx.select().from(venues)
+        .where(eq(venues.ownerUserId, input.ownerUserId))
+        .limit(1);
+      if (!venue) throw errors.badRequest("VENUE_REQUIRED", "Complete venue setup first.");
+
+      await tx.update(venues).set({
+        publicPhone: input.publicPhone,
+        whatsappPhone: input.whatsappPhone,
+        latitude: input.settings.latitude,
+        longitude: input.settings.longitude,
+        bookingMode: input.settings.bookingMode,
+        onlineBookingEnabled: input.settings.onlineBookingEnabled,
+        minimumBookingNoticeMinutes: input.settings.minimumBookingNoticeMinutes,
+        maximumAdvanceBookingDays: input.settings.maximumAdvanceBookingDays,
+        cancellationPolicy: input.settings.cancellationPolicy.trim(),
+        updatedAt: input.updatedAt,
+      }).where(eq(venues.id, venue.id));
+
+      const [court] = await tx.select().from(venueAreas)
+        .where(and(eq(venueAreas.venueId, venue.id), eq(venueAreas.active, true)))
+        .limit(1);
+      if (!court) throw errors.badRequest("COURT_REQUIRED", "This venue does not have an active court.");
+
+      await tx.update(venueAreas).set({
+        name: input.settings.courtName.trim(),
+        defaultSessionDurationMinutes: input.settings.defaultSessionDurationMinutes,
+        basePriceAfn: input.settings.basePriceAfn,
+        updatedAt: input.updatedAt,
+      }).where(eq(venueAreas.id, court.id));
+    });
+
+    const aggregate = await this.getByOwnerId(input.ownerUserId);
+    if (!aggregate) throw new Error("Venue settings could not be loaded after save.");
     return aggregate;
   }
 
