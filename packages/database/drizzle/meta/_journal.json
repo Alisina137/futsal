@@ -134,6 +134,13 @@
       "when": 1791297000000,
       "tag": "0018_media_page_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791300600000,
+      "tag": "0019_venue_booking_settings",
+      "breakpoints": true
     }
   ]
 }
