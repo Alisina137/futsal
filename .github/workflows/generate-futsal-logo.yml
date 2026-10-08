@@ -1,0 +1,41 @@
+name: Futsal Brand Assets
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/mobile/assets/branding/premium-futsal-logo.svg"
+      - "scripts/generate-futsal-logo.py"
+      - ".github/workflows/generate-futsal-logo.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install vector renderer
+        run: python -m pip install --disable-pip-version-check "CairoSVG==2.8.2"
+      - name: Render branded PNG assets
+        run: python scripts/generate-futsal-logo.py
+      - name: Commit generated icon assets to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile/assets/icon.png apps/mobile/assets/adaptive-icon.png
+          if git diff --cached --quiet; then
+            echo "Branded launcher icons already match SVG source."
+          else
+            git commit -m "assets: render premium futsal icon and adaptive icon [skip ci]"
+            git push origin HEAD:main
+          fi

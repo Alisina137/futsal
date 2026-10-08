@@ -66,9 +66,16 @@ export function AppHeader(){
       </Pressable>
 
       <View style={styles.brand}>
-        <AppText variant="bodyLarge" weight="bold" style={styles.brandTitle} numberOfLines={1}>
-          {t("common.appName")}
-        </AppText>
+        <View style={[styles.brandIdentity,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Image
+            source={require("../../../assets/icon.png")}
+            style={styles.brandLogo}
+            accessibilityLabel={t("common.appName")}
+          />
+          <AppText variant="bodyLarge" weight="bold" style={styles.brandTitle} numberOfLines={1}>
+            {t("common.appName")}
+          </AppText>
+        </View>
         <AppText variant="caption" muted numberOfLines={1}>{t("profile.headerSubtitle")}</AppText>
       </View>
 
@@ -122,7 +129,7 @@ export function AppHeader(){
               <AppText variant="caption" muted>{user?.displayName??""}</AppText>
             </View>
             <View style={styles.drawerBrandIcon}>
-              <Ionicons name="football" size={22} color="#FFFFFF"/>
+              <Image source={require("../../../assets/icon.png")} style={styles.drawerBrandLogo}/>
             </View>
           </View>
 
@@ -195,9 +202,22 @@ const styles=StyleSheet.create({
     alignItems:"center",
     gap:1,
   },
+  brandIdentity:{
+    flexDirection:"row",
+    alignItems:"center",
+    justifyContent:"center",
+    gap:spacing.sm,
+    minWidth:0,
+  },
+  brandLogo:{
+    width:33,
+    height:33,
+    borderRadius:10,
+  },
   brandTitle:{
     color:colors.primary,
     textAlign:"center",
+    flexShrink:1,
   },
   profileButton:{
     width:touchTarget,
@@ -260,10 +280,12 @@ const styles=StyleSheet.create({
     width:38,
     height:38,
     borderRadius:12,
+    overflow:"hidden",
     alignItems:"center",
     justifyContent:"center",
-    backgroundColor:colors.primary,
+    backgroundColor:"#0B1D45",
   },
+  drawerBrandLogo:{width:38,height:38},
   closeButton:{
     width:touchTarget,
     height:touchTarget,

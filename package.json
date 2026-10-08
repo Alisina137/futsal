@@ -43,7 +43,8 @@
     "verify:role-subscription": "node scripts/verify-role-subscription-ux.mjs",
     "verify:social-comments": "node scripts/verify-social-comments-profiles.mjs",
     "verify:analysis": "node scripts/verify-owner-analytics.mjs",
-    "verify:venue-settings": "node scripts/verify-venue-settings.mjs"
+    "verify:venue-settings": "node scripts/verify-venue-settings.mjs",
+    "verify:branding": "node scripts/verify-app-branding.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
