@@ -85,7 +85,7 @@ export function MediaImagePicker({
       if(!asset)return;
       await upload({
         uri:asset.uri,
-        mimeType:asset.mimeType??mimeFromName(asset.fileName) || "image/jpeg",
+        mimeType:asset.mimeType??mimeFromName(asset.fileName),
         ...(asset.fileSize!==undefined?{size:asset.fileSize}:{}),
       },"gallery");
     }catch{
