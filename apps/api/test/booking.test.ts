@@ -301,4 +301,70 @@ describe("Phase 3 availability and booking API", () => {
     expect(availability.status).toBe(400);
     expect(availability.body.error.code).toBe("VENUE_NOT_BOOKABLE");
   });
+
+  it("pauses online booking without deleting existing venue inventory", async () => {
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223401");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    const player = await register(app, authRepository, "PLAYER", "0702223402");
+
+    const before = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    expect(before.status).toBe(200);
+    expect(before.body.slots.length).toBeGreaterThan(0);
+    const slot = before.body.slots[0];
+
+    venue.onlineBookingEnabled = false;
+
+    const paused = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    expect(paused.status).toBe(200);
+    expect(paused.body.slots).toHaveLength(0);
+
+    const denied = await request(app).post("/api/v1/bookings")
+      .set("Authorization", `Bearer ${player.body.accessToken}`)
+      .send({ areaId: slot.areaId, startsAt: slot.startsAt, idempotencyKey: "paused-online-booking" });
+    expect(denied.status).toBe(400);
+    expect(denied.body.error.code).toBe("ONLINE_BOOKING_PAUSED");
+  });
+
+  it("enforces minimum notice and maximum advance booking windows", async () => {
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223403");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+
+    venue.minimumBookingNoticeMinutes = 48 * 60;
+    const tooSoon = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    expect(tooSoon.status).toBe(200);
+    expect(tooSoon.body.slots).toHaveLength(0);
+
+    venue.minimumBookingNoticeMinutes = 0;
+    venue.maximumAdvanceBookingDays = 1;
+    const tooFar = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-06`);
+    expect(tooFar.status).toBe(200);
+    expect(tooFar.body.slots).toHaveLength(0);
+  });
+
+  it("supports owner approval mode from pending online booking to confirmed booking", async () => {
+    const { app, bookingRepository, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0702223404");
+    const { venue } = bookingRepository.seedVenue(owner.body.user.id);
+    venue.bookingMode = "APPROVAL";
+    const player = await register(app, authRepository, "PLAYER", "0702223405");
+
+    const availability = await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    const slot = availability.body.slots[0];
+
+    const booked = await request(app).post("/api/v1/bookings")
+      .set("Authorization", `Bearer ${player.body.accessToken}`)
+      .send({ areaId: slot.areaId, startsAt: slot.startsAt, idempotencyKey: "approval-mode-booking" });
+    expect(booked.status).toBe(201);
+    expect(booked.body.booking.status).toBe("PENDING");
+
+    const confirmed = await request(app)
+      .post(`/api/v1/owner/bookings/${booked.body.booking.id}/confirm`)
+      .set("Authorization", `Bearer ${owner.body.accessToken}`);
+    expect(confirmed.status).toBe(200);
+    expect(confirmed.body.booking.status).toBe("CONFIRMED");
+    expect(bookingRepository.bookings.get(booked.body.booking.id)?.status).toBe("CONFIRMED");
+  });
+
 });
