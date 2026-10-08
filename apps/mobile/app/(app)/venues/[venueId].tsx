@@ -143,6 +143,37 @@ export default function VenueDetailScreen(){
         <InfoRow icon="time-outline" value={venue.timezone} rtl={isRTL} ltr/>
       </Card>
 
+      <Card style={styles.aboutCard}>
+        <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.sectionIcon}><Ionicons name="calendar-outline" size={21} color={colors.primary}/></View>
+          <AppText variant="bodyLarge" weight="bold">{t("venueSettings.bookingWindowTitle")}</AppText>
+        </View>
+        <InfoRow
+          icon={venue.onlineBookingEnabled?"globe-outline":"pause-circle-outline"}
+          value={venue.onlineBookingEnabled?t("venueSettings.enabled"):t("venueSettings.paused")}
+          rtl={isRTL}
+        />
+        <InfoRow
+          icon="checkmark-done-outline"
+          value={t(`publicProfile.bookingMode.${venue.bookingMode}` as never)}
+          rtl={isRTL}
+        />
+        <InfoRow
+          icon="time-outline"
+          value={t("venueSettings.minimumNoticeValue",{minutes:venue.minimumBookingNoticeMinutes})}
+          rtl={isRTL}
+        />
+        <InfoRow
+          icon="calendar-number-outline"
+          value={t("venueSettings.advanceDaysValue",{days:venue.maximumAdvanceBookingDays})}
+          rtl={isRTL}
+        />
+        <View style={styles.policyBox}>
+          <AppText variant="caption" weight="bold">{t("venueSettings.cancellationPolicy")}</AppText>
+          <AppText>{venue.cancellationPolicy}</AppText>
+        </View>
+      </Card>
+
       <View style={{gap:spacing.xs}}>
         <AppText variant="bodyLarge" weight="bold">{t("media.pagePosts")}</AppText>
         <AppText muted>{t("media.pagePostsBody")}</AppText>
@@ -300,6 +331,7 @@ const styles=StyleSheet.create({
   statCard:{flex:1,alignItems:"center",gap:spacing.xs,padding:spacing.md},
   statIcon:{width:36,height:36,borderRadius:18,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   aboutCard:{gap:spacing.md},
+  policyBox:{gap:4,padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
   pagePost:{gap:spacing.md},
   postMeta:{alignItems:"center",gap:spacing.sm},
   postTypeBadge:{paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill,backgroundColor:colors.primarySoft},
