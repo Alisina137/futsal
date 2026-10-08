@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { ownerVenueSetupRequestSchema, venueRefereeGrantRequestSchema } from "@leaguekick/contracts";
+import {
+  ownerVenueSettingsUpdateRequestSchema,
+  ownerVenueSetupRequestSchema,
+  venueRefereeGrantRequestSchema,
+} from "@leaguekick/contracts";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
@@ -24,6 +28,18 @@ export function createOwnerRouter(owner: OwnerOnboardingService, tokens: TokenSe
     } catch (error) {
       next(error);
     }
+  });
+
+  router.get("/settings", async (request,response,next)=>{
+    try{response.json(await owner.getVenueSettings(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+
+  router.patch("/settings", async (request,response,next)=>{
+    try{
+      const input=ownerVenueSettingsUpdateRequestSchema.parse(request.body);
+      response.json(await owner.updateVenueSettings(request.auth!.userId,input));
+    }catch(error){next(error);}
   });
 
   router.get("/venue/preview", async (request, response, next) => {
