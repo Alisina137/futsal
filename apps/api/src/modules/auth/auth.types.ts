@@ -87,6 +87,8 @@ export interface AuthRepository {
     now: Date;
   }): Promise<AuthUserRecord>;
   updateAccountProfile(userId: string, input: UpdateAccountProfileInput): Promise<AuthUserRecord>;
+  saveProfileImage(userId:string,asset:{publicToken:string;mimeType:string;byteSize:number;dataBase64:string}):Promise<AuthUserRecord>;
+  publicProfileImage(userId:string,publicToken:string):Promise<{mimeType:string;byteSize:number;dataBase64:string}|null>;
   createPasswordResetChallenge(input: {
     userId: string | null;
     phoneE164: string;

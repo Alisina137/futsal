@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { accountProfileUpdateRequestSchema } from "@leaguekick/contracts";
 import cors from "cors";
-import express, { type NextFunction, type Request, type Response } from "express";
+import express, { raw, type NextFunction, type Request, type Response } from "express";
+import { rateLimit } from "express-rate-limit";
+import { z } from "zod";
 import helmet from "helmet";
 import { ZodError } from "zod";
 import { AppError } from "./lib/errors.js";
@@ -178,6 +180,33 @@ export function createApp(deps: AppDependencies) {
       response.json({ user: await deps.authService.me(request.auth!.userId) });
     } catch (error) { next(error); }
   });
+
+  app.get("/api/v1/users/avatars/:userId/:publicToken", async(request,response,next)=>{
+    try{
+      const userId=z.string().uuid().parse(request.params.userId);
+      const publicToken=z.string().regex(/^[A-Za-z0-9_-]{32,64}$/).parse(request.params.publicToken);
+      const image=await deps.authService.publicProfileImage(userId,publicToken);
+      response.setHeader("Content-Type",image.mimeType);
+      response.setHeader("Content-Length",String(image.byteSize));
+      response.setHeader("Cache-Control","public,max-age=31536000,immutable");
+      response.setHeader("Cross-Origin-Resource-Policy","cross-origin");
+      response.send(Buffer.from(image.dataBase64,"base64"));
+    }catch(error){next(error);}
+  });
+
+  app.post("/api/v1/users/me/avatar",
+    requireAuth(deps.tokenService),
+    rateLimit({windowMs:60_000,limit:8,standardHeaders:"draft-8",legacyHeaders:false}),
+    raw({type:"image/*",limit:"6mb"}),
+    async(request,response,next)=>{
+      try{
+        const mimeType=String(request.headers["content-type"]??"").split(";")[0]!.trim().toLowerCase();
+        if(!Buffer.isBuffer(request.body))throw new AppError(400,"MEDIA_BODY_REQUIRED","Choose an image to upload.");
+        const updated=await deps.authService.uploadProfileImage(request.auth!.userId,mimeType,request.body);
+        response.status(201).json(updated);
+      }catch(error){next(error);}
+    },
+  );
 
   app.patch("/api/v1/users/me", requireAuth(deps.tokenService), async (request, response, next) => {
     try {

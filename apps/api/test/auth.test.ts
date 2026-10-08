@@ -32,6 +32,37 @@ const baseRegistration = {
 };
 
 describe("Authentication identity and role model", () => {
+  it("allows normal accounts to upload an avatar and only serves the current token",async()=>{
+    const {app}=setup();
+    const registered=await request(app).post("/api/v1/auth/register").send(baseRegistration);
+    const auth=`Bearer ${registered.body.accessToken}`;
+    const png=Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000000","hex");
+
+    expect((await request(app).post("/api/v1/users/me/avatar").set("Content-Type","image/png").send(png)).status).toBe(401);
+    const first=await request(app).post("/api/v1/users/me/avatar").set("Authorization",auth).set("Content-Type","image/png").send(png);
+    expect(first.status).toBe(201);
+    const url=first.body.user.profileImageUrl as string;
+    expect(url).toMatch(/^\/api\/v1\/users\/avatars\/[\da-f-]{36}\/[A-Za-z0-9_-]{32}$/);
+    const served=await request(app).get(url);
+    expect(served.status).toBe(200);
+    expect(served.headers["content-type"]).toContain("image/png");
+    expect(served.body).toEqual(png);
+
+    const forged=await request(app).post("/api/v1/users/me/avatar").set("Authorization",auth).set("Content-Type","image/png").send(Buffer.from("fake"));
+    expect(forged.status).toBe(400);
+    expect(forged.body.error.code).toBe("MEDIA_INVALID_IMAGE");
+
+    const second=await request(app).post("/api/v1/users/me/avatar").set("Authorization",auth).set("Content-Type","image/png").send(png);
+    expect(second.status).toBe(201);
+    expect(second.body.user.profileImageUrl).not.toBe(url);
+    expect((await request(app).get(url)).status).toBe(400);
+    expect((await request(app).get(second.body.user.profileImageUrl)).status).toBe(200);
+
+    const profile=await request(app).patch("/api/v1/users/me").set("Authorization",auth).send({displayName:"A. User"});
+    expect(profile.status).toBe(200);
+    expect(profile.body.user.profileImageUrl).toBe(second.body.user.profileImageUrl);
+  });
+
   it("registers a base user without assigning a product role", async () => {
     const { app } = setup();
     const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);

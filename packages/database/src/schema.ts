@@ -92,6 +92,18 @@ export const users = pgTable(
   ],
 );
 
+export const accountProfileImages = pgTable(
+  "account_profile_images",
+  {
+    userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+    publicToken: varchar("public_token", { length: 64 }).notNull().unique(),
+    mimeType: varchar("mime_type", { length: 40 }).notNull(),
+    byteSize: integer("byte_size").notNull(),
+    dataBase64: text("data_base64").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
 export const userRoles = pgTable(
   "user_roles",
   {

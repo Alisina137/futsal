@@ -1,7 +1,7 @@
 import type { AdminRoleSubscriptionDto, PaidRole, RoleSubscriptionOfferDto, UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueSubscriptions, venues } from "@leaguekick/database";
+import { accountProfileImages, auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueSubscriptions, venues } from "@leaguekick/database";
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
@@ -360,6 +360,32 @@ export class DrizzleAuthRepository implements AuthRepository {
       }
       throw error;
     }
+  }
+
+  async saveProfileImage(userId:string,asset:{publicToken:string;mimeType:string;byteSize:number;dataBase64:string}):Promise<AuthUserRecord>{
+    await this.db.transaction(async tx=>{
+      const imageUrl=`/api/v1/users/avatars/${userId}/${asset.publicToken}`;
+      await tx.insert(accountProfileImages).values({userId,...asset,updatedAt:new Date()})
+        .onConflictDoUpdate({target:accountProfileImages.userId,set:{...asset,updatedAt:new Date()}});
+      const [updated]=await tx.update(users).set({profileImageUrl:imageUrl,updatedAt:new Date()})
+        .where(eq(users.id,userId)).returning({id:users.id});
+      if(!updated)throw errors.unauthorized("ACCOUNT_UNAVAILABLE","This account is unavailable.");
+    });
+    const updated=await this.getUserById(userId);
+    if(!updated)throw errors.unauthorized("ACCOUNT_UNAVAILABLE","This account is unavailable.");
+    return updated;
+  }
+
+  async publicProfileImage(userId:string,publicToken:string){
+    const [row]=await this.db.select({
+      mimeType:accountProfileImages.mimeType,
+      byteSize:accountProfileImages.byteSize,
+      dataBase64:accountProfileImages.dataBase64,
+    }).from(accountProfileImages).where(and(
+      eq(accountProfileImages.userId,userId),
+      eq(accountProfileImages.publicToken,publicToken),
+    )).limit(1);
+    return row??null;
   }
 
   async createPasswordResetChallenge(input: {

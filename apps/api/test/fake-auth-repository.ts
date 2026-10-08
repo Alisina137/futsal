@@ -7,6 +7,7 @@ export class FakeAuthRepository implements AuthRepository {
   users = new Map<string, AuthUserRecord>();
   sessions = new Map<string, SessionRecord>();
   passwordResets = new Map<string, PasswordResetChallengeRecord>();
+  profileImages = new Map<string,{publicToken:string;mimeType:string;byteSize:number;dataBase64:string}>();
   roleSubscriptions = new Map<string, {
     userId: string;
     role: PaidRole;
@@ -143,6 +144,21 @@ export class FakeAuthRepository implements AuthRepository {
     const next = { ...user, ...input };
     this.users.set(userId, next);
     return next;
+  }
+
+  async saveProfileImage(userId:string,asset:{publicToken:string;mimeType:string;byteSize:number;dataBase64:string}){
+    const user=this.users.get(userId);
+    if(!user)throw errors.unauthorized("ACCOUNT_UNAVAILABLE","This account is unavailable.");
+    this.profileImages.set(userId,asset);
+    const next={...user,profileImageUrl:`/api/v1/users/avatars/${userId}/${asset.publicToken}`};
+    this.users.set(userId,next);
+    return next;
+  }
+
+  async publicProfileImage(userId:string,token:string){
+    const image=this.profileImages.get(userId);
+    if(!image||image.publicToken!==token)return null;
+    return {mimeType:image.mimeType,byteSize:image.byteSize,dataBase64:image.dataBase64};
   }
 
   async createPasswordResetChallenge(input: {

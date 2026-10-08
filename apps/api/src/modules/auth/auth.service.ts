@@ -185,12 +185,43 @@ export class AuthService {
     const emailNormalized = input.email?.trim().toLowerCase() || null;
     return toUserDto(await this.repository.updateAccountProfile(userId, {
       displayName: input.displayName?.trim() || user.username || user.displayName,
-      profileImageUrl: input.profileImageUrl?.trim() || null,
+      profileImageUrl: input.profileImageUrl===undefined?user.profileImageUrl:(input.profileImageUrl.trim() || null),
       age: input.age ?? null,
       emailNormalized,
       city: input.city?.trim() || null,
       bio: input.bio?.trim() || null,
     }));
+  }
+
+  async uploadProfileImage(userId:string,mimeType:string,bytes:Buffer){
+    const user=await this.repository.getUserById(userId);
+    if(!user)throw errors.unauthorized("ACCOUNT_UNAVAILABLE","This account is unavailable.");
+    this.ensureActive(user);
+    const kind=mimeType.toLowerCase();
+    const allowed=["image/jpeg","image/png","image/webp","image/heic","image/heif"];
+    if(!allowed.includes(kind))throw errors.badRequest("MEDIA_TYPE_NOT_ALLOWED","Select a JPG, PNG, WEBP, HEIC or HEIF image.");
+    if(!bytes.length)throw errors.badRequest("MEDIA_EMPTY","Select a non-empty image.");
+    if(bytes.length>6*1024*1024)throw errors.badRequest("MEDIA_TOO_LARGE","Images must be 6 MB or smaller.");
+    const valid=kind==="image/jpeg"
+      ?bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff
+      :kind==="image/png"
+      ?bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
+      :kind==="image/webp"
+      ?bytes.toString("ascii",0,4)==="RIFF"&&bytes.toString("ascii",8,12)==="WEBP"
+      :bytes.length>=12&&bytes.toString("ascii",4,8)==="ftyp"&&
+        ["heic","heix","hevc","hevx","mif1","msf1"].includes(bytes.toString("ascii",8,12));
+    if(!valid)throw errors.badRequest("MEDIA_INVALID_IMAGE","The selected file is not a valid image.");
+    const publicToken=randomBytes(24).toString("base64url");
+    const updated=await this.repository.saveProfileImage(userId,{
+      publicToken,mimeType:kind,byteSize:bytes.length,dataBase64:bytes.toString("base64"),
+    });
+    return {user:toUserDto(updated)};
+  }
+
+  async publicProfileImage(userId:string,token:string){
+    const image=await this.repository.publicProfileImage(userId,token);
+    if(!image)throw errors.badRequest("MEDIA_ASSET_NOT_FOUND","This profile image is unavailable.");
+    return image;
   }
 
   async requestPasswordReset(input: PasswordResetRequest): Promise<PasswordResetRequestResponse> {
