@@ -332,6 +332,7 @@ export class DrizzleTimetableRepository implements TimetableRepository {
         endsAt: bookings.endsAt,
         priceAfn: bookings.priceAfn,
         source: bookings.source,
+        bookingStatus: bookings.status,
         customerName: bookings.customerName,
       }).from(bookings)
         .innerJoin(venueAreas, eq(bookings.areaId, venueAreas.id))
@@ -396,6 +397,7 @@ export class DrizzleTimetableRepository implements TimetableRepository {
         title: row.customerName || "Booking",
         priceAfn: row.priceAfn,
         source: row.source,
+        bookingStatus: row.bookingStatus,
       })),
       ...blockRows.map((row) => ({
         id: row.id,
