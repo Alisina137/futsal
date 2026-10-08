@@ -13,6 +13,12 @@ const compiled=ts.transpileModule(source,{
 const scope={exports:{},Intl,Date};
 vm.runInNewContext(compiled,scope);
 const {formatPostTimeAgo}=scope.exports;
+assert(!source.includes("new Intl.RelativeTimeFormat"),"Android Hermes does not always implement Intl.RelativeTimeFormat.");
+const safeScope={exports:{},Date,Intl:{DateTimeFormat:Intl.DateTimeFormat}};
+vm.runInNewContext(compiled,safeScope);
+assert(safeScope.exports.formatPostTimeAgo(new Date("2026-10-08T11:16:00Z"),"en",Date.parse("2026-10-08T12:00:00Z"))==="44 minutes ago",
+  "Post timestamps must work without Intl.RelativeTimeFormat and NumberFormat on Android.");
+
 assert(typeof formatPostTimeAgo==="function","Relative post formatter must exist.");
 const now=Date.parse("2026-10-08T12:00:00.000Z");
 const before=(ms)=>new Date(now-ms).toISOString();
@@ -31,7 +37,7 @@ for(const [elapsed,expected] of cases){
 assert(formatPostTimeAgo(before(5_000),"en",now)==="now","Posts under one minute must show now.");
 assert(!formatPostTimeAgo(before(-60_000),"en",now).startsWith("in "),"Future timestamps must not display a future-relative label.");
 for(const language of ["fa-AF","ps-AF"]){
-  const result=formatPostTimeAgo(before(44*60_000),language,now);
+  const result=safeScope.exports.formatPostTimeAgo(before(44*60_000),language,now);
   assert(result.length>3&&!result.includes("2026"),`Locale ${language} must display relative time, not a date.`);
 }
 assert(hook.includes("setInterval(")&&hook.includes("60_000")&&hook.includes('state==="active"'),"Relative labels must refresh every minute and on app foreground.");

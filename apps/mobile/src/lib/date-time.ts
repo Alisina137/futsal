@@ -62,11 +62,37 @@ export function formatLocalDateTimeParts(
 
 
 /**
- * Post timestamps express elapsed time since publication, not the absolute
- * date/time. Uses device clock (rather than any fixed time zone) and Intl so
- * numbers and units follow the active English, Dari or Pashto app language.
- * Never show a future "in X" label when clocks differ slightly.
+ * Relative publication times without Intl.RelativeTimeFormat.
+ *
+ * Android Hermes/Expo Go may not provide this constructor, even when
+ * Intl.DateTimeFormat is available. Keep this function safe on those devices
+ * and use app-language-specific units (including Dari/Pashto numerals).
  */
+type RelativeUnit="minute"|"hour"|"day"|"week"|"month"|"year";
+
+const postTimeUnits:Record<LanguageCode,Record<RelativeUnit,string>>={
+  en:{minute:"minute",hour:"hour",day:"day",week:"week",month:"month",year:"year"},
+  "fa-AF":{minute:"دقیقه",hour:"ساعت",day:"روز",week:"هفته",month:"ماه",year:"سال"},
+  "ps-AF":{minute:"دقیقه",hour:"ساعت",day:"ورځ",week:"اونۍ",month:"میاشت",year:"کال"},
+};
+
+function localizedDuration(value:number,unit:RelativeUnit,language:LanguageCode):string{
+  if(language==="en"){
+    const unitName=postTimeUnits.en[unit];
+    return `${value} ${unitName}${value===1?"":"s"} ago`;
+  }
+  // Avoid reliance on Intl.NumberFormat for lightweight Hermes builds as well.
+  const nativeDigits="۰۱۲۳۴۵۶۷۸۹";
+  const count=String(value).replace(/[0-9]/g,digit=>nativeDigits[Number(digit)]!);
+  const word=postTimeUnits[language][unit];
+  const psPlural:Partial<Record<RelativeUnit,string>>={
+    day:"ورځې",week:"اونۍ",month:"میاشتې",year:"کاله",hour:"ساعته",minute:"دقیقې",
+  };
+  return language==="ps-AF"
+    ? `${count} ${value===1?word:psPlural[unit]??word} مخکې`
+    : `${count} ${word} پیش`;
+}
+
 export function formatPostTimeAgo(
   publishedAt:string|Date,
   language:LanguageCode,
@@ -76,13 +102,11 @@ export function formatPostTimeAgo(
   const value=published.getTime();
   if(!Number.isFinite(value))return String(publishedAt);
   const seconds=Math.max(0,Math.floor((nowMs-value)/1000));
-  const locale=localeByLanguage[language];
-  const formatter=new Intl.RelativeTimeFormat(locale,{numeric:"always",style:"long"});
-  if(seconds<60)return new Intl.RelativeTimeFormat(locale,{numeric:"auto"}).format(0,"second");
-  if(seconds<3600)return formatter.format(-Math.floor(seconds/60),"minute");
-  if(seconds<86400)return formatter.format(-Math.floor(seconds/3600),"hour");
-  if(seconds<604800)return formatter.format(-Math.floor(seconds/86400),"day");
-  if(seconds<2592000)return formatter.format(-Math.floor(seconds/604800),"week");
-  if(seconds<31536000)return formatter.format(-Math.floor(seconds/2592000),"month");
-  return formatter.format(-Math.floor(seconds/31536000),"year");
+  if(seconds<60)return language==="fa-AF"?"همین حالا":language==="ps-AF"?"همدا اوس":"now";
+  if(seconds<3600)return localizedDuration(Math.floor(seconds/60),"minute",language);
+  if(seconds<86400)return localizedDuration(Math.floor(seconds/3600),"hour",language);
+  if(seconds<604800)return localizedDuration(Math.floor(seconds/86400),"day",language);
+  if(seconds<2592000)return localizedDuration(Math.floor(seconds/604800),"week",language);
+  if(seconds<31536000)return localizedDuration(Math.floor(seconds/2592000),"month",language);
+  return localizedDuration(Math.floor(seconds/31536000),"year",language);
 }
