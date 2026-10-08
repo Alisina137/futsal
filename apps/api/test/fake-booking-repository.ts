@@ -35,6 +35,9 @@ export class FakeBookingRepository implements BookingRepository {
       longitude: null,
       timezone: "Asia/Kabul",
       bookingMode: "INSTANT",
+      onlineBookingEnabled: true,
+      minimumBookingNoticeMinutes: 0,
+      maximumAdvanceBookingDays: 30,
       cancellationPolicy: "Cancel before start time.",
       status: options?.status ?? "ACTIVE",
       areas: [{
@@ -70,10 +73,11 @@ export class FakeBookingRepository implements BookingRepository {
     finally { release(); }
   }
 
-  async listPublicVenueRecords(filters: { city?: string; province?: string }) {
+  async listPublicVenueRecords(filters: { city?: string; province?: string; q?: string }) {
     return [...this.venues.values()].filter((venue) =>
       (!filters.city || venue.city === filters.city) &&
-      (!filters.province || venue.province === filters.province));
+      (!filters.province || venue.province === filters.province) &&
+      (!filters.q || venue.name.toLocaleLowerCase("en-US").includes(filters.q.toLocaleLowerCase("en-US"))));
   }
 
   async getVenueRecord(venueId: string) { return this.venues.get(venueId) ?? null; }
@@ -258,6 +262,16 @@ export class FakeBookingRepository implements BookingRepository {
   async listVenueBlocks(venueId: string, startsAt: Date, endsAt: Date) {
     return [...this.blocks.values()].filter((block) =>
       block.venueId === venueId && overlap(new Date(block.startsAt), new Date(block.endsAt), startsAt, endsAt));
+  }
+
+  async confirmBooking(bookingId: string, _confirmedAt: Date) {
+    const current = this.bookings.get(bookingId);
+    if (!current || current.status !== "PENDING") {
+      throw errors.badRequest("BOOKING_NOT_PENDING", "This booking is no longer pending approval.");
+    }
+    const next: BookingDto = { ...current, status: "CONFIRMED" };
+    this.bookings.set(next.id, next);
+    return next;
   }
 
   async cancelBooking(input: { bookingId: string; cancelledByUserId: string; reason: string | null; cancelledAt: Date }) {
