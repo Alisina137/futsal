@@ -77,7 +77,6 @@ export function AppHeader(){
             {t("common.appName")}
           </AppText>
         </View>
-        <AppText variant="caption" muted numberOfLines={1}>{t("profile.headerSubtitle")}</AppText>
       </View>
 
       <Pressable
@@ -201,7 +200,7 @@ const styles=StyleSheet.create({
     flex:1,
     minWidth:0,
     alignItems:"center",
-    gap:1,
+    justifyContent:"center",
   },
   brandIdentity:{
     flexDirection:"row",

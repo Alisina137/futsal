@@ -1,8 +1,8 @@
-"""Render the approved FUTSAL wordmark and player as reproducible native icons.
+"""Render the approved wordmark-free Futsal player as reproducible native icons.
 
 Source asset is a compact WebP rendition of the approved 1024px preview.
-The complete source graphic is reproduced in-app and on Android, not replaced
-by the previous placeholder goal-and-ball SVG.
+The approved athlete/football artwork contains no letters or wordmark; the
+screen header supplies the Futsal brand name separately.
 """
 from pathlib import Path
 from PIL import Image, ImageChops, ImageOps
@@ -19,7 +19,7 @@ launcher=ImageOps.fit(approved,(1024,1024),method=Image.Resampling.LANCZOS)
 launcher.save(ASSETS/"icon.png",format="PNG",optimize=True)
 
 # Android's adaptive icon mask crops outer image edges. Use a 72% safe area
-# for the entire player + FUTSAL wordmark and transparent foreground.
+# for the text-free athlete and football with transparent foreground.
 scaled=ImageOps.fit(approved,(740,740),method=Image.Resampling.LANCZOS)
 white=Image.new("RGB",scaled.size,"white")
 alpha=ImageChops.difference(scaled,white).convert("L").point(
