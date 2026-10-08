@@ -355,4 +355,75 @@ describe("Phase 2 owner onboarding API", () => {
     expect(duplicate.status).toBe(409);
     expect(duplicate.body.error.code).toBe("TRIAL_ALREADY_USED");
   });
+
+  it("loads and updates live Venue Settings without changing locked venue identity", async () => {
+    const { app, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0701112301");
+    const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+
+    await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
+
+    const before = await request(app).get("/api/v1/owner/settings").set(auth);
+    expect(before.status).toBe(200);
+    expect(before.body.settings.name).toBe(completeSetup.venue.name);
+    expect(before.body.settings.identityLocked).toBe(false);
+    expect(before.body.settings.onlineBookingEnabled).toBe(true);
+
+    const updated = await request(app).patch("/api/v1/owner/settings").set(auth).send({
+      publicPhone: "0795556699",
+      whatsappPhone: "0795556698",
+      latitude: 34.5553,
+      longitude: 69.2075,
+      courtName: "Main Court",
+      defaultSessionDurationMinutes: 120,
+      basePriceAfn: 2500,
+      bookingMode: "APPROVAL",
+      onlineBookingEnabled: false,
+      minimumBookingNoticeMinutes: 60,
+      maximumAdvanceBookingDays: 21,
+      cancellationPolicy: "Cancellation is allowed at least two hours before the booking.",
+    });
+    expect(updated.status).toBe(200);
+    expect(updated.body.settings.publicPhone).toBe("+93795556699");
+    expect(updated.body.settings.whatsappPhone).toBe("+93795556698");
+    expect(updated.body.settings.court.name).toBe("Main Court");
+    expect(updated.body.settings.court.defaultSessionDurationMinutes).toBe(120);
+    expect(updated.body.settings.court.basePriceAfn).toBe(2500);
+    expect(updated.body.settings.bookingMode).toBe("APPROVAL");
+    expect(updated.body.settings.onlineBookingEnabled).toBe(false);
+    expect(updated.body.settings.minimumBookingNoticeMinutes).toBe(60);
+    expect(updated.body.settings.maximumAdvanceBookingDays).toBe(21);
+    expect(updated.body.settings.name).toBe(completeSetup.venue.name);
+    expect(updated.body.settings.address).toBe(completeSetup.venue.address);
+
+    await request(app).post("/api/v1/owner/trial/start").set(auth);
+    const locked = await request(app).get("/api/v1/owner/settings").set(auth);
+    expect(locked.status).toBe(200);
+    expect(locked.body.settings.identityLocked).toBe(true);
+  });
+
+  it("requires complete coordinate pairs in Venue Settings", async () => {
+    const { app, authRepository } = setup();
+    const owner = await register(app, authRepository, "VENUE_OWNER", "0701112302");
+    const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+    await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
+
+    const invalid = await request(app).patch("/api/v1/owner/settings").set(auth).send({
+      publicPhone: "0795556677",
+      whatsappPhone: "",
+      latitude: 34.5,
+      longitude: null,
+      courtName: "Pitch 1",
+      defaultSessionDurationMinutes: 90,
+      basePriceAfn: 1800,
+      bookingMode: "INSTANT",
+      onlineBookingEnabled: true,
+      minimumBookingNoticeMinutes: 0,
+      maximumAdvanceBookingDays: 30,
+      cancellationPolicy: "Cancellation is allowed before the booking start time.",
+    });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
 });
