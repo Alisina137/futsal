@@ -15,7 +15,7 @@ const ownerSchedulePage = read("apps/mobile/app/(app)/owner/schedule.tsx");
 const legacySchedulePage = read("apps/mobile/app/(app)/(tabs)/schedule.tsx");
 const ownerMediaPage = read("apps/mobile/app/(app)/owner/posts/index.tsx");
 const ownerAnalyticsPage = read("apps/mobile/app/(app)/owner/analytics.tsx");
-const ownerSettingsPage = read("apps/mobile/app/(app)/owner/onboarding.tsx");
+const ownerSettingsPage = read("apps/mobile/app/(app)/owner/settings.tsx");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const header = read("apps/mobile/src/components/ui/AppHeader.tsx");
 const localization = read("packages/localization/src/index.ts");
@@ -63,7 +63,7 @@ const ownerCompetitionRoute = ownerTopNav.indexOf('href:"/owner/competitions"');
 const ownerScheduleRoute = ownerTopNav.indexOf('href:"/owner/schedule"');
 const ownerPostsRoute = ownerTopNav.indexOf('href:"/owner/posts"');
 const ownerAnalysisRoute = ownerTopNav.indexOf('href:"/owner/analytics"');
-const ownerSettingsRoute = ownerTopNav.indexOf('href:"/owner/onboarding"');
+const ownerSettingsRoute = ownerTopNav.indexOf('href:"/owner/settings"');
 assert(
   ownerCompetitionRoute >= 0
     && ownerCompetitionRoute < ownerScheduleRoute
