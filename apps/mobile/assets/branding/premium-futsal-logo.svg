@@ -1,56 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-<defs>
- <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0B2A59"/><stop offset="0.50" stop-color="#0B1D45"/><stop offset="1" stop-color="#030E29"/></linearGradient>
- <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E9FAFF"/><stop offset="0.35" stop-color="#63CFFF"/><stop offset="0.64" stop-color="#458BFA"/><stop offset="1" stop-color="#C7EEFF"/></linearGradient>
- <linearGradient id="court" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1457BA"/><stop offset="1" stop-color="#0B2859"/></linearGradient>
- <linearGradient id="ball" x1="0.05" y1="0" x2="0.92" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.35" stop-color="#E9F7FF"/><stop offset="0.73" stop-color="#AFD1ED"/><stop offset="1" stop-color="#6198CA"/></linearGradient>
- <linearGradient id="pan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#204B93"/><stop offset="1" stop-color="#081C43"/></linearGradient>
- <radialGradient id="halo"><stop offset="0" stop-color="#1975E8" stop-opacity=".64"/><stop offset="0.6" stop-color="#1556B6" stop-opacity=".18"/><stop offset="1" stop-color="#1556B6" stop-opacity="0"/></radialGradient>
- <radialGradient id="courtGlow"><stop offset="0" stop-color="#6CE3FF" stop-opacity=".22"/><stop offset="1" stop-color="#6CE3FF" stop-opacity="0"/></radialGradient>
- <clipPath id="art"><rect width="1024" height="1024" rx="204"/></clipPath>
- <clipPath id="ballCircle"><circle cx="514" cy="553" r="155"/></clipPath>
-</defs>
-<g clip-path="url(#art)">
- <rect width="1024" height="1024" fill="url(#bg)"/>
- <circle cx="510" cy="473" r="485" fill="url(#halo)"/>
- <path d="M178 230L390 391L305 474L96 298Z" fill="#67C9FF" fill-opacity=".045"/>
- <path d="M846 222L643 390L728 474L928 289Z" fill="#67C9FF" fill-opacity=".045"/>
- <path d="M213 724V450C213 321 345 235 513 235C680 235 812 321 812 450V724" fill="none" stroke="#091633" stroke-width="70" stroke-linecap="round"/>
- <path d="M223 715V449C223 320 354 244 513 244C672 244 801 320 801 449V715" fill="none" stroke="url(#frame)" stroke-width="35" stroke-linecap="round"/>
- <path d="M263 676V455C263 346 373 287 513 287C651 287 762 346 762 455V676" fill="none" stroke="#8CDEFF" stroke-opacity=".45" stroke-width="4"/>
- <g stroke="#A2D8FA" stroke-opacity=".24" stroke-width="5" fill="none">
-  <path d="M295 348V630 M370 305V630 M444 290V630 M516 287V630 M590 295V630 M665 311V630 M733 346V630"/>
-  <path d="M266 378H758 M266 462H759 M266 542H760 M266 618H760"/>
- </g>
- <path d="M293 348Q499 232 727 346" fill="none" stroke="#FFFFFF" stroke-opacity=".62" stroke-width="8" stroke-linecap="round"/>
- <path d="M224 725V479" fill="none" stroke="#C8F4FF" stroke-width="7" stroke-opacity=".72" stroke-linecap="round"/>
- <path d="M224 700H801L904 830Q915 845 894 857H125Q109 848 124 829Z" fill="url(#court)" stroke="#2A7DDB" stroke-width="7"/>
- <ellipse cx="512" cy="726" rx="320" ry="84" fill="url(#courtGlow)"/>
- <g fill="none" stroke="#73C8FF" stroke-opacity=".60" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M224 702H800M126 846H894M317 700L258 846M706 700L766 846" stroke-width="7"/>
-  <ellipse cx="514" cy="768" rx="120" ry="42" stroke-width="6"/>
-  <path d="M512 702V846" stroke-width="6"/>
- </g>
- <ellipse cx="515" cy="734" rx="185" ry="48" fill="#030D29" fill-opacity=".65"/>
- <circle cx="516" cy="549" r="166" fill="#071D43"/>
- <circle cx="514" cy="553" r="155" fill="url(#ball)"/>
- <g clip-path="url(#ballCircle)">
-  <circle cx="514" cy="553" r="153" fill="none" stroke="#EAFBFF" stroke-width="10"/>
-  <g fill="none" stroke="#2B6CB2" stroke-opacity=".83" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
-   <path d="M462 481L537 457L597 509L575 589L496 607L440 550Z"/>
-   <path d="M462 481L418 414M537 457L556 401M597 509L663 471M575 589L637 651M496 607L482 696M440 550L370 585"/>
-   <path d="M418 414L355 472L370 585L430 635L482 696L576 718L637 651L668 567L663 471L601 408L556 401Z"/>
+  <defs>
+    <clipPath id="art"><rect width="1024" height="1024" rx="205"/></clipPath>
+    <clipPath id="ballCircle"><circle cx="770" cy="321" r="115"/></clipPath>
+  </defs>
+  <g clip-path="url(#art)">
+    <rect id="logoBackground" width="1024" height="1024" fill="#145BD5"/>
+    <g id="logoMark">
+      <!-- Minimal white futsal goal, with a subtle net for instant recognition. -->
+      <path d="M207 754V332H795V754" fill="none" stroke="#FFFFFF" stroke-width="49" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M207 754H795" fill="none" stroke="#FFFFFF" stroke-width="49" stroke-linecap="round"/>
+      <path d="M391 346V735 M591 346V735 M230 543H775" fill="none" stroke="#C7E4FF" stroke-width="16" stroke-linecap="round" opacity=".32"/>
+      <!-- A single recognizable ball sits inside the goal's upper-right corner. -->
+      <circle cx="770" cy="321" r="122" fill="#0C3A98"/>
+      <circle cx="770" cy="321" r="115" fill="#FFFFFF"/>
+      <g clip-path="url(#ballCircle)" fill="none" stroke="#145BD5" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M770 264L824 304L805 368H735L716 304Z" fill="#145BD5" stroke="#145BD5"/>
+        <path d="M770 264L765 202 M824 304L887 284 M805 368L847 420 M735 368L693 420 M716 304L660 274"/>
+        <path d="M765 202L848 225L887 284L872 377L847 420L770 458L693 420L654 350L660 274L701 220Z" stroke-width="9" opacity=".8"/>
+      </g>
+      <circle cx="770" cy="321" r="115" fill="none" stroke="#FFFFFF" stroke-width="7"/>
+    </g>
   </g>
-  <path d="M470 482L536 464L589 513L568 579L498 599L449 550Z" fill="url(#pan)"/>
-  <path d="M370 585L441 558L491 610L473 674L395 661Z" fill="#133C7D" fill-opacity=".92"/>
-  <path d="M562 410L625 433L669 493L597 510L541 459Z" fill="#163D7F" fill-opacity=".93"/>
-  <path d="M576 596L642 658L602 707L495 709L496 612Z" fill="#194B95" fill-opacity=".77"/>
-  <path d="M375 458L425 410L466 482L440 542L365 573Z" fill="#E3F6FF" fill-opacity=".42"/>
-  <path d="M400 466C422 420 476 404 521 402" fill="none" stroke="#FFFFFF" stroke-width="13" stroke-opacity=".66" stroke-linecap="round"/>
-  <path d="M543 688Q609 662 630 605" fill="none" stroke="#B3EEFF" stroke-width="6" stroke-opacity=".5" stroke-linecap="round"/>
- </g>
- <circle cx="514" cy="553" r="157" fill="none" stroke="#D6F6FF" stroke-width="6" stroke-opacity=".86"/>
- <path d="M742 238L752 264L780 274L752 283L742 311L730 283L701 274L730 263Z" fill="#BEF3FF" opacity=".89"/>
- <path d="M316 238L321 250L334 255L321 259L316 273L311 259L299 255L311 250Z" fill="#64BAFF" opacity=".74"/>
-</g>
 </svg>

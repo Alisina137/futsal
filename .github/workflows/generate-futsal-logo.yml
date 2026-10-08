@@ -42,6 +42,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Branded launcher icons already match SVG source."
           else
-            git commit -m "assets: render premium futsal icon and adaptive icon [skip ci]"
+            git commit -m "assets: render simple goal-and-ball futsal icons [skip ci]"
             git push origin HEAD:main
           fi
