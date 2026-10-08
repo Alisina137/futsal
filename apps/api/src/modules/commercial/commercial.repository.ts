@@ -242,11 +242,7 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       this.db
         .select()
         .from(venueTimetableExceptions)
-        .where(and(
-          eq(venueTimetableExceptions.venueId, venue.id),
-          gte(venueTimetableExceptions.date, from),
-          lt(venueTimetableExceptions.date, to === "9999-12-31" ? to : `${to.slice(0,8)}${String(Number(to.slice(8,10))+1).padStart(2,"0")}`),
-        )),
+        .where(eq(venueTimetableExceptions.venueId, venue.id)),
       this.db
         .select({ areaId: venueBlocks.areaId, startsAt: venueBlocks.startsAt, endsAt: venueBlocks.endsAt })
         .from(venueBlocks)
