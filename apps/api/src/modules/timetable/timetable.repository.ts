@@ -397,7 +397,7 @@ export class DrizzleTimetableRepository implements TimetableRepository {
         title: row.customerName || "Booking",
         priceAfn: row.priceAfn,
         source: row.source,
-        bookingStatus: row.bookingStatus,
+        bookingStatus: row.bookingStatus === "PENDING" ? "PENDING" as const : "CONFIRMED" as const,
       })),
       ...blockRows.map((row) => ({
         id: row.id,
