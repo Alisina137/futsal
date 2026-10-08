@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { OwnerVenueSettingsDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
@@ -24,7 +24,6 @@ type MapPoint={latitude:number;longitude:number};
 export default function VenueSettingsScreen(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
-  const mapRef=useRef<MapView|null>(null);
   const [locationPickerOpen,setLocationPickerOpen]=useState(false);
   const [draftMapPoint,setDraftMapPoint]=useState<MapPoint|null>(null);
   const [data,setData]=useState<OwnerVenueSettingsDto|null>(null);
@@ -95,7 +94,6 @@ export default function VenueSettingsScreen(){
     const next={latitude:Number(point.latitude.toFixed(6)),longitude:Number(point.longitude.toFixed(6))};
     setLatitude(String(next.latitude));
     setLongitude(String(next.longitude));
-    mapRef.current?.animateToRegion({...next,latitudeDelta:.012,longitudeDelta:.012},220);
   }
 
   function clearMapPoint(){
@@ -207,37 +205,24 @@ export default function VenueSettingsScreen(){
 
       <SectionTitle icon="location-outline" title={t("venueSettings.mapTitle")} body={t("venueSettings.mapBody")}/>
       <Card style={styles.card}>
-        <Button label={t("venueSettings.chooseOnMap")} onPress={openLocationPicker} icon={<Ionicons name="map-outline" size={20} color="#FFFFFF"/>}/>
-        <View style={styles.mapShell}>
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_GOOGLE}
-            style={styles.map}
-            initialRegion={mapCoordinate?{...mapCoordinate,latitudeDelta:.012,longitudeDelta:.012}:DEFAULT_MAP_REGION}
-            mapType="standard"
-            onPress={(event)=>setMapPoint(event.nativeEvent.coordinate)}
-            showsCompass
-            toolbarEnabled={false}
-          >
-            {mapCoordinate?<Marker
-              coordinate={mapCoordinate}
-              draggable
-              title={data.name}
-              description={t("venueSettings.mapMarkerHint")}
-              onDragEnd={(event)=>setMapPoint(event.nativeEvent.coordinate)}
-            />:null}
-          </MapView>
-          <View pointerEvents="none" style={styles.mapHintOverlay}>
-            <View style={styles.mapHintPill}>
-              <Ionicons name="location-outline" size={17} color={colors.primary}/>
-              <AppText variant="caption" weight="semibold">{t("venueSettings.mapTapHint")}</AppText>
-            </View>
+        {/* Keep the map action BESIDE the two coordinate inputs, not above an embedded map. */}
+        <View style={[styles.coordinateSelector,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.coordinateFields}>
+            <TextField label={t("venueSettings.latitude")} value={latitude} editable={false} forceLtr containerStyle={styles.coordinateField}/>
+            <TextField label={t("venueSettings.longitude")} value={longitude} editable={false} forceLtr containerStyle={styles.coordinateField}/>
           </View>
-        </View>
-
-        <View style={[styles.twoColumns,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <TextField label={t("venueSettings.latitude")} value={latitude} editable={false} forceLtr containerStyle={{flex:1}}/>
-          <TextField label={t("venueSettings.longitude")} value={longitude} editable={false} forceLtr containerStyle={{flex:1}}/>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("venueSettings.chooseOnMap")}
+            accessibilityHint={t("venueSettings.mapPickSubtitle")}
+            onPress={openLocationPicker}
+            style={({pressed})=>[styles.coordinateMapButton,pressed&&styles.coordinateMapButtonPressed]}
+          >
+            <Ionicons name="map-outline" size={27} color="#FFFFFF"/>
+            <AppText variant="caption" weight="bold" style={styles.coordinateMapButtonLabel}>
+              {t("venueSettings.mapButton")}
+            </AppText>
+          </Pressable>
         </View>
 
         <View style={[styles.mapActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -424,20 +409,21 @@ const styles=StyleSheet.create({
   sectionTitle:{flexDirection:"row",alignItems:"center",gap:spacing.sm,marginTop:spacing.xs},
   sectionIcon:{width:40,height:40,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   card:{gap:spacing.md},
-  mapShell:{height:320,borderRadius:radius.lg,overflow:"hidden",borderWidth:1,borderColor:colors.border,backgroundColor:colors.surfaceMuted},
-  map:{width:"100%",height:"100%"},
+  coordinateSelector:{alignItems:"stretch",gap:spacing.sm},
+  coordinateFields:{flex:1,minWidth:0,gap:spacing.sm},
+  coordinateField:{width:"100%"},
+  coordinateMapButton:{width:106,minHeight:120,padding:spacing.sm,borderRadius:radius.lg,backgroundColor:colors.primary,alignItems:"center",justifyContent:"center",gap:spacing.xs},
+  coordinateMapButtonPressed:{opacity:.8},
+  coordinateMapButtonLabel:{color:"#FFFFFF",textAlign:"center"},
   mapModalSafe:{flex:1,backgroundColor:colors.background},
   mapModalHeader:{alignItems:"center",gap:spacing.md,padding:spacing.md,backgroundColor:colors.surface,borderBottomWidth:1,borderBottomColor:colors.border},
   mapModalClose:{width:44,height:44,justifyContent:"center",alignItems:"center",borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
   fullMap:{flex:1,width:"100%"},
   mapModalFooter:{gap:spacing.sm,padding:spacing.md,backgroundColor:colors.surface,borderTopWidth:1,borderTopColor:colors.border},
   mapModalButtons:{gap:spacing.sm},
-  mapHintOverlay:{position:"absolute",top:spacing.sm,left:spacing.sm,right:spacing.sm,alignItems:"center"},
-  mapHintPill:{flexDirection:"row",alignItems:"center",gap:spacing.xs,paddingHorizontal:spacing.sm,paddingVertical:spacing.xs,borderRadius:radius.pill,backgroundColor:"rgba(255,255,255,.94)",borderWidth:1,borderColor:colors.border},
   mapActions:{alignItems:"center",gap:spacing.sm},
   clearMapButton:{minHeight:38,flexDirection:"row",alignItems:"center",gap:4,paddingHorizontal:spacing.sm,borderRadius:radius.md,borderWidth:1,borderColor:"#FECACA",backgroundColor:"#FEF2F2"},
   readRow:{gap:2,paddingVertical:spacing.xs,borderBottomWidth:1,borderBottomColor:colors.border},
-  twoColumns:{gap:spacing.sm},
   switchRow:{alignItems:"center",gap:spacing.md},
   infoBox:{flexDirection:"row",gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:"#EFF6FF",borderWidth:1,borderColor:"#BFDBFE"},
   quickRow:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xs},

@@ -119,9 +119,14 @@ for(const marker of [
   'from "react-native-maps"',
   "PROVIDER_GOOGLE",
   "DEFAULT_MAP_REGION",
-  "onPress={(event)=>setMapPoint(event.nativeEvent.coordinate)}",
+  "onPress={openLocationPicker}",
+  'accessibilityLabel={t("venueSettings.chooseOnMap")}',
+  'coordinateMapButton',
+  'styles.coordinateFields',
+  'locationPickerOpen?<Modal',
+  'onPress={(event)=>setDraftMapPoint(event.nativeEvent.coordinate)}',
   "draggable",
-  "onDragEnd={(event)=>setMapPoint(event.nativeEvent.coordinate)}",
+  "onDragEnd={(event)=>setDraftMapPoint(event.nativeEvent.coordinate)}",
   "setLatitude(String(next.latitude))",
   "setLongitude(String(next.longitude))",
   'editable={false}',
@@ -134,6 +139,15 @@ for(const marker of [
 ]){
   assert(settingsPage.includes(marker),`Venue map picker missing: ${marker}`);
 }
+const locationSection=settingsPage.slice(settingsPage.indexOf('<SectionTitle icon="location-outline"'),settingsPage.indexOf('section==="BOOKING"'));
+assert(locationSection.indexOf('styles.coordinateFields')>=0
+  && locationSection.indexOf("onPress={openLocationPicker}")>locationSection.indexOf('styles.coordinateFields'),
+  "Google Maps button must appear NEXT TO latitude and longitude inputs.");
+assert((settingsPage.match(/<MapView\\b/g)??[]).length===1
+  && settingsPage.indexOf("<MapView")>settingsPage.indexOf("locationPickerOpen?<Modal"),
+  "Google Map must open in fullscreen modal, not consume Venue Settings layout.");
+assert(settingsPage.includes('onPress={confirmLocation}')&&settingsPage.includes('setMapPoint(draftMapPoint)'),
+  "Confirm must fill both coordinate fields.");
 assert(ownerNav.includes('href:"/owner/settings"'),"Last Venue Owner tab must open the dedicated Venue Settings page.");
 assert(!ownerNav.includes('labelKey:"owner.dashboardNav.settings",href:"/owner/onboarding"'),"Venue Settings tab must not route back to onboarding.");
 
@@ -157,6 +171,7 @@ for(const key of [
   "venueSettings.coordinatesSelected",
   "venueSettings.clearLocation",
   "venueSettings.chooseOnMap",
+  "venueSettings.mapButton",
   "venueSettings.confirmOnMap",
   "venueSettings.cancelMapPicker",
   "venueSettings.mapPickSubtitle",
