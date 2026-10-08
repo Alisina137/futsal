@@ -62,6 +62,7 @@ export type TimetableOccupancyRecord = {
   title: string;
   priceAfn: number | null;
   source?: "ONLINE" | "MANUAL";
+  bookingStatus?: "PENDING" | "CONFIRMED";
 };
 
 export interface TimetableRepository {
