@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { ApiRequestError, authApi } from "../../../src/lib/api";
+import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -26,7 +27,7 @@ export default function PaidRoleSubscriptionScreen() {
   const { role: rawRole } = useLocalSearchParams<{ role: RoleSlug }>();
   const role = roleFromSlug(rawRole);
   const { session, revalidate } = useAuth();
-  const { t, isRTL } = useLocale();
+  const { t, isRTL, language } = useLocale();
   const [offer, setOffer] = useState<RoleSubscriptionOfferDto | null>(null);
   const [paymentReference, setPaymentReference] = useState("");
   const [loading, setLoading] = useState(true);
@@ -84,6 +85,10 @@ export default function PaidRoleSubscriptionScreen() {
   const active = offer?.status === "ACTIVE";
   const pending = offer?.status === "PENDING";
   const price = offer?.monthlyPriceAfn ?? (role === "VENUE_OWNER" ? 1000 : 300);
+  // The API sends UTC instants. Show an understandable Afghanistan-local deadline, never a raw timestamp.
+  const validUntil = offer?.activeUntil && Number.isFinite(Date.parse(offer.activeUntil))
+    ? formatLocalDateTimeParts(offer.activeUntil, language)
+    : null;
 
   async function submit() {
     if (!session) return;
@@ -140,7 +145,16 @@ export default function PaidRoleSubscriptionScreen() {
           {t(`roles.subscription.${offer.status}` as never)}
         </AppText>
       </View> : null}
-      {offer?.activeUntil ? <AppText variant="caption" muted forceLtr>{t("roles.activeUntil")}: {offer.activeUntil}</AppText> : null}
+      {validUntil && (active || offer?.status === "EXPIRED") ? <View style={styles.validUntilCard}>
+        <AppText variant="bodyLarge" weight="semibold">
+          {t(active ? "roles.accessEndsAt" : "roles.accessEndedAt")}
+        </AppText>
+        <AppText variant="bodyLarge" weight="bold">{validUntil.date}</AppText>
+        <AppText variant="caption" weight="semibold">{validUntil.time}</AppText>
+        <AppText variant="caption" muted>
+          {t(active ? "roles.accessEndsHint" : "roles.accessEndedHint")}
+        </AppText>
+      </View> : null}
     </Card>
 
     <Card style={styles.capabilityCard}>
@@ -187,7 +201,7 @@ export default function PaidRoleSubscriptionScreen() {
       <AppText muted>{t("roles.subscriptionActiveBody")}</AppText>
       <Button
         label={t(role === "VENUE_OWNER" ? "roles.openVenueTools" : "roles.openTeamTools")}
-        onPress={() => router.replace(role === "VENUE_OWNER" ? "/home" : "/teams")}
+        onPress={() => router.replace(role === "VENUE_OWNER" ? "/owner/competitions" : "/teams")}
       />
     </Card> : null}
 
@@ -201,6 +215,7 @@ const styles = {
   priceIcon: { width: 54, height: 54, borderRadius: radius.md, alignItems: "center" as const, justifyContent: "center" as const, backgroundColor: colors.primarySoft },
   priceRow: { alignItems: "baseline" as const, gap: spacing.sm },
   statusLine: { gap: 4 },
+  validUntilCard: { gap: spacing.xs, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.primarySoft },
   capabilityCard: { gap: spacing.md },
   capability: { alignItems: "center" as const, gap: spacing.sm },
   check: { width: 28, height: 28, borderRadius: 14, alignItems: "center" as const, justifyContent: "center" as const, backgroundColor: "#E9F8EF" },
