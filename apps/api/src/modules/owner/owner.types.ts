@@ -1,4 +1,9 @@
-import type { OwnerVenueSetupRequest, VenueOpeningHourInput, VenueRefereeDto } from "@leaguekick/contracts";
+import type {
+  OwnerVenueSettingsUpdateRequest,
+  OwnerVenueSetupRequest,
+  VenueOpeningHourInput,
+  VenueRefereeDto,
+} from "@leaguekick/contracts";
 
 export type OwnerAreaRecord = {
   id: string;
@@ -18,6 +23,13 @@ export type OwnerVenueRecord = {
   address: string;
   latitude: number | null;
   longitude: number | null;
+  timezone: string;
+  bookingMode: "INSTANT" | "APPROVAL";
+  onlineBookingEnabled: boolean;
+  minimumBookingNoticeMinutes: number;
+  maximumAdvanceBookingDays: number;
+  cancellationPolicy: string;
+  verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
   status: "DRAFT" | "READY" | "ACTIVE" | "SUSPENDED";
   setupCompletedAt: Date | null;
   areas: OwnerAreaRecord[];
@@ -54,6 +66,13 @@ export interface OwnerOnboardingRepository {
     endsAt: Date;
   }): Promise<OwnerSubscriptionRecord>;
   markExpired(venueId: string, expiredAt: Date): Promise<void>;
+  updateVenueSettings(input: {
+    ownerUserId: string;
+    settings: OwnerVenueSettingsUpdateRequest;
+    publicPhone: string;
+    whatsappPhone: string | null;
+    updatedAt: Date;
+  }): Promise<OwnerAggregate>;
   resolveActiveUser(input: { usernameNormalized?: string; phoneE164?: string }): Promise<{
     id: string;
     displayName: string;
