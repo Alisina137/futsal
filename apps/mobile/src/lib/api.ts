@@ -96,6 +96,8 @@ import type {
   AdminTrialExtensionRequest,
   SubscriptionPaymentDto,
 } from "@leaguekick/contracts";
+import { fetch as expoFetch } from "expo/fetch";
+import { File } from "expo-file-system";
 import { cachedApiRead, invalidateApiCacheAfterMutation } from "./api-cache";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
@@ -246,24 +248,37 @@ async function uploadVenueMediaAsset(
   purpose:VenueMediaAssetPurpose,
   source:LocalMediaUpload,
 ):Promise<{asset:VenueMediaAssetDto}>{
-  const localResponse=await fetch(source.uri);
-  const blob=await localResponse.blob();
-  const byteSize=source.size??blob.size;
+  let file:File;
+  try{
+    file=new File(source.uri);
+  }catch{
+    throw new ApiRequestError("MEDIA_READ_ERROR","The selected image could not be opened.",null,null,false);
+  }
+
+  if(!file.exists){
+    throw new ApiRequestError("MEDIA_READ_ERROR","The selected image is no longer available.",null,null,false);
+  }
+
+  const byteSize=source.size??file.size;
+  if(byteSize===null||byteSize<=0){
+    throw new ApiRequestError("MEDIA_EMPTY","Choose a non-empty image.",400,null,false);
+  }
   if(byteSize>6*1024*1024){
     throw new ApiRequestError("MEDIA_TOO_LARGE","Images must be 6 MB or smaller.",413,null,false);
   }
-  const mimeType=(source.mimeType||blob.type||"application/octet-stream").toLowerCase();
+
+  const mimeType=(source.mimeType||file.type||"application/octet-stream").toLowerCase();
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),30_000);
   try{
-    const response=await fetch(`${baseUrl}/api/v1/owner/media-assets?purpose=${encodeURIComponent(purpose)}`,{
+    const response=await expoFetch(`${baseUrl}/api/v1/owner/media-assets?purpose=${encodeURIComponent(purpose)}`,{
       method:"POST",
       headers:{
         Authorization:`Bearer ${accessToken}`,
         "Content-Type":mimeType,
         Accept:"application/json",
       },
-      body:blob,
+      body:file,
       signal:controller.signal,
     });
     const body=await response.json().catch(()=>null) as {asset:VenueMediaAssetDto}|ApiErrorBody|null;
@@ -273,13 +288,16 @@ async function uploadVenueMediaAsset(
         errorBody?.error?.code??"HTTP_ERROR",
         errorBody?.error?.message??"Upload failed.",
         response.status,
-        errorBody?.error?.requestId??null,
+        errorBody?.error?.requestId??response.headers.get("X-Request-Id"),
         false,
         errorBody?.error?.details,
       );
     }
+    if(!body||!("asset" in body)){
+      throw new ApiRequestError("INVALID_UPLOAD_RESPONSE","The server returned an invalid upload response.",response.status,null,false);
+    }
     await invalidateApiCacheAfterMutation("/api/v1/owner/media-assets",accessToken);
-    return body as {asset:VenueMediaAssetDto};
+    return body;
   }catch(error){
     if(error instanceof ApiRequestError)throw error;
     const timedOut=error instanceof Error&&error.name==="AbortError";
