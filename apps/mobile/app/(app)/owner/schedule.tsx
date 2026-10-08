@@ -189,6 +189,14 @@ export default function OwnerScheduleScreen(){
     catch{setError(t("schedule.loadTimetableError"));}
   }
 
+  async function confirmBooking(id:string){
+    if(!token)return;
+    setBusy(`event-${id}`);
+    try{await ownerApi.confirmBooking(token,id);await loadCalendar();}
+    catch{setError(t("schedule.approveError"));}
+    finally{setBusy(null);}
+  }
+
   async function cancelBooking(id:string){
     if(!token)return;
     setBusy(`event-${id}`);
@@ -311,6 +319,10 @@ export default function OwnerScheduleScreen(){
       busy={busy===`event-${selectedSlot.event.id}`}
       onClose={()=>setSelectedSlot(null)}
       onOpenDay={openCalendarDay}
+      onConfirmBooking={(id)=>{
+        setSelectedSlot(null);
+        void confirmBooking(id);
+      }}
       onCancelBooking={(id)=>{
         setSelectedSlot(null);
         void cancelBooking(id);
@@ -509,7 +521,7 @@ function SlotColorGuide({t}:{t:ReturnType<typeof useLocale>["t"]}){
 }
 
 function SlotManager({
-  event,date,language,t,busy,onClose,onOpenDay,onCancelBooking,onUnblock,
+  event,date,language,t,busy,onClose,onOpenDay,onConfirmBooking,onCancelBooking,onUnblock,
 }:{
   event:VenueCalendarEvent;
   date:string;
@@ -518,6 +530,7 @@ function SlotManager({
   busy:boolean;
   onClose:()=>void;
   onOpenDay:(date:string)=>void;
+  onConfirmBooking:(id:string)=>void;
   onCancelBooking:(id:string)=>void;
   onUnblock:(id:string)=>void;
 }){
@@ -551,6 +564,7 @@ function SlotManager({
             t={t}
             busy={busy}
             onNavigate={navigateFromSlot}
+            onConfirmBooking={()=>onConfirmBooking(event.id)}
             onCancelBooking={()=>onCancelBooking(event.id)}
             onUnblock={()=>onUnblock(event.id)}
           />
@@ -673,13 +687,14 @@ function DaySlotView({
 }
 
 function EventCard({
-  event,language,t,busy,onNavigate,onCancelBooking,onUnblock,
+  event,language,t,busy,onNavigate,onConfirmBooking,onCancelBooking,onUnblock,
 }:{
   event:VenueCalendarEvent;
   language:"fa-AF"|"ps-AF"|"en";
   t:ReturnType<typeof useLocale>["t"];
   busy:boolean;
   onNavigate:(navigate:()=>void)=>void;
+  onConfirmBooking:()=>void;
   onCancelBooking:()=>void;
   onUnblock:()=>void;
 }){
@@ -694,6 +709,9 @@ function EventCard({
       <View style={{flex:1,gap:2}}>
         <AppText weight="bold">{t(`schedule.event.${event.type}` as never)}</AppText>
         <AppText variant="caption" muted>{event.title}</AppText>
+        {event.type==="ONLINE_BOOKING"&&event.bookingStatus==="PENDING"?<View style={styles.pendingBadge}>
+          <AppText variant="caption" weight="bold" style={styles.pendingBadgeText}>{t("schedule.pendingApproval")}</AppText>
+        </View>:null}
       </View>
       {event.priceAfn!==null?<AppText weight="bold" forceLtr>{event.priceAfn} AFN</AppText>:null}
     </View>
@@ -720,7 +738,22 @@ function EventCard({
         style={styles.actionButton}
       />:null}
     </View>:null}
-    {(event.type==="ONLINE_BOOKING"||event.type==="MANUAL_BOOKING")?<Button
+    {event.type==="ONLINE_BOOKING"&&event.bookingStatus==="PENDING"?<View style={styles.actionGrid}>
+      <Button
+        label={t("schedule.approveBooking")}
+        onPress={onConfirmBooking}
+        loading={busy}
+        style={styles.actionButton}
+      />
+      <Button
+        label={t("schedule.cancelBooking")}
+        onPress={onCancelBooking}
+        loading={busy}
+        variant="danger"
+        style={styles.actionButton}
+      />
+    </View>:null}
+    {((event.type==="ONLINE_BOOKING"&&event.bookingStatus!=="PENDING")||event.type==="MANUAL_BOOKING")?<Button
       label={t("schedule.cancelBooking")}
       onPress={onCancelBooking}
       loading={busy}
@@ -792,6 +825,8 @@ function Legend({t}:{t:ReturnType<typeof useLocale>["t"]}){
 
 
 const styles=StyleSheet.create({
+  pendingBadge:{alignSelf:"flex-start",paddingHorizontal:spacing.xs,paddingVertical:2,borderRadius:radius.pill,backgroundColor:"#FEF3C7"},
+  pendingBadgeText:{color:"#92400E"},
   errorCard:{borderColor:colors.danger},
   calendarDataArea:{position:"relative",minHeight:1},
   toolbar:{gap:spacing.sm},
