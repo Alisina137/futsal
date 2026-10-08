@@ -343,20 +343,114 @@ export const ownerBillingSummarySchema = z.object({
 });
 export type OwnerBillingSummary = z.infer<typeof ownerBillingSummarySchema>;
 
+export const ownerAnalyticsDailyPointSchema = z.object({
+  date: dateOnlySchema,
+  bookingCount: z.number().int().min(0),
+  confirmedBookingCount: z.number().int().min(0),
+  cancelledBookingCount: z.number().int().min(0),
+  revenueAfn: z.number().int().min(0),
+  bookedMinutes: z.number().int().min(0),
+  scheduledMinutes: z.number().int().min(0),
+  occupancyRate: z.number().min(0).max(1),
+});
+export type OwnerAnalyticsDailyPoint = z.infer<typeof ownerAnalyticsDailyPointSchema>;
+
+export const ownerAnalyticsWeekdayPointSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  bookingCount: z.number().int().min(0),
+  revenueAfn: z.number().int().min(0),
+  bookedMinutes: z.number().int().min(0),
+  scheduledMinutes: z.number().int().min(0),
+  occupancyRate: z.number().min(0).max(1),
+});
+export type OwnerAnalyticsWeekdayPoint = z.infer<typeof ownerAnalyticsWeekdayPointSchema>;
+
+export const ownerAnalyticsHourPointSchema = z.object({
+  hour: z.number().int().min(0).max(23),
+  bookingCount: z.number().int().min(0),
+  revenueAfn: z.number().int().min(0),
+});
+export type OwnerAnalyticsHourPoint = z.infer<typeof ownerAnalyticsHourPointSchema>;
+
+export const ownerAnalyticsCancellationReasonSchema = z.object({
+  reason: z.string(),
+  count: z.number().int().min(0),
+});
+export type OwnerAnalyticsCancellationReason = z.infer<typeof ownerAnalyticsCancellationReasonSchema>;
+
+export const ownerAnalyticsComparisonSchema = z.object({
+  previousFrom: dateOnlySchema,
+  previousTo: dateOnlySchema,
+  revenueChangeRate: z.number().nullable(),
+  bookingChangeRate: z.number().nullable(),
+  occupancyChangeRate: z.number().nullable(),
+  cancellationRateDelta: z.number(),
+});
+export type OwnerAnalyticsComparison = z.infer<typeof ownerAnalyticsComparisonSchema>;
+
 export const ownerAnalyticsResponseSchema = z.object({
   from: dateOnlySchema,
   to: dateOnlySchema,
   generatedAt: isoDateTimeSchema,
+
   bookingCount: z.number().int().min(0),
   confirmedBookingCount: z.number().int().min(0),
   cancelledBookingCount: z.number().int().min(0),
   onlineBookingCount: z.number().int().min(0),
   manualBookingCount: z.number().int().min(0),
   onlineBookingShare: z.number().min(0).max(1),
+  confirmedRate: z.number().min(0).max(1),
+  cancellationRate: z.number().min(0).max(1),
+
   grossBookingValueAfn: z.number().int().min(0),
+  cancelledBookingValueAfn: z.number().int().min(0),
+  averageBookingValueAfn: z.number().int().min(0),
+  revenuePerBookedHourAfn: z.number().int().min(0),
+
   bookedMinutes: z.number().int().min(0),
   availableMinutes: z.number().int().min(0),
+  scheduledMinutes: z.number().int().min(0),
+  competitionMinutes: z.number().int().min(0),
+  blockedMinutes: z.number().int().min(0),
+  remainingOpenMinutes: z.number().int().min(0),
   occupancyRate: z.number().min(0).max(1),
+  productiveUtilizationRate: z.number().min(0).max(1),
+  blockedRate: z.number().min(0).max(1),
+
+  uniqueCustomerCount: z.number().int().min(0),
+  repeatCustomerCount: z.number().int().min(0),
+  repeatCustomerRate: z.number().min(0).max(1),
+  averageBookingsPerCustomer: z.number().min(0),
+
+  promotionCount: z.number().int().min(0),
+  promotionBookingCount: z.number().int().min(0),
+  promotionRevenueAfn: z.number().int().min(0),
+  discountGrantedAfn: z.number().int().min(0),
+  averageDiscountPercent: z.number().min(0).max(100),
+
+  followerCount: z.number().int().min(0),
+  newFollowerCount: z.number().int().min(0),
+  postCount: z.number().int().min(0),
+  postLikeCount: z.number().int().min(0),
+  postCommentCount: z.number().int().min(0),
+  engagementPerPost: z.number().min(0),
+
+  competitionCount: z.number().int().min(0),
+  activeCompetitionCount: z.number().int().min(0),
+  completedCompetitionCount: z.number().int().min(0),
+  competitionTeamCount: z.number().int().min(0),
+  competitionMatchCount: z.number().int().min(0),
+  competitionFeesCollectedAfn: z.number().int().min(0),
+
+  peakDayOfWeek: z.number().int().min(0).max(6).nullable(),
+  peakHour: z.number().int().min(0).max(23).nullable(),
+  bestRevenueDate: dateOnlySchema.nullable(),
+
+  comparison: ownerAnalyticsComparisonSchema,
+  daily: z.array(ownerAnalyticsDailyPointSchema),
+  weekdays: z.array(ownerAnalyticsWeekdayPointSchema),
+  hours: z.array(ownerAnalyticsHourPointSchema),
+  cancellationReasons: z.array(ownerAnalyticsCancellationReasonSchema),
 });
 export type OwnerAnalyticsResponse = z.infer<typeof ownerAnalyticsResponseSchema>;
 
