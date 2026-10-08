@@ -682,6 +682,7 @@ export class TimetableService {
           endsAt: event.endsAt.toISOString(),
           title: event.title,
           priceAfn: event.priceAfn ?? timetablePeriod?.priceAfn ?? area?.basePriceAfn ?? null,
+          bookingStatus: event.type === "BOOKING" ? event.bookingStatus ?? null : null,
         });
       }
 
