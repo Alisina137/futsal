@@ -5,6 +5,7 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 type MapPoint={latitude:number;longitude:number};
 type Props={
   initialPoint:MapPoint|null;
+  readOnly?:boolean;
   onPick:(point:MapPoint)=>void;
   onFailed:()=>void;
   onReady:()=>void;
@@ -13,7 +14,7 @@ type Props={
 // Expo Go SDK 57 sometimes shows the Google watermark without actual tiles.
 // Render a map in Android WebView independently of the native Google Maps SDK.
 // Replace community tiles with a licensed hosted provider before large-scale launch.
-function createMapHtml(initialPoint:MapPoint|null):string{
+function createMapHtml(initialPoint:MapPoint|null,readOnly:boolean):string{
   const center=initialPoint??{latitude:34.5553,longitude:69.2075};
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
@@ -38,21 +39,21 @@ function createMapHtml(initialPoint:MapPoint|null):string{
     var marker=null;
     function setPin(latlng,notify){
       if(!marker){
-        marker=L.marker(latlng,{draggable:true}).addTo(map);
-        marker.on("dragend",function(){var p=marker.getLatLng();send("pick",{latitude:p.lat,longitude:p.lng});});
+        marker=L.marker(latlng,{draggable:${!readOnly}}).addTo(map);
+        if(!${readOnly})marker.on("dragend",function(){var p=marker.getLatLng();send("pick",{latitude:p.lat,longitude:p.lng});});
       }else{marker.setLatLng(latlng);}
       if(notify)send("pick",{latitude:latlng.lat,longitude:latlng.lng});
     }
     if(selected)setPin(L.latLng(selected[0],selected[1]),false);
-    map.on("click",function(event){setPin(event.latlng,true);});
+    if(!${readOnly})map.on("click",function(event){setPin(event.latlng,true);});
     map.invalidateSize();
   }catch(error){send("error");}
 })();
 </script></body></html>`;
 }
 
-export function VenueLocationWebMap({initialPoint,onPick,onFailed,onReady}:Props){
-  const html=useMemo(()=>createMapHtml(initialPoint),[initialPoint?.latitude,initialPoint?.longitude]);
+export function VenueLocationWebMap({initialPoint,readOnly=false,onPick,onFailed,onReady}:Props){
+  const html=useMemo(()=>createMapHtml(initialPoint,readOnly),[initialPoint?.latitude,initialPoint?.longitude,readOnly]);
   function receive(event:WebViewMessageEvent){
     try{
       const message:unknown=JSON.parse(event.nativeEvent.data);

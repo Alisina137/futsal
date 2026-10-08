@@ -169,6 +169,22 @@ assert(locationSection.indexOf('styles.coordinateFields')>=0
 assert((settingsPage.match(/<MapView\b/g)??[]).length===1
   && settingsPage.indexOf("<MapView")>settingsPage.indexOf("locationPickerOpen?<Modal"),
   "Google Map must open in fullscreen modal, not consume Venue Settings layout.");
+const addressRow=settingsPage.slice(settingsPage.indexOf('<SectionTitle icon="business-outline"'),settingsPage.indexOf('<SectionTitle icon="call-outline"'));
+assert(addressRow.includes('t("owner.address")')&&addressRow.includes('t("venueSettings.viewSavedAddress")')&&addressRow.includes('onPress={openSavedAddress}'),
+  "General → Address must retain its label and expose a view-saved-address action.");
+assert(!addressRow.includes('<ReadOnlyRow label={t("owner.address")} value={data.address}/>'),
+  "Saved venue address should display on demand, not as a duplicate inline row.");
+assert(settingsPage.includes('savedAddressOpen?<Modal')&&settingsPage.includes('value={data.address}')&&
+  settingsPage.includes('value={data.province}')&&settingsPage.includes('value={data.city}'),
+  "Read-only saved-address sheet must show the previously saved address and locality.");
+assert(settingsPage.includes('initialPoint={savedMapCoordinate}')&&settingsPage.includes('readOnly')&&
+  settingsPage.includes('onPress={()=>void openSavedPinInGoogleMaps()}')&&settingsPage.includes('data?.latitude'),
+  "Saved-address location preview must use persisted coordinates rather than unsaved map drafts.");
+assert(settingsPage.includes('savedAddressNoPin')&&settingsPage.includes('savedAddressMapUnavailable'),
+  "Saved-address preview must handle missing pins and unavailable map tiles.");
+assert(venueWebMap.includes('readOnly?:boolean')&&venueWebMap.includes('if(!${readOnly})map.on("click"')&&
+  venueWebMap.includes('draggable:${!readOnly}'),
+  "Saved-address map must disable marker changes while location edit map remains interactive.");
 assert(settingsPage.includes('onPress={confirmLocation}')&&settingsPage.includes('setMapPoint(draftMapPoint)')&&
   settingsPage.includes('editDraftCoordinates(draftLatitude,value)')&&settingsPage.includes('editDraftCoordinates(value,draftLongitude)'),
   "Native/alternative map and manual coordinates must confirm into venue latitude and longitude.");
@@ -200,6 +216,15 @@ for(const key of [
   "venueSettings.mapGoogle",
   "venueSettings.mapLoading",
   "venueSettings.mapUnavailable",
+  "venueSettings.viewSavedAddress",
+  "venueSettings.savedAddressTitle",
+  "venueSettings.savedAddressDescription",
+  "venueSettings.savedAddressPinTitle",
+  "venueSettings.openSavedPinInGoogleMaps",
+  "venueSettings.savedAddressNoPin",
+  "venueSettings.savedAddressMapUnavailable",
+  "venueSettings.savedAddressLinkError",
+  "venueSettings.closeAddressPreview",
   "venueSettings.confirmOnMap",
   "venueSettings.cancelMapPicker",
   "venueSettings.mapPickSubtitle",

@@ -3,7 +3,7 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { OwnerVenueSettingsDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { VenueLocationWebMap } from "../../../src/components/owner/VenueLocationWebMap";
@@ -26,6 +26,10 @@ export default function VenueSettingsScreen(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const [locationPickerOpen,setLocationPickerOpen]=useState(false);
+  const [savedAddressOpen,setSavedAddressOpen]=useState(false);
+  const [savedAddressMapLoaded,setSavedAddressMapLoaded]=useState(false);
+  const [savedAddressMapError,setSavedAddressMapError]=useState(false);
+  const [savedAddressLinkError,setSavedAddressLinkError]=useState(false);
   const [draftMapPoint,setDraftMapPoint]=useState<MapPoint|null>(null);
   const [draftLatitude,setDraftLatitude]=useState("");
   const [draftLongitude,setDraftLongitude]=useState("");
@@ -90,6 +94,15 @@ export default function VenueSettingsScreen(){
     longitude:longitude.trim()===""?null:Number(longitude),
   }),[advanceDays,basePrice,duration,latitude,longitude,noticeMinutes]);
 
+  const savedMapCoordinate=useMemo(()=>{
+    if(data?.latitude===null||data?.longitude===null||!data)return null;
+    const latitudeValue=Number(data.latitude);
+    const longitudeValue=Number(data.longitude);
+    if(!Number.isFinite(latitudeValue)||!Number.isFinite(longitudeValue)||
+      latitudeValue < -90||latitudeValue > 90||longitudeValue < -180||longitudeValue > 180)return null;
+    return {latitude:latitudeValue,longitude:longitudeValue};
+  },[data?.latitude,data?.longitude]);
+
   const mapCoordinate=useMemo(()=>{
     if(numeric.latitude===null||numeric.longitude===null)return null;
     if(!Number.isFinite(numeric.latitude)||!Number.isFinite(numeric.longitude))return null;
@@ -130,6 +143,24 @@ export default function VenueSettingsScreen(){
       setDraftMapPoint(null);return;
     }
     setDraftMapPoint({latitude:latitudeValue,longitude:longitudeValue});
+  }
+
+  function openSavedAddress(){
+    setSavedAddressMapLoaded(false);
+    setSavedAddressMapError(false);
+    setSavedAddressLinkError(false);
+    setSavedAddressOpen(true);
+  }
+
+  async function openSavedPinInGoogleMaps(){
+    if(!savedMapCoordinate)return;
+    const coordinates=`${savedMapCoordinate.latitude},${savedMapCoordinate.longitude}`;
+    try{
+      await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`);
+      setSavedAddressLinkError(false);
+    }catch{
+      setSavedAddressLinkError(true);
+    }
   }
 
   function openLocationPicker(){
@@ -228,7 +259,18 @@ export default function VenueSettingsScreen(){
         <ReadOnlyRow label={t("owner.venueName")} value={data.name}/>
         <ReadOnlyRow label={t("owner.province")} value={data.province}/>
         <ReadOnlyRow label={t("owner.city")} value={data.city}/>
-        <ReadOnlyRow label={t("owner.address")} value={data.address}/>
+        <View style={[styles.savedAddressRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <AppText variant="caption" muted>{t("owner.address")}</AppText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("venueSettings.viewSavedAddress")}
+            onPress={openSavedAddress}
+            style={({pressed})=>[styles.savedAddressButton,pressed&&{opacity:.75}]}
+          >
+            <Ionicons name="eye-outline" size={17} color={colors.primary}/>
+            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>{t("venueSettings.viewSavedAddress")}</AppText>
+          </Pressable>
+        </View>
         <ReadOnlyRow label={t("venueSettings.timezone")} value={data.timezone} ltr/>
         {!data.identityLocked?<Button label={t("venueSettings.editIdentity")} onPress={()=>router.push("/owner/onboarding")} variant="secondary"/>:null}
       </Card>
@@ -353,6 +395,69 @@ export default function VenueSettingsScreen(){
     </>:null}
 
     {section!=="ACCESS"?<Button label={t("venueSettings.save")} onPress={()=>void save()} loading={saving}/>:null}
+
+    {savedAddressOpen?<Modal
+      visible
+      animationType="slide"
+      onRequestClose={()=>setSavedAddressOpen(false)}
+      statusBarTranslucent
+    >
+      <SafeAreaView style={styles.mapModalSafe} edges={["top","bottom","left","right"]}>
+        <View style={[styles.mapModalHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={{flex:1,gap:2}}>
+            <AppText variant="bodyLarge" weight="bold">{t("venueSettings.savedAddressTitle")}</AppText>
+            <AppText variant="caption" muted>{t("venueSettings.savedAddressDescription")}</AppText>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t("venueSettings.closeAddressPreview")}
+            onPress={()=>setSavedAddressOpen(false)} style={styles.mapModalClose}>
+            <Ionicons name="close" size={24} color={colors.text}/>
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={styles.savedAddressContent} showsVerticalScrollIndicator={false}>
+          <Card style={styles.card}>
+            <ReadOnlyRow label={t("owner.province")} value={data.province}/>
+            <ReadOnlyRow label={t("owner.city")} value={data.city}/>
+            <ReadOnlyRow label={t("owner.address")} value={data.address}/>
+          </Card>
+          {savedMapCoordinate?<>
+            <AppText weight="bold">{t("venueSettings.savedAddressPinTitle")}</AppText>
+            <View style={styles.savedAddressMapFrame}>
+              <VenueLocationWebMap
+                initialPoint={savedMapCoordinate}
+                readOnly
+                onPick={()=>{}}
+                onReady={()=>{setSavedAddressMapLoaded(true);setSavedAddressMapError(false);}}
+                onFailed={()=>{setSavedAddressMapLoaded(false);setSavedAddressMapError(true);}}
+              />
+              {!savedAddressMapLoaded&&!savedAddressMapError
+                ?<View style={styles.mapBusyNotice} pointerEvents="none">
+                  <AppText variant="caption" muted>{t("venueSettings.mapLoading")}</AppText>
+                </View>:null}
+              {savedAddressMapError?<View style={styles.mapErrorNotice} pointerEvents="none">
+                <AppText variant="caption" muted>{t("venueSettings.savedAddressMapUnavailable")}</AppText>
+              </View>:null}
+            </View>
+            <AppText variant="caption" forceLtr>
+              {savedMapCoordinate.latitude.toFixed(6)} , {savedMapCoordinate.longitude.toFixed(6)}
+            </AppText>
+            <Button
+              label={t("venueSettings.openSavedPinInGoogleMaps")}
+              onPress={()=>void openSavedPinInGoogleMaps()}
+              variant="secondary"
+              icon={<Ionicons name="open-outline" size={18} color={colors.primary}/>}
+            />
+            {savedAddressLinkError
+              ?<AppText variant="caption" style={{color:colors.danger}}>{t("venueSettings.savedAddressLinkError")}</AppText>
+              :null}
+          </>:<Card style={styles.card}>
+            <AppText variant="caption" muted>{t("venueSettings.savedAddressNoPin")}</AppText>
+          </Card>}
+        </ScrollView>
+        <View style={styles.savedAddressFooter}>
+          <Button label={t("venueSettings.closeAddressPreview")} onPress={()=>setSavedAddressOpen(false)}/>
+        </View>
+      </SafeAreaView>
+    </Modal>:null}
 
     {locationPickerOpen?<Modal
       visible
@@ -500,6 +605,11 @@ const styles=StyleSheet.create({
   mapModalButtons:{gap:spacing.sm},
   mapActions:{alignItems:"center",gap:spacing.sm},
   clearMapButton:{minHeight:38,flexDirection:"row",alignItems:"center",gap:4,paddingHorizontal:spacing.sm,borderRadius:radius.md,borderWidth:1,borderColor:"#FECACA",backgroundColor:"#FEF2F2"},
+  savedAddressRow:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm,minHeight:48,paddingVertical:spacing.xs,borderBottomWidth:1,borderBottomColor:colors.border},
+  savedAddressButton:{flexDirection:"row",alignItems:"center",justifyContent:"center",gap:spacing.xs,minHeight:44,paddingHorizontal:spacing.sm,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primarySoft},
+  savedAddressContent:{width:"100%",maxWidth:720,alignSelf:"center",padding:spacing.md,paddingBottom:spacing.xl,gap:spacing.md,flexGrow:1},
+  savedAddressMapFrame:{height:300,borderRadius:radius.lg,overflow:"hidden",borderWidth:1,borderColor:colors.border,backgroundColor:colors.surfaceMuted},
+  savedAddressFooter:{padding:spacing.md,borderTopWidth:1,borderTopColor:colors.border,backgroundColor:colors.surface},
   readRow:{gap:2,paddingVertical:spacing.xs,borderBottomWidth:1,borderBottomColor:colors.border},
   switchRow:{alignItems:"center",gap:spacing.md},
   infoBox:{flexDirection:"row",gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:"#EFF6FF",borderWidth:1,borderColor:"#BFDBFE"},
