@@ -11,12 +11,14 @@ import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 import { useAuth } from "../../../src/providers/AuthProvider";
-import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
+import { formatPostTimeAgo } from "../../../src/lib/date-time";
+import { usePostTimeNow } from "../../../src/hooks/usePostTimeNow";
 
 export default function PostDetailScreen(){
   const {postId}=useLocalSearchParams<{postId:string}>();
   const {session}=useAuth();
   const {t,language}=useLocale();
+  const postNow=usePostTimeNow();
   const [post,setPost]=useState<VenuePostDto|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -67,10 +69,7 @@ export default function PostDetailScreen(){
       <View style={{gap:spacing.xs}}>
         <AppText variant="bodyLarge" weight="bold">{post.venueName}</AppText>
         <AppText>{post.body}</AppText>
-        {(()=>{
-          const when=formatLocalDateTimeParts(post.publishedAt,language);
-          return <AppText variant="caption" muted>{when.date} · {when.time}</AppText>;
-        })()}
+        <AppText variant="caption" muted>{formatPostTimeAgo(post.publishedAt,language,postNow)}</AppText>
       </View>
       {post.ctaType!=="NONE"?<Button label={t("feed.openCta")} onPress={openCta}/>:null}
       {session&&post.socialPostId?<Button

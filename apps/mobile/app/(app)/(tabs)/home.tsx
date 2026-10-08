@@ -10,7 +10,8 @@ import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { marketingApi, resolveMediaImageUrl } from "../../../src/lib/api";
-import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
+import { formatPostTimeAgo } from "../../../src/lib/date-time";
+import { usePostTimeNow } from "../../../src/hooks/usePostTimeNow";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -21,6 +22,7 @@ export default function HomeScreen(){
 function SocialHome(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
+  const postNow=usePostTimeNow();
   const [items,setItems]=useState<SocialFeedPostDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -89,6 +91,7 @@ function SocialHome(){
       token={session?.accessToken??""}
       isRTL={isRTL}
       language={language}
+      postNow={postNow}
       t={t}
       onUpdate={updatePost}
     />)}
@@ -100,20 +103,22 @@ function SocialPostCard({
   token,
   isRTL,
   language,
+  postNow,
   t,
   onUpdate,
 }:{
   post:SocialFeedPostDto;
   token:string;
   isRTL:boolean;
-  language:Parameters<typeof formatLocalDateTimeParts>[1];
+  language:Parameters<typeof formatPostTimeAgo>[1];
+  postNow:number;
   t:(key:any,params?:Record<string,string|number>)=>string;
   onUpdate:(post:SocialFeedPostDto)=>void;
 }){
   const [likeBusy,setLikeBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
 
-  const published=formatLocalDateTimeParts(post.publishedAt,language);
+  const published=formatPostTimeAgo(post.publishedAt,language,postNow);
 
   function openAuthor(){
     if(post.authorType==="VENUE"){
@@ -179,8 +184,7 @@ function SocialPostCard({
     </Pressable>
 
     <View style={styles.timestamp}>
-      <AppText variant="caption" muted>{published.date}</AppText>
-      <AppText variant="caption" muted>{published.time}</AppText>
+      <AppText variant="caption" muted>{published}</AppText>
     </View>
 
     <AppText>{post.body}</AppText>

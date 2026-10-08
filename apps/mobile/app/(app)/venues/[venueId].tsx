@@ -6,7 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { ApiRequestError, marketingApi, resolveMediaImageUrl, venueApi } from "../../../src/lib/api";
 import { readAvailabilityCache, writeAvailabilityCache } from "../../../src/lib/availability-cache";
-import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
+import { formatPostTimeAgo } from "../../../src/lib/date-time";
+import { usePostTimeNow } from "../../../src/hooks/usePostTimeNow";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -24,6 +25,7 @@ export default function VenueDetailScreen(){
   const {venueId,promotionId,startsAt}=useLocalSearchParams<{venueId:string;promotionId?:string;startsAt?:string}>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
+  const postNow=usePostTimeNow();
   const {isOnline,reconnectVersion}=useNetwork();
   const [venue,setVenue]=useState<PublicVenueDto|null>(null);
   const [date,setDate]=useState(todayKabul());
@@ -185,6 +187,7 @@ export default function VenueDetailScreen(){
         key={post.id}
         post={post}
         language={language}
+        postNow={postNow}
         isRTL={isRTL}
         t={t}
         onOpenCta={()=>{
@@ -256,15 +259,16 @@ export default function VenueDetailScreen(){
 }
 
 function VenuePagePost({
-  post,language,isRTL,t,onOpenCta,
+  post,language,postNow,isRTL,t,onOpenCta,
 }:{
   post:VenuePostDto;
-  language:Parameters<typeof formatLocalDateTimeParts>[1];
+  language:Parameters<typeof formatPostTimeAgo>[1];
+  postNow:number;
   isRTL:boolean;
   t:(key:any,params?:Record<string,string|number>)=>string;
   onOpenCta:()=>void;
 }){
-  const published=formatLocalDateTimeParts(post.publishedAt,language);
+  const published=formatPostTimeAgo(post.publishedAt,language,postNow);
   return <Card style={styles.pagePost}>
     <View style={[styles.postMeta,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <View style={styles.postTypeBadge}>
@@ -273,7 +277,7 @@ function VenuePagePost({
         </AppText>
       </View>
       <View style={{flex:1}}/>
-      <AppText variant="caption" muted>{published.date}</AppText>
+      <AppText variant="caption" muted>{published}</AppText>
     </View>
     <AppText>{post.body}</AppText>
     {resolveMediaImageUrl(post.imageUrl)?<Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={styles.pagePostImage} resizeMode="cover"/>:null}

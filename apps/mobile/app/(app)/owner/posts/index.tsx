@@ -12,7 +12,8 @@ import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { ownerApi, resolveMediaImageUrl } from "../../../../src/lib/api";
-import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
+import { formatLocalDateTimeParts, formatPostTimeAgo } from "../../../../src/lib/date-time";
+import { usePostTimeNow } from "../../../../src/hooks/usePostTimeNow";
 import { useAuth } from "../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
 
@@ -25,6 +26,7 @@ function isPendingSchedule(post:VenuePostDto){
 export default function OwnerPostsScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
+  const postNow=usePostTimeNow();
   const [items,setItems]=useState<VenuePostDto[]>([]);
   const [page,setPage]=useState<VenueMediaPageDto|null>(null);
   const [filter,setFilter]=useState<Filter>("ALL");
@@ -303,6 +305,7 @@ export default function OwnerPostsScreen(){
       busy={busy===item.id}
       language={language}
       isRTL={isRTL}
+      postNow={postNow}
       t={t}
       onToggle={()=>void toggle(item)}
       onVisibility={(visibility)=>void setVisibility(item,visibility)}
@@ -329,13 +332,14 @@ function Insight({icon,value,label}:{icon:keyof typeof Ionicons.glyphMap;value:n
 }
 
 function MediaPostCard({
-  item,page,busy,language,isRTL,t,onToggle,onVisibility,onEdit,onDelete,onCancelSchedule,
+  item,page,busy,language,isRTL,postNow,t,onToggle,onVisibility,onEdit,onDelete,onCancelSchedule,
 }:{
   item:VenuePostDto;
   page:VenueMediaPageDto|null;
   busy:boolean;
   language:Parameters<typeof formatLocalDateTimeParts>[1];
   isRTL:boolean;
+  postNow:number;
   t:(key:any,params?:Record<string,string|number>)=>string;
   onToggle:()=>void;
   onVisibility:(value:VenuePostVisibility)=>void;
@@ -343,7 +347,7 @@ function MediaPostCard({
   onDelete:()=>void;
   onCancelSchedule:(id:string)=>void;
 }){
-  const published=formatLocalDateTimeParts(item.publishedAt,language);
+  const published=formatPostTimeAgo(item.publishedAt,language,postNow);
   const pending=item.schedules.filter((schedule)=>!schedule.executedAt&&!schedule.cancelledAt);
   const avatar=resolveMediaImageUrl(page?.pageProfileImageUrl);
   const postImage=resolveMediaImageUrl(item.imageUrl);
@@ -356,7 +360,7 @@ function MediaPostCard({
       <View style={{flex:1,alignItems:isRTL?"flex-end":"flex-start",gap:2}}>
         <AppText weight="bold">{page?.name??item.venueName}</AppText>
         <View style={[styles.metaInline,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <AppText variant="caption" muted>{published.date} · {published.time}</AppText>
+          <AppText variant="caption" muted>{published}</AppText>
           <Ionicons
             name={item.visibility==="PUBLIC"?"earth-outline":item.visibility==="FOLLOWERS"?"people-outline":"lock-closed-outline"}
             size={13}
