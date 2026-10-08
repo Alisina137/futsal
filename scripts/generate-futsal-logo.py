@@ -1,38 +1,41 @@
-"""Generate a simple Futsal goal-and-ball launcher icon plus safe-zone adaptive icon."""
+"""Render the approved FUTSAL wordmark and player as reproducible native icons.
+
+Source asset is a compact WebP rendition of the approved 1024px preview.
+The complete source graphic is reproduced in-app and on Android, not replaced
+by the previous placeholder goal-and-ball SVG.
+"""
 from pathlib import Path
-import cairosvg
+from PIL import Image, ImageChops, ImageOps
 
-ROOT = Path(__file__).resolve().parents[1]
-assets = ROOT / "apps/mobile/assets"
-svg_path = assets / "branding/premium-futsal-logo.svg"
-source = svg_path.read_text(encoding="utf-8")
+ROOT=Path(__file__).resolve().parents[1]
+ASSETS=ROOT/"apps/mobile/assets"
+SOURCE=ASSETS/"branding/futsal-player-logo.webp"
 
-background = '<rect id="logoBackground" width="1024" height="1024" fill="#145BD5"/>'
-mark = '<g id="logoMark">'
-assert source.count(background) == 1
-assert source.count(mark) == 1
-assert '<circle cx="770" cy="321"' in source
+with Image.open(SOURCE) as asset:
+    assert asset.size[0]>=200 and asset.size[0]==asset.size[1], "Invalid approved logo source."
+    approved=asset.convert("RGB")
 
-def render(name, vector):
-    target = assets / name
-    cairosvg.svg2png(
-        bytestring=vector.encode("utf-8"),
-        write_to=str(target),
-        output_width=1024,
-        output_height=1024,
-    )
-    assert target.stat().st_size > 2500, f"Invalid PNG icon: {target}"
-    print(f"Generated {target.name}: {target.stat().st_size} bytes")
+launcher=ImageOps.fit(approved,(1024,1024),method=Image.Resampling.LANCZOS)
+launcher.save(ASSETS/"icon.png",format="PNG",optimize=True)
 
-# Launcher icon has a solid, brand-blue background.
-render("icon.png", source)
-
-# Android adaptive foreground stays transparent and inside the circle safe zone.
-# The system supplies the same brand blue from app.json as its background.
-foreground = source.replace(background, "", 1)
-foreground = foreground.replace(
-    mark,
-    '<g id="logoMark" transform="translate(130 130) scale(0.74609375)">',
-    1,
+# Android's adaptive icon mask crops outer image edges. Use a 72% safe area
+# for the entire player + FUTSAL wordmark and transparent foreground.
+scaled=ImageOps.fit(approved,(740,740),method=Image.Resampling.LANCZOS)
+white=Image.new("RGB",scaled.size,"white")
+alpha=ImageChops.difference(scaled,white).convert("L").point(
+    lambda value:min(255,round(value*1.7))
 )
-render("adaptive-icon.png", foreground)
+foreground=Image.new("RGBA",(1024,1024),(255,255,255,0))
+foreground.paste(scaled.convert("RGBA"),(142,142))
+foreground.putalpha(
+    Image.new("L",(1024,1024),0)
+)
+whole_alpha=Image.new("L",(1024,1024),0)
+whole_alpha.paste(alpha,(142,142))
+foreground.putalpha(whole_alpha)
+foreground.save(ASSETS/"adaptive-icon.png",format="PNG",optimize=True)
+
+for name in ("icon.png","adaptive-icon.png"):
+    with Image.open(ASSETS/name) as result:
+        assert result.size==(1024,1024)
+    print(f"Created Futsal {name}: {(ASSETS/name).stat().st_size} bytes")
