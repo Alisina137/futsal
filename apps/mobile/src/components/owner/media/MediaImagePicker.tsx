@@ -5,7 +5,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from "react-native";
-import { ownerApi, resolveMediaImageUrl } from "../../../lib/api";
+import { ApiRequestError, ownerApi, resolveMediaImageUrl } from "../../../lib/api";
 import { useLocale } from "../../../providers/LocaleProvider";
 import { AppText } from "../../ui/AppText";
 
@@ -25,7 +25,8 @@ function mimeFromName(name:string|null|undefined){
   if(lower.endsWith(".webp"))return "image/webp";
   if(lower.endsWith(".heic"))return "image/heic";
   if(lower.endsWith(".heif"))return "image/heif";
-  return "image/jpeg";
+  if(lower.endsWith(".jpg")||lower.endsWith(".jpeg"))return "image/jpeg";
+  return "application/octet-stream";
 }
 
 export function MediaImagePicker({
@@ -34,60 +35,85 @@ export function MediaImagePicker({
   const {t,isRTL}=useLocale();
   const [busy,setBusy]=useState<"gallery"|"files"|null>(null);
   const [error,setError]=useState<string|null>(null);
+  const [localPreview,setLocalPreview]=useState<{imageUrl:string;uri:string}|null>(null);
+  const [previewFailed,setPreviewFailed]=useState(false);
   const resolved=resolveMediaImageUrl(value);
+  const previewUri=localPreview?.imageUrl===value?localPreview.uri:resolved;
+
+  function uploadErrorMessage(cause:unknown){
+    const code=cause instanceof ApiRequestError?cause.code:null;
+    if(code==="MEDIA_TOO_LARGE")return t("media.uploadTooLarge");
+    if(code==="MEDIA_READ_ERROR"||code==="MEDIA_EMPTY")return t("media.fileUnavailable");
+    if(code==="MEDIA_TYPE_NOT_ALLOWED"||code==="MEDIA_BODY_REQUIRED")return t("media.unsupportedImage");
+    if(code==="NETWORK_ERROR"||code==="TIMEOUT")return t("media.uploadNetworkError");
+    return t("media.uploadError");
+  }
 
   async function upload(source:{uri:string;mimeType:string;size?:number|null},kind:"gallery"|"files"){
     setBusy(kind);setError(null);
     try{
       const {asset}=await ownerApi.uploadMediaAsset(accessToken,purpose,source);
+      setLocalPreview({imageUrl:asset.imageUrl,uri:source.uri});
+      setPreviewFailed(false);
       onChange(asset.imageUrl);
     }catch(cause){
-      const code=(cause as {code?:string}).code;
-      setError(code==="MEDIA_TOO_LARGE"?t("media.uploadTooLarge"):t("media.uploadError"));
+      setError(uploadErrorMessage(cause));
     }finally{
       setBusy(null);
     }
   }
 
   async function pickGallery(){
-    const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if(!permission.granted){
-      setError(t("media.galleryPermission"));
-      return;
+    setError(null);
+    try{
+      const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if(!permission.granted){
+        setError(t("media.galleryPermission"));
+        return;
+      }
+      const options:ImagePicker.ImagePickerOptions={
+        mediaTypes:["images"],
+        allowsEditing:variant!=="post",
+        quality:.82,
+        selectionLimit:1,
+      };
+      if(variant==="profile")options.aspect=[1,1];
+      if(variant==="cover")options.aspect=[16,6];
+      const result=await ImagePicker.launchImageLibraryAsync(options);
+      if(result.canceled)return;
+      const asset=result.assets[0];
+      if(!asset)return;
+      await upload({
+        uri:asset.uri,
+        mimeType:asset.mimeType??mimeFromName(asset.fileName) || "image/jpeg",
+        ...(asset.fileSize!==undefined?{size:asset.fileSize}:{}),
+      },"gallery");
+    }catch{
+      setError(t("media.fileUnavailable"));
     }
-    const options:ImagePicker.ImagePickerOptions={
-      mediaTypes:["images"],
-      allowsEditing:variant!=="post",
-      quality:.82,
-      selectionLimit:1,
-    };
-    if(variant==="profile")options.aspect=[1,1];
-    if(variant==="cover")options.aspect=[16,6];
-    const result=await ImagePicker.launchImageLibraryAsync(options);
-    if(result.canceled)return;
-    const asset=result.assets[0];
-    if(!asset)return;
-    await upload({
-      uri:asset.uri,
-      mimeType:asset.mimeType??mimeFromName(asset.fileName),
-      ...(asset.fileSize!==undefined?{size:asset.fileSize}:{}),
-    },"gallery");
   }
 
   async function pickFiles(){
-    const result=await DocumentPicker.getDocumentAsync({
-      type:["image/jpeg","image/png","image/webp","image/heic","image/heif"],
-      copyToCacheDirectory:true,
-      multiple:false,
-    });
-    if(result.canceled)return;
-    const asset=result.assets[0];
-    if(!asset)return;
-    await upload({
-      uri:asset.uri,
-      mimeType:asset.mimeType??mimeFromName(asset.name),
-      ...(asset.size!==undefined?{size:asset.size}:{}),
-    },"files");
+    setError(null);
+    try{
+      // Android My Files / cloud image providers often supply a generic MIME type.
+      // Cache the selected document before handing its file URI to native fetch.
+      const result=await DocumentPicker.getDocumentAsync({
+        type:"image/*",
+        copyToCacheDirectory:true,
+        multiple:false,
+      });
+      if(result.canceled)return;
+      const asset=result.assets[0];
+      if(!asset)return;
+      await upload({
+        uri:asset.uri,
+        mimeType:asset.mimeType?.startsWith("image/")?asset.mimeType:mimeFromName(asset.name),
+        ...(asset.size!==undefined?{size:asset.size}:{}),
+      },"files");
+    }catch{
+      setError(t("media.fileUnavailable"));
+    }
   }
 
   return <View style={styles.wrapper}>
@@ -98,10 +124,12 @@ export function MediaImagePicker({
       variant==="profile"&&styles.profilePreview,
       variant==="cover"&&styles.coverPreview,
     ]}>
-      {resolved?<Image
-        source={{uri:resolved}}
+      {previewUri&&!previewFailed?<Image
+        key={previewUri}
+        source={{uri:previewUri}}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
+        onError={()=>{setPreviewFailed(true);setError(t("media.previewError"));}}
       />:<View style={styles.placeholder}>
         <Ionicons
           name={variant==="profile"?"person-outline":"image-outline"}
@@ -131,7 +159,7 @@ export function MediaImagePicker({
       {value?<Pressable
         accessibilityRole="button"
         disabled={disabled||busy!==null}
-        onPress={()=>{onChange("");setError(null);}}
+        onPress={()=>{onChange("");setLocalPreview(null);setPreviewFailed(false);setError(null);}}
         style={({pressed})=>[styles.removeButton,pressed&&styles.pressed]}
       >
         <Ionicons name="trash-outline" size={19} color={colors.danger}/>

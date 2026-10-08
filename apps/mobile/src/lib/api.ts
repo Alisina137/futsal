@@ -97,7 +97,7 @@ import type {
   SubscriptionPaymentDto,
 } from "@leaguekick/contracts";
 import { fetch as expoFetch } from "expo/fetch";
-import { File } from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import { cachedApiRead, invalidateApiCacheAfterMutation } from "./api-cache";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
@@ -249,25 +249,40 @@ async function uploadVenueMediaAsset(
   source:LocalMediaUpload,
 ):Promise<{asset:VenueMediaAssetDto}>{
   let file:File;
+  let stagedFile:File|null=null;
   try{
     file=new File(source.uri);
+    if(!file.exists)throw new Error("The selected image is not accessible.");
+    // Native fetch requires an app-readable file, not a short-lived Android content URI.
+    if(source.uri.startsWith("content://")){
+      const kind=source.mimeType.split(";")[0]?.toLowerCase();
+      const extension=kind==="image/png"?"png":kind==="image/webp"?"webp":kind==="image/heic"?"heic":kind==="image/heif"?"heif":"jpg";
+      stagedFile=new File(Paths.cache,`futsal-media-${Date.now()}-${Math.floor(Math.random()*1e9)}.${extension}`);
+      file.copy(stagedFile);
+      file=stagedFile;
+    }
   }catch{
-    throw new ApiRequestError("MEDIA_READ_ERROR","The selected image could not be opened.",null,null,false);
+    if(stagedFile?.exists)stagedFile.delete();
+    throw new ApiRequestError("MEDIA_READ_ERROR","The selected image could not be opened. Download it to your device and try again.",null,null,false);
   }
 
-  if(!file.exists){
-    throw new ApiRequestError("MEDIA_READ_ERROR","The selected image is no longer available.",null,null,false);
-  }
-
-  const byteSize=source.size??file.size;
-  if(byteSize===null||byteSize<=0){
+  const byteSize=file.size;
+  if(!byteSize||byteSize<=0){
+    if(stagedFile?.exists)stagedFile.delete();
     throw new ApiRequestError("MEDIA_EMPTY","Choose a non-empty image.",400,null,false);
   }
   if(byteSize>6*1024*1024){
+    if(stagedFile?.exists)stagedFile.delete();
     throw new ApiRequestError("MEDIA_TOO_LARGE","Images must be 6 MB or smaller.",413,null,false);
   }
-
-  const mimeType=(source.mimeType||file.type||"application/octet-stream").toLowerCase();
+  const supportedTypes=new Set(["image/jpeg","image/png","image/webp","image/heic","image/heif"]);
+  const reportedType=source.mimeType?.split(";")[0]?.trim().toLowerCase();
+  const detectedType=file.type?.split(";")[0]?.trim().toLowerCase();
+  const mimeType=(reportedType&&supportedTypes.has(reportedType)?reportedType:detectedType)??"";
+  if(!supportedTypes.has(mimeType)){
+    if(stagedFile?.exists)stagedFile.delete();
+    throw new ApiRequestError("MEDIA_TYPE_NOT_ALLOWED","Choose a JPG, PNG, WEBP, HEIC or HEIF image.",400,null,false);
+  }
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),30_000);
   try{
@@ -310,6 +325,7 @@ async function uploadVenueMediaAsset(
     );
   }finally{
     clearTimeout(timeout);
+    if(stagedFile?.exists)stagedFile.delete();
   }
 }
 

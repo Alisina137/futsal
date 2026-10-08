@@ -178,6 +178,11 @@ assert(mobileApi.includes("uploadVenueMediaAsset")&&mobileApi.includes("resolveM
 assert(mobileApi.includes('import { fetch as expoFetch } from "expo/fetch";'),"Media upload must use Expo fetch for native files.");
 assert(mobileApi.includes('import { File } from "expo-file-system";'),"Media upload must use Expo File instead of React Native Blob conversion.");
 assert(mobileApi.includes("body:file"),"Media upload must send the selected native file directly.");
+assert(mediaPicker.includes('type:"image/*"')&&mediaPicker.includes("copyToCacheDirectory:true"),"System Files picker must cache images from all image providers.");
+assert(mediaPicker.includes('asset.mimeType?.startsWith("image/")?asset.mimeType:mimeFromName(asset.name)'),"Android Files generic MIME types must use image filename.");
+assert(mediaPicker.includes("uploadErrorMessage")&&mediaPicker.includes("previewFailed"),"Media must distinguish file, upload and preview failures.");
+assert(mobileApi.includes('source.uri.startsWith("content://")')&&mobileApi.includes("file.copy(stagedFile)"),"Android transient content URI must stage into app cache.");
+assert(mobileApi.includes("const byteSize=file.size"),"Actual native file size is authoritative.");
 const uploadStart=mobileApi.indexOf("async function uploadVenueMediaAsset");
 const uploadEnd=mobileApi.indexOf("export const systemApi",uploadStart);
 const uploadSource=mobileApi.slice(uploadStart,uploadEnd);
