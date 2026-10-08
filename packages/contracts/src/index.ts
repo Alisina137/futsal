@@ -217,6 +217,13 @@ export const ownerVenueDtoSchema = z.object({
   address: z.string(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
+  timezone: z.string(),
+  bookingMode: bookingModeSchema,
+  onlineBookingEnabled: z.boolean(),
+  minimumBookingNoticeMinutes: z.number().int().min(0).max(10_080),
+  maximumAdvanceBookingDays: z.number().int().min(1).max(180),
+  cancellationPolicy: z.string(),
+  verificationStatus: venueVerificationStatusSchema,
   status: z.enum(["DRAFT", "READY", "ACTIVE", "SUSPENDED"]),
   setupCompletedAt: z.string().nullable(),
   areas: z.array(venueAreaDtoSchema).max(1),
@@ -248,6 +255,55 @@ export const ownerOnboardingStatusSchema = z.object({
   subscription: venueSubscriptionDtoSchema,
 });
 export type OwnerOnboardingStatus = z.infer<typeof ownerOnboardingStatusSchema>;
+
+export const ownerVenueSettingsUpdateRequestSchema = z.object({
+  publicPhone: phoneInputSchema,
+  whatsappPhone: phoneInputSchema.optional().or(z.literal("")),
+  latitude: z.number().min(-90).max(90).nullable(),
+  longitude: z.number().min(-180).max(180).nullable(),
+  courtName: z.string().trim().min(1).max(80),
+  defaultSessionDurationMinutes: z.number().int().min(30).max(240),
+  basePriceAfn: z.number().int().min(0).max(1_000_000),
+  bookingMode: bookingModeSchema,
+  onlineBookingEnabled: z.boolean(),
+  minimumBookingNoticeMinutes: z.number().int().min(0).max(10_080),
+  maximumAdvanceBookingDays: z.number().int().min(1).max(180),
+  cancellationPolicy: z.string().trim().min(8).max(1_000),
+}).superRefine((value,ctx)=>{
+  if((value.latitude===null)!==(value.longitude===null)){
+    ctx.addIssue({code:"custom",path:["latitude"],message:"Latitude and longitude must be provided together."});
+  }
+});
+export type OwnerVenueSettingsUpdateRequest = z.infer<typeof ownerVenueSettingsUpdateRequestSchema>;
+
+export const ownerVenueSettingsDtoSchema = z.object({
+  venueId: z.string().uuid(),
+  identityLocked: z.boolean(),
+  name: z.string(),
+  province: z.string(),
+  city: z.string(),
+  address: z.string(),
+  publicPhone: z.string(),
+  whatsappPhone: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  timezone: z.string(),
+  bookingMode: bookingModeSchema,
+  onlineBookingEnabled: z.boolean(),
+  minimumBookingNoticeMinutes: z.number().int().min(0),
+  maximumAdvanceBookingDays: z.number().int().min(1),
+  cancellationPolicy: z.string(),
+  verificationStatus: venueVerificationStatusSchema,
+  venueStatus: z.enum(["DRAFT","READY","ACTIVE","SUSPENDED"]),
+  court: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    defaultSessionDurationMinutes: z.number().int(),
+    basePriceAfn: z.number().int(),
+  }),
+  subscription: venueSubscriptionDtoSchema,
+});
+export type OwnerVenueSettingsDto = z.infer<typeof ownerVenueSettingsDtoSchema>;
 
 export const venueRefereeGrantRequestSchema = z.object({
   identifier: z.string().trim().min(3).max(80),
