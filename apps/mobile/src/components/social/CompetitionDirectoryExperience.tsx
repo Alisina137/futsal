@@ -39,6 +39,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   const [retry,setRetry]=useState(0);
   const [query,setQuery]=useState("");
   const [search,setSearch]=useState("");
+  const [suggestionsOpen,setSuggestionsOpen]=useState(false);
   const [status,setStatus]=useState("");
 
   useFocusEffect(useCallback(()=>{
@@ -74,6 +75,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
       &&(!search||x.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())));
   const suggestions=query.trim()?items.filter(x=>(!status||x.status===status)
     &&x.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).slice(0,8):[];
+  function submit(value=query){setSearch(value.trim());setSuggestionsOpen(false);}
   function render(item:CompetitionListItemDto,index:number){
     const next=action(item,t);
     return <View key={item.id} style={styles.result}>
@@ -144,16 +146,17 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
           onSelect={setStatus}/>
         <TextField testID="competition-name-search" label={t("competition.searchName")}
           placeholder={t("competition.searchPlaceholder")} value={query} maxLength={120}
-          autoCorrect={false} returnKeyType="search"
-          onChangeText={setQuery} onSubmitEditing={()=>setSearch(query.trim())}/>
-        {query.trim()&&suggestions.length>0?<View style={styles.suggestions}>
+          autoCorrect={false} returnKeyType="search" onFocus={()=>setSuggestionsOpen(true)}
+          onChangeText={text=>{setQuery(text);setSuggestionsOpen(true);}}
+          onSubmitEditing={()=>submit()}/>
+        {suggestionsOpen&&suggestions.length>0?<View style={styles.suggestions}>
           {suggestions.map(item=><Pressable key={item.id} accessibilityRole="button"
-            onPress={()=>{setQuery(item.name);setSearch(item.name);}}
+            onPress={()=>{setQuery(item.name);submit(item.name);}}
             style={styles.suggestion}>
             <AppText numberOfLines={1}>{item.name}</AppText>
           </Pressable>)}
         </View>:null}
-        <Button label={t("competition.search")} onPress={()=>setSearch(query.trim())} loading={loading}/>
+        <Button label={t("competition.search")} onPress={()=>submit()} loading={loading}/>
       </View>
     </>:null}
     {loading&&mode!=="directory"?<DataLoadingState variant="list" minHeight={330}/>:null}

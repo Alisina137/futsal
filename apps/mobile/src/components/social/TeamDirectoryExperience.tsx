@@ -34,6 +34,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
   const [city,setCity]=useState("");
   const [query,setQuery]=useState("");
   const [search,setSearch]=useState("");
+  const [suggestionsOpen,setSuggestionsOpen]=useState(false);
 
   useFocusEffect(useCallback(()=>{
     let active=true;
@@ -54,6 +55,11 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
     ?[...teams].sort((a,b)=>(followers.get(b.id)??0)-(followers.get(a.id)??0)||a.name.localeCompare(b.name)).slice(0,15)
     :mode==="following"?followed:mode==="mine"?teams.filter(x=>x.myMembershipRole)
     :teams.filter(x=>(!city||x.city===city)&&(!search||[x.name,x.city].some(y=>y.toLowerCase().includes(search.toLowerCase()))));
+  const suggestions=query.trim()
+    ?teams.filter(x=>(!city||x.city===city)
+      &&[x.name,x.city].some(text=>text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
+      .slice(0,8):[];
+  function submit(value=query){setSearch(value.trim());setSuggestionsOpen(false);}
   async function join(id:string){
     if(!token||joiningId)return;
     setJoiningId(id);setError(null);
@@ -136,8 +142,17 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
           options={cities.map(name=>({value:name,label:name}))} onSelect={setCity}/>
         <TextField testID="teams-name-search" label={t("teams.searchName")}
           placeholder={t("teams.searchPlaceholder")} value={query} maxLength={120}
-          returnKeyType="search" onChangeText={setQuery} onSubmitEditing={()=>setSearch(query.trim())}/>
-        <Button label={t("teams.search")} onPress={()=>setSearch(query.trim())} loading={loading}/>
+          returnKeyType="search" onFocus={()=>setSuggestionsOpen(true)}
+          onChangeText={text=>{setQuery(text);setSuggestionsOpen(true);}}
+          onSubmitEditing={()=>submit()}/>
+        {suggestionsOpen&&suggestions.length>0?<View style={styles.suggestions}>
+          {suggestions.map(item=><Pressable key={item.id} accessibilityRole="button"
+            onPress={()=>{setQuery(item.name);submit(item.name);}} style={styles.suggestion}>
+            <AppText numberOfLines={1}>{item.name}</AppText>
+            <AppText muted variant="caption" numberOfLines={1}>{item.city}</AppText>
+          </Pressable>)}
+        </View>:null}
+        <Button label={t("teams.search")} onPress={()=>submit()} loading={loading}/>
       </View>
       <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Button label={t("teams.invitationsTitle")} onPress={()=>router.push("/teams/invitations")}
@@ -165,6 +180,9 @@ const styles=StyleSheet.create({
   more:{width:148,minHeight:208,backgroundColor:colors.primarySoft,alignItems:"center",
     justifyContent:"center",borderRadius:radius.md,gap:spacing.sm},
   filters:{gap:spacing.sm},
+  suggestions:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
+  suggestion:{minHeight:52,justifyContent:"center",paddingHorizontal:spacing.md,
+    borderBottomWidth:1,borderBottomColor:colors.border,gap:3},
   item:{gap:spacing.sm},
   back:{width:44,height:44,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft,borderRadius:22},
 });
