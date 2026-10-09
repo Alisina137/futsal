@@ -1,44 +1,9 @@
-import { spacing } from "@leaguekick/design-tokens";
-import type { CompetitionDto } from "@leaguekick/contracts";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
-import { competitionApi } from "../../../../src/lib/api";
-import { AppText } from "../../../../src/components/ui/AppText";
-import { Card } from "../../../../src/components/ui/Card";
-import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState";
-import { Screen } from "../../../../src/components/ui/Screen";
-import { useLocale } from "../../../../src/providers/LocaleProvider";
+import {Redirect,useLocalSearchParams} from "expo-router";
 
-export default function CompetitionTeamsScreen(){
+/** Legacy link compatibility: retain the public URL while opening the new profile tab. */
+export default function CompetitionTeamsRedirect(){
   const {competitionId}=useLocalSearchParams<{competitionId:string}>();
-  const {t,isRTL}=useLocale();
-  const [competition,setCompetition]=useState<CompetitionDto|null>(null);
-  const [loading,setLoading]=useState(true);
-  useEffect(()=>{
-    if(!competitionId){setLoading(false);return;}
-    setLoading(true);
-    competitionApi.get(competitionId)
-      .then(({competition})=>setCompetition(competition))
-      .catch(()=>setCompetition(null))
-      .finally(()=>setLoading(false));
-  },[competitionId]);
-  const teams=competition?.teams.filter((team)=>team.status==="ACCEPTED")??[];
-
-  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={500}/></Screen>;
-
-  return <Screen showHeader>
-    <AppText variant="title" weight="bold">{t("competition.teams")}</AppText>
-    {teams.map((team)=><Pressable key={team.teamId} onPress={()=>router.push({pathname:"/teams/[teamId]",params:{teamId:team.teamId}})}>
-      <Card>
-        <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",gap:spacing.sm}}>
-          <View style={{flex:1}}>
-            <AppText weight="bold">{team.teamName}</AppText>
-            {team.groupName?<AppText variant="caption" muted>{t("competition.group",{name:team.groupName})}</AppText>:null}
-          </View>
-          {team.seed?<AppText variant="caption" forceLtr>#{team.seed}</AppText>:null}
-        </View>
-      </Card>
-    </Pressable>)}
-  </Screen>;
+  return <Redirect href={{pathname:"/competitions/[competitionId]",params:{
+    competitionId,tab:"TEAMS"
+  }}}/>;
 }
