@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { lastFiveLeagueResults } from "@leaguekick/contracts";
-import type { CompetitionDto, CompetitionStandingRowDto, LeagueLeagueFormResult } from "@leaguekick/contracts";
+import type { CompetitionDto, CompetitionStandingRowDto, LeagueFormResult } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useMemo } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
