@@ -18,6 +18,10 @@ import {useLocale} from "../../src/providers/LocaleProvider";
 const PAGE_SIZE=30;
 const FILTERS:NotificationListFilter[]=["ALL","UNREAD","BOOKINGS","VENUES","TEAMS","COMPETITIONS"];
 type IconName=keyof typeof Ionicons.glyphMap;
+const FILTER_ICONS:Record<NotificationListFilter,IconName>={
+  ALL:"grid-outline",UNREAD:"mail-unread-outline",BOOKINGS:"calendar-outline",
+  VENUES:"football-outline",TEAMS:"people-outline",COMPETITIONS:"trophy-outline",
+};
 const ICONS:Record<NotificationDto["type"],IconName>={
   BOOKING_CONFIRMED:"checkmark-circle-outline",BOOKING_CANCELLED:"close-circle-outline",
   SLOT_PROMOTION:"pricetag-outline",VENUE_POST:"megaphone-outline",
@@ -221,46 +225,62 @@ export default function NotificationsScreen(){
         <AppText variant="caption" muted>{t("notifications.subtitle")}</AppText>
       </View>
       <Pressable testID="notification-settings" accessibilityRole="button"
-        accessibilityLabel={t("notifications.preferences")} style={styles.settings}
-        onPress={()=>router.push("/notifications/preferences")}>
-        <Ionicons name="options-outline" color={colors.primary} size={23}/>
+        accessibilityLabel={t("notifications.preferences")}
+        onPress={()=>router.push("/notifications/preferences")}
+        style={({pressed})=>[styles.settings,pressed&&styles.pressed]}>
+        <Ionicons name="options-outline" color={colors.primary} size={22}/>
       </Pressable>
     </View>
 
-    <View style={[styles.summary,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <View style={styles.summaryIcon}>
-        <Ionicons name="notifications-outline" size={23} color={colors.primary}/>
+    <View style={styles.summary}>
+      <View style={[styles.summaryTop,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.summaryIcon}>
+          <Ionicons name="notifications-outline" size={25} color={colors.primary}/>
+        </View>
+        <View style={styles.summaryCount}>
+          <AppText weight="bold" variant="title" numberOfLines={1} style={styles.countNumber}>
+            {unreadCount}
+          </AppText>
+          <AppText weight="semibold" variant="caption" numberOfLines={2}>
+            {t("notifications.unread")}
+          </AppText>
+        </View>
       </View>
-      <View style={{flex:1,gap:3}}>
-        <AppText weight="bold" variant="bodyLarge">
-          {t("notifications.unreadCount",{count:unreadCount})}
-        </AppText>
-        <AppText variant="caption" muted>{t("notifications.inboxSummary")}</AppText>
-      </View>
+      <AppText variant="caption" muted style={styles.summaryDescription}>
+        {t("notifications.inboxSummary")}
+      </AppText>
       <Pressable testID="notification-mark-all" accessibilityRole="button"
         accessibilityLabel={t("notifications.markAllRead")}
         accessibilityState={{disabled:unreadCount===0||busy}}
         disabled={unreadCount===0||busy} onPress={()=>void markAll()}
-        style={[styles.allReadButton,(unreadCount===0||busy)&&styles.disabled]}>
-        <Ionicons name="checkmark-done-outline" size={18} color={colors.primary}/>
-        <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>
+        style={({pressed})=>[styles.allReadButton,{flexDirection:isRTL?"row-reverse":"row"},
+          (unreadCount===0||busy)&&styles.allReadDisabled,
+          pressed&&unreadCount>0&&!busy&&styles.pressed]}>
+        <Ionicons name="checkmark-done-outline" size={19}
+          color={unreadCount===0||busy?colors.textMuted:colors.primary}/>
+        <AppText weight="semibold" variant="body" numberOfLines={2}
+          style={[styles.allReadText,(unreadCount===0||busy)&&styles.allReadTextDisabled]}>
           {t("notifications.markAllRead")}
         </AppText>
       </Pressable>
     </View>
 
     <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="notifications-filters"
+      style={styles.filterScroll}
       contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {FILTERS.map(value=><Pressable key={value} testID={`notification-filter-${value}`}
-        accessibilityRole="tab" accessibilityState={{selected:filter===value}}
-        onPress={()=>{setActionId(null);setFilter(value);}} 
-        style={[styles.chip,filter===value&&styles.chipActive]}>
-        <AppText weight="semibold" variant="caption"
-          style={{color:filter===value?"#FFFFFF":colors.text}}>
+        accessibilityRole="tab" accessibilityLabel={t(`notifications.filter.${value}` as never)}
+        accessibilityState={{selected:filter===value}}
+        onPress={()=>{setActionId(null);setFilter(value);}}
+        style={({pressed})=>[styles.chip,filter===value&&styles.chipActive,pressed&&styles.pressed]}>
+        <Ionicons name={FILTER_ICONS[value]} size={17}
+          color={filter===value?"#FFFFFF":colors.textMuted}/>
+        <AppText weight="semibold" variant="caption" numberOfLines={1}
+          style={filter===value?styles.chipLabelActive:styles.chipLabel}>
           {t(`notifications.filter.${value}` as never)}
         </AppText>
         {value==="UNREAD"&&unreadCount>0?<View style={styles.chipCount}>
-          <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
+          <AppText variant="caption" weight="bold" style={styles.chipCountText} numberOfLines={1}>
             {unreadCount>99?"99+":unreadCount}
           </AppText>
         </View>:null}
@@ -270,8 +290,12 @@ export default function NotificationsScreen(){
     {!loading&&total>0?<View style={[styles.toolbar,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <AppText variant="caption" muted>{t("notifications.showingCount",{count:total})}</AppText>
       <Pressable testID="notification-clear-read" accessibilityRole="button"
-        accessibilityLabel={t("notifications.clearRead")} onPress={clearRead}>
-        <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>
+        accessibilityLabel={t("notifications.clearRead")}
+        onPress={clearRead}
+        style={({pressed})=>[styles.clearReadButton,{flexDirection:isRTL?"row-reverse":"row"},
+          pressed&&styles.pressed]}>
+        <Ionicons name="trash-outline" size={16} color={colors.primary}/>
+        <AppText weight="semibold" variant="caption" numberOfLines={2} style={styles.clearReadText}>
           {t("notifications.clearRead")}
         </AppText>
       </Pressable>
@@ -323,7 +347,9 @@ export default function NotificationsScreen(){
           </Pressable>
           <Pressable testID={`notification-actions-${item.id}`} accessibilityRole="button"
             accessibilityLabel={t("notifications.moreActions")}
-            onPress={()=>setActionId(id=>id===item.id?null:item.id)} style={styles.moreIcon}>
+            onPress={()=>setActionId(id=>id===item.id?null:item.id)}
+            style={({pressed})=>[styles.moreIcon,actionId===item.id&&styles.moreIconActive,
+              pressed&&styles.pressed]}>
             <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMuted}/>
           </Pressable>
         </View>
@@ -344,23 +370,40 @@ export default function NotificationsScreen(){
 const styles=StyleSheet.create({
   page:{paddingTop:spacing.md,gap:spacing.md},
   heading:{alignItems:"center",gap:spacing.sm},
-  settings:{width:48,height:48,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+  settings:{width:48,height:48,borderWidth:1,borderColor:"#C5D7F6",borderRadius:radius.md,
     backgroundColor:colors.surface,alignItems:"center",justifyContent:"center"},
-  summary:{backgroundColor:colors.surface,padding:spacing.md,
-    borderRadius:radius.lg,borderWidth:1,borderColor:colors.border,alignItems:"center",gap:spacing.sm},
-  summaryIcon:{width:44,height:44,backgroundColor:colors.primarySoft,borderRadius:22,
+  summary:{backgroundColor:colors.surface,padding:spacing.md,alignItems:"stretch",
+    borderRadius:radius.lg,borderWidth:1,borderColor:colors.border,gap:spacing.sm},
+  summaryTop:{alignItems:"center",gap:spacing.sm},
+  summaryIcon:{width:48,height:48,backgroundColor:colors.primarySoft,borderRadius:24,
     alignItems:"center",justifyContent:"center"},
-  allReadButton:{minHeight:44,paddingHorizontal:8,gap:4,borderRadius:radius.md,
-    backgroundColor:colors.primarySoft,flexDirection:"row",alignItems:"center"},
-  disabled:{opacity:.5},
-  filters:{gap:spacing.xs,paddingVertical:2},
-  chip:{minHeight:44,minWidth:66,alignItems:"center",justifyContent:"center",
-    borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,
-    backgroundColor:colors.surface,paddingHorizontal:spacing.md,flexDirection:"row",gap:5},
+  summaryCount:{flex:1,minWidth:0,gap:0},
+  countNumber:{fontSize:26,lineHeight:31,color:colors.text},
+  summaryDescription:{lineHeight:20},
+  allReadButton:{width:"100%",minHeight:46,paddingHorizontal:spacing.md,paddingVertical:spacing.sm,
+    gap:spacing.sm,borderRadius:radius.md,borderWidth:1,borderColor:"#C5D7F6",
+    backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  allReadText:{color:colors.primary,textAlign:"center",flexShrink:1},
+  allReadDisabled:{backgroundColor:colors.surfaceMuted,borderColor:colors.border},
+  allReadTextDisabled:{color:colors.textMuted},
+  filterScroll:{height:52,minHeight:52,maxHeight:52,flexGrow:0,flexShrink:0,alignSelf:"stretch"},
+  filters:{gap:spacing.sm,paddingVertical:4,alignItems:"center"},
+  chip:{height:44,minHeight:44,maxHeight:44,minWidth:72,flexShrink:0,flexGrow:0,
+    alignItems:"center",justifyContent:"center",borderRadius:radius.pill,
+    borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,
+    paddingHorizontal:spacing.md,flexDirection:"row",gap:spacing.xs},
   chipActive:{backgroundColor:colors.primary,borderColor:colors.primary},
+  chipLabel:{color:colors.text,flexShrink:0},
+  chipLabelActive:{color:"#FFFFFF",flexShrink:0},
   chipCount:{minWidth:20,height:20,alignItems:"center",justifyContent:"center",
     borderRadius:10,backgroundColor:"#FFFFFF",paddingHorizontal:3},
-  toolbar:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  chipCountText:{color:colors.primary,fontSize:11},
+  toolbar:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm,minHeight:44},
+  clearReadButton:{minHeight:44,maxWidth:"65%",alignItems:"center",justifyContent:"center",gap:5,
+    paddingHorizontal:spacing.sm,paddingVertical:spacing.xs,
+    borderRadius:radius.md,borderWidth:1,borderColor:"#C5D7F6",
+    backgroundColor:colors.surface},
+  clearReadText:{color:colors.primary,textAlign:"center",flexShrink:1},
   error:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
   empty:{minHeight:230,justifyContent:"center",alignItems:"center",gap:spacing.md,padding:spacing.lg},
   group:{gap:spacing.sm},
@@ -374,6 +417,9 @@ const styles=StyleSheet.create({
   typeIcon:{width:44,height:44,borderRadius:22,alignItems:"center",justifyContent:"center"},
   titleRow:{alignItems:"center",gap:spacing.sm},
   dot:{width:8,height:8,borderRadius:4,backgroundColor:colors.primary},
-  moreIcon:{width:42,height:48,alignItems:"center",justifyContent:"center"},
+  moreIcon:{width:44,height:44,marginTop:spacing.xs,marginRight:spacing.xs,
+    borderRadius:radius.md,alignItems:"center",justifyContent:"center"},
+  moreIconActive:{backgroundColor:colors.primarySoft},
   actions:{paddingHorizontal:spacing.md,paddingBottom:spacing.md,gap:spacing.sm},
+  pressed:{opacity:.76},
 });

@@ -50,4 +50,18 @@ for(const key of ["notifications.unreadCount","notifications.markAllRead","notif
   "notifications.filter.BOOKINGS","notifications.today","notifications.prefs.delivery"]){
   assert(l10n.split(`"${key}"`).length-1===3,`Missing English/Dari/Pashto: ${key}`);
 }
+assert(screen.includes("style={styles.filterScroll}")&&screen.includes("height:52,minHeight:52,maxHeight:52")
+  &&screen.includes("flexGrow:0,flexShrink:0")&&screen.includes("alignItems:\"center\"")
+  &&screen.includes("height:44,minHeight:44,maxHeight:44")&&screen.includes("flexShrink:0,flexGrow:0"),
+  "The horizontal filter bar must have a fixed compact height, not stretch into tall vertical pills.");
+assert(screen.includes("FILTER_ICONS")&&screen.includes('numberOfLines={1}')
+  &&screen.includes('accessibilityState={{selected:filter===value}}'),
+  "Filter chips need readable single-line labels, category icons and accessible selection.");
+assert(screen.includes("styles.summaryTop")&&screen.includes("styles.summaryCount")
+  &&screen.includes('width:"100%",minHeight:46')&&screen.includes("styles.allReadDisabled"),
+  "Unread summary and Mark All Read button must have independent full-width layout.");
+assert(screen.includes("styles.clearReadButton")
+  &&screen.includes("styles.moreIconActive")
+  &&screen.includes("styles.settings"),
+  "Clear read, notification actions, and settings should have recognizable touch targets.");
 console.log("Notifications Center verified: categorized paginated inbox, accurate unread counts, scoped bulk actions, localized dates and messages, guarded navigation, dedicated preferences and fixed badge sync.");
