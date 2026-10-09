@@ -3,7 +3,7 @@ const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),"utf8");
 const assert=(ok,why)=>{if(!ok)throw Error(why);};
 const board=read("apps/mobile/src/components/competition/LeagueStandingsTable.tsx");
 const sections=read("apps/mobile/src/components/competition/CompetitionProfileSections.tsx");
-const form=read("packages/contracts/src/league-form.ts");
+const form=read("packages/contracts/src/index.ts");
 const tests=read("packages/contracts/src/league-form.test.ts");
 const locale=read("packages/localization/src/index.ts");
 assert(sections.includes('competition.format==="LEAGUE"')
