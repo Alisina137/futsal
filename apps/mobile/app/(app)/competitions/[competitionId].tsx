@@ -1,79 +1,97 @@
-import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { CompetitionDto, CompetitionMediaPostDto, SocialFollowStateDto, TeamListItemDto } from "@leaguekick/contracts";
-import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Pressable, ScrollView, View } from "react-native";
-import { competitionApi, marketingApi, teamApi } from "../../../src/lib/api";
-import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
-import { AppText } from "../../../src/components/ui/AppText";
-import { Button } from "../../../src/components/ui/Button";
-import { Card } from "../../../src/components/ui/Card";
-import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
-import { Screen } from "../../../src/components/ui/Screen";
-import { useAuth } from "../../../src/providers/AuthProvider";
-import { useLocale } from "../../../src/providers/LocaleProvider";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import {colors,radius,spacing} from "@leaguekick/design-tokens";
+import type {CompetitionDto,CompetitionMediaPostDto,SocialFollowStateDto,TeamListItemDto} from "@leaguekick/contracts";
+import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
+import {useCallback,useEffect,useRef,useState} from "react";
+import {Image,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
+import {competitionApi,marketingApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
+import {AppText} from "../../../src/components/ui/AppText";
+import {Button} from "../../../src/components/ui/Button";
+import {Card} from "../../../src/components/ui/Card";
+import {DataLoadingState} from "../../../src/components/ui/DataLoadingState";
+import {Screen} from "../../../src/components/ui/Screen";
+import {
+  COMPETITION_PROFILE_TABS,COMPETITION_TAB_ICONS,CompetitionProfileSections,
+  type CompetitionProfileTab,
+} from "../../../src/components/competition/CompetitionProfileSections";
+import {useAuth} from "../../../src/providers/AuthProvider";
+import {useLocale} from "../../../src/providers/LocaleProvider";
+
+function selectedTab(input?:string):CompetitionProfileTab{
+  return COMPETITION_PROFILE_TABS.includes(input as CompetitionProfileTab)
+    ?input as CompetitionProfileTab:"HOME";
+}
 
 export default function CompetitionDetailScreen(){
-  const {competitionId,focusRegistration}=useLocalSearchParams<{competitionId:string;focusRegistration?:string}>();
+  const {competitionId,focusRegistration,tab}=useLocalSearchParams<{
+    competitionId:string;focusRegistration?:string;tab?:string;
+  }>();
   const {session}=useAuth();
-  const {t,isRTL,language}=useLocale();
-  const [competition,setCompetition]=useState<CompetitionDto|null>(null);
+  const {t,isRTL}=useLocale();
   const scrollRef=useRef<ScrollView>(null);
-  const didScroll=useRef(false);
-  useEffect(()=>{didScroll.current=false;},[competitionId,focusRegistration]);
+  const tabsY=useRef(0);
+  const handledRegistration=useRef(false);
+  const [activeTab,setActiveTab]=useState<CompetitionProfileTab>(()=>selectedTab(tab));
+  const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [myTeams,setMyTeams]=useState<TeamListItemDto[]>([]);
   const [selectedTeamId,setSelectedTeamId]=useState<string|null>(null);
+  const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
+  const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
+  const [followBusy,setFollowBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
-  const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
-  const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
-  const [followBusy,setFollowBusy]=useState(false);
+  const [retry,setRetry]=useState(0);
+
+  useEffect(()=>{
+    handledRegistration.current=false;
+    setActiveTab(focusRegistration==="1"?"HOME":selectedTab(tab));
+  },[tab,focusRegistration,competitionId]);
 
   const load=useCallback(async()=>{
-    if(!competitionId)return;
+    if(!competitionId){setLoading(false);return;}
     setLoading(true);setError(null);
     try{
       const [{competition:next},mediaResult]=await Promise.all([
-        competitionApi.get(competitionId),
-        competitionApi.media(competitionId),
+        competitionApi.get(competitionId),competitionApi.media(competitionId),
       ]);
       setCompetition(next);
       setMediaPosts(mediaResult.posts);
       if(session){
         try{
-          const teams=(await teamApi.mine(session.accessToken)).teams.filter((team)=>team.managerUserId===session.user.id);
-          setMyTeams(teams);
-          setSelectedTeamId((current)=>current??teams[0]?.id??null);
-        }catch{setMyTeams([]);}
-      }
+          const owned=(await teamApi.mine(session.accessToken)).teams
+            .filter(team=>team.managerUserId===session.user.id);
+          setMyTeams(owned);
+          setSelectedTeamId(current=>owned.some(team=>team.id===current)?current:owned[0]?.id??null);
+        }catch{setMyTeams([]);setSelectedTeamId(null);}
+      }else{setMyTeams([]);setSelectedTeamId(null);}
     }catch{setError(t("competition.loadError"));}
     finally{setLoading(false);}
-  },[competitionId,session,t]);
+  },[competitionId,session?.accessToken,session?.user.id,retry,t]);
 
-  useEffect(()=>{void load();},[load]);
-
-  useEffect(()=>{
-    if(!session||!competitionId)return;
-    marketingApi.socialFollowState(session.accessToken,"COMPETITION",competitionId).then(setFollowState).catch(()=>{});
-  },[competitionId,session]);
+  useFocusEffect(useCallback(()=>{
+    let mounted=true;
+    void load();
+    if(session?.accessToken&&competitionId){
+      marketingApi.socialFollowState(session.accessToken,"COMPETITION",competitionId)
+        .then(value=>{if(mounted)setFollowState(value);})
+        .catch(()=>{if(mounted)setFollowState(null);});
+    }else setFollowState(null);
+    return()=>{mounted=false;};
+  },[load,session?.accessToken,competitionId]));
 
   async function toggleFollow(){
-    if(!session||!competitionId||!followState)return;
+    if(!session||!competitionId||!followState||followBusy)return;
     setFollowBusy(true);setError(null);
     try{
-      setFollowState(followState.following
+      const next=followState.following
         ?await marketingApi.socialUnfollow(session.accessToken,"COMPETITION",competitionId)
-        :await marketingApi.socialFollow(session.accessToken,"COMPETITION",competitionId));
-    }catch{
-      setError(t("social.followError"));
-    }finally{setFollowBusy(false);}
+        :await marketingApi.socialFollow(session.accessToken,"COMPETITION",competitionId);
+      setFollowState(next);
+    }catch{setError(t("social.followError"));}
+    finally{setFollowBusy(false);}
   }
-
-  const fixtures=useMemo(()=>competition?.matches.slice().sort((a,b)=>
-    a.stage.localeCompare(b.stage)||b.roundNumber-a.roundNumber||a.slotNumber-b.slotNumber
-  )??[],[competition?.matches]);
 
   async function register(){
     if(!session||!competitionId||!selectedTeamId)return;
@@ -84,126 +102,208 @@ export default function CompetitionDetailScreen(){
     }catch{setError(t("competition.registrationError"));}
     finally{setBusy(false);}
   }
+  function switchTab(next:CompetitionProfileTab){
+    setActiveTab(next);
+    requestAnimationFrame(()=>scrollRef.current?.scrollTo({
+      y:Math.max(0,tabsY.current-spacing.sm),animated:true,
+    }));
+  }
+  function registrationLayout(event:LayoutChangeEvent){
+    if(focusRegistration!=="1"||handledRegistration.current||activeTab!=="HOME")return;
+    handledRegistration.current=true;
+    const y=event.nativeEvent.layout.y;
+    requestAnimationFrame(()=>scrollRef.current?.scrollTo({
+      y:Math.max(0,y-spacing.sm),animated:true,
+    }));
+  }
 
-  const starts=competition?.startsAt?formatLocalDateTimeParts(competition.startsAt,language):null;
+  const accepted=competition?.teams.filter(team=>team.status==="ACCEPTED")??[];
+  const played=competition?.matches.filter(match=>match.status==="COMPLETED"||match.status==="CORRECTED").length??0;
+  // Competitions do not yet have a dedicated cover/avatar column. A real published
+  // competition media image is used as the cover; never fabricate a logo or photo.
+  const cover=resolveMediaImageUrl(mediaPosts.find(post=>post.imageUrl)?.imageUrl??null);
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={500}/></Screen>;
-
-  return <Screen showHeader scrollRef={scrollRef}>
-    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-
-    {competition?<>
-      <Card style={{backgroundColor:colors.primary}}>
-        <View style={{gap:spacing.sm}}>
-          <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",gap:spacing.sm,alignItems:"flex-start"}}>
-            <View style={{flex:1,gap:2}}>
-              <AppText variant="title" weight="bold" style={{color:"#FFFFFF"}}>{competition.name}</AppText>
-              <AppText style={{color:"#DCE8FF"}}>{competition.venueName}</AppText>
-            </View>
-            <View style={{paddingHorizontal:spacing.sm,paddingVertical:spacing.xs,borderRadius:radius.pill,backgroundColor:"#FFFFFF"}}>
-              <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
-                {t(`competition.format.${competition.format}` as never)}
-              </AppText>
-            </View>
-          </View>
-          <AppText weight="semibold" style={{color:"#FFFFFF"}}>{t(`competition.status.${competition.status}` as never)}</AppText>
-          {competition.description?<AppText style={{color:"#DCE8FF"}}>{competition.description}</AppText>:null}
-          {starts?<View style={{gap:2}}>
-            <AppText variant="caption" style={{color:"#DCE8FF"}}>{starts.date}</AppText>
-            <AppText variant="caption" style={{color:"#DCE8FF"}}>{starts.time}</AppText>
-          </View>:null}
-          {competition.championTeamId?<AppText weight="bold" style={{color:"#FFFFFF"}}>{t("competition.champion")}: {competition.teams.find((team)=>team.teamId===competition.championTeamId)?.teamName??"—"}</AppText>:null}
+  const registration=competition?.status==="REGISTRATION_OPEN"&&session?
+    <Card onLayout={registrationLayout} style={styles.registration}>
+      <View style={[styles.registerTitle,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.registerIcon}>
+          <Ionicons name="person-add-outline" color={colors.primary} size={21}/>
         </View>
-      </Card>
-
-      {followState?<View style={{gap:spacing.xs}}>
-        <Button
-          label={followState.following?t("social.unfollow"):t("social.follow")}
-          onPress={()=>void toggleFollow()}
-          loading={followBusy}
-          variant={followState.following?"secondary":"primary"}
-        />
-        <AppText variant="caption" muted>{t("social.followers",{count:followState.followerCount})}</AppText>
-      </View>:null}
-
-      <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,flexWrap:"wrap"}}>
-        <Button label={t("competition.standings")} onPress={()=>router.push({pathname:"/competitions/[competitionId]/standings",params:{competitionId}})} variant="secondary"/>
-        <Button label={t("competition.bracket")} onPress={()=>router.push({pathname:"/competitions/[competitionId]/bracket",params:{competitionId}})} variant="secondary"/>
-        <Button label={t("competition.teams")} onPress={()=>router.push({pathname:"/competitions/[competitionId]/teams",params:{competitionId}})} variant="secondary"/>
-        <Button label={t("competition.stats")} onPress={()=>router.push({pathname:"/competitions/[competitionId]/stats",params:{competitionId}})} variant="secondary"/>
+        <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>{t("competition.register")}</AppText>
       </View>
-
-      {competition.status==="REGISTRATION_OPEN"&&session?<Card
-        onLayout={event=>{
-          if(focusRegistration!=="1"||didScroll.current)return;
-          didScroll.current=true;
-          const y=event.nativeEvent.layout.y;
-          requestAnimationFrame(()=>scrollRef.current?.scrollTo({y:Math.max(0,y-spacing.sm),animated:true}));
-        }}>
-        <AppText variant="bodyLarge" weight="bold">{t("competition.register")}</AppText>
-        <AppText muted>{t("competition.selectTeam")}</AppText>
-        {myTeams.length===0?<AppText>{t("competition.noTeamsForRegistration")}</AppText>:null}
-        {myTeams.map((team)=><Pressable
-          key={team.id}
-          onPress={()=>setSelectedTeamId(team.id)}
-          style={{
-            padding:spacing.md,borderRadius:radius.md,borderWidth:1,
-            borderColor:selectedTeamId===team.id?colors.primary:colors.border,
-            backgroundColor:selectedTeamId===team.id?colors.primarySoft:colors.surface,
-          }}
-        >
-          <AppText weight="semibold" style={selectedTeamId===team.id?{color:colors.primary}:undefined}>{team.name}</AppText>
+      <AppText muted>{t("competition.selectTeam")}</AppText>
+      {myTeams.length===0?<AppText>{t("competition.noTeamsForRegistration")}</AppText>:null}
+      {myTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
+        accessibilityState={{selected:selectedTeamId===team.id}}
+        onPress={()=>setSelectedTeamId(team.id)}
+        style={[styles.teamChoice,{flexDirection:isRTL?"row-reverse":"row"},
+          selectedTeamId===team.id&&styles.teamSelected]}>
+        <View style={styles.radioOuter}>
+          {selectedTeamId===team.id?<View style={styles.radioInner}/>:null}
+        </View>
+        <View style={{flex:1}}>
+          <AppText weight="semibold">{team.name}</AppText>
           <AppText variant="caption" muted>{team.city}</AppText>
-        </Pressable>)}
-        <Button label={t("competition.register")} onPress={()=>void register()} loading={busy} disabled={!selectedTeamId}/>
-        {message?<AppText style={{color:colors.success}}>{message}</AppText>:null}
-      </Card>:null}
+        </View>
+      </Pressable>)}
+      <Button label={t("competition.register")} onPress={()=>void register()}
+        loading={busy} disabled={!selectedTeamId}/>
+      {message?<AppText style={{color:colors.success}}>{message}</AppText>:null}
+    </Card>:null;
 
-      <View style={{gap:spacing.xs}}>
-        <AppText variant="bodyLarge" weight="bold">{t("competition.control.media")}</AppText>
-        <AppText muted>{t("competition.publicMediaBody")}</AppText>
+  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={540}/></Screen>;
+  if(!competition)return <Screen showHeader>
+    <Card style={{gap:spacing.md}}>
+      <AppText>{error??t("competition.loadError")}</AppText>
+      <Button label={t("common.retry")} onPress={()=>setRetry(n=>n+1)}/>
+    </Card>
+  </Screen>;
+
+  return <Screen showHeader scrollRef={scrollRef} style={styles.page}>
+    <View testID="competition-public-profile" style={styles.profile}>
+      <View style={styles.cover}>
+        {cover?<Image source={{uri:cover}} resizeMode="cover" style={StyleSheet.absoluteFill}/>:<>
+          <View style={styles.coverAccent}/>
+          <Ionicons name="trophy-outline" size={80} color="#B7D2FF"/>
+        </>}
+        <View style={styles.coverFormat}>
+          <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>
+            {t(`competition.format.${competition.format}` as never)}
+          </AppText>
+        </View>
       </View>
-
-      {mediaPosts.length===0?<Card><AppText muted>{t("competition.publicMediaEmpty")}</AppText></Card>:null}
-      {mediaPosts.slice(0,5).map((post)=>{
-        const published=formatLocalDateTimeParts(post.publishedAt,language);
-        return <Card key={post.id} style={{gap:spacing.sm}}>
-          <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",gap:spacing.sm}}>
-            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>{t("social.entity.COMPETITION")}</AppText>
-            <AppText variant="caption" muted>{published.date} · {published.time}</AppText>
+      <View style={styles.identity}>
+        <View style={styles.avatarFrame}>
+          <View style={styles.avatar}>
+            <Ionicons name="trophy" size={45} color={colors.primary}/>
           </View>
-          <AppText>{post.body}</AppText>
-          {post.imageUrl?<Image source={{uri:post.imageUrl}} style={{width:"100%",height:220,borderRadius:radius.md,backgroundColor:colors.surfaceMuted}} resizeMode="cover"/>:null}
-        </Card>;
-      })}
-
-      <View style={{gap:spacing.xs}}>
-        <AppText variant="bodyLarge" weight="bold">{t("competition.fixtures")}</AppText>
-        {fixtures.length===0?<AppText muted>{t("competition.noFixtures")}</AppText>:null}
-      </View>
-
-      {fixtures.map((match)=>{
-        const when=match.startsAt?formatLocalDateTimeParts(match.startsAt,language):null;
-        return <Card key={match.id}>
-          <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",gap:spacing.sm}}>
+        </View>
+        <AppText variant="title" weight="bold" style={styles.name}>{competition.name}</AppText>
+        <Pressable accessibilityRole="button" onPress={()=>router.push({
+          pathname:"/venues/[venueId]",params:{venueId:competition.venueId},
+        })} style={[styles.venueLink,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="location-outline" size={16} color={colors.textMuted}/>
+          <AppText variant="caption" muted numberOfLines={2} style={{textAlign:"center"}}>
+            {competition.venueName}
+          </AppText>
+          <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={14} color={colors.primary}/>
+        </Pressable>
+        <View style={[styles.badges,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.badge}>
+            <View style={styles.statusDot}/>
             <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
-              {match.groupName?t("competition.group",{name:match.groupName}):t("competition.round",{number:match.roundNumber})}
+              {t(`competition.status.${competition.status}` as never)}
             </AppText>
-            <AppText variant="caption" muted>{t(`competition.matchStatus.${match.status}` as never)}</AppText>
           </View>
-          <View style={{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",alignItems:"center",gap:spacing.sm}}>
-            <AppText weight="bold" style={{flex:1}}>{match.homeTeamName??t("competition.tbd")}</AppText>
-            <AppText variant="bodyLarge" weight="bold" forceLtr>
-              {match.homeScore===null||match.awayScore===null?"—":`${match.homeScore} - ${match.awayScore}`}
+          {followState?<View style={styles.badge}>
+            <Ionicons name="people-outline" size={15} color={colors.primary}/>
+            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+              {t("social.followers",{count:followState.followerCount})}
             </AppText>
-            <AppText weight="bold" style={{flex:1,textAlign:isRTL?"left":"right"}}>{match.awayTeamName??t("competition.tbd")}</AppText>
-          </View>
-          {when?<View style={{gap:2}}>
-            <AppText variant="caption" muted>{when.date}</AppText>
-            <AppText variant="caption" muted>{when.time}{match.areaName?` · ${match.areaName}`:""}</AppText>
           </View>:null}
-        </Card>;
-      })}
-    </>:null}
+        </View>
+        {followState?<View style={styles.followRow}>
+          <Button label={followState.following?t("social.unfollow"):t("social.follow")}
+            onPress={()=>void toggleFollow()} loading={followBusy}
+            variant={followState.following?"secondary":"primary"} style={{flex:1}}/>
+        </View>:null}
+      </View>
+    </View>
+
+    <View style={[styles.metrics,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={styles.metric}>
+        <Ionicons name="people-outline" size={19} color={colors.primary}/>
+        <AppText weight="bold" variant="bodyLarge">{accepted.length}/{competition.maxTeams}</AppText>
+        <AppText variant="caption" muted>{t("competition.teams")}</AppText>
+      </View>
+      <View style={styles.metricDivider}/>
+      <View style={styles.metric}>
+        <Ionicons name="football-outline" size={19} color={colors.primary}/>
+        <AppText weight="bold" variant="bodyLarge">{competition.matches.length}</AppText>
+        <AppText variant="caption" muted>{t("competition.profile.matches")}</AppText>
+      </View>
+      <View style={styles.metricDivider}/>
+      <View style={styles.metric}>
+        <Ionicons name="checkmark-done-outline" size={19} color={colors.primary}/>
+        <AppText weight="bold" variant="bodyLarge">{played}</AppText>
+        <AppText variant="caption" muted>{t("competition.profile.results")}</AppText>
+      </View>
+    </View>
+
+    <View onLayout={e=>{tabsY.current=e.nativeEvent.layout.y;}} style={styles.tabWrapper}>
+      <ScrollView horizontal testID="competition-profile-tabs" showsHorizontalScrollIndicator={false}
+        style={styles.tabViewport} contentContainerStyle={[
+          styles.tabList,{flexDirection:isRTL?"row-reverse":"row"},
+        ]}>
+        {COMPETITION_PROFILE_TABS.map(value=><Pressable key={value}
+          testID={`competition-tab-${value}`} accessibilityRole="tab"
+          accessibilityState={{selected:activeTab===value}}
+          accessibilityLabel={t(`competition.profile.tab.${value}` as never)}
+          onPress={()=>switchTab(value)}
+          style={({pressed})=>[styles.tab,activeTab===value&&styles.tabActive,
+            pressed&&styles.tabPressed]}>
+          <Ionicons name={COMPETITION_TAB_ICONS[value]} size={19}
+            color={activeTab===value?colors.primary:colors.textMuted}/>
+          <AppText variant="caption" weight="semibold" numberOfLines={1}
+            style={{color:activeTab===value?colors.primary:colors.textMuted}}>
+            {t(`competition.profile.tab.${value}` as never)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+    </View>
+
+    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
+    <CompetitionProfileSections competition={competition} posts={mediaPosts}
+      activeTab={activeTab} registration={registration} onTabChange={switchTab}/>
   </Screen>;
 }
+
+const styles=StyleSheet.create({
+  page:{paddingTop:spacing.md,gap:spacing.md},
+  profile:{borderRadius:radius.lg,overflow:"hidden",borderWidth:1,
+    borderColor:colors.border,backgroundColor:colors.surface},
+  cover:{height:184,backgroundColor:"#153F91",alignItems:"center",
+    justifyContent:"center",overflow:"hidden"},
+  coverAccent:{position:"absolute",width:210,height:210,right:-85,top:-65,borderRadius:105,
+    backgroundColor:"#2467CE",opacity:.6},
+  coverFormat:{position:"absolute",bottom:spacing.sm,right:spacing.sm,
+    backgroundColor:"rgba(15,23,42,.76)",paddingHorizontal:spacing.md,
+    paddingVertical:6,borderRadius:radius.pill},
+  identity:{alignItems:"center",paddingHorizontal:spacing.md,paddingBottom:spacing.md},
+  avatarFrame:{width:106,height:106,borderRadius:53,marginTop:-49,
+    padding:4,backgroundColor:colors.surface},
+  avatar:{width:"100%",height:"100%",borderRadius:49,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center"},
+  name:{textAlign:"center",marginTop:6},
+  venueLink:{gap:4,alignItems:"center",justifyContent:"center",
+    minHeight:44,marginTop:spacing.xs,paddingHorizontal:spacing.sm},
+  badges:{alignItems:"center",justifyContent:"center",gap:spacing.sm,
+    flexWrap:"wrap",marginTop:6},
+  badge:{minHeight:28,borderRadius:radius.pill,backgroundColor:colors.primarySoft,
+    paddingHorizontal:spacing.sm,flexDirection:"row",gap:5,alignItems:"center"},
+  statusDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.primary},
+  followRow:{width:"100%",marginTop:spacing.md},
+  metrics:{backgroundColor:colors.surface,borderRadius:radius.lg,
+    borderWidth:1,borderColor:colors.border,alignItems:"center",paddingVertical:spacing.md},
+  metric:{flex:1,alignItems:"center",justifyContent:"center",gap:2,minWidth:0},
+  metricDivider:{width:1,height:44,backgroundColor:colors.border},
+  tabWrapper:{backgroundColor:colors.surface,borderWidth:1,
+    borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
+  tabViewport:{height:64,minHeight:64,maxHeight:64,flexGrow:0,flexShrink:0},
+  tabList:{alignItems:"stretch",paddingHorizontal:spacing.xs,gap:spacing.xs},
+  tab:{minWidth:89,height:62,alignItems:"center",justifyContent:"center",
+    gap:4,paddingHorizontal:spacing.sm,borderBottomWidth:3,borderBottomColor:"transparent"},
+  tabActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft},
+  tabPressed:{opacity:.76},
+  registration:{gap:spacing.md},
+  registerTitle:{alignItems:"center",gap:spacing.sm},
+  registerIcon:{width:39,height:39,borderRadius:12,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center"},
+  teamChoice:{gap:spacing.sm,alignItems:"center",minHeight:60,borderWidth:1,
+    borderColor:colors.border,borderRadius:radius.md,padding:spacing.sm,
+    backgroundColor:colors.surface},
+  teamSelected:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
+  radioOuter:{width:22,height:22,borderRadius:11,borderWidth:2,borderColor:colors.primary,
+    alignItems:"center",justifyContent:"center"},
+  radioInner:{width:11,height:11,borderRadius:6,backgroundColor:colors.primary},
+});
