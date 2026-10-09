@@ -1,134 +1,379 @@
-import { colors, spacing } from "@leaguekick/design-tokens";
-import type { NotificationDto, NotificationPreferences } from "@leaguekick/contracts";
-import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, Switch, View } from "react-native";
-import { notificationApi } from "../../src/lib/api";
-import { AppText } from "../../src/components/ui/AppText";
-import { Button } from "../../src/components/ui/Button";
-import { Card } from "../../src/components/ui/Card";
-import { DataLoadingState } from "../../src/components/ui/DataLoadingState";
-import { Screen } from "../../src/components/ui/Screen";
-import { useAuth } from "../../src/providers/AuthProvider";
-import { useLocale } from "../../src/providers/LocaleProvider";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import {colors,radius,spacing} from "@leaguekick/design-tokens";
+import type {NotificationDto,NotificationListFilter} from "@leaguekick/contracts";
+import {router,useFocusEffect} from "expo-router";
+import {useCallback,useMemo,useState} from "react";
+import {Alert,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {notificationApi} from "../../src/lib/api";
+import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../src/lib/date-time";
+import {publishNotificationUnread} from "../../src/lib/notification-events";
+import {AppText} from "../../src/components/ui/AppText";
+import {Button} from "../../src/components/ui/Button";
+import {Card} from "../../src/components/ui/Card";
+import {DataLoadingState} from "../../src/components/ui/DataLoadingState";
+import {Screen} from "../../src/components/ui/Screen";
+import {useAuth} from "../../src/providers/AuthProvider";
+import {useLocale} from "../../src/providers/LocaleProvider";
 
-const defaultPreferences:NotificationPreferences={
-  inAppEnabled:true,
-  pushEnabled:true,
-  promotionsEnabled:true,
-  venuePostsEnabled:true,
-  teamInvitesEnabled:true,
+const PAGE_SIZE=30;
+const FILTERS:NotificationListFilter[]=["ALL","UNREAD","BOOKINGS","VENUES","TEAMS","COMPETITIONS"];
+type IconName=keyof typeof Ionicons.glyphMap;
+const ICONS:Record<NotificationDto["type"],IconName>={
+  BOOKING_CONFIRMED:"checkmark-circle-outline",BOOKING_CANCELLED:"close-circle-outline",
+  SLOT_PROMOTION:"pricetag-outline",VENUE_POST:"megaphone-outline",
+  TEAM_INVITATION:"people-outline",COMPETITION_UPDATE:"trophy-outline",
 };
+function groupDay(value:string){
+  const date=new Date(value);
+  if(!Number.isFinite(date.getTime()))return "";
+  return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kabul",
+    year:"numeric",month:"2-digit",day:"2-digit"}).format(date);
+}
+function dayKey(value:Date){
+  return groupDay(value.toISOString());
+}
+function target(item:NotificationDto):()=>void{
+  const id=(key:string)=>typeof item.data[key]==="string"?item.data[key] as string:null;
+  switch(item.type){
+    case "BOOKING_CONFIRMED":case "BOOKING_CANCELLED":return ()=>router.push("/bookings");
+    case "TEAM_INVITATION":return ()=>router.push("/teams/invitations");
+    case "COMPETITION_UPDATE":return ()=>{
+      const competitionId=id("competitionId");
+      if(competitionId)router.push({pathname:"/competitions/[competitionId]",params:{competitionId}});
+      else router.push("/competitions");
+    };
+    case "VENUE_POST":return ()=>{
+      const postId=id("postId");
+      if(postId)router.push({pathname:"/posts/[postId]",params:{postId}});
+      else router.push("/venues");
+    };
+    case "SLOT_PROMOTION":return ()=>{
+      const venueId=id("venueId"),promotionId=id("promotionId");
+      if(venueId)router.push({pathname:"/venues/[venueId]",params:{venueId,...(promotionId?{promotionId}:{})}});
+      else router.push("/venues");
+    };
+  }
+}
 
 export default function NotificationsScreen(){
   const {session}=useAuth();
-  const {t,isRTL}=useLocale();
+  const {t,isRTL,language}=useLocale();
+  const token=session?.accessToken;
+  const [filter,setFilter]=useState<NotificationListFilter>("ALL");
   const [items,setItems]=useState<NotificationDto[]>([]);
-  const [preferences,setPreferences]=useState<NotificationPreferences>(defaultPreferences);
+  const [unreadCount,setUnreadCount]=useState(0);
+  const [total,setTotal]=useState(0);
+  const [hasMore,setHasMore]=useState(false);
   const [loading,setLoading]=useState(true);
+  const [refreshing,setRefreshing]=useState(false);
+  const [loadingMore,setLoadingMore]=useState(false);
+  const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
+  const [retry,setRetry]=useState(0);
+  const [actionId,setActionId]=useState<string|null>(null);
 
-  const load=useCallback(async()=>{
-    if(!session)return;
+  useFocusEffect(useCallback(()=>{
+    let active=true;
+    if(!token){
+      setItems([]);setTotal(0);setUnreadCount(0);setHasMore(false);setLoading(false);
+      return()=>{active=false;};
+    }
     setLoading(true);setError(null);
-    try{
-      const [list,prefs]=await Promise.all([
-        notificationApi.list(session.accessToken),
-        notificationApi.preferences(session.accessToken),
-      ]);
-      setItems(list.notifications);
-      setPreferences(prefs.preferences);
-    }catch{
-      setError(t("notifications.loadError"));
-    }finally{setLoading(false);}
-  },[session,t]);
+    void notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0}).then(result=>{
+      if(!active)return;
+      setItems(result.notifications);setTotal(result.total);
+      setHasMore(result.hasMore);setUnreadCount(result.unreadCount);
+      publishNotificationUnread(token,result.unreadCount);
+    }).catch(()=>{
+      if(active)setError(t("notifications.loadError"));
+    }).finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[token,filter,retry,t]));
 
-  useEffect(()=>{void load();},[load]);
-
-  async function updatePreference(key:keyof NotificationPreferences,value:boolean){
-    if(!session)return;
-    const previous=preferences;
-    const next={...preferences,[key]:value};
-    setPreferences(next);
+  async function refresh(){
+    if(!token||refreshing)return;
+    setRefreshing(true);
     try{
-      const result=await notificationApi.updatePreferences(session.accessToken,{[key]:value});
-      setPreferences(result.preferences);
-    }catch{
-      setPreferences(previous);
-      setError(t("notifications.preferenceError"));
-    }
+      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0});
+      setItems(result.notifications);setTotal(result.total);setHasMore(result.hasMore);
+      setUnreadCount(result.unreadCount);publishNotificationUnread(token,result.unreadCount);
+      setError(null);
+    }catch{setError(t("notifications.loadError"));}
+    finally{setRefreshing(false);}
   }
-
-  async function openNotification(item:NotificationDto){
-    if(!session)return;
+  async function more(){
+    if(!token||!hasMore||loadingMore||loading||busy)return;
+    setLoadingMore(true);
     try{
-      if(!item.readAt){
-        const result=await notificationApi.markRead(session.accessToken,item.id);
-        setItems((current)=>current.map((entry)=>entry.id===item.id?result.notification:entry));
-      }
-    }catch{}
-
-    if(item.type==="SLOT_PROMOTION"){
-      const venueId=typeof item.data.venueId==="string"?item.data.venueId:null;
-      const promotionId=typeof item.data.promotionId==="string"?item.data.promotionId:null;
-      if(venueId){
-        router.push({pathname:"/venues/[venueId]",params:{venueId,...(promotionId?{promotionId}:{})}});
-      }
-      return;
-    }
-    if(item.type==="VENUE_POST"){
-      const postId=typeof item.data.postId==="string"?item.data.postId:null;
-      if(postId)router.push({pathname:"/posts/[postId]",params:{postId}});
-      return;
-    }
-    if(item.type==="TEAM_INVITATION"){
-      router.push("/teams/invitations");
-      return;
-    }
-    router.push("/bookings");
+      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:items.length});
+      setItems(current=>{
+        const ids=new Set(current.map(x=>x.id));
+        return [...current,...result.notifications.filter(x=>!ids.has(x.id))];
+      });
+      setTotal(result.total);setHasMore(result.hasMore);
+      setUnreadCount(result.unreadCount);publishNotificationUnread(token,result.unreadCount);
+    }catch{setError(t("notifications.loadError"));}
+    finally{setLoadingMore(false);}
   }
-
+  function updateUnread(count:number){
+    setUnreadCount(count);
+    if(token)publishNotificationUnread(token,count);
+  }
+  async function markRead(item:NotificationDto){
+    if(!token||item.readAt)return;
+    try{
+      const {notification}=await notificationApi.markRead(token,item.id);
+      if(filter==="UNREAD"){setItems(prev=>prev.filter(x=>x.id!==item.id));setTotal(n=>Math.max(0,n-1));}
+      else setItems(prev=>prev.map(x=>x.id===item.id?notification:x));
+      updateUnread(Math.max(0,unreadCount-1));
+    }catch{setError(t("notifications.actionError"));}
+  }
+  async function openItem(item:NotificationDto){
+    if(!item.readAt)await markRead(item);
+    target(item)();
+  }
+  async function markAll(){
+    if(!token||busy||unreadCount===0)return;
+    setBusy(true);setError(null);
+    try{
+      const result=await notificationApi.markAllRead(token);
+      updateUnread(result.unreadCount);
+      if(filter==="UNREAD"){setItems([]);setTotal(0);setHasMore(false);}
+      else setItems(prev=>prev.map(x=>x.readAt?x:{...x,readAt:new Date().toISOString()}));
+    }catch{setError(t("notifications.actionError"));}
+    finally{setBusy(false);}
+  }
+  function remove(item:NotificationDto){
+    if(!token||busy)return;
+    Alert.alert(t("notifications.deleteOne"),t("notifications.confirmDeleteOne"),[
+      {text:t("common.cancel"),style:"cancel"},
+      {text:t("notifications.deleteOne"),style:"destructive",onPress:()=>void (async()=>{
+        setBusy(true);setActionId(null);
+        try{
+          const result=await notificationApi.remove(token,item.id);
+          setItems(prev=>prev.filter(x=>x.id!==item.id));
+          setTotal(n=>Math.max(0,n-1));
+          updateUnread(result.unreadCount);
+        }catch{setError(t("notifications.actionError"));}
+        finally{setBusy(false);}
+      })()},
+    ]);
+  }
+  function clearRead(){
+    if(!token||busy||!items.some(x=>x.readAt)&&filter==="ALL"&&total===unreadCount)return;
+    Alert.alert(t("notifications.clearRead"),t("notifications.confirmClearRead"),[
+      {text:t("common.cancel"),style:"cancel"},
+      {text:t("notifications.clearRead"),style:"destructive",onPress:()=>void (async()=>{
+        setBusy(true);setActionId(null);
+        try{
+          const result=await notificationApi.clearRead(token);
+          updateUnread(result.unreadCount);setRetry(n=>n+1);
+        }catch{setError(t("notifications.actionError"));}
+        finally{setBusy(false);}
+      })()},
+    ]);
+  }
   function title(item:NotificationDto){
-    return t(`notifications.type.${item.type}` as never);
+    return item.type==="SLOT_PROMOTION"||item.type==="VENUE_POST"||item.type==="COMPETITION_UPDATE"
+      ?item.title:t(`notifications.type.${item.type}` as never);
   }
-
   function body(item:NotificationDto){
-    return t(`notifications.body.${item.type}` as never);
+    if(item.type==="BOOKING_CONFIRMED"){
+      const startsAt=typeof item.data.startsAt==="string"?item.data.startsAt:null;
+      if(startsAt){
+        const parts=formatLocalDateTimeParts(startsAt,language);
+        const venue=typeof item.data.venueName==="string"
+          ?item.data.venueName
+          :item.body.split(" · ")[0]||"";
+        return t("notifications.message.bookingConfirmed",{venue,date:parts.date,time:parts.time});
+      }
+    }
+    if(item.type==="BOOKING_CANCELLED"&&typeof item.data.venueName==="string")
+      return t("notifications.message.bookingCancelled",{venue:item.data.venueName});
+    if(item.type==="TEAM_INVITATION"&&typeof item.data.teamName==="string")
+      return t("notifications.message.teamInvitation",{team:item.data.teamName});
+    if(item.type==="VENUE_POST"&&typeof item.data.venueName==="string")
+      return t("notifications.message.venuePost",{venue:item.data.venueName});
+    return item.body||t(`notifications.body.${item.type}` as never);
   }
 
-  if(loading)return <Screen showHeader publicNav><DataLoadingState variant="dashboard" minHeight={460}/></Screen>;
+  const shownGroups=useMemo(()=>{
+    const now=new Date();
+    const today=dayKey(now);
+    const yesterday=dayKey(new Date(now.getTime()-86400000));
+    const groups:Array<{label:string;items:NotificationDto[]}>=[];
 
-  return <Screen showHeader publicNav>
-    <View style={{gap:spacing.xs}}>
-      <AppText variant="title" weight="bold">{t("notifications.title")}</AppText>
-      <AppText muted>{t("notifications.subtitle")}</AppText>
+    for(const item of items){
+      const day=groupDay(item.createdAt);
+      const label=day===today?t("notifications.today")
+        :day===yesterday?t("notifications.yesterday"):t("notifications.earlier");
+      const last=groups[groups.length-1];
+      if(last?.label===label)last.items.push(item);
+      else groups.push({label,items:[item]});
+    }
+    return groups;
+  },[items,t]);
+
+  return <Screen showHeader publicNav style={styles.page} refreshing={refreshing} onRefresh={()=>void refresh()}>
+    <View style={[styles.heading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={{flex:1,gap:4}}>
+        <AppText variant="title" weight="bold">{t("notifications.title")}</AppText>
+        <AppText variant="caption" muted>{t("notifications.subtitle")}</AppText>
+      </View>
+      <Pressable testID="notification-settings" accessibilityRole="button"
+        accessibilityLabel={t("notifications.preferences")} style={styles.settings}
+        onPress={()=>router.push("/notifications/preferences")}>
+        <Ionicons name="options-outline" color={colors.primary} size={23}/>
+      </Pressable>
     </View>
 
-    <Card>
-      <AppText variant="bodyLarge" weight="bold">{t("notifications.preferences")}</AppText>
-      {([
-        ["inAppEnabled","notifications.inApp"],
-        ["pushEnabled","notifications.push"],
-        ["promotionsEnabled","notifications.promotions"],
-        ["venuePostsEnabled","notifications.venuePosts"],
-        ["teamInvitesEnabled","notifications.teamInvites"],
-      ] as const).map(([key,label])=><View key={key} style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"center",justifyContent:"space-between",gap:spacing.md}}>
-        <AppText style={{flex:1}}>{t(label)}</AppText>
-        <Switch value={preferences[key]} onValueChange={(value)=>void updatePreference(key,value)}/>
+    <View style={[styles.summary,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={styles.summaryIcon}>
+        <Ionicons name="notifications-outline" size={23} color={colors.primary}/>
+      </View>
+      <View style={{flex:1,gap:3}}>
+        <AppText weight="bold" variant="bodyLarge">
+          {t("notifications.unreadCount",{count:unreadCount})}
+        </AppText>
+        <AppText variant="caption" muted>{t("notifications.inboxSummary")}</AppText>
+      </View>
+      <Pressable testID="notification-mark-all" accessibilityRole="button"
+        accessibilityLabel={t("notifications.markAllRead")}
+        accessibilityState={{disabled:unreadCount===0||busy}}
+        disabled={unreadCount===0||busy} onPress={()=>void markAll()}
+        style={[styles.allReadButton,(unreadCount===0||busy)&&styles.disabled]}>
+        <Ionicons name="checkmark-done-outline" size={18} color={colors.primary}/>
+        <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>
+          {t("notifications.markAllRead")}
+        </AppText>
+      </Pressable>
+    </View>
+
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="notifications-filters"
+      contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {FILTERS.map(value=><Pressable key={value} testID={`notification-filter-${value}`}
+        accessibilityRole="tab" accessibilityState={{selected:filter===value}}
+        onPress={()=>{setActionId(null);setFilter(value);}} 
+        style={[styles.chip,filter===value&&styles.chipActive]}>
+        <AppText weight="semibold" variant="caption"
+          style={{color:filter===value?"#FFFFFF":colors.text}}>
+          {t(`notifications.filter.${value}` as never)}
+        </AppText>
+        {value==="UNREAD"&&unreadCount>0?<View style={styles.chipCount}>
+          <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
+            {unreadCount>99?"99+":unreadCount}
+          </AppText>
+        </View>:null}
+      </Pressable>)}
+    </ScrollView>
+
+    {!loading&&total>0?<View style={[styles.toolbar,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <AppText variant="caption" muted>{t("notifications.showingCount",{count:total})}</AppText>
+      <Pressable testID="notification-clear-read" accessibilityRole="button"
+        accessibilityLabel={t("notifications.clearRead")} onPress={clearRead}>
+        <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>
+          {t("notifications.clearRead")}
+        </AppText>
+      </Pressable>
+    </View>:null}
+
+    {loading?<DataLoadingState variant="list" minHeight={450}/>:null}
+    {error?<Card style={styles.error}>
+      <Ionicons name="cloud-offline-outline" size={24} color={colors.danger}/>
+      <AppText style={{color:colors.danger,flex:1}}>{error}</AppText>
+      <Button label={t("common.retry")} variant="secondary" onPress={()=>setRetry(n=>n+1)}/>
+    </Card>:null}
+    {!loading&&!error&&items.length===0?<Card style={styles.empty}>
+      <Ionicons name={filter==="UNREAD"?"checkmark-done-circle-outline":"notifications-off-outline"}
+        color={colors.primary} size={42}/>
+      <AppText weight="bold" variant="bodyLarge">
+        {t(filter==="UNREAD"?"notifications.emptyUnread":"notifications.emptyFiltered")}
+      </AppText>
+      <AppText muted style={{textAlign:"center"}}>
+        {t(filter==="UNREAD"?"notifications.emptyUnreadBody":"notifications.emptyHint")}
+      </AppText>
+      {filter!=="ALL"?<Button label={t("notifications.filter.ALL")} variant="secondary"
+        onPress={()=>setFilter("ALL")}/>:null}
+    </Card>:null}
+
+    {!loading&&!error?shownGroups.map((group,index)=><View key={index} style={styles.group}>
+      <View style={[styles.groupTitle,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <AppText weight="bold" variant="bodyLarge">{group.label}</AppText>
+        <View style={styles.groupLine}/>
+      </View>
+      {group.items.map(item=><View key={item.id}
+        testID={`notification-${item.id}`} style={[styles.item,!item.readAt&&styles.unreadItem]}>
+        <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Pressable accessibilityRole="button" onPress={()=>void openItem(item)}
+            accessibilityLabel={`${title(item)}. ${body(item)}`}
+            style={[styles.itemPress,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={[styles.typeIcon,{backgroundColor:!item.readAt?colors.primarySoft:colors.surfaceMuted}]}>
+              <Ionicons name={ICONS[item.type]} size={23} color={colors.primary}/>
+            </View>
+            <View style={{flex:1,gap:4,minWidth:0}}>
+              <View style={[styles.titleRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <AppText weight="bold" numberOfLines={2} style={{flex:1}}>{title(item)}</AppText>
+                {!item.readAt?<View style={styles.dot}/>:null}
+              </View>
+              <AppText muted={Boolean(item.readAt)} numberOfLines={3}>{body(item)}</AppText>
+              <AppText variant="caption" muted>
+                {formatPostTimeAgo(item.createdAt,language)}
+              </AppText>
+            </View>
+          </Pressable>
+          <Pressable testID={`notification-actions-${item.id}`} accessibilityRole="button"
+            accessibilityLabel={t("notifications.moreActions")}
+            onPress={()=>setActionId(id=>id===item.id?null:item.id)} style={styles.moreIcon}>
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMuted}/>
+          </Pressable>
+        </View>
+        {actionId===item.id?<View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          {!item.readAt?<Button label={t("notifications.markRead")} variant="secondary"
+            onPress={()=>{setActionId(null);void markRead(item);}} style={{flex:1}}/>:null}
+          <Button label={t("notifications.deleteOne")} variant="danger"
+            onPress={()=>remove(item)} disabled={busy} style={{flex:1}}/>
+        </View>:null}
       </View>)}
-    </Card>
+    </View>):null}
 
-    <Button label={t("common.retry")} onPress={()=>void load()} loading={loading} variant="secondary"/>
-    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-    {!loading&&items.length===0?<Card><AppText>{t("notifications.empty")}</AppText></Card>:null}
-
-    {items.map((item)=><Pressable key={item.id} onPress={()=>void openNotification(item)}>
-      <Card style={!item.readAt?{borderColor:colors.primary,borderWidth:1}:undefined}>
-        <AppText variant="bodyLarge" weight="bold">{title(item)}</AppText>
-        <AppText>{body(item)}</AppText>
-        <AppText variant="caption" muted forceLtr>{item.createdAt}</AppText>
-        {!item.readAt?<AppText variant="caption" style={{color:colors.primary}} weight="bold">{t("notifications.unread")}</AppText>:null}
-      </Card>
-    </Pressable>)}
+    {!loading&&!error&&hasMore?<Button label={t("notifications.loadMore")}
+      loading={loadingMore} disabled={busy} variant="secondary" onPress={()=>void more()}/>:null}
   </Screen>;
 }
+
+const styles=StyleSheet.create({
+  page:{paddingTop:spacing.md,gap:spacing.md},
+  heading:{alignItems:"center",gap:spacing.sm},
+  settings:{width:48,height:48,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+    backgroundColor:colors.surface,alignItems:"center",justifyContent:"center"},
+  summary:{backgroundColor:colors.surface,padding:spacing.md,
+    borderRadius:radius.lg,borderWidth:1,borderColor:colors.border,alignItems:"center",gap:spacing.sm},
+  summaryIcon:{width:44,height:44,backgroundColor:colors.primarySoft,borderRadius:22,
+    alignItems:"center",justifyContent:"center"},
+  allReadButton:{minHeight:44,paddingHorizontal:8,gap:4,borderRadius:radius.md,
+    backgroundColor:colors.primarySoft,flexDirection:"row",alignItems:"center"},
+  disabled:{opacity:.5},
+  filters:{gap:spacing.xs,paddingVertical:2},
+  chip:{minHeight:44,minWidth:66,alignItems:"center",justifyContent:"center",
+    borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surface,paddingHorizontal:spacing.md,flexDirection:"row",gap:5},
+  chipActive:{backgroundColor:colors.primary,borderColor:colors.primary},
+  chipCount:{minWidth:20,height:20,alignItems:"center",justifyContent:"center",
+    borderRadius:10,backgroundColor:"#FFFFFF",paddingHorizontal:3},
+  toolbar:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  error:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
+  empty:{minHeight:230,justifyContent:"center",alignItems:"center",gap:spacing.md,padding:spacing.lg},
+  group:{gap:spacing.sm},
+  groupTitle:{gap:spacing.md,alignItems:"center"},
+  groupLine:{flex:1,height:1,backgroundColor:colors.border},
+  item:{backgroundColor:colors.surface,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.border,overflow:"hidden"},
+  unreadItem:{borderColor:colors.primary,backgroundColor:"#F2F7FF"},
+  row:{alignItems:"flex-start"},
+  itemPress:{flex:1,minWidth:0,padding:spacing.md,gap:spacing.md,alignItems:"flex-start"},
+  typeIcon:{width:44,height:44,borderRadius:22,alignItems:"center",justifyContent:"center"},
+  titleRow:{alignItems:"center",gap:spacing.sm},
+  dot:{width:8,height:8,borderRadius:4,backgroundColor:colors.primary},
+  moreIcon:{width:42,height:48,alignItems:"center",justifyContent:"center"},
+  actions:{paddingHorizontal:spacing.md,paddingBottom:spacing.md,gap:spacing.sm},
+});
