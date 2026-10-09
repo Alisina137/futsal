@@ -3,7 +3,7 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {CompetitionDto,CompetitionMediaPostDto,SocialFollowStateDto,TeamListItemDto} from "@leaguekick/contracts";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {Image,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
+import {AppState,Image,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
 import {competitionApi,marketingApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
@@ -47,7 +47,7 @@ export default function CompetitionDetailScreen(){
 
   useEffect(()=>{
     handledRegistration.current=false;
-    setActiveTab(focusRegistration==="1"?"HOME":selectedTab(tab));
+    setActiveTab(focusRegistration==="1"?"TEAMS":selectedTab(tab));
   },[tab,focusRegistration,competitionId]);
 
   const load=useCallback(async()=>{
@@ -82,6 +82,30 @@ export default function CompetitionDetailScreen(){
     return()=>{mounted=false;};
   },[load,session?.accessToken,competitionId]));
 
+  // Refresh live score updates while this profile's Home feed is in focus.
+  // No spinners or destructive reloads: pending scores remain visible on transient errors.
+  // Poll even if no match is currently live, so a newly started fixture appears automatically.
+  useFocusEffect(useCallback(()=>{
+    if(!competitionId||activeTab!=="HOME")return;
+    let active=true;
+    let inFlight=false;
+    const refreshScore=async()=>{
+      if(!active||inFlight||AppState.currentState!=="active")return;
+      inFlight=true;
+      try{
+        const {competition:fresh}=await competitionApi.get(competitionId);
+        if(active)setCompetition(current=>current?.id===fresh.id?fresh:current);
+      }catch{
+        // Keep the latest known results when connectivity temporarily fails.
+      }finally{inFlight=false;}
+    };
+    const timer=setInterval(()=>void refreshScore(),25000);
+    const appState=AppState.addEventListener("change",status=>{
+      if(status==="active")void refreshScore();
+    });
+    return()=>{active=false;clearInterval(timer);appState.remove();};
+  },[competitionId,activeTab]));
+
   async function toggleFollow(){
     if(!session||!competitionId||!followState||followBusy)return;
     setFollowBusy(true);setError(null);
@@ -110,7 +134,7 @@ export default function CompetitionDetailScreen(){
     }));
   }
   function registrationLayout(event:LayoutChangeEvent){
-    if(focusRegistration!=="1"||handledRegistration.current||activeTab!=="HOME")return;
+    if(focusRegistration!=="1"||handledRegistration.current||activeTab!=="TEAMS")return;
     handledRegistration.current=true;
     const y=event.nativeEvent.layout.y;
     requestAnimationFrame(()=>scrollRef.current?.scrollTo({
@@ -203,11 +227,14 @@ export default function CompetitionDetailScreen(){
             </AppText>
           </View>:null}
         </View>
-        {followState?<View style={styles.followRow}>
-          <Button label={followState.following?t("social.unfollow"):t("social.follow")}
+        <View style={[styles.followRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Button label={t("competition.profile.about")}
+            onPress={()=>router.push({pathname:"/competitions/[competitionId]/about",params:{competitionId}})}
+            variant="secondary" style={{flex:1}}/>
+          {followState?<Button label={followState.following?t("social.unfollow"):t("social.follow")}
             onPress={()=>void toggleFollow()} loading={followBusy}
-            variant={followState.following?"secondary":"primary"} style={{flex:1}}/>
-        </View>:null}
+            variant={followState.following?"secondary":"primary"} style={{flex:1}}/>:null}
+        </View>
       </View>
     </View>
 
@@ -290,7 +317,7 @@ const styles=StyleSheet.create({
   badge:{minHeight:28,borderRadius:radius.pill,backgroundColor:colors.primarySoft,
     paddingHorizontal:spacing.sm,flexDirection:"row",gap:5,alignItems:"center"},
   statusDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.primary},
-  followRow:{width:"100%",marginTop:spacing.md},
+  followRow:{width:"100%",marginTop:spacing.md,gap:spacing.sm},
   metrics:{backgroundColor:colors.surface,borderRadius:radius.lg,
     borderWidth:1,borderColor:colors.border,alignItems:"center",paddingVertical:spacing.md},
   metric:{flex:1,alignItems:"center",justifyContent:"center",gap:2,minWidth:0},
