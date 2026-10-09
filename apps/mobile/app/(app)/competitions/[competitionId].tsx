@@ -23,13 +23,14 @@ function selectedTab(input?:string):CompetitionProfileTab{
 }
 
 export default function CompetitionDetailScreen(){
-  const {competitionId,focusRegistration,tab}=useLocalSearchParams<{
-    competitionId:string;focusRegistration?:string;tab?:string;
+  const {competitionId,focusRegistration,tab,stage}=useLocalSearchParams<{
+    competitionId:string;focusRegistration?:string;tab?:string;stage?:string;
   }>();
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const scrollRef=useRef<ScrollView>(null);
   const tabsY=useRef(0);
+  const contentY=useRef(0);
   const handledRegistration=useRef(false);
   const [activeTab,setActiveTab]=useState<CompetitionProfileTab>(()=>selectedTab(tab));
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
@@ -113,7 +114,7 @@ export default function CompetitionDetailScreen(){
     handledRegistration.current=true;
     const y=event.nativeEvent.layout.y;
     requestAnimationFrame(()=>scrollRef.current?.scrollTo({
-      y:Math.max(0,y-spacing.sm),animated:true,
+      y:Math.max(0,contentY.current+y-spacing.sm),animated:true,
     }));
   }
 
@@ -238,7 +239,9 @@ export default function CompetitionDetailScreen(){
         {COMPETITION_PROFILE_TABS.map(value=><Pressable key={value}
           testID={`competition-tab-${value}`} accessibilityRole="tab"
           accessibilityState={{selected:activeTab===value}}
-          accessibilityLabel={t(`competition.profile.tab.${value}` as never)}
+          accessibilityLabel={value==="STANDINGS"&&competition.format!=="LEAGUE"
+            ?t(competition.format==="KNOCKOUT"?"competition.profile.knockoutStage":"competition.profile.stages")
+            :t(`competition.profile.tab.${value}` as never)}
           onPress={()=>switchTab(value)}
           style={({pressed})=>[styles.tab,activeTab===value&&styles.tabActive,
             pressed&&styles.tabPressed]}>
@@ -246,15 +249,20 @@ export default function CompetitionDetailScreen(){
             color={activeTab===value?colors.primary:colors.textMuted}/>
           <AppText variant="caption" weight="semibold" numberOfLines={1}
             style={{color:activeTab===value?colors.primary:colors.textMuted}}>
-            {t(`competition.profile.tab.${value}` as never)}
+            {value==="STANDINGS"&&competition.format!=="LEAGUE"
+              ?t(competition.format==="KNOCKOUT"?"competition.profile.knockoutStage":"competition.profile.stages")
+              :t(`competition.profile.tab.${value}` as never)}
           </AppText>
         </Pressable>)}
       </ScrollView>
     </View>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-    <CompetitionProfileSections competition={competition} posts={mediaPosts}
-      activeTab={activeTab} registration={registration} onTabChange={switchTab}/>
+    <View onLayout={e=>{contentY.current=e.nativeEvent.layout.y;}}>
+      <CompetitionProfileSections competition={competition} posts={mediaPosts}
+        activeTab={activeTab} registration={registration} onTabChange={switchTab}
+        initialStage={stage==="KNOCKOUT"?"KNOCKOUT":undefined}/>
+    </View>
   </Screen>;
 }
 

@@ -22,6 +22,7 @@ type Props={
   activeTab:CompetitionProfileTab;
   registration:ReactNode;
   onTabChange:(tab:CompetitionProfileTab)=>void;
+  initialStage?:Stage;
 };
 
 export const COMPETITION_PROFILE_TABS:CompetitionProfileTab[]=[
@@ -154,11 +155,11 @@ function StandingTable({rows}:{rows:CompetitionStandingRowDto[]}){
   </View>;
 }
 
-function CompetitionStandings({competition}:{competition:CompetitionDto}){
+function CompetitionStandings({competition,initialStage}:{competition:CompetitionDto;initialStage?:Stage}){
   const {t}=useLocale();
   const mixed=competition.format==="GROUP_KNOCKOUT";
   const knockoutOnly=competition.format==="KNOCKOUT";
-  const [stage,setStage]=useState<Stage>(knockoutOnly?"KNOCKOUT":"GROUPS");
+  const [stage,setStage]=useState<Stage>(initialStage??(knockoutOnly?"KNOCKOUT":"GROUPS"));
   const knockout=competition.matches.filter(match=>match.stage==="KNOCKOUT")
     .sort((a,b)=>b.roundNumber-a.roundNumber||a.slotNumber-b.slotNumber);
   const groups=[...new Set(competition.standings.map(row=>row.groupName??""))];
@@ -334,12 +335,12 @@ function Home({competition,posts,registration,onTabChange}:Omit<Props,"activeTab
   </View>;
 }
 
-export function CompetitionProfileSections({competition,posts,activeTab,registration,onTabChange}:Props){
+export function CompetitionProfileSections({competition,posts,activeTab,registration,onTabChange,initialStage}:Props){
   if(activeTab==="HOME")return <Home competition={competition} posts={posts}
     registration={registration} onTabChange={onTabChange}/>;
   if(activeTab==="RESULTS"||activeTab==="MATCHES")return <CompetitionMatches
     competition={competition} kind={activeTab}/>;
-  if(activeTab==="STANDINGS")return <CompetitionStandings competition={competition}/>;
+  if(activeTab==="STANDINGS")return <CompetitionStandings competition={competition} initialStage={initialStage}/>;
   if(activeTab==="STATS")return <CompetitionStats competition={competition}/>;
   return <CompetitionTeams competition={competition}/>;
 }

@@ -24,7 +24,7 @@ const action=(item:CompetitionListItemDto,t:(key:any)=>string)=>{
   if(item.status==="REGISTRATION_OPEN")return {
     label:t("competition.register"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,focusRegistration:"1"}})};
   if(item.status==="IN_PROGRESS"||item.status==="COMPLETED")return {
-    label:t("competition.standings"),to:()=>router.push({pathname:"/competitions/[competitionId]/standings",params:{competitionId:item.id}})};
+    label:t("competition.standings"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,tab:"STANDINGS"}})};
   return {label:t("competition.viewCompetition"),to:()=>open(item.id)};
 };
 
