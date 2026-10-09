@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { CompetitionDto, CompetitionMatchDto, CompetitionStandingRowDto } from "@leaguekick/contracts";
+import { lastFiveLeagueResults } from "@leaguekick/contracts";
+import type { CompetitionDto, CompetitionStandingRowDto, LeagueLeagueFormResult } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useMemo } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -8,42 +9,23 @@ import { resolveMediaImageUrl } from "../../lib/api";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
 
-type FormResult="W"|"D"|"L";
 type Column={
   key:"played"|"wins"|"draws"|"losses"|"goalsFor"|"goalsAgainst"|"goalDifference"|"points";
   label:string;
   width:number;
 };
 
-/** Completed and corrected games only. Never count live, cancelled or unscored fixtures. */
-export function lastFiveLeagueResults(matches:CompetitionMatchDto[],teamId:string):FormResult[]{
-  return matches.filter(match=>
-    (match.status==="COMPLETED"||match.status==="CORRECTED") &&
-    match.homeScore!==null && match.awayScore!==null &&
-    (match.homeTeamId===teamId||match.awayTeamId===teamId)
-  ).sort((a,b)=>{
-    // Prefer actual played dates. Round + slot give deterministic order for backfilled games.
-    const timeCompare=(b.endsAt??b.startsAt??"").localeCompare(a.endsAt??a.startsAt??"");
-    return timeCompare||b.roundNumber-a.roundNumber||b.slotNumber-a.slotNumber||b.id.localeCompare(a.id);
-  }).slice(0,5).reverse().map(match=>{
-    const home=match.homeTeamId===teamId;
-    const scored=home?match.homeScore!:match.awayScore!;
-    const conceded=home?match.awayScore!:match.homeScore!;
-    return scored>conceded?"W":scored<conceded?"L":"D";
-  });
-}
-
 const NUMERIC_WIDTH=49;
 const FORM_WIDTH=160;
 const ROW_HEIGHT=62;
 const HEADER_HEIGHT=52;
-const formAppearance:Record<FormResult,{background:string;icon:keyof typeof Ionicons.glyphMap}>={
+const formAppearance:Record<LeagueFormResult,{background:string;icon:keyof typeof Ionicons.glyphMap}>={
   W:{background:"#22965B",icon:"checkmark"},
   D:{background:"#818A98",icon:"remove"},
   L:{background:"#D74646",icon:"close"},
 };
 
-function FormBadges({results}:{results:FormResult[]}){
+function FormBadges({results}:{results:LeagueFormResult[]}){
   const {t,isRTL}=useLocale();
   return <View style={[styles.formStrip,{flexDirection:isRTL?"row-reverse":"row"}]}>
     {results.length===0?<AppText variant="caption" muted>—</AppText>:
@@ -67,7 +49,7 @@ export function LeagueStandingsTable({competition,rows}:{
   const table=useMemo(()=>rows.slice().sort((a,b)=>a.position-b.position||a.teamName.localeCompare(b.teamName)),
     [rows]);
   const forms=useMemo(()=>new Map(table.map(row=>[row.teamId,lastFiveLeagueResults(
-    competition.matches.filter(match=>match.stage==="LEAGUE"||match.stage==="GROUP"),
+    competition.matches,
     row.teamId,
   )])),[competition.matches,table]);
 
