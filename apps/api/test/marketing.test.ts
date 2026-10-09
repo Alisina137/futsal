@@ -77,6 +77,32 @@ function seedMarketingFromBooking(marketingRepository: FakeMarketingRepository, 
 }
 
 describe("Phase 4 marketing API", () => {
+  it("ranks fifteen most-followed active entitled venues by real unique account follows",async()=>{
+    const {app,bookingRepository,marketingRepository,authRepository,clock}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0703334780");
+    const ids:string[]=[];
+    for(let i=0;i<18;i++){
+      const {venue}=bookingRepository.seedVenue(owner.body.user.id);
+      venue.name=`Venue ${String(i).padStart(2,"0")}`;
+      ids.push(venue.id);
+      for(let fan=0;fan<i;fan++)await marketingRepository.followVenue(`fan-${fan}`,venue.id);
+    }
+    const hidden=bookingRepository.venues.get(ids[17]!)!;
+    hidden.status="SUSPENDED";
+    const expired=bookingRepository.venues.get(ids[16]!)!;
+    expired.subscription={status:"EXPIRED",trialEndsAt:new Date(clock.now.getTime()-1),activeUntil:null};
+    const response=await request(app).get("/api/v1/social/venues/most-followed");
+    expect(response.status).toBe(200);
+    expect(response.body.venues).toHaveLength(15);
+    expect(response.body.venues[0].name).toBe("Venue 15");
+    expect(response.body.venues[0].followerCount).toBe(15);
+    const idsReturned=response.body.venues.map((venue:{id:string})=>venue.id);
+    expect(idsReturned).not.toContain(ids[16]);
+    expect(idsReturned).not.toContain(ids[17]);
+    const counts=response.body.venues.map((venue:{followerCount:number})=>venue.followerCount);
+    expect(counts).toEqual([...counts].sort((a,b)=>b-a));
+  });
+
   it("creates public text and photo posts for every normal user, supports profiles and protects owned uploads",async()=>{
     const {app,authRepository}=setup();
     const a=await register(app,authRepository,"PLAYER","0703334601");

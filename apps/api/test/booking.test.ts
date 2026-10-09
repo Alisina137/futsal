@@ -57,6 +57,39 @@ async function register(
 }
 
 describe("Phase 3 availability and booking API", () => {
+  it("returns the nearest ten permitted venues with saved map pins, excluding expired and suspended venues",async()=>{
+    const {app,bookingRepository,authRepository,clock}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0705556601");
+    const ids:string[]=[];
+    for(let i=0;i<13;i++){
+      const {venue}=bookingRepository.seedVenue(owner.body.user.id);
+      venue.name=`Court ${i}`;
+      venue.latitude=34.52+i*0.01;
+      venue.longitude=69.17;
+      ids.push(venue.id);
+    }
+    const noPin=bookingRepository.seedVenue(owner.body.user.id).venue;
+    const expired=bookingRepository.seedVenue(owner.body.user.id,{trialEndsAt:new Date(clock.now.getTime()-1)}).venue;
+    expired.latitude=34.519;expired.longitude=69.17;
+    const suspended=bookingRepository.seedVenue(owner.body.user.id,{status:"SUSPENDED"}).venue;
+    suspended.latitude=34.519;suspended.longitude=69.17;
+
+    const response=await request(app).get("/api/v1/venues/nearby").query({latitude:34.52,longitude:69.17});
+    expect(response.status).toBe(200);
+    expect(response.body.venues).toHaveLength(10);
+    expect(response.body.venues[0].id).toBe(ids[0]);
+    expect(response.body.venues[0].distanceKm).toBeCloseTo(0,5);
+    const venueIds=response.body.venues.map((venue:{id:string})=>venue.id);
+    expect(venueIds).not.toContain(noPin.id);
+    expect(venueIds).not.toContain(expired.id);
+    expect(venueIds).not.toContain(suspended.id);
+    const distances=response.body.venues.map((venue:{distanceKm:number})=>venue.distanceKm);
+    expect(distances).toEqual([...distances].sort((a,b)=>a-b));
+    expect((await request(app).get("/api/v1/venues/nearby").query({latitude:90.01,longitude:30})).status).toBe(400);
+    expect((await request(app).get("/api/v1/venues/nearby").query({latitude:"bad",longitude:30})).status).toBe(400);
+    expect((await request(app).get("/api/v1/venues/nearby").query({latitude:34.52})).status).toBe(400);
+  });
+
   it("lists provinces dynamically from active subscribed venues and suggests matching venues or locations",async()=>{
     const {app,bookingRepository,authRepository,clock}=setup();
     const owner=await register(app,authRepository,"VENUE_OWNER","0708777781");
