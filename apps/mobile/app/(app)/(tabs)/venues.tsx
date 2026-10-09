@@ -17,13 +17,14 @@ import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
 const MAX_VISIBLE_FOLLOWS=10;
+const DEFAULT_PROVINCE="Kabul";
 
 export default function VenuesScreen(){
   const {t,isRTL}=useLocale();
   const {session}=useAuth();
   const token=session?.accessToken;
   const [query,setQuery]=useState("");
-  const [province,setProvince]=useState("");
+  const [province,setProvince]=useState(DEFAULT_PROVINCE);
   const [provinceOptions,setProvinceOptions]=useState<string[]>([]);
   const [provincePickerOpen,setProvincePickerOpen]=useState(false);
   const [optionsError,setOptionsError]=useState(false);
@@ -48,7 +49,7 @@ export default function VenuesScreen(){
     finally{setLoading(false);}
   },[t]);
 
-  useEffect(()=>{void load("","");},[load]);
+  useEffect(()=>{void load("",DEFAULT_PROVINCE);},[load]);
 
   // Provinces are provided by subscribed, currently discoverable venue pages;
   // never maintain an outdated hard-coded Afghanistan province list.

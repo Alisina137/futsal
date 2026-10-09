@@ -15,7 +15,11 @@ check(page.includes('testID="venue-followed-strip"'),"Followed venue cards must 
 check(page.includes('testID="venue-province-select"')&&page.includes('venueApi.discovery()'),
   "Province options must be a select-style control sourced from live subscribed venues.");
 check(page.includes('["",...provinceOptions]')&&page.includes('booking.allProvinces'),
-  "Province list must default to and offer All.");
+  "Province selector must keep All as an available choice.");
+check(page.includes('const DEFAULT_PROVINCE="Kabul"')
+  &&page.includes('const [province,setProvince]=useState(DEFAULT_PROVINCE)')
+  &&page.includes('load("",DEFAULT_PROVINCE)'),
+  "Kabul must be selected on first render and applied to the initial venue query.");
 check(page.includes('onPress={()=>selectProvince(option)}')&&page.includes('applySearch(query,nextProvince)'),
   "Selecting a province should immediately filter venue results.");
 check(!page.includes('t("booking.cityFilter")'),
@@ -58,4 +62,4 @@ for(const key of [
   check(l10n.split(`"${key}"`).length-1===3,
     `Missing English, Dari or Pashto translation for ${key}`);
 }
-console.log("Venues discovery verified: subscribed province picker, default All, name/location search, debounced suggestions, scoped metadata, RTL, and search filters.");
+console.log("Venues discovery verified: Kabul default, retained All option, subscribed province picker, name/location search, debounced suggestions, scoped metadata, RTL, and search filters.");
