@@ -154,6 +154,26 @@ export default function VenuesScreen(){
           <AppText variant="caption" muted>+{additionalCount}</AppText>
         </Pressable>:null}
       </ScrollView>:null}
+      <View testID="venue-discovery-shortcuts" style={[styles.discoveryShortcuts,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Pressable testID="venue-most-followed-button" accessibilityRole="button"
+          accessibilityLabel={t("booking.mostFollowed")}
+          onPress={()=>router.push("/venues/popular")}
+          style={({pressed})=>[styles.discoveryShortcut,pressed&&styles.pressed]}>
+          <Ionicons name="trending-up-outline" size={20} color={colors.primary}/>
+          <AppText variant="caption" weight="semibold" numberOfLines={2} style={styles.discoveryShortcutText}>
+            {t("booking.mostFollowed")}
+          </AppText>
+        </Pressable>
+        <Pressable testID="venue-nearby-button" accessibilityRole="button"
+          accessibilityLabel={t("booking.venuesNearby")}
+          onPress={()=>router.push("/venues/nearby")}
+          style={({pressed})=>[styles.discoveryShortcut,pressed&&styles.pressed]}>
+          <Ionicons name="navigate-outline" size={20} color={colors.primary}/>
+          <AppText variant="caption" weight="semibold" numberOfLines={2} style={styles.discoveryShortcutText}>
+            {t("booking.venuesNearby")}
+          </AppText>
+        </Pressable>
+      </View>
     </View>
 
     <View style={styles.searchSection}>
@@ -271,6 +291,14 @@ const styles=StyleSheet.create({
   showMoreLabel:{textAlign:"center",color:colors.primary,width:"100%"},
   inlineError:{flexDirection:"row",alignItems:"center",gap:spacing.sm,paddingHorizontal:spacing.sm},
   inlineRetry:{flexDirection:"row",gap:spacing.xs,alignItems:"center",minHeight:44},
+  discoveryShortcuts:{gap:spacing.sm,marginTop:spacing.xs},
+  discoveryShortcut:{
+    flex:1,minHeight:56,paddingHorizontal:spacing.sm,paddingVertical:6,
+    borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,
+    backgroundColor:colors.primarySoft,flexDirection:"row",
+    alignItems:"center",justifyContent:"center",gap:6,
+  },
+  discoveryShortcutText:{color:colors.primary,textAlign:"center",flexShrink:1},
   searchSection:{gap:spacing.sm},
   suggestionsBox:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
     borderRadius:radius.md,overflow:"hidden"},
