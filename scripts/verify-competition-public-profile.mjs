@@ -43,4 +43,11 @@ for(const key of ["competition.profile.tab.HOME","competition.profile.tab.RESULT
   "competition.profile.stages","competition.profile.groupStage","competition.profile.knockoutStage"]){
   check(localization.split(`"${key}"`).length-1===3,`Missing English/Dari/Pashto: ${key}`);
 }
+for(const [name,tab] of [["standings","STANDINGS"],["bracket","STANDINGS"],["stats","STATS"],["teams","TEAMS"]]){
+  const legacy=read(`apps/mobile/app/(app)/competitions/[competitionId]/${name}.tsx`);
+  check(legacy.includes("return <Redirect href=")&&legacy.includes(`tab:"${tab}"`)
+    &&legacy.includes("competitionId"),`Legacy ${name} deep links should open their new profile tab.`);
+  if(name==="bracket")check(legacy.includes('stage:"KNOCKOUT"'),
+    "Legacy bracket must open the knockout stage directly.");
+}
 console.log("Public competition profile verified: venue-style identity, six functional tabs, live results/matches, format-aware stages, goal/assist stats, accepted teams, registration, followed state and localization.");
