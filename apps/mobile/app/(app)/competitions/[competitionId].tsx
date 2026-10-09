@@ -1,8 +1,8 @@
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { CompetitionDto, CompetitionMediaPostDto, SocialFollowStateDto, TeamListItemDto } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Image, Pressable, ScrollView, View } from "react-native";
 import { competitionApi, marketingApi, teamApi } from "../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -14,10 +14,13 @@ import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
 export default function CompetitionDetailScreen(){
-  const {competitionId}=useLocalSearchParams<{competitionId:string}>();
+  const {competitionId,focusRegistration}=useLocalSearchParams<{competitionId:string;focusRegistration?:string}>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
+  const scrollRef=useRef<ScrollView>(null);
+  const didScroll=useRef(false);
+  useEffect(()=>{didScroll.current=false;},[competitionId,focusRegistration]);
   const [myTeams,setMyTeams]=useState<TeamListItemDto[]>([]);
   const [selectedTeamId,setSelectedTeamId]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
@@ -86,7 +89,7 @@ export default function CompetitionDetailScreen(){
 
   if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={500}/></Screen>;
 
-  return <Screen showHeader>
+  return <Screen showHeader scrollRef={scrollRef}>
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
 
     {competition?<>
@@ -130,7 +133,13 @@ export default function CompetitionDetailScreen(){
         <Button label={t("competition.stats")} onPress={()=>router.push({pathname:"/competitions/[competitionId]/stats",params:{competitionId}})} variant="secondary"/>
       </View>
 
-      {competition.status==="REGISTRATION_OPEN"&&session?<Card>
+      {competition.status==="REGISTRATION_OPEN"&&session?<Card
+        onLayout={event=>{
+          if(focusRegistration!=="1"||didScroll.current)return;
+          didScroll.current=true;
+          const y=event.nativeEvent.layout.y;
+          requestAnimationFrame(()=>scrollRef.current?.scrollTo({y:Math.max(0,y-spacing.sm),animated:true}));
+        }}>
         <AppText variant="bodyLarge" weight="bold">{t("competition.register")}</AppText>
         <AppText muted>{t("competition.selectTeam")}</AppText>
         {myTeams.length===0?<AppText>{t("competition.noTeamsForRegistration")}</AppText>:null}
