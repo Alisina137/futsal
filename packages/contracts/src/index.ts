@@ -1156,6 +1156,13 @@ export const socialFollowStateDtoSchema = z.object({
 });
 export type SocialFollowStateDto = z.infer<typeof socialFollowStateDtoSchema>;
 
+export const socialDirectoryDiscoveryResponseSchema=z.object({
+  entityType:z.enum(["TEAM","COMPETITION"]),
+  followedIds:z.array(z.string().uuid()),
+  counts:z.array(z.object({id:z.string().uuid(),count:z.number().int().nonnegative()})),
+});
+export type SocialDirectoryDiscoveryResponse=z.infer<typeof socialDirectoryDiscoveryResponseSchema>;
+
 export const socialUserPostCreateRequestSchema = z.object({
   body: z.string().trim().max(3000).default(""),
   imageUrl: z.string().trim().max(250).nullable().optional(),

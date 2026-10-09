@@ -121,6 +121,8 @@ export interface MarketingRepository {
   listFollowedVenueIds(userId: string): Promise<string[]>;
   listFollowedVenues(userId: string): Promise<FollowedVenueDto[]>;
   listVenueFollowerCounts(venueIds:string[]):Promise<Record<string,number>>;
+  listSocialDirectoryCounts(entityType:"TEAM"|"COMPETITION"):Promise<Array<{id:string;count:number}>>;
+  listFollowedEntityIds(userId:string,entityType:"TEAM"|"COMPETITION"):Promise<string[]>;
   listFollowerUserIds(venueId: string): Promise<string[]>;
 
   getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null>;

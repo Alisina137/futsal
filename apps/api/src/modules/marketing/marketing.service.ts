@@ -483,6 +483,14 @@ export class MarketingService {
     return asset;
   }
 
+  async socialDirectoryDiscovery(userId:string,entityType:"TEAM"|"COMPETITION"){
+    const [counts,followedIds]=await Promise.all([
+      this.repository.listSocialDirectoryCounts(entityType),
+      this.repository.listFollowedEntityIds(userId,entityType),
+    ]);
+    return {entityType,counts,followedIds};
+  }
+
   async mostFollowedVenues(){
     const {venues,generatedAt}=await this.booking.listPublicVenues({});
     const counts=await this.repository.listVenueFollowerCounts(venues.map(venue=>venue.id));

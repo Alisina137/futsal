@@ -14,6 +14,7 @@ export class FakeMarketingRepository implements MarketingRepository {
   posts = new Map<string, VenuePostDto>();
   mediaAssets = new Map<string, Awaited<ReturnType<MarketingRepository["createMediaAsset"]>>>();
   follows = new Set<string>();
+  directoryFollows = new Set<string>();
   userSocialPosts = new Map<string,SocialFeedPostDto>();
   userPostImages = new Map<string,{id:string;ownerUserId:string;publicToken:string;mimeType:string;byteSize:number;dataBase64:string}>();
   onPromotionCreated?: (promotion: PromotionDto) => void;
@@ -329,6 +330,19 @@ export class FakeMarketingRepository implements MarketingRepository {
   async unfollowVenue(userId:string,venueId:string){this.follows.delete(`${userId}:${venueId}`);}
   async isFollowing(userId:string,venueId:string){return this.follows.has(`${userId}:${venueId}`);}
   async followerCount(venueId:string){return [...this.follows].filter((key)=>key.endsWith(`:${venueId}`)).length;}
+  async listSocialDirectoryCounts(entityType:"TEAM"|"COMPETITION"){
+    const ids=[...this.directoryFollows].filter(row=>row.startsWith(`${entityType}:`));
+    const totals=new Map<string,number>();
+    for(const row of ids){
+      const id=row.split(":")[2]!;
+      totals.set(id,(totals.get(id)??0)+1);
+    }
+    return [...totals].map(([id,count])=>({id,count}));
+  }
+  async listFollowedEntityIds(userId:string,entityType:"TEAM"|"COMPETITION"){
+    return [...this.directoryFollows].filter(row=>row.startsWith(`${entityType}:${userId}:`))
+      .map(row=>row.slice(entityType.length+userId.length+2));
+  }
   async listVenueFollowerCounts(ids:string[]):Promise<Record<string,number>>{
     const counts:Record<string,number>={};
     for(const id of ids)counts[id]=await this.followerCount(id);
@@ -355,15 +369,18 @@ export class FakeMarketingRepository implements MarketingRepository {
   }
   async followEntity(userId:string,entityType:SocialEntityType,entityId:string){
     if(entityType==="VENUE")await this.followVenue(userId,entityId);
+    else this.directoryFollows.add(`${entityType}:${userId}:${entityId}`);
   }
   async unfollowEntity(userId:string,entityType:SocialEntityType,entityId:string){
     if(entityType==="VENUE")await this.unfollowVenue(userId,entityId);
+    else this.directoryFollows.delete(`${entityType}:${userId}:${entityId}`);
   }
   async isFollowingEntity(userId:string,entityType:SocialEntityType,entityId:string){
-    return entityType==="VENUE"?this.isFollowing(userId,entityId):false;
+    return entityType==="VENUE"?this.isFollowing(userId,entityId):this.directoryFollows.has(`${entityType}:${userId}:${entityId}`);
   }
   async socialFollowerCount(entityType:SocialEntityType,entityId:string){
-    return entityType==="VENUE"?this.followerCount(entityId):0;
+    if(entityType==="VENUE")return this.followerCount(entityId);
+    return (await this.listSocialDirectoryCounts(entityType)).find(x=>x.id===entityId)?.count??0;
   }
   async listUserPosts(_viewerId:string,userId:string):Promise<SocialFeedPostDto[]>{
     return [...this.userSocialPosts.values()].filter(post=>post.authorId===userId).reverse();

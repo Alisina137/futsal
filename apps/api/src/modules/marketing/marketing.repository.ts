@@ -1012,6 +1012,20 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     return this.socialFollowerCount("VENUE", venueId);
   }
 
+  async listSocialDirectoryCounts(entityType:"TEAM"|"COMPETITION"){
+    const rows=await this.db.select({id:socialFollows.entityId,total:count()}).from(socialFollows)
+      .where(eq(socialFollows.entityType,entityType))
+      .groupBy(socialFollows.entityId);
+    return rows.map(row=>({id:row.id,count:Number(row.total)}));
+  }
+
+  async listFollowedEntityIds(userId:string,entityType:"TEAM"|"COMPETITION"){
+    const rows=await this.db.select({id:socialFollows.entityId}).from(socialFollows)
+      .where(and(eq(socialFollows.userId,userId),eq(socialFollows.entityType,entityType)))
+      .orderBy(desc(socialFollows.createdAt));
+    return rows.map(row=>row.id);
+  }
+
   async listVenueFollowerCounts(venueIds:string[]):Promise<Record<string,number>>{
     if(venueIds.length===0)return {};
     const rows=await this.db.select({id:socialFollows.entityId,total:count()}).from(socialFollows)

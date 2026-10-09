@@ -42,6 +42,7 @@ import type {
   SocialFeedResponse,
   FollowedVenuesResponse,
   SocialFollowStateDto,
+  SocialDirectoryDiscoveryResponse,
   SocialPostCommentCreateRequest,
   SocialPostCommentUpdateRequest,
   SocialPostCommentDto,
@@ -510,6 +511,8 @@ export const bookingApi = {
 
 
 export const marketingApi = {
+  socialDirectoryDiscovery:(accessToken:string,entityType:"TEAM"|"COMPETITION")=>
+    request<SocialDirectoryDiscoveryResponse>(`/api/v1/social/discovery/${entityType}`,{},accessToken),
   mostFollowedVenues: ()=>request<MostFollowedVenuesResponse>("/api/v1/social/venues/most-followed"),
   followedVenues: (accessToken:string) =>
     request<FollowedVenuesResponse>("/api/v1/social/venues/followed",{},accessToken),

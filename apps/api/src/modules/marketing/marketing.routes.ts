@@ -108,6 +108,13 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
     }catch(error){next(error);}
   });
 
+  router.get("/social/discovery/:entityType",requireAuth(tokens),async(request,response,next)=>{
+    try{
+      const entityType=z.enum(["TEAM","COMPETITION"]).parse(String(request.params.entityType).toUpperCase());
+      response.json(await marketing.socialDirectoryDiscovery(request.auth!.userId,entityType));
+    }catch(error){next(error);}
+  });
+
   router.get("/social/venues/most-followed",async(_request,response,next)=>{
     try{response.json(await marketing.mostFollowedVenues());}
     catch(error){next(error);}
