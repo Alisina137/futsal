@@ -3,8 +3,8 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { lastFiveLeagueResults } from "@leaguekick/contracts";
 import type { CompetitionDto, CompetitionStandingRowDto, LeagueFormResult } from "@leaguekick/contracts";
 import { router } from "expo-router";
-import { useMemo } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { Dimensions, Image, Modal, Pressable, ScrollView, StyleSheet, View, type View as NativeView } from "react-native";
 import { resolveMediaImageUrl } from "../../lib/api";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
@@ -45,6 +45,18 @@ export function LeagueStandingsTable({competition,rows}:{
   competition:CompetitionDto;rows:CompetitionStandingRowDto[];
 }){
   const {t,isRTL}=useLocale();
+  const [preview,setPreview]=useState<{id:string;name:string;logo:string|null;x:number;y:number}|null>(null);
+  const rowRefs=useRef(new Map<string,NativeView|null>());
+  const showPreview=(id:string,name:string,logo:string|null)=>{
+    const node=rowRefs.current.get(id);
+    node?.measureInWindow((x,y,width,height)=>{
+      const {width:screenWidth,height:screenHeight}=Dimensions.get("window");
+      const panelWidth=Math.min(300,screenWidth-32);
+      const left=Math.max(16,Math.min(isRTL?x+width-panelWidth:x,screenWidth-panelWidth-16));
+      const top=Math.max(56,Math.min(y+height+5,screenHeight-160));
+      setPreview({id,name,logo,x:left,y:top});
+    });
+  };
   const teams=useMemo(()=>new Map(competition.teams.map(team=>[team.teamId,team])),[competition.teams]);
   const table=useMemo(()=>rows.slice().sort((a,b)=>a.position-b.position||a.teamName.localeCompare(b.teamName)),
     [rows]);
@@ -82,22 +94,27 @@ export function LeagueStandingsTable({competition,rows}:{
         </View>
         {table.map(row=>{
           const logo=resolveMediaImageUrl(teams.get(row.teamId)?.logoUrl??null);
-          return <Pressable key={row.teamId} testID={`league-team-${row.teamId}`}
-            accessibilityRole="button" accessibilityLabel={`${row.position}. ${row.teamName}`}
-            onPress={()=>open(row.teamId)}
-            style={({pressed})=>[styles.teamRow,
-              {flexDirection:isRTL?"row-reverse":"row"},pressed&&styles.pressed]}>
+          return <View key={row.teamId} ref={node=>{rowRefs.current.set(row.teamId,node);}}
+            style={[styles.teamRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <AppText variant="caption" weight="semibold" style={styles.position} forceLtr>
               {row.position}
             </AppText>
-            <View style={styles.logo}>
-              {logo?<Image source={{uri:logo}} style={styles.logoImage} resizeMode="cover"/>:
-                <Ionicons name="shield-outline" size={19} color={colors.primary}/>}
-            </View>
-            <AppText numberOfLines={1} weight="semibold" style={styles.teamName}>
-              {row.teamName}
-            </AppText>
-          </Pressable>;
+            <Pressable testID={`league-team-${row.teamId}`} accessibilityRole="button"
+              accessibilityLabel={`${row.teamName}. ${t("competition.standingsTeamPreview")}`}
+              onPress={()=>showPreview(row.teamId,row.teamName,logo)}
+              onLongPress={()=>showPreview(row.teamId,row.teamName,logo)}
+              onHoverIn={()=>showPreview(row.teamId,row.teamName,logo)}
+              style={({pressed})=>[styles.namePress,{flexDirection:isRTL?"row-reverse":"row"},
+                pressed&&styles.pressed]}>
+              <View style={styles.logo}>
+                {logo?<Image source={{uri:logo}} style={styles.logoImage} resizeMode="cover"/>:
+                  <Ionicons name="shield-outline" size={19} color={colors.primary}/>}
+              </View>
+              <AppText numberOfLines={1} weight="semibold" style={styles.teamName}>
+                {row.teamName}
+              </AppText>
+            </Pressable>
+          </View>;
         })}
       </View>
 
@@ -139,6 +156,33 @@ export function LeagueStandingsTable({competition,rows}:{
         </View>
       </ScrollView>
     </View>
+    <Modal testID="league-team-tooltip" transparent visible={Boolean(preview)}
+      animationType="fade" onRequestClose={()=>setPreview(null)}>
+      <View style={styles.tooltipOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button"
+          accessibilityLabel={t("competition.standingsClosePreview")}
+          onPress={()=>setPreview(null)}/>
+        {preview?<View style={[styles.tooltip,{top:preview.y,left:preview.x}]}>
+          <View style={[styles.tooltipHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={styles.tooltipLogo}>
+              {preview.logo?<Image source={{uri:preview.logo}} style={styles.logoImage} resizeMode="cover"/>:
+                <Ionicons name="shield-outline" size={29} color={colors.primary}/>}
+            </View>
+            <AppText variant="bodyLarge" weight="bold" style={{flex:1,flexShrink:1}}
+              numberOfLines={3}>{preview.name}</AppText>
+          </View>
+          <Pressable testID="league-tooltip-open-team"
+            accessibilityRole="button" onPress={()=>{const id=preview.id;setPreview(null);open(id);}}
+            style={[styles.tooltipAction,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <AppText weight="semibold" style={{color:colors.primary,flex:1}}>
+              {t("competition.standingsOpenTeam")}
+            </AppText>
+            <Ionicons name={isRTL?"arrow-back-outline":"arrow-forward-outline"}
+              color={colors.primary} size={18}/>
+          </Pressable>
+        </View>:null}
+      </View>
+    </Modal>
   </View>;
 }
 
@@ -164,6 +208,17 @@ const styles=StyleSheet.create({
     alignItems:"center",justifyContent:"center",overflow:"hidden"},
   logoImage:{width:"100%",height:"100%"},
   teamName:{flex:1,minWidth:0},
+  namePress:{flex:1,minWidth:0,gap:5,alignItems:"center",minHeight:52},
+  tooltipOverlay:{flex:1},
+  tooltip:{position:"absolute",width:300,maxWidth:"92%",padding:spacing.md,gap:spacing.md,
+    borderRadius:radius.lg,backgroundColor:colors.surface,borderColor:colors.primary,borderWidth:1,
+    elevation:9,shadowColor:"#0F172A",shadowRadius:16,shadowOpacity:.18,
+    shadowOffset:{width:0,height:5}},
+  tooltipHeader:{alignItems:"center",gap:spacing.sm},
+  tooltipLogo:{width:48,height:48,borderRadius:24,overflow:"hidden",
+    backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  tooltipAction:{minHeight:44,paddingHorizontal:spacing.md,alignItems:"center",
+    backgroundColor:colors.primarySoft,borderRadius:radius.md,gap:spacing.sm},
   metricsHeaderRow:{height:HEADER_HEIGHT,alignItems:"center"},
   metricsRow:{height:ROW_HEIGHT,alignItems:"center",borderTopWidth:1,borderTopColor:colors.border},
   numberBox:{height:ROW_HEIGHT,alignItems:"center",justifyContent:"center",paddingHorizontal:2},
