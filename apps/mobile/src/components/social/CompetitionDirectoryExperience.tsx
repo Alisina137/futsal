@@ -15,6 +15,7 @@ import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
 import {SocialDirectoryCard} from "./SocialDirectoryCard";
 import {SocialFollowedTile} from "./SocialFollowedTile";
+import {DirectoryFilterSelect} from "./DirectoryFilterSelect";
 
 type Mode="directory"|"following"|"popular"|"ongoing";
 const empty:SocialDirectoryDiscoveryResponse={entityType:"COMPETITION",counts:[],followedIds:[]};
@@ -137,18 +138,10 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
         </View>
       </View>
       <View style={styles.filters}>
-        <AppText weight="medium">{t("competition.filterStatus")}</AppText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          {["",...statusOptions].map(option=><Pressable key={option||"all"}
-            testID={option?`competition-status-${option}`:"competition-status-all"}
-            accessibilityRole="button" accessibilityState={{selected:status===option}}
-            onPress={()=>setStatus(option)} style={[styles.chip,status===option&&styles.selected]}>
-            <AppText variant="caption" weight="semibold" style={status===option?styles.accent:undefined}>
-              {option?t(`competition.status.${option}` as never):t("competition.allStatuses")}
-            </AppText>
-          </Pressable>)}
-        </ScrollView>
+        <DirectoryFilterSelect testID="competition-status-select" label={t("competition.filterStatus")}
+          value={status} allLabel={t("competition.allStatuses")}
+          options={statusOptions.map(option=>({value:option,label:t(`competition.status.${option}` as never)}))}
+          onSelect={setStatus}/>
         <TextField testID="competition-name-search" label={t("competition.searchName")}
           placeholder={t("competition.searchPlaceholder")} value={query} maxLength={120}
           autoCorrect={false} returnKeyType="search"
@@ -184,9 +177,6 @@ const styles=StyleSheet.create({
   more:{width:148,minHeight:208,backgroundColor:colors.primarySoft,alignItems:"center",
     justifyContent:"center",borderRadius:radius.md,gap:spacing.sm},
   filters:{gap:spacing.sm},
-  chip:{minHeight:44,paddingHorizontal:spacing.md,borderRadius:radius.md,borderWidth:1,
-    borderColor:colors.border,alignItems:"center",justifyContent:"center"},
-  selected:{backgroundColor:colors.primarySoft,borderColor:colors.primary},
   suggestions:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   suggestion:{minHeight:44,justifyContent:"center",paddingHorizontal:spacing.md,
     borderBottomWidth:1,borderBottomColor:colors.border},

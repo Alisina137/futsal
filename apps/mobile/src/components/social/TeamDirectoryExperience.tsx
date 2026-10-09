@@ -15,6 +15,7 @@ import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
 import {SocialDirectoryCard} from "./SocialDirectoryCard";
 import {SocialFollowedTile} from "./SocialFollowedTile";
+import {DirectoryFilterSelect} from "./DirectoryFilterSelect";
 
 type Mode="directory"|"popular"|"following"|"mine";
 const empty:SocialDirectoryDiscoveryResponse={entityType:"TEAM",counts:[],followedIds:[]};
@@ -130,18 +131,9 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
         </View>
       </View>
       <View style={styles.filters}>
-        <AppText weight="medium">{t("teams.filterCity")}</AppText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          {["",...cities].map(option=><Pressable key={option||"all"}
-            testID={option?`teams-city-${option}`:"teams-city-all"}
-            accessibilityRole="button" accessibilityState={{selected:city===option}}
-            onPress={()=>setCity(option)} style={[styles.chip,city===option&&styles.chipSelected]}>
-            <AppText variant="caption" weight="semibold" style={city===option?styles.accent:undefined}>
-              {option||t("teams.allCities")}
-            </AppText>
-          </Pressable>)}
-        </ScrollView>
+        <DirectoryFilterSelect testID="teams-city-select" label={t("teams.filterCity")}
+          value={city} allLabel={t("teams.allCities")}
+          options={cities.map(name=>({value:name,label:name}))} onSelect={setCity}/>
         <TextField testID="teams-name-search" label={t("teams.searchName")}
           placeholder={t("teams.searchPlaceholder")} value={query} maxLength={120}
           returnKeyType="search" onChangeText={setQuery} onSubmitEditing={()=>setSearch(query.trim())}/>
@@ -173,9 +165,6 @@ const styles=StyleSheet.create({
   more:{width:148,minHeight:208,backgroundColor:colors.primarySoft,alignItems:"center",
     justifyContent:"center",borderRadius:radius.md,gap:spacing.sm},
   filters:{gap:spacing.sm},
-  chip:{minHeight:44,paddingHorizontal:spacing.md,borderRadius:radius.md,borderWidth:1,
-    borderColor:colors.border,alignItems:"center",justifyContent:"center"},
-  chipSelected:{backgroundColor:colors.primarySoft,borderColor:colors.primary},
   item:{gap:spacing.sm},
   back:{width:44,height:44,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft,borderRadius:22},
 });
