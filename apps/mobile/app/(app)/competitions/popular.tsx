@@ -1,2 +1,2 @@
 import {CompetitionDirectoryExperience} from "../../../src/components/social/CompetitionDirectoryExperience";
-export default function CompetitionListScreen(){return <CompetitionDirectoryExperience mode="directory"/>;}
+export default function PopularCompetitions(){return <CompetitionDirectoryExperience mode="popular"/>;}
