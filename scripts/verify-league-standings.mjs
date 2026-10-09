@@ -17,7 +17,7 @@ assert(board.includes('testID="league-pinned-team-column"')
   &&board.includes("directionalLockEnabled")
   &&board.includes("nestedScrollEnabled"),
   "Team name/logo/rank stay pinned while every statistics column scrolls as one group.");
-assert(board.includes('width:"44%"')&&board.includes('width:"56%"')
+assert(board.includes('width:"48%"')&&board.includes('width:"52%"')
   &&board.includes("height:HEADER_HEIGHT")&&board.includes("height:ROW_HEIGHT")
   &&board.includes("styles.metricsHeaderRow")
   &&board.includes("styles.metricsRow")
