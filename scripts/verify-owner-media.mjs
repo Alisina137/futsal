@@ -188,7 +188,7 @@ const uploadEnd=mobileApi.indexOf("export const systemApi",uploadStart);
 const uploadSource=mobileApi.slice(uploadStart,uploadEnd);
 assert(!uploadSource.includes(".blob()"),"Media upload must not call Response.blob(); it causes React Native Blob/base64 overhead and Android LogBox warnings.");
 
-assert(venueDirectory.includes("media.venueSearch")&&venueDirectory.includes("query.trim()"),"Users must be able to search venue pages by name.");
+assert(venueDirectory.includes("booking.venueNameLocation")&&venueDirectory.includes("query.trim()")&&venueDirectory.includes("selectSuggestion"),"Users must be able to search venue pages by name or location with real suggestions.");
 for(const marker of [
   "marketingApi.venuePosts",
   "media.pagePosts",
