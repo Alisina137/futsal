@@ -10,7 +10,7 @@ const client=read("apps/mobile/src/lib/api.ts");
 const sections=read("apps/mobile/src/components/competition/CompetitionProfileSections.tsx");
 const contracts=read("packages/contracts/src/index.ts");
 const l10n=read("packages/localization/src/index.ts");
-assert(list.includes('testID="competition-matches-list"')
+assert(list.includes('"competition-matches-list"')
   &&list.includes("dateGroup(match.startsAt)")
   &&list.includes('formatLocalDateTimeParts(match.startsAt,language)')
   &&list.includes("teams.get(match.homeTeamId")

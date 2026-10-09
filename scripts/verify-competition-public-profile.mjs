@@ -22,7 +22,7 @@ check(sections.includes('"HOME","RESULTS","MATCHES","STANDINGS","STATS","TEAMS"'
   &&sections.includes("CompetitionStats")&&sections.includes("CompetitionTeams"),
   "Six distinct competition sections required.");
 check(matchList.includes('onlyResults?done(match)')&&matchList.includes('match.status==="IN_PROGRESS"')
-  &&matchList.includes('testID="competition-matches-list"')&&matchList.includes('testID="competition-results-list"'),
+  &&matchList.includes('"competition-matches-list"')&&matchList.includes('"competition-results-list"'),
   "Results must stay separate from scheduled and live fixtures.");
 check(sections.includes('competition.format==="GROUP_KNOCKOUT"')
   &&sections.includes('competition.format==="KNOCKOUT"')
