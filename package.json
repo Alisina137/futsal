@@ -14,7 +14,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
-    "verify": "pnpm verify:admin-web && pnpm verify:suspension && pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:avatar && pnpm verify:post-time && pnpm verify:dev-api && pnpm verify:data-cache && pnpm verify:media && pnpm verify:analysis && pnpm verify:venue-settings && pnpm verify:timetable && pnpm verify:loading-ux && pnpm verify:mobile-rtl && pnpm verify:navigation && pnpm verify:role-dashboard && pnpm verify:role-subscription && pnpm verify:normal-user && pnpm verify:public-home-nav && pnpm verify:followed-venues && pnpm verify:venue-discovery && pnpm verify:facebook-home && pnpm verify:comment-sheet && pnpm verify:social-comments && pnpm verify:team-directory && pnpm verify:role-demo && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
+    "verify": "pnpm verify:admin-web && pnpm verify:suspension && pnpm verify:auth-model && pnpm verify:phase8 && pnpm verify:avatar && pnpm verify:post-time && pnpm verify:dev-api && pnpm verify:data-cache && pnpm verify:media && pnpm verify:analysis && pnpm verify:venue-settings && pnpm verify:timetable && pnpm verify:loading-ux && pnpm verify:mobile-rtl && pnpm verify:navigation && pnpm verify:role-dashboard && pnpm verify:role-subscription && pnpm verify:normal-user && pnpm verify:public-home-nav && pnpm verify:followed-venues && pnpm verify:venue-discovery && pnpm verify:venue-cards && pnpm verify:facebook-home && pnpm verify:comment-sheet && pnpm verify:social-comments && pnpm verify:team-directory && pnpm verify:role-demo && pnpm verify:trial-datetime && pnpm verify:phase7 && pnpm verify:phase6 && pnpm verify:phase5 && pnpm verify:phase4 && pnpm verify:phase3 && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "pnpm --filter @leaguekick/database db:generate",
     "db:migrate": "pnpm --dir packages/database run db:migrate",
     "verify:phase3": "node scripts/verify-phase3-resilience.mjs",
@@ -50,6 +50,7 @@
     "verify:public-home-nav": "node scripts/verify-public-home-navigation.mjs",
     "verify:followed-venues": "node scripts/verify-followed-venues.mjs",
     "verify:venue-discovery": "node scripts/verify-venue-discovery.mjs",
+    "verify:venue-cards": "node scripts/verify-venue-result-cards.mjs",
     "verify:facebook-home": "node scripts/verify-facebook-home.mjs",
     "verify:comment-sheet": "node scripts/verify-facebook-comment-sheet.mjs"
   },

@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { FollowStateDto, PublicVenueDto, VenueAvailabilityResponse, VenuePostDto } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Image, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { ApiRequestError, marketingApi, resolveMediaImageUrl, venueApi } from "../../../src/lib/api";
 import { readAvailabilityCache, writeAvailabilityCache } from "../../../src/lib/availability-cache";
 import { formatPostTimeAgo } from "../../../src/lib/date-time";
@@ -22,12 +22,22 @@ function todayKabul(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kab
 function timeLabel(iso:string,timeZone:string){return new Intl.DateTimeFormat("en-GB",{timeZone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(iso));}
 
 export default function VenueDetailScreen(){
-  const {venueId,promotionId,startsAt}=useLocalSearchParams<{venueId:string;promotionId?:string;startsAt?:string}>();
+  const {venueId,promotionId,startsAt,focusAvailability}=useLocalSearchParams<{venueId:string;promotionId?:string;startsAt?:string;focusAvailability?:string}>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const postNow=usePostTimeNow();
   const {isOnline,reconnectVersion}=useNetwork();
   const [venue,setVenue]=useState<PublicVenueDto|null>(null);
+  const availabilityScrollRef=useRef<ScrollView>(null);
+  const bookingJumpHandled=useRef(false);
+  // The booking shortcut only scrolls to the timetable; it never books a slot.
+  const onAvailabilityLayout=useCallback((event:LayoutChangeEvent)=>{
+    if(focusAvailability!=="1"||bookingJumpHandled.current)return;
+    bookingJumpHandled.current=true;
+    const y=event.nativeEvent.layout.y;
+    requestAnimationFrame(()=>availabilityScrollRef.current?.scrollTo({y:Math.max(0,y-spacing.sm),animated:true}));
+  },[focusAvailability]);
+  useEffect(()=>{bookingJumpHandled.current=false;},[venueId,focusAvailability]);
   const [date,setDate]=useState(todayKabul());
   const [availability,setAvailability]=useState<VenueAvailabilityResponse|null>(null);
   const [live,setLive]=useState(false);
@@ -96,7 +106,7 @@ export default function VenueDetailScreen(){
 
   if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={520}/></Screen>;
 
-  return <Screen showHeader>
+  return <Screen showHeader scrollRef={availabilityScrollRef}>
     {venue?<>
       <View style={styles.pageHeader}>
         <View style={styles.publicCover}>
@@ -206,7 +216,7 @@ export default function VenueDetailScreen(){
       />):null}
     </>:null}
 
-    <View style={{gap:spacing.xs}}>
+    <View onLayout={onAvailabilityLayout} style={{gap:spacing.xs}}>
       <AppText variant="bodyLarge" weight="bold">{t("publicProfile.availability")}</AppText>
       <AppText muted>{t("publicProfile.availabilityBody")}</AppText>
     </View>

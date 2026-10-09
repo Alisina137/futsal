@@ -4,6 +4,7 @@ const read=p=>readFileSync(new URL(`../${p}`,import.meta.url),"utf8");
 const assert=(ok,message)=>{if(!ok)throw new Error(message);};
 const directory=read("apps/mobile/app/(app)/(tabs)/venues.tsx");
 const tile=read("apps/mobile/src/components/venues/FollowedVenueTile.tsx");
+const resultCard=read("apps/mobile/src/components/venues/VenueResultCard.tsx");
 const list=read("apps/mobile/app/(app)/venues/following.tsx");
 const api=read("apps/mobile/src/lib/api.ts");
 const contract=read("packages/contracts/src/index.ts");
@@ -41,9 +42,10 @@ assert(directory.includes('flexDirection:isRTL?"row-reverse":"row"'),
   "Horizontal followed cards must preserve RTL ordering.");
 assert(directory.includes("<Screen showHeader publicNav")&&list.includes("<Screen showHeader publicNav"),
   "Venues navigation remains shared across user roles.");
-assert(list.includes("venues.map(venue=>")&&list.includes('pathname:"/venues/[venueId]"')
-  &&list.includes("resolveMediaImageUrl(venue.imageUrl)"),
-  "Show-more destination must display every followed venue with its identity.");
+assert(list.includes("venues.map(venue=><VenueResultCard")&&list.includes("imageUrl={venue.imageUrl}")
+  &&resultCard.includes('pathname:"/venues/[venueId]"')
+  &&resultCard.includes("resolveMediaImageUrl(imageUrl)"),
+  "Show-more destination must display every followed venue with its identity and shared venue card.");
 assert(api.includes('request<FollowedVenuesResponse>("/api/v1/social/venues/followed",{},accessToken)'),
   "Followed venues cannot be guessed from the public venue search results.");
 assert(contract.includes("followedVenueDtoSchema")&&contract.includes("followedVenuesResponseSchema"),

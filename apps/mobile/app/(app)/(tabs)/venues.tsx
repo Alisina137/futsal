@@ -3,9 +3,10 @@ import { spacing, colors, radius } from "@leaguekick/design-tokens";
 import type { FollowedVenueDto, PublicVenueDto, VenueSearchSuggestion } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { marketingApi, resolveMediaImageUrl, venueApi } from "../../../src/lib/api";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { marketingApi, venueApi } from "../../../src/lib/api";
 import { FollowedVenueTile } from "../../../src/components/venues/FollowedVenueTile";
+import { VenueResultCard } from "../../../src/components/venues/VenueResultCard";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
@@ -242,25 +243,15 @@ export default function VenuesScreen(){
     {loading?<DataLoadingState variant="list" minHeight={370}/>:null}
     {!loading&&!error&&venues.length===0?<Card><AppText>{t("booking.noVenues")}</AppText></Card>:null}
 
-    {!loading?venues.map(venue=><Pressable key={venue.id} accessibilityRole="button"
-      accessibilityLabel={venue.name} onPress={()=>router.push({pathname:"/venues/[venueId]",params:{venueId:venue.id}})}>
-      <Card>
-        <View style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"center",gap:spacing.sm}}>
-          {resolveMediaImageUrl(venue.pageProfileImageUrl)
-            ?<Image source={{uri:resolveMediaImageUrl(venue.pageProfileImageUrl)!}} style={styles.listLogo}/>
-            :<View style={[styles.listLogo,styles.logoFallback]}>
-              <Ionicons name="football-outline" size={27} color={colors.primary}/>
-            </View>}
-          <View style={{flex:1,gap:2,alignItems:isRTL?"flex-end":"flex-start"}}>
-            <AppText variant="bodyLarge" weight="bold">{venue.name}</AppText>
-            <AppText muted>{venue.city}, {venue.province}</AppText>
-          </View>
-        </View>
-        {venue.pageBio?<AppText muted>{venue.pageBio}</AppText>:null}
-        <AppText>{venue.address}</AppText>
-        <AppText style={{color:colors.primary}} weight="semibold">{t("booking.viewAvailability")}</AppText>
-      </Card>
-    </Pressable>):null}
+    {!loading&&!error?venues.map(venue=><VenueResultCard
+      key={venue.id}
+      id={venue.id}
+      name={venue.name}
+      city={venue.city}
+      province={venue.province}
+      imageUrl={venue.pageCoverImageUrl??venue.pageProfileImageUrl}
+      onlineBookingEnabled={venue.onlineBookingEnabled}
+    />):null}
   </Screen>;
 }
 
@@ -298,7 +289,5 @@ const styles=StyleSheet.create({
   pickerClose:{height:44,width:44,alignItems:"center",justifyContent:"center"},
   provinceOption:{minHeight:49,paddingHorizontal:spacing.lg,paddingVertical:spacing.sm,
     alignItems:"center",borderBottomWidth:1,borderBottomColor:colors.border},
-  listLogo:{width:52,height:52,borderRadius:26},
-  logoFallback:{alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   pressed:{opacity:.8},
 });
