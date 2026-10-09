@@ -18,8 +18,10 @@ assert(list.includes('"competition-matches-list"')
   "Date-grouped match list needs real team crests and localized Kabul fixture times.");
 assert(list.includes('testID="match-filter-rail"')
   &&list.includes('["ALL","UPCOMING","LIVE","FINISHED"]')
-  &&list.includes("filter===\"LIVE\"")&&list.includes("onlyResults?done(match)"),
-  "Competition Matches must support all/upcoming/live/finished filters and separate Results.");
+  &&list.includes("filter===\"LIVE\"")
+  &&list.includes('filter==="FINISHED"?done(match)')
+  &&!list.includes("onlyResults"),
+  "Competition Matches must support all/upcoming/live/finished filters, with results in Finished only.");
 assert(list.includes('pathname:"/competitions/[competitionId]/matches/[matchId]"')
   &&detail.includes("competitionApi.match(competitionId,matchId)")
   &&detail.includes('testID="competition-match-scoreboard"'),

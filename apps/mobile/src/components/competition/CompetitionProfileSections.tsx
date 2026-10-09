@@ -15,7 +15,7 @@ import {LeagueStandingsTable} from "./LeagueStandingsTable";
 import {CompetitionMatchList} from "./CompetitionMatchList";
 import {Card} from "../ui/Card";
 
-export type CompetitionProfileTab="HOME"|"RESULTS"|"MATCHES"|"STANDINGS"|"STATS"|"TEAMS";
+export type CompetitionProfileTab="HOME"|"MATCHES"|"STANDINGS"|"STATS"|"TEAMS";
 type Stage="GROUPS"|"KNOCKOUT";
 type StatMetric="GOALS"|"ASSISTS";
 type Props={
@@ -25,13 +25,14 @@ type Props={
   registration:ReactNode;
   onTabChange:(tab:CompetitionProfileTab)=>void;
   initialStage?:Stage|undefined;
+  initialMatchFilter?:"ALL"|"FINISHED"|undefined;
 };
 
 export const COMPETITION_PROFILE_TABS:CompetitionProfileTab[]=[
-  "HOME","RESULTS","MATCHES","STANDINGS","STATS","TEAMS",
+  "HOME","MATCHES","STANDINGS","STATS","TEAMS",
 ];
 export const COMPETITION_TAB_ICONS:Record<CompetitionProfileTab,keyof typeof Ionicons.glyphMap>={
-  HOME:"home-outline",RESULTS:"checkmark-done-outline",MATCHES:"calendar-outline",
+  HOME:"home-outline",MATCHES:"calendar-outline",
   STANDINGS:"podium-outline",STATS:"stats-chart-outline",TEAMS:"people-outline",
 };
 const isResult=(match:CompetitionMatchDto)=>match.status==="COMPLETED"||match.status==="CORRECTED";
@@ -311,10 +312,10 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
   </View>;
 }
 
-export function CompetitionProfileSections({competition,posts,activeTab,registration,onTabChange,initialStage}:Props){
+export function CompetitionProfileSections({competition,posts,activeTab,registration,onTabChange,initialStage,initialMatchFilter}:Props){
   if(activeTab==="HOME")return <Home competition={competition} posts={posts} onTabChange={onTabChange}/>;
-  if(activeTab==="RESULTS"||activeTab==="MATCHES")return <CompetitionMatchList
-    competition={competition} onlyResults={activeTab==="RESULTS"}/>;
+  if(activeTab==="MATCHES")return <CompetitionMatchList
+    competition={competition} initialFilter={initialMatchFilter??"ALL"}/>;
   if(activeTab==="STANDINGS")return <CompetitionStandings competition={competition} initialStage={initialStage}/>;
   if(activeTab==="STATS")return <CompetitionStats competition={competition}/>;
   return <CompetitionTeams competition={competition} registration={registration}/>;

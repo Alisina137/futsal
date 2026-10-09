@@ -18,6 +18,8 @@ import {useAuth} from "../../../src/providers/AuthProvider";
 import {useLocale} from "../../../src/providers/LocaleProvider";
 
 function selectedTab(input?:string):CompetitionProfileTab{
+  // Links saved before the Results tab was removed still reach Matches > Finished.
+  if(input==="RESULTS")return "MATCHES";
   return COMPETITION_PROFILE_TABS.includes(input as CompetitionProfileTab)
     ?input as CompetitionProfileTab:"HOME";
 }
@@ -288,7 +290,8 @@ export default function CompetitionDetailScreen(){
     <View onLayout={e=>{contentY.current=e.nativeEvent.layout.y;}}>
       <CompetitionProfileSections competition={competition} posts={mediaPosts}
         activeTab={activeTab} registration={registration} onTabChange={switchTab}
-        initialStage={stage==="KNOCKOUT"?"KNOCKOUT":undefined}/>
+        initialStage={stage==="KNOCKOUT"?"KNOCKOUT":undefined}
+        initialMatchFilter={tab==="RESULTS"?"FINISHED":"ALL"}/>
     </View>
   </Screen>;
 }

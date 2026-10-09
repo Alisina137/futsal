@@ -16,14 +16,19 @@ check(page.includes('testID="competition-profile-tabs"')
   &&page.includes("COMPETITION_PROFILE_TABS.map")
   &&page.includes('testID={`competition-tab-${value}`}')
   &&page.includes("height:64,minHeight:64,maxHeight:64")&&page.includes("flexGrow:0,flexShrink:0"),
-  "Compact six-tab scrolling navigation must have stable 64px height and accessible selection.");
-check(sections.includes('"HOME","RESULTS","MATCHES","STANDINGS","STATS","TEAMS"')
+  "Compact five-tab scrolling navigation must have stable 64px height and accessible selection.");
+check(sections.includes('"HOME","MATCHES","STANDINGS","STATS","TEAMS"')
+  &&!sections.includes('"HOME","RESULTS","MATCHES"')
+  &&!sections.includes('activeTab==="RESULTS"')
   &&sections.includes("CompetitionMatchList")&&sections.includes("CompetitionStandings")
   &&sections.includes("CompetitionStats")&&sections.includes("CompetitionTeams"),
-  "Six distinct competition sections required.");
-check(matchList.includes('onlyResults?done(match)')&&matchList.includes('match.status==="IN_PROGRESS"')
-  &&matchList.includes('"competition-matches-list"')&&matchList.includes('"competition-results-list"'),
-  "Results must stay separate from scheduled and live fixtures.");
+  "Five distinct competition tabs required; no redundant Results tab.");
+check(matchList.includes('filter==="FINISHED"?done(match)')
+  &&matchList.includes('match.status==="IN_PROGRESS"')
+  &&matchList.includes('match.status==="COMPLETED"||match.status==="CORRECTED"')
+  &&matchList.includes('testID="competition-matches-list"')
+  &&!matchList.includes("onlyResults")&&!matchList.includes('"competition-results-list"'),
+  "All completed and corrected results must be available only through Matches > Finished.");
 check(sections.includes('competition.format==="GROUP_KNOCKOUT"')
   &&sections.includes('competition.format==="KNOCKOUT"')
   &&sections.includes('testID={`competition-stage-${option}`}')
@@ -72,7 +77,10 @@ check(page.includes("setInterval(()=>void refreshScore(),25000)")
   &&page.includes("appState.remove()"),
   "Live scores must refresh only while the foreground Home profile is focused and clean up timers.");
 check(directory.includes('tab:"STANDINGS"'),"Competition standings quick actions should open the tab inside the profile.");
-for(const key of ["competition.profile.tab.HOME","competition.profile.tab.RESULTS","competition.profile.tab.MATCHES",
+check(page.includes('if(input==="RESULTS")return "MATCHES"')
+  &&page.includes('initialMatchFilter={tab==="RESULTS"?"FINISHED":"ALL"}'),
+  "Old Results URLs must still open the Finished filter under Matches.");
+for(const key of ["competition.profile.tab.HOME","competition.profile.tab.MATCHES",
   "competition.profile.tab.STANDINGS","competition.profile.tab.STATS","competition.profile.tab.TEAMS",
   "competition.profile.stages","competition.profile.groupStage","competition.profile.knockoutStage",
   "competition.profile.allPosts","competition.profile.liveNow","competition.profile.liveBadge",
@@ -86,4 +94,4 @@ for(const [name,tab] of [["standings","STANDINGS"],["bracket","STANDINGS"],["sta
   if(name==="bracket")check(legacy.includes('stage:"KNOCKOUT"'),
     "Legacy bracket must open the knockout stage directly.");
 }
-console.log("Public competition profile verified: venue-style identity, six functional tabs, dedicated About page, all-posts Home with live-only scores, Teams-only registration, format-aware stages, follower state and localization.");
+console.log("Public competition profile verified: venue-style identity, five functional tabs, dedicated About page, all-posts Home with live-only scores, Teams-only registration, format-aware stages, follower state and localization.");

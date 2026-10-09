@@ -10,7 +10,7 @@ import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Card} from "../ui/Card";
 
-type MatchFilter="ALL"|"UPCOMING"|"LIVE"|"FINISHED";
+export type MatchFilter="ALL"|"UPCOMING"|"LIVE"|"FINISHED";
 const FILTERS:MatchFilter[]=["ALL","UPCOMING","LIVE","FINISHED"];
 const done=(match:CompetitionMatchDto)=>match.status==="COMPLETED"||match.status==="CORRECTED";
 const upcoming=(match:CompetitionMatchDto)=>
@@ -43,17 +43,17 @@ function TeamLogo({uri}:{uri:string|null|undefined}){
       <Ionicons name="shield-outline" color={colors.primary} size={24}/>}
   </View>;
 }
-export function CompetitionMatchList({competition,onlyResults=false}:{
-  competition:CompetitionDto;onlyResults?:boolean;
+export function CompetitionMatchList({competition,initialFilter="ALL"}:{
+  competition:CompetitionDto;initialFilter?:MatchFilter|undefined;
 }){
   const {t,language,isRTL}=useLocale();
-  const [filter,setFilter]=useState<MatchFilter>("ALL");
+  const [filter,setFilter]=useState<MatchFilter>(initialFilter);
   const teams=useMemo(()=>new Map(competition.teams.map(team=>[team.teamId,team])),[competition.teams]);
   const matches=useMemo(()=>order(competition.matches.filter(match=>
-    onlyResults?done(match):filter==="ALL"?true:
+    filter==="ALL"?true:
       filter==="FINISHED"?done(match):
       filter==="LIVE"?match.status==="IN_PROGRESS":upcoming(match)
-  )),[competition.matches,filter,onlyResults]);
+  )),[competition.matches,filter]);
   const groups=useMemo(()=>{
     const result:Array<{key:string;date:string;matches:CompetitionMatchDto[]}>= [];
     for(const match of matches){
@@ -70,8 +70,8 @@ export function CompetitionMatchList({competition,onlyResults=false}:{
     pathname:"/competitions/[competitionId]/matches/[matchId]",
     params:{competitionId:competition.id,matchId:match.id},
   });
-  return <View style={styles.container} testID={onlyResults?"competition-results-list":"competition-matches-list"}>
-    {!onlyResults?<ScrollView testID="match-filter-rail" horizontal showsHorizontalScrollIndicator={false}
+  return <View style={styles.container} testID="competition-matches-list">
+    <ScrollView testID="match-filter-rail" horizontal showsHorizontalScrollIndicator={false}
       style={styles.filterViewport}
       contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {FILTERS.map(value=><Pressable key={value} testID={`match-filter-${value}`}
@@ -83,11 +83,11 @@ export function CompetitionMatchList({competition,onlyResults=false}:{
           {t(`competition.matchList.filter.${value}` as never)}
         </AppText>
       </Pressable>)}
-    </ScrollView>:null}
+    </ScrollView>
     {matches.length===0?<Card style={styles.empty}>
       <Ionicons name="calendar-outline" size={30} color={colors.primary}/>
       <AppText muted style={{textAlign:"center"}}>
-        {t(onlyResults?"competition.profile.noResults":"competition.matchList.empty")}
+        {t("competition.matchList.empty")}
       </AppText>
     </Card>:null}
     {groups.map((group,index)=><View key={`${group.key}-${index}`} style={styles.dayGroup}>
