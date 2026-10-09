@@ -1,5 +1,6 @@
 import type {
   NotificationDto,
+  NotificationListFilter,
   NotificationPreferences,
   NotificationPreferencesUpdate,
   PushDeviceRegisterRequest,
@@ -11,7 +12,7 @@ import {
   notifications,
   pushDevices,
 } from "@leaguekick/database";
-import { and, count, desc, eq, gt, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, isNotNull } from "drizzle-orm";
 import type { NotificationCreateInput, NotificationRepository } from "./notification.types.js";
 
 function dto(row: typeof notifications.$inferSelect): NotificationDto {
@@ -75,12 +76,55 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     return next;
   }
 
-  async listNotifications(userId: string, limit: number) {
-    const rows = await this.db.select().from(notifications)
-      .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt))
-      .limit(limit);
+  private filtered(userId:string,filter:NotificationListFilter="ALL"){
+    const kind=filter==="BOOKINGS"?["BOOKING_CONFIRMED","BOOKING_CANCELLED"] as const:
+      filter==="VENUES"?["SLOT_PROMOTION","VENUE_POST"] as const:
+      filter==="TEAMS"?["TEAM_INVITATION"] as const:
+      filter==="COMPETITIONS"?["COMPETITION_UPDATE"] as const:null;
+    return and(eq(notifications.userId,userId),
+      filter==="UNREAD"?isNull(notifications.readAt):undefined,
+      kind?inArray(notifications.type,[...kind]):undefined);
+  }
+
+  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL"){
+    const rows=await this.db.select().from(notifications)
+      .where(this.filtered(userId,filter))
+      .orderBy(desc(notifications.createdAt),desc(notifications.id))
+      .limit(limit).offset(offset);
     return rows.map(dto);
+  }
+
+  async countNotifications(userId:string,filter:NotificationListFilter="ALL"){
+    const [row]=await this.db.select({value:count()}).from(notifications)
+      .where(this.filtered(userId,filter));
+    return Number(row?.value??0);
+  }
+
+  async countUnreadNotifications(userId:string){
+    const [row]=await this.db.select({value:count()}).from(notifications)
+      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt)));
+    return Number(row?.value??0);
+  }
+
+  async markAllRead(userId:string,readAt:Date){
+    const rows=await this.db.update(notifications).set({readAt})
+      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt)))
+      .returning({id:notifications.id});
+    return rows.length;
+  }
+
+  async deleteNotification(userId:string,notificationId:string){
+    const rows=await this.db.delete(notifications)
+      .where(and(eq(notifications.userId,userId),eq(notifications.id,notificationId)))
+      .returning({id:notifications.id});
+    return rows.length>0;
+  }
+
+  async clearRead(userId:string){
+    const rows=await this.db.delete(notifications)
+      .where(and(eq(notifications.userId,userId),isNotNull(notifications.readAt)))
+      .returning({id:notifications.id});
+    return rows.length;
   }
 
   async getNotification(userId: string, notificationId: string) {

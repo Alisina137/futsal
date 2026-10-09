@@ -3,6 +3,7 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import {
   notificationPreferencesUpdateSchema,
+  notificationListFilterSchema,
   pushDeviceRegisterRequestSchema,
 } from "@leaguekick/contracts";
 import { requireAuth } from "../../middleware/auth.js";
@@ -23,9 +24,32 @@ export function createNotificationRouter(notifications: NotificationService, tok
     legacyHeaders: false,
   });
 
-  router.get("/", async (request, response, next) => {
-    try { response.json(await notifications.list(request.auth!.userId)); }
-    catch (error) { next(error); }
+  router.get("/", async (request,response,next)=>{
+    try{
+      const query=z.object({
+        filter:notificationListFilterSchema.default("ALL"),
+        limit:z.coerce.number().int().min(1).max(100).default(30),
+        offset:z.coerce.number().int().min(0).max(10000).default(0),
+      }).parse(request.query);
+      response.json(await notifications.list(request.auth!.userId,query.filter,query.limit,query.offset));
+    }catch(error){next(error);}
+  });
+
+  router.post("/read-all",writeLimiter,async(request,response,next)=>{
+    try{response.json(await notifications.markAllRead(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+
+  router.delete("/read",writeLimiter,async(request,response,next)=>{
+    try{response.json(await notifications.clearRead(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+
+  router.delete("/:notificationId",writeLimiter,async(request,response,next)=>{
+    try{
+      const id=routeIdSchema.parse(request.params.notificationId);
+      response.json(await notifications.deleteNotification(request.auth!.userId,id));
+    }catch(error){next(error);}
   });
 
   router.post("/:notificationId/read", writeLimiter, async (request, response, next) => {

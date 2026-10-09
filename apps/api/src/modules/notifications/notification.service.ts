@@ -1,5 +1,6 @@
 import type {
   NotificationPreferencesUpdate,
+  NotificationListFilter,
   PushDeviceRegisterRequest,
 } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
@@ -18,11 +19,30 @@ export class NotificationService implements NotificationPublisher {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async list(userId: string) {
-    return {
-      notifications: await this.repository.listNotifications(userId, 100),
-      generatedAt: this.now().toISOString(),
-    };
+  async list(userId:string,filter:NotificationListFilter="ALL",limit=30,offset=0){
+    const [notifications,total,unreadCount]=await Promise.all([
+      this.repository.listNotifications(userId,limit,offset,filter),
+      this.repository.countNotifications(userId,filter),
+      this.repository.countUnreadNotifications(userId),
+    ]);
+    return {notifications,total,unreadCount,hasMore:offset+notifications.length<total,
+      generatedAt:this.now().toISOString()};
+  }
+
+  async markAllRead(userId:string){
+    const updated=await this.repository.markAllRead(userId,this.now());
+    return {updated,unreadCount:await this.repository.countUnreadNotifications(userId)};
+  }
+
+  async deleteNotification(userId:string,notificationId:string){
+    const deleted=await this.repository.deleteNotification(userId,notificationId);
+    if(!deleted)throw errors.badRequest("NOTIFICATION_NOT_FOUND","Notification not found.");
+    return {deleted:true,unreadCount:await this.repository.countUnreadNotifications(userId)};
+  }
+
+  async clearRead(userId:string){
+    const deleted=await this.repository.clearRead(userId);
+    return {deleted,unreadCount:await this.repository.countUnreadNotifications(userId)};
   }
 
   async markRead(userId: string, notificationId: string) {

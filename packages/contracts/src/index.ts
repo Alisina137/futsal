@@ -1692,6 +1692,17 @@ export const notificationDtoSchema = z.object({
 });
 export type NotificationDto = z.infer<typeof notificationDtoSchema>;
 
+export const notificationListFilterSchema=z.enum(["ALL","UNREAD","BOOKINGS","VENUES","TEAMS","COMPETITIONS"]);
+export type NotificationListFilter=z.infer<typeof notificationListFilterSchema>;
+export const notificationListResponseSchema=z.object({
+  notifications:z.array(notificationDtoSchema),
+  total:z.number().int().nonnegative(),
+  unreadCount:z.number().int().nonnegative(),
+  hasMore:z.boolean(),
+  generatedAt:isoDateTimeSchema,
+});
+export type NotificationListResponse=z.infer<typeof notificationListResponseSchema>;
+
 export const notificationPreferencesSchema = z.object({
   inAppEnabled: z.boolean(),
   pushEnabled: z.boolean(),

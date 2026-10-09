@@ -1,5 +1,6 @@
 import type {
   NotificationDto,
+  NotificationListFilter,
   NotificationPreferences,
   NotificationPreferencesUpdate,
   NotificationType,
@@ -20,7 +21,12 @@ export type NotificationCreateInput = {
 export interface NotificationRepository {
   getPreferences(userId: string): Promise<NotificationPreferences>;
   updatePreferences(userId: string, input: NotificationPreferencesUpdate, updatedAt: Date): Promise<NotificationPreferences>;
-  listNotifications(userId: string, limit: number): Promise<NotificationDto[]>;
+  listNotifications(userId:string,limit:number,offset?:number,filter?:NotificationListFilter):Promise<NotificationDto[]>;
+  countNotifications(userId:string,filter?:NotificationListFilter):Promise<number>;
+  countUnreadNotifications(userId:string):Promise<number>;
+  markAllRead(userId:string,readAt:Date):Promise<number>;
+  deleteNotification(userId:string,notificationId:string):Promise<boolean>;
+  clearRead(userId:string):Promise<number>;
   getNotification(userId: string, notificationId: string): Promise<NotificationDto | null>;
   markRead(userId: string, notificationId: string, readAt: Date): Promise<NotificationDto | null>;
   countRecentMarketingNotifications(userId: string, since: Date): Promise<number>;

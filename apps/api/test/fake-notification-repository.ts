@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   NotificationDto,
+  NotificationListFilter,
   NotificationPreferences,
   NotificationPreferencesUpdate,
   PushDeviceRegisterRequest,
@@ -37,8 +38,43 @@ export class FakeNotificationRepository implements NotificationRepository {
     return next;
   }
 
-  async listNotifications(userId:string,limit:number){
-    return this.notifications.filter((item)=>(item.data.userId as string|undefined)===userId).slice(-limit).reverse();
+  private filtered(userId:string,filter:NotificationListFilter="ALL"){
+    return this.notifications.filter(item=>{
+      if(item.data.userId!==userId)return false;
+      if(filter==="UNREAD")return !item.readAt;
+      if(filter==="BOOKINGS")return item.type==="BOOKING_CONFIRMED"||item.type==="BOOKING_CANCELLED";
+      if(filter==="VENUES")return item.type==="SLOT_PROMOTION"||item.type==="VENUE_POST";
+      if(filter==="TEAMS")return item.type==="TEAM_INVITATION";
+      if(filter==="COMPETITIONS")return item.type==="COMPETITION_UPDATE";
+      return true;
+    }).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id));
+  }
+  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL"){
+    return this.filtered(userId,filter).slice(offset,offset+limit);
+  }
+  async countNotifications(userId:string,filter:NotificationListFilter="ALL"){
+    return this.filtered(userId,filter).length;
+  }
+  async countUnreadNotifications(userId:string){
+    return this.filtered(userId,"UNREAD").length;
+  }
+  async markAllRead(userId:string,readAt:Date){
+    let updated=0;
+    this.notifications=this.notifications.map(item=>{
+      if(item.data.userId!==userId||item.readAt)return item;
+      updated++;return {...item,readAt:readAt.toISOString()};
+    });
+    return updated;
+  }
+  async deleteNotification(userId:string,notificationId:string){
+    const previous=this.notifications.length;
+    this.notifications=this.notifications.filter(item=>item.id!==notificationId||item.data.userId!==userId);
+    return this.notifications.length<previous;
+  }
+  async clearRead(userId:string){
+    const previous=this.notifications.length;
+    this.notifications=this.notifications.filter(item=>item.data.userId!==userId||!item.readAt);
+    return previous-this.notifications.length;
   }
 
   async getNotification(userId:string,notificationId:string){
