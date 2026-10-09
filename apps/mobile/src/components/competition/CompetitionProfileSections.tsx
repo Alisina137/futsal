@@ -22,7 +22,7 @@ type Props={
   activeTab:CompetitionProfileTab;
   registration:ReactNode;
   onTabChange:(tab:CompetitionProfileTab)=>void;
-  initialStage?:Stage;
+  initialStage?:Stage|undefined;
 };
 
 export const COMPETITION_PROFILE_TABS:CompetitionProfileTab[]=[
@@ -155,7 +155,7 @@ function StandingTable({rows}:{rows:CompetitionStandingRowDto[]}){
   </View>;
 }
 
-function CompetitionStandings({competition,initialStage}:{competition:CompetitionDto;initialStage?:Stage}){
+function CompetitionStandings({competition,initialStage}:{competition:CompetitionDto;initialStage?:Stage|undefined}){
   const {t}=useLocale();
   const mixed=competition.format==="GROUP_KNOCKOUT";
   const knockoutOnly=competition.format==="KNOCKOUT";
