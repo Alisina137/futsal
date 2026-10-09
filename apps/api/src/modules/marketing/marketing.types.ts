@@ -1,5 +1,6 @@
 import type {
   FeedItemDto,
+  FollowedVenueDto,
   PromotionDto,
   SocialEntityType,
   SocialFeedPostDto,
@@ -118,6 +119,7 @@ export interface MarketingRepository {
   isFollowing(userId: string, venueId: string): Promise<boolean>;
   followerCount(venueId: string): Promise<number>;
   listFollowedVenueIds(userId: string): Promise<string[]>;
+  listFollowedVenues(userId: string): Promise<FollowedVenueDto[]>;
   listFollowerUserIds(venueId: string): Promise<string[]>;
 
   getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null>;

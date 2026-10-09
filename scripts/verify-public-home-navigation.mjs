@@ -23,9 +23,9 @@ for(const [key,href,icon,page] of paths){
   assert(bar.includes(`key:"${key}",href:"${href}"`),`Top navigation route missing: ${key}`);
   assert(bar.includes(`icon:"${icon}"`),`Top navigation icon missing: ${key}`);
   const code=read(page);
-  if(key==="home"){
+  if(key==="home"||key==="venues"){
     assert(code.includes("<Screen showHeader publicNav")&&code.includes('{loading?<DataLoadingState'),
-      "Home must keep the top navigation mounted while feed content loads.");
+      `${key} must keep the top navigation mounted while content loads.`);
   }else{
     assert((code.match(/<Screen showHeader publicNav>/g)??[]).length>=2,
       `Top bar must be visible both during loading and content: ${key}`);

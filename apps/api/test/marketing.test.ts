@@ -218,6 +218,67 @@ describe("Phase 4 marketing API", () => {
     expect(response.body.error.code).toBe("INVALID_DISCOUNT");
   });
 
+  it("returns all account-scoped followed venue cards and excludes unavailable venues",async()=>{
+    const {app,marketingRepository,authRepository}=setup();
+    const a=await register(app,authRepository,"PLAYER","0703334701");
+    const b=await register(app,authRepository,"PLAYER","0703334702");
+    const tokenA=`Bearer ${a.body.accessToken}`;
+    const tokenB=`Bearer ${b.body.accessToken}`;
+    const url="/api/v1/social/venues/followed";
+
+    expect((await request(app).get(url)).status).toBe(401);
+    const noFollows=await request(app).get(url).set("Authorization",tokenA);
+    expect(noFollows.status).toBe(200);
+    expect(noFollows.body.venues).toEqual([]);
+
+    const {randomUUID}=await import("node:crypto");
+    const ids:string[]=[];
+    for(let i=0;i<12;i++){
+      const id=randomUUID();
+      ids.push(id);
+      marketingRepository.seedVenue({
+        id,ownerUserId:a.body.user.id,
+        name:`Venue ${String(i).padStart(2,"0")}`,city:"Kabul",province:"Kabul",
+        pageProfileImageUrl:i%2===0?`https://example.org/logo-${i}.jpg`:null,
+        timezone:"Asia/Kabul",status:"ACTIVE",subscription:null,
+      });
+      const follow=await request(app).post(`/api/v1/social/follows/VENUE/${id}`)
+        .set("Authorization",tokenA);
+      expect(follow.status).toBe(200);
+    }
+    const response=await request(app).get(url).set("Authorization",tokenA);
+    expect(response.status).toBe(200);
+    // API returns ALL followed venues; UI caps the carousel at 10 and shows more.
+    expect(response.body.venues).toHaveLength(12);
+    expect(new Set(response.body.venues.map((venue:{id:string})=>venue.id)).size).toBe(12);
+    expect(response.body.venues[0].name).toBe("Venue 11");
+    expect(response.body.venues[11].name).toBe("Venue 00");
+    expect(response.body.venues[11].imageUrl).toBe("https://example.org/logo-0.jpg");
+    expect(response.body.venues[0]).toEqual(expect.objectContaining({
+      id:ids[11],name:"Venue 11",city:"Kabul",province:"Kabul",
+    }));
+
+    const another=await request(app).get(url).set("Authorization",tokenB);
+    expect(another.status).toBe(200);
+    expect(another.body.venues).toEqual([]);
+
+    marketingRepository.seedVenue({
+      id:ids[0]!,ownerUserId:a.body.user.id,
+      name:"Venue 00",city:"Kabul",province:"Kabul",
+      timezone:"Asia/Kabul",status:"SUSPENDED",subscription:null,
+    });
+    const hidden=await request(app).get(url).set("Authorization",tokenA);
+    expect(hidden.body.venues).toHaveLength(11);
+    expect(hidden.body.venues.some((venue:{id:string})=>venue.id===ids[0])).toBe(false);
+
+    const unfollow=await request(app).delete(`/api/v1/social/follows/VENUE/${ids[1]}`)
+      .set("Authorization",tokenA);
+    expect(unfollow.status).toBe(200);
+    const updated=await request(app).get(url).set("Authorization",tokenA);
+    expect(updated.body.venues).toHaveLength(10);
+    expect(updated.body.venues.some((venue:{id:string})=>venue.id===ids[1])).toBe(false);
+  });
+
   it("follows and unfollows a venue idempotently", async () => {
     const { app, bookingRepository, marketingRepository, authRepository } = setup();
     const owner = await register(app, authRepository, "VENUE_OWNER", "0703334422");

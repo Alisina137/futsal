@@ -37,6 +37,7 @@ import type {
   SocialEntityType,
   SocialFeedPostDto,
   SocialFeedResponse,
+  FollowedVenuesResponse,
   SocialFollowStateDto,
   SocialPostCommentCreateRequest,
   SocialPostCommentUpdateRequest,
@@ -497,6 +498,8 @@ export const bookingApi = {
 
 
 export const marketingApi = {
+  followedVenues: (accessToken:string) =>
+    request<FollowedVenuesResponse>("/api/v1/social/venues/followed",{},accessToken),
   feed: (accessToken?: string, followingOnly = false) =>
     request<FeedResponse>(followingOnly ? "/api/v1/feed/following" : "/api/v1/feed", {}, followingOnly ? accessToken : undefined),
   venuePosts: (venueId: string, accessToken?: string) =>

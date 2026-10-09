@@ -329,6 +329,15 @@ export class FakeMarketingRepository implements MarketingRepository {
   async unfollowVenue(userId:string,venueId:string){this.follows.delete(`${userId}:${venueId}`);}
   async isFollowing(userId:string,venueId:string){return this.follows.has(`${userId}:${venueId}`);}
   async followerCount(venueId:string){return [...this.follows].filter((key)=>key.endsWith(`:${venueId}`)).length;}
+  async listFollowedVenues(userId:string){
+    const ids=await this.listFollowedVenueIds(userId);
+    return ids.map(id=>this.venues.get(id)).filter(
+      (venue):venue is MarketingVenueRecord=>Boolean(venue&&venue.status==="ACTIVE")
+    ).map(venue=>({
+      id:venue.id,name:venue.name,imageUrl:venue.pageProfileImageUrl??null,
+      city:venue.city??"",province:venue.province??"",
+    })).reverse();
+  }
   async listFollowedVenueIds(userId:string){return [...this.follows].filter((key)=>key.startsWith(`${userId}:`)).map((key)=>key.slice(userId.length+1));}
   async listFollowerUserIds(venueId:string){return [...this.follows].filter((key)=>key.endsWith(`:${venueId}`)).map((key)=>key.slice(0,key.length-venueId.length-1));}
 

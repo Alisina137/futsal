@@ -483,6 +483,10 @@ export class MarketingService {
     return asset;
   }
 
+  async followedVenues(userId:string){
+    return {venues:await this.repository.listFollowedVenues(userId),generatedAt:this.now().toISOString()};
+  }
+
   async socialFeed(userId:string):Promise<SocialFeedResponse>{
     await this.refreshMedia();
     return {generatedAt:this.now().toISOString(),items:await this.repository.listSocialFeed(userId)};

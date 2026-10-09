@@ -1095,6 +1095,21 @@ export const followStateDtoSchema = z.object({
 });
 export type FollowStateDto = z.infer<typeof followStateDtoSchema>;
 
+export const followedVenueDtoSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  imageUrl: z.string().nullable(),
+  city: z.string(),
+  province: z.string(),
+});
+export type FollowedVenueDto = z.infer<typeof followedVenueDtoSchema>;
+
+export const followedVenuesResponseSchema = z.object({
+  venues: z.array(followedVenueDtoSchema),
+  generatedAt: isoDateTimeSchema,
+});
+export type FollowedVenuesResponse = z.infer<typeof followedVenuesResponseSchema>;
+
 export const socialEntityTypeSchema = z.enum(["VENUE", "TEAM", "COMPETITION", "USER"]);
 export type SocialEntityType = z.infer<typeof socialEntityTypeSchema>;
 
