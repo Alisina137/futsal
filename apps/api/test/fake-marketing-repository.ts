@@ -380,7 +380,9 @@ export class FakeMarketingRepository implements MarketingRepository {
   }
   async socialFollowerCount(entityType:SocialEntityType,entityId:string){
     if(entityType==="VENUE")return this.followerCount(entityId);
-    return (await this.listSocialDirectoryCounts(entityType)).find(x=>x.id===entityId)?.count??0;
+    if(entityType==="TEAM"||entityType==="COMPETITION")
+      return (await this.listSocialDirectoryCounts(entityType)).find(x=>x.id===entityId)?.count??0;
+    return 0;
   }
   async listUserPosts(_viewerId:string,userId:string):Promise<SocialFeedPostDto[]>{
     return [...this.userSocialPosts.values()].filter(post=>post.authorId===userId).reverse();
