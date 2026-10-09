@@ -155,6 +155,27 @@ export class BookingService {
     };
   }
 
+  /** Ten closest subscribed and active venues with owner-confirmed map coordinates. */
+  async nearbyVenues(latitude:number,longitude:number){
+    const result=await this.listPublicVenues({});
+    const rad=(degree:number)=>degree*Math.PI/180;
+    const distance=(la:number,lo:number,lb:number,lob:number)=>{
+      const a=Math.sin(rad(lb-la)/2)**2+Math.cos(rad(la))*Math.cos(rad(lb))*Math.sin(rad(lob-lo)/2)**2;
+      return 6371.0088*2*Math.atan2(Math.sqrt(Math.min(1,a)),Math.sqrt(Math.max(0,1-a)));
+    };
+    const venues=result.venues.flatMap(venue=>{
+      if(venue.latitude===null||venue.longitude===null)return [];
+      return [{
+        id:venue.id,name:venue.name,city:venue.city,province:venue.province,
+        imageUrl:venue.pageProfileImageUrl??venue.pageCoverImageUrl,
+        onlineBookingEnabled:venue.onlineBookingEnabled,
+        latitude:venue.latitude,longitude:venue.longitude,
+        distanceKm:distance(latitude,longitude,venue.latitude,venue.longitude),
+      }];
+    }).sort((a,b)=>a.distanceKm-b.distanceKm||a.name.localeCompare(b.name)||a.id.localeCompare(b.id)).slice(0,10);
+    return {venues,generatedAt:result.generatedAt};
+  }
+
   async getPublicVenue(venueId: string) {
     const venue = await this.repository.getVenueRecord(venueId);
     assertBookableVenue(venue, this.now());

@@ -39,6 +39,14 @@ export function createPublicVenueRouter(booking: BookingService) {
     }catch(error){next(error);}
   });
 
+  router.get("/nearby",async(request,response,next)=>{
+    try{
+      const latitude=z.coerce.number().finite().min(-90).max(90).parse(request.query.latitude);
+      const longitude=z.coerce.number().finite().min(-180).max(180).parse(request.query.longitude);
+      response.json(await booking.nearbyVenues(latitude,longitude));
+    }catch(error){next(error);}
+  });
+
   router.get("/:venueId", async (request, response, next) => {
     try { response.json({ venue: await booking.getPublicVenue(routeIdSchema.parse(request.params.venueId)) }); }
     catch (error) { next(error); }

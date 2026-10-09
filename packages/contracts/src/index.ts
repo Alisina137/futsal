@@ -1125,6 +1125,26 @@ export const followedVenuesResponseSchema = z.object({
 });
 export type FollowedVenuesResponse = z.infer<typeof followedVenuesResponseSchema>;
 
+export const mostFollowedVenueDtoSchema=followedVenueDtoSchema.extend({
+  followerCount:z.number().int().nonnegative(),
+  onlineBookingEnabled:z.boolean(),
+});
+export type MostFollowedVenueDto=z.infer<typeof mostFollowedVenueDtoSchema>;
+export const mostFollowedVenuesResponseSchema=z.object({
+  venues:z.array(mostFollowedVenueDtoSchema).max(15),generatedAt:isoDateTimeSchema,
+});
+export type MostFollowedVenuesResponse=z.infer<typeof mostFollowedVenuesResponseSchema>;
+
+export const nearbyVenueDtoSchema=followedVenueDtoSchema.extend({
+  latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180),
+  distanceKm:z.number().nonnegative(),onlineBookingEnabled:z.boolean(),
+});
+export type NearbyVenueDto=z.infer<typeof nearbyVenueDtoSchema>;
+export const nearbyVenuesResponseSchema=z.object({
+  venues:z.array(nearbyVenueDtoSchema).max(10),generatedAt:isoDateTimeSchema,
+});
+export type NearbyVenuesResponse=z.infer<typeof nearbyVenuesResponseSchema>;
+
 export const socialEntityTypeSchema = z.enum(["VENUE", "TEAM", "COMPETITION", "USER"]);
 export type SocialEntityType = z.infer<typeof socialEntityTypeSchema>;
 
