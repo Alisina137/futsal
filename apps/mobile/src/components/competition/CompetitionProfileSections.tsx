@@ -11,6 +11,7 @@ import {resolveMediaImageUrl} from "../../lib/api";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
+import {LeagueStandingsTable} from "./LeagueStandingsTable";
 import {Card} from "../ui/Card";
 
 export type CompetitionProfileTab="HOME"|"RESULTS"|"MATCHES"|"STANDINGS"|"STATS"|"TEAMS";
@@ -193,7 +194,10 @@ function CompetitionStandings({competition,initialStage}:{competition:Competitio
         {group?<AppText variant="bodyLarge" weight="bold">
           {t("competition.group",{name:group})}
         </AppText>:null}
-        <StandingTable rows={competition.standings.filter(row=>(row.groupName??"")===group)}/>
+        {competition.format==="LEAGUE"
+          ?<LeagueStandingsTable competition={competition}
+            rows={competition.standings.filter(row=>(row.groupName??"")===group)}/>
+          :<StandingTable rows={competition.standings.filter(row=>(row.groupName??"")===group)}/>}
       </Card>)}
     </>}
   </View>;
