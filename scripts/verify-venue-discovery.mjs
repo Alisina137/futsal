@@ -20,6 +20,10 @@ check(page.includes('onPress={()=>selectProvince(option)}')&&page.includes('appl
   "Selecting a province should immediately filter venue results.");
 check(!page.includes('t("booking.cityFilter")'),
   "Manual city input should be replaced with dynamic province selector.");
+check(page.indexOf('testID="venue-province-select"')<page.indexOf('testID="venue-name-location-search"'),
+  "Province selector should appear before the venue search input.");
+check(!page.includes('hint={t("booking.searchVenueHint")}'),
+  "Venue search input must not show the redundant instructional detail line.");
 check(page.includes('testID="venue-name-location-search"')
   &&page.includes('testID="venue-search-suggestions"')
   &&page.includes('item.kind==="VENUE"?"football-outline":"location-outline"'),

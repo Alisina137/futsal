@@ -156,10 +156,27 @@ export default function VenuesScreen(){
     </View>
 
     <View style={styles.searchSection}>
+      <View style={styles.selectField}>
+        <AppText weight="medium">{t("booking.provinceFilter")}</AppText>
+        <Pressable testID="venue-province-select" accessibilityRole="button"
+          accessibilityLabel={t("booking.provinceFilter")}
+          accessibilityHint={t("booking.chooseProvince")}
+          accessibilityState={{expanded:provincePickerOpen}}
+          onPress={()=>setProvincePickerOpen(true)}
+          style={[styles.selectButton,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="location-outline" size={19} color={colors.primary}/>
+          <AppText style={{flex:1}} weight="medium" numberOfLines={1}>
+            {province||t("booking.allProvinces")}
+          </AppText>
+          <Ionicons name="chevron-down" size={19} color={colors.textMuted}/>
+        </Pressable>
+        {optionsError?<AppText variant="caption" style={{color:colors.danger}}>{t("booking.provinceOptionsError")}</AppText>:null}
+      </View>
+
+
       <TextField
         testID="venue-name-location-search"
         label={t("booking.venueNameLocation")}
-        hint={t("booking.searchVenueHint")}
         placeholder={t("booking.searchVenuePlaceholder")}
         value={query}
         maxLength={120}
@@ -189,22 +206,6 @@ export default function VenuesScreen(){
           </Pressable>)}
         </View>:null}
 
-      <View style={styles.selectField}>
-        <AppText weight="medium">{t("booking.provinceFilter")}</AppText>
-        <Pressable testID="venue-province-select" accessibilityRole="button"
-          accessibilityLabel={t("booking.provinceFilter")}
-          accessibilityHint={t("booking.chooseProvince")}
-          accessibilityState={{expanded:provincePickerOpen}}
-          onPress={()=>setProvincePickerOpen(true)}
-          style={[styles.selectButton,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <Ionicons name="location-outline" size={19} color={colors.primary}/>
-          <AppText style={{flex:1}} weight="medium" numberOfLines={1}>
-            {province||t("booking.allProvinces")}
-          </AppText>
-          <Ionicons name="chevron-down" size={19} color={colors.textMuted}/>
-        </Pressable>
-        {optionsError?<AppText variant="caption" style={{color:colors.danger}}>{t("booking.provinceOptionsError")}</AppText>:null}
-      </View>
 
       <Button label={t("booking.search")} onPress={()=>applySearch()} loading={loading}/>
     </View>
