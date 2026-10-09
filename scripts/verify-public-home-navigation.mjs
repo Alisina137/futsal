@@ -45,8 +45,9 @@ assert(screen.indexOf("<PublicTopNavigation/>")<screen.indexOf("<KeyboardAvoidin
 assert(bar.includes('flexDirection:isRTL?"row-reverse":"row"'),"Dari and Pashto must reverse the physical tab order.");
 assert(bar.includes("accessibilityRole=\"tab\"")&&bar.includes("accessibilityState={{selected:active}}"),
   "Public navigation must provide accessible selected-tab states.");
-assert(bar.includes("unread>99")&&bar.includes("notificationApi.list(token)")&&bar.includes("!item.readAt"),
-  "Notifications badge must count unread notifications from the real server.");
+assert(bar.includes("unread>99")&&bar.includes("notificationApi.list(token)")
+  &&bar.includes("unreadCount")&&bar.includes("onNotificationUnreadChange"),
+  "Notifications badge must use the global unread count from the server and update on inbox changes.");
 assert(bar.includes('isPlatformAdmin')&&bar.includes("if(isPlatformAdmin)return null"),
   "Public navigation must never render inside the separate platform-admin interface.");
 assert(header.includes('>=isPlatformAdmin?[')&&header.includes('href:"/admin"'),
