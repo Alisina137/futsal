@@ -34,6 +34,25 @@ assert(tile.includes("resolveMediaImageUrl(venue.imageUrl)")
   &&tile.includes("{venue.name}")
   &&tile.includes('pathname:"/venues/[venueId]"'),
   "Compact carousel cards need real logos and names that open venue details.");
+assert(tile.includes('testID={`followed-venue-details-${venue.id}`}')
+  &&tile.includes('testID={`followed-venue-reserve-${venue.id}`}')
+  &&tile.includes('t("booking.venueDetails")')
+  &&tile.includes('t("booking.reserveOnline")'),
+  "Each followed venue tile must expose clearly labeled, separate details and reserve actions.");
+assert(tile.includes('const openDetails=()=>router.push(')
+  &&tile.includes('const openBooking=()=>router.push(')
+  &&tile.includes('focusAvailability:"1"'),
+  "Reserve Online must deep-link to availability and not book directly; details must remain a distinct action.");
+assert(tile.includes('name={isRTL?"chevron-back":"chevron-forward"}')
+  &&tile.includes("styles.detailsCue")
+  &&tile.includes("styles.reserveButton")
+  &&tile.includes("minHeight:44"),
+  "The details affordance must be recognizable and RTL-aware; booking needs a clear accessible button.");
+assert(tile.indexOf('style={styles.tile}')<tile.indexOf('testID={`followed-venue-details-')
+  &&tile.indexOf("</Pressable>")<tile.indexOf('testID={`followed-venue-reserve-'),
+  "The tile must use sibling touch targets so booking does not trigger venue details.");
+assert(directory.includes('showMore:{width:148,minHeight:208'),
+  "Show-more tile must align visually with the taller followed-venue cards.");
 assert(directory.includes("useFocusEffect")&&list.includes("useFocusEffect")
   &&directory.includes("marketingApi.followedVenues")
   &&list.includes("marketingApi.followedVenues"),

@@ -264,7 +264,7 @@ const styles=StyleSheet.create({
   followedHeading:{alignItems:"center",gap:spacing.xs,paddingHorizontal:spacing.sm},
   followedRow:{gap:spacing.sm,paddingHorizontal:spacing.xs,paddingVertical:spacing.xs,alignItems:"stretch"},
   emptyFollowed:{paddingHorizontal:spacing.sm,paddingVertical:spacing.md},
-  showMore:{width:104,minHeight:112,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+  showMore:{width:148,minHeight:208,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
     backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center",
     paddingVertical:spacing.sm,paddingHorizontal:spacing.xs,gap:spacing.xs},
   showMoreIcon:{width:54,height:54,borderRadius:27,backgroundColor:colors.surface,alignItems:"center",justifyContent:"center"},
