@@ -102,7 +102,7 @@ export class NotificationService implements NotificationPublisher {
       title: "Booking confirmed",
       body: `${input.venueName} · ${input.startsAt}`,
       deepLink: "/bookings",
-      data: { bookingId: input.bookingId, startsAt: input.startsAt },
+      data: { bookingId: input.bookingId, startsAt: input.startsAt, venueName: input.venueName },
       dedupeKey: `booking-confirmed:${input.bookingId}`,
       marketing: false,
     });
@@ -119,7 +119,7 @@ export class NotificationService implements NotificationPublisher {
       title: "Booking cancelled",
       body: `Your booking at ${input.venueName} was cancelled.`,
       deepLink: "/bookings",
-      data: { bookingId: input.bookingId },
+      data: { bookingId: input.bookingId, venueName: input.venueName },
       dedupeKey: `booking-cancelled:${input.bookingId}`,
       marketing: false,
     });
@@ -156,7 +156,7 @@ export class NotificationService implements NotificationPublisher {
       title: input.venueName,
       body: "A venue you follow published a new update.",
       deepLink: `/posts/${input.postId}`,
-      data: { venueId: input.venueId, postId: input.postId },
+      data: { venueId: input.venueId, postId: input.postId, venueName: input.venueName },
       dedupeKey: `venue-post:${input.postId}`,
       marketing: true,
     })));
@@ -177,6 +177,7 @@ export class NotificationService implements NotificationPublisher {
       data: {
         invitationId: input.invitationId,
         teamId: input.teamId,
+        teamName: input.teamName,
       },
       dedupeKey: `team-invitation:${input.invitationId}`,
       marketing: false,
