@@ -77,6 +77,35 @@ function seedMarketingFromBooking(marketingRepository: FakeMarketingRepository, 
 }
 
 describe("Phase 4 marketing API", () => {
+  it("scopes followed team and competition discovery to caller and counts real follows",async()=>{
+    const {app,marketingRepository,authRepository}=setup();
+    const alice=await register(app,authRepository,"PLAYER","0703445101");
+    const bob=await register(app,authRepository,"PLAYER","0703445102");
+    const aliceId=alice.body.user.id,bobId=bob.body.user.id;
+    const {randomUUID}=await import("node:crypto");
+    const teamId=randomUUID(),competitionId=randomUUID();
+    await marketingRepository.followEntity(aliceId,"TEAM",teamId);
+    await marketingRepository.followEntity(aliceId,"TEAM",teamId);
+    await marketingRepository.followEntity(bobId,"TEAM",teamId);
+    await marketingRepository.followEntity(aliceId,"COMPETITION",competitionId);
+    const route="/api/v1/social/discovery/";
+    expect((await request(app).get(route+"TEAM")).status).toBe(401);
+    expect((await request(app).get(route+"USER").set("Authorization",`Bearer ${alice.body.accessToken}`)).status).toBe(400);
+    const teamA=await request(app).get(route+"TEAM").set("Authorization",`Bearer ${alice.body.accessToken}`);
+    const teamB=await request(app).get(route+"TEAM").set("Authorization",`Bearer ${bob.body.accessToken}`);
+    const compB=await request(app).get(route+"COMPETITION").set("Authorization",`Bearer ${bob.body.accessToken}`);
+    expect(teamA.status).toBe(200);
+    expect(teamA.body.followedIds).toEqual([teamId]);
+    expect(teamA.body.counts).toEqual([{id:teamId,count:2}]);
+    expect(teamB.body.followedIds).toEqual([teamId]);
+    expect(compB.body.followedIds).toEqual([]);
+    expect(compB.body.counts).toEqual([{id:competitionId,count:1}]);
+    await marketingRepository.unfollowEntity(aliceId,"TEAM",teamId);
+    const refreshed=await request(app).get(route+"TEAM").set("Authorization",`Bearer ${alice.body.accessToken}`);
+    expect(refreshed.body.followedIds).toEqual([]);
+    expect(refreshed.body.counts).toEqual([{id:teamId,count:1}]);
+  });
+
   it("ranks fifteen most-followed active entitled venues by real unique account follows",async()=>{
     const {app,bookingRepository,marketingRepository,authRepository,clock}=setup();
     const owner=await register(app,authRepository,"VENUE_OWNER","0703334780");
