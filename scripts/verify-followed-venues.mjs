@@ -18,8 +18,8 @@ assert(!directory.includes('t("booking.venuesTitle")')
   &&!directory.includes('t("booking.venuesSubtitle")'),
   "The primary Venues page must not display its previous title or subtitle.");
 assert(directory.indexOf('testID="venue-followed-strip"')<
-  directory.indexOf('label={t("media.venueSearch")}'),
-  "Followed venue carousel must come before the existing searchable venue directory.");
+  directory.indexOf('testID="venue-name-location-search"'),
+  "Followed venue carousel must come before the searchable venue/name/location directory.");
 assert(directory.includes("const MAX_VISIBLE_FOLLOWS=10")
   &&directory.includes("followed.slice(0,MAX_VISIBLE_FOLLOWS)"),
   "Carousel must display no more than ten followed venue cards.");
