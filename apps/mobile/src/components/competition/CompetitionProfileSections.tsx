@@ -244,11 +244,12 @@ function CompetitionStats({competition}:{competition:CompetitionDto}){
   </View>;
 }
 
-function CompetitionTeams({competition}:{competition:CompetitionDto}){
+function CompetitionTeams({competition,registration}:{competition:CompetitionDto;registration:ReactNode}){
   const {t,isRTL}=useLocale();
   const teams=competition.teams.filter(team=>team.status==="ACCEPTED");
   return <View style={styles.stack}>
     <SectionHeading icon="people-outline" title={t("competition.teams")} count={teams.length}/>
+    {registration}
     {teams.length===0?<Placeholder icon="people-outline" title={t("competition.profile.noTeams")}/>:null}
     {teams.map(team=><Pressable key={team.teamId} accessibilityRole="button"
       onPress={()=>openTeam(team.teamId)}>
@@ -272,62 +273,38 @@ function CompetitionTeams({competition}:{competition:CompetitionDto}){
   </View>;
 }
 
-function Home({competition,posts,registration,onTabChange}:Omit<Props,"activeTab">){
+/** The competition Home is a news feed. Only matches actually marked IN_PROGRESS
+ * appear as live scores; completed results and upcoming fixtures have their own tabs.
+ * Feed entries are not truncated, hidden, or reclassified as fake social posts. */
+function Home({competition,posts}:Pick<Props,"competition"|"posts">){
   const {t,isRTL,language}=useLocale();
-  const finished=competition.matches.filter(isResult)
-    .sort((a,b)=>(b.startsAt??"").localeCompare(a.startsAt??"")).slice(0,2);
-  const scheduled=competition.matches.filter(m=>m.status==="SCHEDULED"||m.status==="IN_PROGRESS")
-    .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")).slice(0,2);
-  const start=displayTime(competition.startsAt,language);
-  const end=displayTime(competition.endsAt,language);
-  return <View style={styles.stack}>
-    <Card style={styles.about}>
-      <SectionHeading title={t("competition.profile.about")} icon="information-circle-outline"/>
-      {competition.description?<AppText>{competition.description}</AppText>:null}
-      <Pressable accessibilityRole="button" onPress={()=>router.push({
-        pathname:"/venues/[venueId]",params:{venueId:competition.venueId},
-      })} style={[styles.infoRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Ionicons name="location-outline" size={19} color={colors.primary}/>
-        <AppText style={{flex:1}}>{competition.venueName}</AppText>
-        <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.primary}/>
-      </Pressable>
-      {start?<View style={[styles.infoRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Ionicons name="calendar-outline" size={19} color={colors.textMuted}/>
-        <AppText style={{flex:1}}>{t("competition.startsAt")}: {start.date} · {start.time}</AppText>
-      </View>:null}
-      {end?<View style={[styles.infoRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Ionicons name="flag-outline" size={19} color={colors.textMuted}/>
-        <AppText style={{flex:1}}>{t("competition.endsAt")}: {end.date} · {end.time}</AppText>
-      </View>:null}
-    </Card>
-    {registration}
-    {competition.championTeamId?<Card style={styles.champion}>
-      <Ionicons name="trophy" color={colors.primary} size={30}/>
-      <AppText variant="caption" muted>{t("competition.champion")}</AppText>
-      <AppText variant="bodyLarge" weight="bold">
-        {competition.teams.find(team=>team.teamId===competition.championTeamId)?.teamName??t("competition.tbd")}
-      </AppText>
-    </Card>:null}
-    <SectionHeading title={t("competition.profile.latestResults")} icon="checkmark-done-outline"/>
-    {finished.length===0?<Placeholder title={t("competition.profile.noResults")} icon="calendar-outline"/>:
-      finished.map(match=><MatchCard key={match.id} match={match}/>)}
-    {competition.matches.some(isResult)?<Pressable style={styles.textLink} accessibilityRole="button"
-      onPress={()=>onTabChange("RESULTS")}>
-      <AppText weight="semibold" style={{color:colors.primary}}>{t("competition.profile.viewAllResults")}</AppText>
-      <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={18} color={colors.primary}/>
-    </Pressable>:null}
-    <SectionHeading title={t("competition.profile.nextMatches")} icon="calendar-outline"/>
-    {scheduled.length===0?<Placeholder title={t("competition.profile.noUpcomingMatches")} icon="calendar-outline"/>:
-      scheduled.map(match=><MatchCard key={match.id} match={match}/>)}
-    {scheduled.length>0?<Pressable style={styles.textLink} accessibilityRole="button"
-      onPress={()=>onTabChange("MATCHES")}>
-      <AppText weight="semibold" style={{color:colors.primary}}>{t("competition.profile.viewAllMatches")}</AppText>
-      <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={18} color={colors.primary}/>
-    </Pressable>:null}
-    <SectionHeading title={t("competition.profile.updates")} icon="newspaper-outline" count={posts.length}/>
-    {posts.length===0?<Placeholder title={t("competition.publicMediaEmpty")} icon="newspaper-outline"/>:null}
-    {posts.slice(0,5).map(post=><Card key={post.id} style={styles.post}>
-      <AppText variant="caption" muted>{formatPostTimeAgo(post.publishedAt,language)}</AppText>
+  const live=competition.matches.filter(match=>match.status==="IN_PROGRESS")
+    .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
+  const updates=posts.slice().sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)||b.id.localeCompare(a.id));
+  return <View style={styles.stack} testID="competition-home-feed">
+    {live.length>0?<View testID="competition-live-scoreboard" style={styles.liveContainer}>
+      <View style={[styles.liveHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.liveDot}/>
+        <AppText weight="bold" variant="bodyLarge" style={{color:"#FFFFFF",flex:1}}>
+          {t("competition.profile.liveNow")}
+        </AppText>
+        <View style={styles.liveBadge}>
+          <Ionicons name="radio-outline" size={16} color="#FFFFFF"/>
+          <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>LIVE</AppText>
+        </View>
+      </View>
+      {live.map(match=><MatchCard key={match.id} match={match}/>)}
+    </View>:null}
+    <SectionHeading title={t("competition.profile.updates")} icon="newspaper-outline" count={updates.length}/>
+    {updates.length===0?<Placeholder title={t("competition.publicMediaEmpty")} icon="newspaper-outline"/>:null}
+    {updates.map(post=><Card key={post.id} testID={`competition-post-${post.id}`} style={styles.post}>
+      <View style={[styles.postHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.postAvatar}><Ionicons name="trophy-outline" color={colors.primary} size={23}/></View>
+        <View style={{flex:1,gap:2,minWidth:0}}>
+          <AppText weight="semibold" numberOfLines={2}>{competition.name}</AppText>
+          <AppText variant="caption" muted>{formatPostTimeAgo(post.publishedAt,language)}</AppText>
+        </View>
+      </View>
       <AppText>{post.body}</AppText>
       {resolveMediaImageUrl(post.imageUrl)?<Image
         source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={styles.postImage} resizeMode="cover"/>:null}
@@ -336,13 +313,12 @@ function Home({competition,posts,registration,onTabChange}:Omit<Props,"activeTab
 }
 
 export function CompetitionProfileSections({competition,posts,activeTab,registration,onTabChange,initialStage}:Props){
-  if(activeTab==="HOME")return <Home competition={competition} posts={posts}
-    registration={registration} onTabChange={onTabChange}/>;
+  if(activeTab==="HOME")return <Home competition={competition} posts={posts}/>;
   if(activeTab==="RESULTS"||activeTab==="MATCHES")return <CompetitionMatches
     competition={competition} kind={activeTab}/>;
   if(activeTab==="STANDINGS")return <CompetitionStandings competition={competition} initialStage={initialStage}/>;
   if(activeTab==="STATS")return <CompetitionStats competition={competition}/>;
-  return <CompetitionTeams competition={competition}/>;
+  return <CompetitionTeams competition={competition} registration={registration}/>;
 }
 
 const styles=StyleSheet.create({
@@ -384,12 +360,14 @@ const styles=StyleSheet.create({
   logoImage:{width:"100%",height:"100%"},
   seedBadge:{paddingVertical:5,paddingHorizontal:8,borderRadius:radius.pill,
     backgroundColor:colors.primarySoft},
-  about:{gap:spacing.md},
-  infoRow:{gap:spacing.sm,alignItems:"center",minHeight:30},
-  champion:{alignItems:"center",gap:spacing.xs,backgroundColor:colors.primarySoft},
-  textLink:{minHeight:44,flexDirection:"row",alignItems:"center",justifyContent:"center",
-    gap:spacing.sm,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
-    backgroundColor:colors.surface},
-  post:{gap:spacing.sm},
-  postImage:{width:"100%",height:210,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
+  liveContainer:{backgroundColor:"#153F91",padding:spacing.sm,borderRadius:radius.lg,gap:spacing.sm},
+  liveHeader:{minHeight:40,alignItems:"center",gap:spacing.sm,paddingHorizontal:spacing.xs},
+  liveDot:{width:10,height:10,borderRadius:5,backgroundColor:"#FF5252"},
+  liveBadge:{flexDirection:"row",alignItems:"center",gap:5,paddingHorizontal:spacing.sm,
+    paddingVertical:5,borderRadius:radius.pill,backgroundColor:"#B91C1C"},
+  post:{gap:spacing.md},
+  postHeader:{gap:spacing.sm,alignItems:"center"},
+  postAvatar:{width:42,height:42,borderRadius:21,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center"},
+  postImage:{width:"100%",height:235,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
 });
