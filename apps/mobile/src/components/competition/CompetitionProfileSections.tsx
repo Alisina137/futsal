@@ -12,6 +12,7 @@ import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {LeagueStandingsTable} from "./LeagueStandingsTable";
+import {CompetitionMatchList} from "./CompetitionMatchList";
 import {Card} from "../ui/Card";
 
 export type CompetitionProfileTab="HOME"|"RESULTS"|"MATCHES"|"STANDINGS"|"STATS"|"TEAMS";
@@ -100,27 +101,6 @@ function MatchCard({match}:{match:CompetitionMatchDto}){
       {match.areaName?<AppText variant="caption" muted numberOfLines={1}>· {match.areaName}</AppText>:null}
     </View>:null}
   </Card>;
-}
-
-function CompetitionMatches({competition,kind}:{competition:CompetitionDto;kind:"RESULTS"|"MATCHES"}){
-  const {t}=useLocale();
-  const sorted=useMemo(()=>{
-    const selection=competition.matches.filter(match=>kind==="RESULTS"?isResult(match):!isResult(match));
-    return selection.sort((a,b)=>{
-      if(kind==="RESULTS")return (b.startsAt??"").localeCompare(a.startsAt??"")||a.id.localeCompare(b.id);
-      const priority=(match:CompetitionMatchDto)=>match.status==="IN_PROGRESS"?0:
-        match.status==="SCHEDULED"?1:match.status==="POSTPONED"?2:
-        match.status==="UNSCHEDULED"?3:4;
-      return priority(a)-priority(b)||(a.startsAt??"9999").localeCompare(b.startsAt??"9999")||a.id.localeCompare(b.id);
-    });
-  },[competition.matches,kind]);
-  return <View style={styles.stack}>
-    <SectionHeading title={t(kind==="RESULTS"?"competition.profile.results":"competition.profile.matches")}
-      icon={kind==="RESULTS"?"checkmark-done-outline":"calendar-outline"} count={sorted.length}/>
-    {sorted.length===0?<Placeholder icon="calendar-outline"
-      title={t(kind==="RESULTS"?"competition.profile.noResults":"competition.profile.noUpcomingMatches")}/>:null}
-    {sorted.map(match=><MatchCard key={match.id} match={match}/>)}
-  </View>;
 }
 
 function StandingTable({rows}:{rows:CompetitionStandingRowDto[]}){
@@ -280,12 +260,27 @@ function CompetitionTeams({competition,registration}:{competition:CompetitionDto
 /** The competition Home is a news feed. Only matches actually marked IN_PROGRESS
  * appear as live scores; completed results and upcoming fixtures have their own tabs.
  * Feed entries are not truncated, hidden, or reclassified as fake social posts. */
-function Home({competition,posts}:Pick<Props,"competition"|"posts">){
+function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"onTabChange">){
   const {t,isRTL,language}=useLocale();
   const live=competition.matches.filter(match=>match.status==="IN_PROGRESS")
     .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
   const updates=posts.slice().sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)||b.id.localeCompare(a.id));
   return <View style={styles.stack} testID="competition-home-feed">
+    {competition.status==="REGISTRATION_OPEN"?<Pressable testID="competition-registration-cta"
+      accessibilityRole="button" onPress={()=>onTabChange("TEAMS")}
+      style={[styles.registrationCta,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={styles.ctaIcon}><Ionicons name="people-outline" color="#FFFFFF" size={25}/></View>
+      <View style={{flex:1,gap:4}}>
+        <AppText weight="bold" variant="bodyLarge" style={{color:"#FFFFFF"}}>
+          {t("competition.matchList.registrationOpen")}
+        </AppText>
+        <AppText variant="caption" style={{color:"#E4EEFF"}}>
+          {t("competition.matchList.registrationCtaDescription")}
+        </AppText>
+      </View>
+      <View style={styles.ctaArrow}><Ionicons
+        name={isRTL?"arrow-back":"arrow-forward"} color={colors.primary} size={21}/></View>
+    </Pressable>:null}
     {live.length>0?<View testID="competition-live-scoreboard" style={styles.liveContainer}>
       <View style={[styles.liveHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.liveDot}/>
@@ -317,9 +312,9 @@ function Home({competition,posts}:Pick<Props,"competition"|"posts">){
 }
 
 export function CompetitionProfileSections({competition,posts,activeTab,registration,onTabChange,initialStage}:Props){
-  if(activeTab==="HOME")return <Home competition={competition} posts={posts}/>;
-  if(activeTab==="RESULTS"||activeTab==="MATCHES")return <CompetitionMatches
-    competition={competition} kind={activeTab}/>;
+  if(activeTab==="HOME")return <Home competition={competition} posts={posts} onTabChange={onTabChange}/>;
+  if(activeTab==="RESULTS"||activeTab==="MATCHES")return <CompetitionMatchList
+    competition={competition} onlyResults={activeTab==="RESULTS"}/>;
   if(activeTab==="STANDINGS")return <CompetitionStandings competition={competition} initialStage={initialStage}/>;
   if(activeTab==="STATS")return <CompetitionStats competition={competition}/>;
   return <CompetitionTeams competition={competition} registration={registration}/>;
@@ -364,6 +359,12 @@ const styles=StyleSheet.create({
   logoImage:{width:"100%",height:"100%"},
   seedBadge:{paddingVertical:5,paddingHorizontal:8,borderRadius:radius.pill,
     backgroundColor:colors.primarySoft},
+  registrationCta:{backgroundColor:colors.primary,padding:spacing.md,
+    borderRadius:radius.lg,alignItems:"center",gap:spacing.sm,minHeight:98},
+  ctaIcon:{width:42,height:42,alignItems:"center",justifyContent:"center",
+    backgroundColor:"rgba(255,255,255,.16)",borderRadius:21},
+  ctaArrow:{width:36,height:36,borderRadius:18,backgroundColor:"#FFFFFF",
+    alignItems:"center",justifyContent:"center"},
   liveContainer:{backgroundColor:"#153F91",padding:spacing.sm,borderRadius:radius.lg,gap:spacing.sm},
   liveHeader:{minHeight:40,alignItems:"center",gap:spacing.sm,paddingHorizontal:spacing.xs},
   liveDot:{width:10,height:10,borderRadius:5,backgroundColor:"#FF5252"},
