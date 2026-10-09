@@ -44,4 +44,12 @@ for(const key of ["competition.standingsGoalsFor","competition.standingsGoalsAga
 assert(board.includes("teamPaneRTL")&&board.includes("teamPaneLTR")
   &&board.includes('flexDirection:isRTL?"row-reverse":"row"'),
   "Pinned column, stats order and separator must mirror for RTL.");
+assert(board.includes('testID="league-team-tooltip"')
+  &&board.includes("onHoverIn={()=>showPreview")
+  &&board.includes("onLongPress={()=>showPreview")
+  &&board.includes("preview.name")
+  &&board.includes("preview.logo")
+  &&board.includes("styles.tooltipAction")
+  &&board.includes("setPreview(null)"),
+  "Names truncated by the fixed column must open a full-name crest tooltip on hover/touch and dismiss safely.");
 console.log("League standings verified: fixed team pane, scrollable synchronized metrics and last-5 form, 3-language RTL support, real-score filtering and preserved other competition formats.");

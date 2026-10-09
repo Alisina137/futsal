@@ -16,6 +16,7 @@ const engineTests = read("apps/api/test/competition-engine.test.ts");
 const mobileApi = read("apps/mobile/src/lib/api.ts");
 const mobilePublic = read("apps/mobile/app/(app)/competitions/[competitionId].tsx");
 const mobileSections = read("apps/mobile/src/components/competition/CompetitionProfileSections.tsx");
+const matchList = read("apps/mobile/src/components/competition/CompetitionMatchList.tsx");
 const mobileOwner = read("apps/mobile/app/(app)/owner/competitions/[competitionId]/manage.tsx");
 const localization = read("packages/localization/src/index.ts");
 
@@ -41,7 +42,7 @@ const checks = [
   [leagueTests.includes('recalculates standings') || leagueTests.includes('standings'), "league lifecycle regression"],
   [mobileApi.includes('export const competitionApi'), "competition mobile API client"],
   [mobilePublic.includes('competitionApi.register') && mobilePublic.includes('COMPETITION_PROFILE_TABS')
-    &&mobileSections.includes("CompetitionStandings")&&mobileSections.includes("CompetitionMatches")
+    &&mobileSections.includes("CompetitionStandings")&&mobileSections.includes("CompetitionMatchList")&&matchList.includes("competitionApi")===false
     &&mobileSections.includes("CompetitionStats"), "public competition six-tab profile hub"],
   [mobileOwner.includes('competitionApi.scheduleMatch') && mobileOwner.includes('competitionApi.enterResult'), "owner competition mobile operations"],
   [mobileOwner.includes('type ControlTab="OVERVIEW"|"TEAMS"|"FIXTURES"|"STANDINGS"|"REFEREES"|"STATISTICS"|"MEDIA"|"SETTINGS"'), "owner competition eight-section control center"],

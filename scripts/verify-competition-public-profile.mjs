@@ -7,6 +7,8 @@ const directory=read("apps/mobile/src/components/social/CompetitionDirectoryExpe
 const about=read("apps/mobile/app/(app)/competitions/[competitionId]/about.tsx");
 const localization=read("packages/localization/src/index.ts");
 const leagueBoard=read("apps/mobile/src/components/competition/LeagueStandingsTable.tsx");
+const matchList=read("apps/mobile/src/components/competition/CompetitionMatchList.tsx");
+const detail=read("apps/mobile/app/(app)/competitions/[competitionId]/matches/[matchId].tsx");
 check(page.includes('testID="competition-public-profile"')&&page.includes("mediaPosts.find(post=>post.imageUrl)")
   &&page.includes('Ionicons name="trophy"')&&page.includes("styles.avatarFrame")&&page.includes("styles.cover"),
   "Competition identity must show a cover/avatar like a venue profile, with real media or an honest fallback.");
@@ -16,13 +18,12 @@ check(page.includes('testID="competition-profile-tabs"')
   &&page.includes("height:64,minHeight:64,maxHeight:64")&&page.includes("flexGrow:0,flexShrink:0"),
   "Compact six-tab scrolling navigation must have stable 64px height and accessible selection.");
 check(sections.includes('"HOME","RESULTS","MATCHES","STANDINGS","STATS","TEAMS"')
-  &&sections.includes("CompetitionMatches")&&sections.includes("CompetitionStandings")
+  &&sections.includes("CompetitionMatchList")&&sections.includes("CompetitionStandings")
   &&sections.includes("CompetitionStats")&&sections.includes("CompetitionTeams"),
   "Six distinct competition sections required.");
-check(sections.includes('match.status==="COMPLETED"||match.status==="CORRECTED"')
-  &&sections.includes('match.status==="IN_PROGRESS"?0:')
-  &&sections.includes('match.status==="IN_PROGRESS"?0:'),
-  "Results must not mix with upcoming/live matches.");
+check(matchList.includes('onlyResults?done(match)')&&matchList.includes('match.status==="IN_PROGRESS"')
+  &&matchList.includes('testID="competition-matches-list"')&&matchList.includes('testID="competition-results-list"'),
+  "Results must stay separate from scheduled and live fixtures.");
 check(sections.includes('competition.format==="GROUP_KNOCKOUT"')
   &&sections.includes('competition.format==="KNOCKOUT"')
   &&sections.includes('testID={`competition-stage-${option}`}')
