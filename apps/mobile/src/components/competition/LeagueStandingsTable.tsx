@@ -73,7 +73,8 @@ export function LeagueStandingsTable({competition,rows}:{
       </AppText>
     </View>
     <View style={[styles.tableBody,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <View testID="league-pinned-team-column" style={styles.teamPane}>
+      <View testID="league-pinned-team-column" style={[styles.teamPane,
+        isRTL?styles.teamPaneRTL:styles.teamPaneLTR]}>
         <View style={[styles.headerCell,styles.teamHeading]}>
           <AppText weight="semibold" variant="caption" numberOfLines={1}>
             {t("competition.teams")}
@@ -107,7 +108,7 @@ export function LeagueStandingsTable({competition,rows}:{
         style={styles.metricsViewport}
         contentContainerStyle={styles.metricsContent}>
         <View style={styles.metricsTable}>
-          <View style={[styles.metricsRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={[styles.metricsHeaderRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             {columns.map(column=><View key={column.key} style={[styles.headerCell,{width:column.width}]}>
               <AppText weight={column.key==="points"?"bold":"semibold"}
                 variant="caption" numberOfLines={1} style={styles.valueText}>
@@ -147,8 +148,9 @@ const styles=StyleSheet.create({
   swipeHint:{alignItems:"center",gap:6,minHeight:37,paddingHorizontal:spacing.sm,
     backgroundColor:colors.primarySoft},
   tableBody:{alignItems:"flex-start"},
-  teamPane:{width:"44%",backgroundColor:colors.surface,zIndex:1,
-    borderRightWidth:1,borderRightColor:colors.border},
+  teamPane:{width:"44%",backgroundColor:colors.surface,zIndex:1},
+  teamPaneLTR:{borderRightWidth:1,borderRightColor:colors.border},
+  teamPaneRTL:{borderLeftWidth:1,borderLeftColor:colors.border},
   metricsViewport:{width:"56%",flexGrow:0,flexShrink:0},
   metricsContent:{flexGrow:0},
   metricsTable:{backgroundColor:colors.surface},
@@ -162,6 +164,7 @@ const styles=StyleSheet.create({
     alignItems:"center",justifyContent:"center",overflow:"hidden"},
   logoImage:{width:"100%",height:"100%"},
   teamName:{flex:1,minWidth:0},
+  metricsHeaderRow:{height:HEADER_HEIGHT,alignItems:"center"},
   metricsRow:{height:ROW_HEIGHT,alignItems:"center",borderTopWidth:1,borderTopColor:colors.border},
   numberBox:{height:ROW_HEIGHT,alignItems:"center",justifyContent:"center",paddingHorizontal:2},
   valueText:{textAlign:"center",fontVariant:["tabular-nums"]},
