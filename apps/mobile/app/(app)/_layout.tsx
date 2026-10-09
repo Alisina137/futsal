@@ -10,5 +10,15 @@ export default function ProtectedLayout() {
     return <Redirect href={adminMode ? { pathname: "/login", params: { next: "/admin" } } : "/login"} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false, animation: "none" }} />;
+  return <Stack screenOptions={{ headerShown: false, animation: "none" }}>
+    <Stack.Screen
+      name="posts/[postId]/comments"
+      options={{
+        headerShown:false,
+        presentation:"transparentModal",
+        animation:"slide_from_bottom",
+        gestureEnabled:false,
+      }}
+    />
+  </Stack>;
 }
