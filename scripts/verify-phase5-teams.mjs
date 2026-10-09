@@ -11,6 +11,7 @@ const teamService = read("apps/api/src/modules/team/team.service.ts");
 const teamRoutes = read("apps/api/src/modules/team/team.routes.ts");
 const notificationService = read("apps/api/src/modules/notifications/notification.service.ts");
 const teamsDirectory = read("apps/mobile/app/(app)/teams/index.tsx");
+const teamExperience = read("apps/mobile/src/components/social/TeamDirectoryExperience.tsx");
 const teamDetail = read("apps/mobile/app/(app)/teams/[teamId].tsx");
 const teamManager = read("apps/mobile/app/(app)/teams/[teamId]/manage.tsx");
 const playerProfile = read("apps/mobile/app/(app)/profile/player.tsx");
@@ -32,7 +33,7 @@ const checks = [
   [teamService.includes('TEAM_MANAGER_REQUIRED') && teamRoutes.includes('/teams/:teamId/manager'), "object-scoped manager authority"],
   [teamService.includes('7 * 24 * 60 * 60 * 1000') && teamRepository.includes('"EXPIRED"'), "expiring single-use invitations"],
   [notificationService.includes('type: "TEAM_INVITATION"') && notificationService.includes('teamInvitesEnabled'), "team invitation preference/dedupe delivery"],
-  [teamsDirectory.includes('teamApi.directory') && teamsDirectory.includes('requestJoin') && teamDetail.includes('teamApi.roster'), "public Teams directory, join requests, and member roster workspace"],
+  [teamsDirectory.includes('TeamDirectoryExperience mode="directory"') && teamExperience.includes('teamApi.directory') && teamExperience.includes('requestJoin') && teamDetail.includes('teamApi.roster'), "public Teams directory, join requests, and member roster workspace"],
   [schema.includes('team_join_requests_pending_uq') && contracts.includes('teamDirectoryItemDtoSchema'), "persistent deduplicated team join requests"],
   [teamRoutes.includes('/teams/:teamId/join-request') && teamService.includes('requestToJoin'), "normal-user team join request API"],
   [teamManager.includes('transferManager') && teamManager.includes('removeMember') && teamManager.includes('revokeInvitation'), "manager mobile controls"],

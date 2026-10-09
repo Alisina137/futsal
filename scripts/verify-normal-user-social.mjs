@@ -15,6 +15,7 @@ const service = read("apps/api/src/modules/marketing/marketing.service.ts");
 const routes = read("apps/api/src/modules/marketing/marketing.routes.ts");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const teamsDirectory = read("apps/mobile/app/(app)/teams/index.tsx");
+const teamExperience = read("apps/mobile/src/components/social/TeamDirectoryExperience.tsx");
 const team = read("apps/mobile/app/(app)/teams/[teamId].tsx");
 const commentsPage = read("apps/mobile/app/(app)/posts/[postId]/comments.tsx");
 const competition = read("apps/mobile/app/(app)/competitions/[competitionId].tsx");
@@ -36,8 +37,11 @@ assert(home.includes('pathname:"/posts/[postId]/comments"'), "Home Comment actio
 assert(commentsPage.includes("addSocialComment") && commentsPage.includes("updateSocialComment") && commentsPage.includes("deleteSocialComment"), "Dedicated comments page must support add/edit/delete");
 assert(commentsPage.includes("likeSocialComment") && commentsPage.includes("unlikeSocialComment"), "Dedicated comments page must support comment likes");
 assert(home.includes('pathname:"/venues/[venueId]"') && home.includes('pathname:"/teams/[teamId]"') && home.includes('pathname:"/competitions/[competitionId]"'), "post author navigation must support venue/team/competition");
-assert(teamsDirectory.includes("teamApi.directory"), "Teams navigation page must list all active teams instead of only My Teams");
-assert(teamsDirectory.includes("teamApi.requestJoin") && teamsDirectory.includes('t("teams.viewTeam")'), "Teams directory must support join requests and opening team profiles");
+assert(teamsDirectory.includes('TeamDirectoryExperience mode="directory"')
+  &&teamExperience.includes("teamApi.directory")&&!teamExperience.includes("teamApi.mine("),
+  "Teams navigation must list active public teams instead of only My Teams.");
+assert(teamExperience.includes("teamApi.requestJoin")&&teamExperience.includes('t("teams.viewTeam")'),
+  "Teams directory must support join requests and opening team profiles.");
 assert(team.includes('"TEAM"') && team.includes("socialFollowState"), "Team follow control missing");
 assert(team.includes("teamApi.requestJoin") && team.includes("joinRequestStatus"), "Team profile must expose join-request state");
 assert(competition.includes('"COMPETITION"') && competition.includes("socialFollowState"), "Competition follow control missing");

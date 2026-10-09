@@ -15,6 +15,7 @@ const service = read("apps/api/src/modules/team/team.service.ts");
 const routes = read("apps/api/src/modules/team/team.routes.ts");
 const api = read("apps/mobile/src/lib/api.ts");
 const screen = read("apps/mobile/app/(app)/teams/index.tsx");
+const experience = read("apps/mobile/src/components/social/TeamDirectoryExperience.tsx");
 const localization = read("packages/localization/src/index.ts");
 
 assert((schema.match(/export const teamJoinRequestStatusEnum/g) ?? []).length === 1, "team join request enum must be declared once");
@@ -29,9 +30,13 @@ assert(service.includes("listTeamsDirectory") && service.includes("requestToJoin
 assert(service.includes("ALREADY_TEAM_MEMBER"), "join request must reject existing active members");
 assert(routes.includes('router.get("/teams", auth') && routes.includes('router.post("/teams/:teamId/join-request"'), "team directory/join routes missing");
 assert(api.includes('directory: (accessToken: string)') && api.includes('requestJoin: (accessToken: string, teamId: string)'), "mobile team directory API missing");
-assert(screen.includes("teamApi.directory") && !screen.includes("teamApi.mine"), "Teams page must use the all-team directory, not My Teams");
-assert(screen.includes('t("teams.viewTeam")') && screen.includes('t("teams.requestToJoin")'), "directory must expose View Team and Request to Join");
-assert(screen.includes('joinRequestStatus==="PENDING"'), "directory must show pending request state");
+assert(screen.includes('TeamDirectoryExperience mode="directory"')
+  &&experience.includes("teamApi.directory")&&!experience.includes("teamApi.mine("),
+  "Teams page must use the all-team directory, not only My Teams.");
+assert(experience.includes('t("teams.viewTeam")')&&experience.includes('t("teams.requestToJoin")'),
+  "directory must expose View Team and Request to Join");
+assert(experience.includes('joinRequestStatus==="PENDING"'),
+  "directory must show pending request state");
 assert((localization.match(/"teams\.title": "Teams"/g) ?? []).length === 1, "English Teams title must not say My Teams");
 assert(localization.includes('"teams.title": "تیم‌ها"'), "Dari Teams title missing");
 assert(localization.includes('"teams.title": "ټیمونه"'), "Pashto Teams title missing");

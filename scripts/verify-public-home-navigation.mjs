@@ -7,6 +7,8 @@ const screen=read("apps/mobile/src/components/ui/Screen.tsx");
 const header=read("apps/mobile/src/components/ui/AppHeader.tsx");
 const tabs=read("apps/mobile/app/(app)/(tabs)/_layout.tsx");
 const home=read("apps/mobile/app/(app)/(tabs)/home.tsx");
+const teamExperience=read("apps/mobile/src/components/social/TeamDirectoryExperience.tsx");
+const competitionExperience=read("apps/mobile/src/components/social/CompetitionDirectoryExperience.tsx");
 const repo=read("apps/api/src/modules/marketing/marketing.repository.ts");
 const rank=read("apps/api/src/modules/marketing/social-feed-ranking.ts");
 const apiTests=read("apps/api/test/social-feed-ranking.test.ts");
@@ -26,6 +28,10 @@ for(const [key,href,icon,page] of paths){
   if(key==="home"||key==="venues"){
     assert(code.includes("<Screen showHeader publicNav")&&code.includes('{loading?<DataLoadingState'),
       `${key} must keep the top navigation mounted while content loads.`);
+  }else if(key==="teams"||key==="competitions"){
+    const body=key==="teams"?teamExperience:competitionExperience;
+    assert(code.includes('mode="directory"')&&body.includes("<Screen showHeader publicNav"),
+      `Top navigation must wrap all states of ${key}'s directory.`);
   }else{
     assert((code.match(/<Screen showHeader publicNav>/g)??[]).length>=2,
       `Top bar must be visible both during loading and content: ${key}`);
