@@ -48,6 +48,8 @@ import type {
   SocialPostCommentDto,
   SocialUserPostCreateRequest,
   NotificationDto,
+  NotificationListFilter,
+  NotificationListResponse,
   NotificationPreferences,
   NotificationPreferencesUpdate,
   PromotionCreateRequest,
@@ -571,8 +573,20 @@ export const marketingApi = {
 };
 
 export const notificationApi = {
-  list: (accessToken: string) =>
-    request<{ notifications: NotificationDto[]; generatedAt: string }>("/api/v1/notifications", {}, accessToken),
+  list: (accessToken:string,options?:{filter?:NotificationListFilter;limit?:number;offset?:number})=>{
+    const query=new URLSearchParams();
+    if(options?.filter)query.set("filter",options.filter);
+    if(options?.limit!==undefined)query.set("limit",String(options.limit));
+    if(options?.offset!==undefined)query.set("offset",String(options.offset));
+    const path=`/api/v1/notifications${query.toString()?`?${query}`:""}`;
+    return request<NotificationListResponse>(path,{},accessToken);
+  },
+  markAllRead: (accessToken:string)=>request<{updated:number;unreadCount:number}>(
+    "/api/v1/notifications/read-all",{method:"POST"},accessToken),
+  clearRead: (accessToken:string)=>request<{deleted:number;unreadCount:number}>(
+    "/api/v1/notifications/read",{method:"DELETE"},accessToken),
+  remove: (accessToken:string,id:string)=>request<{deleted:boolean;unreadCount:number}>(
+    `/api/v1/notifications/${id}`,{method:"DELETE"},accessToken),
   markRead: (accessToken: string, notificationId: string) =>
     request<{ notification: NotificationDto }>(`/api/v1/notifications/${notificationId}/read`, { method: "POST" }, accessToken),
   preferences: (accessToken: string) =>

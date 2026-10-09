@@ -4,6 +4,7 @@ import { router, useFocusEffect, usePathname } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { notificationApi } from "../../lib/api";
+import { onNotificationUnreadChange, publishNotificationUnread } from "../../lib/notification-events";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "./AppText";
@@ -33,13 +34,16 @@ export function PublicTopNavigation(){
   useFocusEffect(useCallback(()=>{
     if(!token){setUnread(0);return;}
     let active=true;
-    notificationApi.list(token).then(({notifications})=>{
-      if(active)setUnread(notifications.filter(item=>!item.readAt).length);
+    const unsubscribe=onNotificationUnreadChange((source,count)=>{
+      if(active&&source===token)setUnread(count);
+    });
+    notificationApi.list(token).then(({unreadCount})=>{
+      if(active){setUnread(unreadCount);publishNotificationUnread(token,unreadCount);}
     }).catch(()=>{
       // No fabricated badge when offline. Navigation remains usable.
       if(active)setUnread(0);
     });
-    return ()=>{active=false;};
+    return ()=>{active=false;unsubscribe();};
   },[token]));
 
   if(isPlatformAdmin)return null;
