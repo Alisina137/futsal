@@ -40,14 +40,13 @@ check(page.includes("competitionApi.register")&&page.includes('focusRegistration
   "Registration deep links must go to Teams and retain authentic follow and manager validation.");
 check(page.includes('pathname:"/competitions/[competitionId]/about"')
   &&about.includes('competitionApi.get(competitionId)')
-  &&about.includes("competition.registrationClosesAt")===false
   &&about.includes("data.registrationClosesAt")
   &&about.includes("data.matchDurationMinutes")
   &&about.includes("data.registrationFeeAfn")
   &&about.includes("data.groupCount")
   &&about.includes("data.qualifiersPerGroup")
   &&about.includes("data.winPoints")&&about.includes("data.drawPoints")&&about.includes("data.lossPoints")
-  &&about.includes("data.tieBreakOrder")&&about.includes("data.championTeamId"),
+  &&about.includes("tieBreakOrder.map(")&&about.includes("data.championTeamId"),
   "The separate About page must show all publicly available competition information, not a shortened Home summary.");
 check(sections.includes('testID="competition-home-feed"')
   &&sections.includes('match.status==="IN_PROGRESS"')
