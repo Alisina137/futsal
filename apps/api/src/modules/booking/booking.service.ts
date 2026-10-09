@@ -13,6 +13,7 @@ import type { BookingRepository, BookingVenueRecord } from "./booking.types.js";
 import { toPublicVenueDto } from "./booking.types.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
+import { buildVenueDiscovery } from "./venue-discovery.js";
 import type { TimetableService } from "../timetable/timetable.service.js";
 
 function assertBookableVenue(venue: BookingVenueRecord | null, now: Date): asserts venue is BookingVenueRecord {
@@ -137,6 +138,11 @@ export class BookingService {
     private readonly notifications?: NotificationPublisher,
     private readonly timetable?: TimetableService,
   ) {}
+
+  async venueDiscovery(filters:{q?:string;province?:string}){
+    const records=await this.repository.listVenueDiscoveryRecords();
+    return {...buildVenueDiscovery(records,this.now(),filters),generatedAt:this.now().toISOString()};
+  }
 
   async listPublicVenues(filters: { city?: string; province?: string; q?: string }): Promise<PublicVenueListResponse> {
     const now = this.now();

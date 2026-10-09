@@ -635,6 +635,21 @@ export const publicVenueDtoSchema = z.object({
 });
 export type PublicVenueDto = z.infer<typeof publicVenueDtoSchema>;
 
+export const venueSearchSuggestionSchema=z.object({
+  kind:z.enum(["VENUE","LOCATION"]),
+  label:z.string(),
+  detail:z.string(),
+  query:z.string(),
+});
+export type VenueSearchSuggestion=z.infer<typeof venueSearchSuggestionSchema>;
+
+export const venueDiscoveryResponseSchema=z.object({
+  provinces:z.array(z.string()),
+  suggestions:z.array(venueSearchSuggestionSchema),
+  generatedAt:isoDateTimeSchema,
+});
+export type VenueDiscoveryResponse=z.infer<typeof venueDiscoveryResponseSchema>;
+
 export const publicVenueListResponseSchema = z.object({
   generatedAt: isoDateTimeSchema,
   venues: z.array(publicVenueDtoSchema),

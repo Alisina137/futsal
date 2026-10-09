@@ -57,6 +57,64 @@ async function register(
 }
 
 describe("Phase 3 availability and booking API", () => {
+  it("lists provinces dynamically from active subscribed venues and suggests matching venues or locations",async()=>{
+    const {app,bookingRepository,authRepository,clock}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0708777781");
+    const ownerId=owner.body.user.id;
+    const kabul=bookingRepository.seedVenue(ownerId).venue;
+    kabul.name="Kabul Star Arena";
+    kabul.address="Kart-e Se, Kabul";
+    const herat=bookingRepository.seedVenue(ownerId).venue;
+    herat.name="Herat Sport Club";herat.province="Herat";
+    herat.city="Herat";herat.address="Jada-e Malek, Herat";
+    const hidden=bookingRepository.seedVenue(ownerId,{status:"SUSPENDED"}).venue;
+    hidden.name="Hidden Kandahar";hidden.province="Kandahar";
+    const expired=bookingRepository.seedVenue(ownerId,{
+      trialEndsAt:new Date(clock.now.getTime()-1),
+    }).venue;
+    expired.name="Expired Balkh";expired.province="Balkh";
+
+    const opts=await request(app).get("/api/v1/venues/discovery");
+    expect(opts.status).toBe(200);
+    expect(opts.body.provinces).toEqual(["Herat","Kabul"]);
+    expect(opts.body.suggestions).toEqual([]);
+
+    const names=await request(app).get("/api/v1/venues/discovery").query({q:"star"});
+    expect(names.status).toBe(200);
+    expect(names.body.suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({kind:"VENUE",label:"Kabul Star Arena",query:"Kabul Star Arena"})
+    ]));
+    const byCity=await request(app).get("/api/v1/venues/discovery").query({q:"Her",province:"Herat"});
+    expect(byCity.status).toBe(200);
+    expect(byCity.body.suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({kind:"LOCATION",label:"Herat",query:"Herat"})
+    ]));
+    const scoped=await request(app).get("/api/v1/venues/discovery").query({q:"Kabul",province:"Herat"});
+    expect(scoped.status).toBe(200);
+    expect(scoped.body.suggestions).toEqual([]);
+    expect(scoped.body.provinces).toEqual(["Herat","Kabul"]);
+
+    const nameResults=await request(app).get("/api/v1/venues").query({q:"star"});
+    expect(nameResults.status).toBe(200);
+    expect(nameResults.body.venues.map((venue:{id:string})=>venue.id)).toEqual([kabul.id]);
+    const addressResults=await request(app).get("/api/v1/venues").query({q:"Kart-e"});
+    expect(addressResults.status).toBe(200);
+    expect(addressResults.body.venues.map((venue:{id:string})=>venue.id)).toEqual([kabul.id]);
+    const cityResults=await request(app).get("/api/v1/venues").query({q:"herat"});
+    expect(cityResults.status).toBe(200);
+    expect(cityResults.body.venues.map((venue:{id:string})=>venue.id)).toEqual([herat.id]);
+    const provinceResults=await request(app).get("/api/v1/venues").query({province:"Herat"});
+    expect(provinceResults.status).toBe(200);
+    expect(provinceResults.body.venues.map((venue:{id:string})=>venue.id)).toEqual([herat.id]);
+    const noResults=await request(app).get("/api/v1/venues").query({province:"Herat",q:"Kabul"});
+    expect(noResults.status).toBe(200);
+    expect(noResults.body.venues).toEqual([]);
+
+    const searchMeta=await request(app).get("/api/v1/venues/discovery").query({q:"a"});
+    expect(searchMeta.body.suggestions.length).toBeLessThanOrEqual(8);
+    expect(searchMeta.body.suggestions.every((x:{label:string})=>!x.label.includes("Hidden"))).toBe(true);
+  });
+
   it("publishes live slots from opening hours and area price", async () => {
     const { app, bookingRepository, authRepository } = setup();
     const owner = await register(app, authRepository, "VENUE_OWNER", "0702223300");

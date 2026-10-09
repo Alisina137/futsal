@@ -79,7 +79,10 @@ export type CreateBookingRecordInput = {
   idempotencyKey: string | null;
 };
 
+export type VenueDiscoveryRecord = Pick<BookingVenueRecord, "id"|"name"|"province"|"city"|"address"|"status"|"subscription">;
+
 export interface BookingRepository {
+  listVenueDiscoveryRecords():Promise<VenueDiscoveryRecord[]>;
   listPublicVenueRecords(filters: { city?: string; province?: string; q?: string }): Promise<BookingVenueRecord[]>;
   getVenueRecord(venueId: string): Promise<BookingVenueRecord | null>;
   getVenueRecordByAreaId(areaId: string): Promise<BookingVenueRecord | null>;

@@ -73,11 +73,19 @@ export class FakeBookingRepository implements BookingRepository {
     finally { release(); }
   }
 
+  async listVenueDiscoveryRecords(){
+    return [...this.venues.values()].map(venue=>({
+      id:venue.id,name:venue.name,province:venue.province,city:venue.city,
+      address:venue.address,status:venue.status,subscription:venue.subscription,
+    }));
+  }
+
   async listPublicVenueRecords(filters: { city?: string; province?: string; q?: string }) {
     return [...this.venues.values()].filter((venue) =>
       (!filters.city || venue.city === filters.city) &&
       (!filters.province || venue.province === filters.province) &&
-      (!filters.q || venue.name.toLocaleLowerCase("en-US").includes(filters.q.toLocaleLowerCase("en-US"))));
+      (!filters.q || [venue.name,venue.city,venue.province,venue.address]
+        .some(text=>text.toLocaleLowerCase("en-US").includes(filters.q!.toLocaleLowerCase("en-US")))));
   }
 
   async getVenueRecord(venueId: string) { return this.venues.get(venueId) ?? null; }

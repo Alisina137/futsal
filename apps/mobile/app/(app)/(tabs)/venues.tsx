@@ -1,9 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, colors, radius } from "@leaguekick/design-tokens";
-import type { FollowedVenueDto, PublicVenueDto } from "@leaguekick/contracts";
+import type { FollowedVenueDto, PublicVenueDto, VenueSearchSuggestion } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { marketingApi, resolveMediaImageUrl, venueApi } from "../../../src/lib/api";
 import { FollowedVenueTile } from "../../../src/components/venues/FollowedVenueTile";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -22,7 +22,12 @@ export default function VenuesScreen(){
   const {session}=useAuth();
   const token=session?.accessToken;
   const [query,setQuery]=useState("");
-  const [city,setCity]=useState("");
+  const [province,setProvince]=useState("");
+  const [provinceOptions,setProvinceOptions]=useState<string[]>([]);
+  const [provincePickerOpen,setProvincePickerOpen]=useState(false);
+  const [optionsError,setOptionsError]=useState(false);
+  const [suggestions,setSuggestions]=useState<VenueSearchSuggestion[]>([]);
+  const [suggestionsVisible,setSuggestionsVisible]=useState(false);
   const [venues,setVenues]=useState<PublicVenueDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -31,18 +36,61 @@ export default function VenuesScreen(){
   const [followsError,setFollowsError]=useState<string|null>(null);
   const [followRefresh,setFollowRefresh]=useState(0);
 
-  const load=useCallback(async()=>{
+  const load=useCallback(async(nextQuery:string,nextProvince:string)=>{
     setLoading(true);setError(null);
     try{
       setVenues((await venueApi.list({
-        ...(query.trim()?{q:query.trim()}:{}),
-        ...(city.trim()?{city:city.trim()}:{})
+        ...(nextQuery.trim()?{q:nextQuery.trim()}:{}),
+        ...(nextProvince?{province:nextProvince}:{})
       })).venues);
     }catch{setError(t("booking.loadVenuesError"));}
     finally{setLoading(false);}
-  },[city,query,t]);
+  },[t]);
 
-  useEffect(()=>{void load();},[]);
+  useEffect(()=>{void load("","");},[load]);
+
+  // Provinces are provided by subscribed, currently discoverable venue pages;
+  // never maintain an outdated hard-coded Afghanistan province list.
+  useFocusEffect(useCallback(()=>{
+    let active=true;
+    void venueApi.discovery().then(result=>{
+      if(active){setProvinceOptions(result.provinces);setOptionsError(false);}
+    }).catch(()=>{if(active)setOptionsError(true);});
+    return ()=>{active=false;};
+  },[]));
+
+  // Debounced, server-backed suggestions. Cancel older requests on every edit
+  // so that slower responses cannot overwrite suggestions for newer text.
+  useEffect(()=>{
+    if(!suggestionsVisible||!query.trim()){
+      setSuggestions([]);
+      return;
+    }
+    let active=true;
+    const timer=setTimeout(()=>{
+      void venueApi.discovery({q:query.trim(),...(province?{province}:{})})
+        .then(result=>{if(active)setSuggestions(result.suggestions);})
+        .catch(()=>{if(active)setSuggestions([]);});
+    },260);
+    return ()=>{active=false;clearTimeout(timer);};
+  },[query,province,suggestionsVisible]);
+
+  function applySearch(nextQuery=query,nextProvince=province){
+    setSuggestionsVisible(false);
+    setSuggestions([]);
+    void load(nextQuery,nextProvince);
+  }
+
+  function selectSuggestion(suggestion:VenueSearchSuggestion){
+    setQuery(suggestion.query);
+    applySearch(suggestion.query,province);
+  }
+
+  function selectProvince(nextProvince:string){
+    setProvincePickerOpen(false);
+    setProvince(nextProvince);
+    applySearch(query,nextProvince);
+  }
 
   // Refetch on return from any venue profile. Following/unfollowing immediately
   // updates this rail without relying on stale publicly cached venue lists.
@@ -107,10 +155,88 @@ export default function VenuesScreen(){
     </View>
 
     <View style={styles.searchSection}>
-      <TextField label={t("media.venueSearch")} value={query} onChangeText={setQuery} hint={t("media.venueSearchHint")}/>
-      <TextField label={t("booking.cityFilter")} value={city} onChangeText={setCity}/>
-      <Button label={t("booking.search")} onPress={()=>void load()} loading={loading}/>
+      <TextField
+        testID="venue-name-location-search"
+        label={t("booking.venueNameLocation")}
+        hint={t("booking.searchVenueHint")}
+        placeholder={t("booking.searchVenuePlaceholder")}
+        value={query}
+        maxLength={120}
+        autoCorrect={false}
+        returnKeyType="search"
+        onFocus={()=>setSuggestionsVisible(true)}
+        onSubmitEditing={()=>applySearch()}
+        onChangeText={text=>{setQuery(text);setSuggestionsVisible(true);setSuggestions([]);}}
+      />
+
+      {suggestionsVisible&&query.trim().length>0&&suggestions.length>0?
+        <View testID="venue-search-suggestions" style={styles.suggestionsBox}>
+          {suggestions.map((item,index)=><Pressable
+            key={`${item.kind}-${item.query}-${index}`}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.label}, ${item.detail}`}
+            onPress={()=>selectSuggestion(item)}
+            style={({pressed})=>[styles.suggestionRow,{flexDirection:isRTL?"row-reverse":"row"},pressed&&styles.pressed]}
+          >
+            <Ionicons name={item.kind==="VENUE"?"football-outline":"location-outline"}
+              size={20} color={colors.primary}/>
+            <View style={{flex:1,alignItems:isRTL?"flex-end":"flex-start",gap:2}}>
+              <AppText weight="medium" numberOfLines={1}>{item.label}</AppText>
+              <AppText variant="caption" muted numberOfLines={1}>{item.detail}</AppText>
+            </View>
+            <AppText variant="caption" muted>{t(item.kind==="VENUE"?"booking.suggestionVenue":"booking.suggestionLocation")}</AppText>
+          </Pressable>)}
+        </View>:null}
+
+      <View style={styles.selectField}>
+        <AppText weight="medium">{t("booking.provinceFilter")}</AppText>
+        <Pressable testID="venue-province-select" accessibilityRole="button"
+          accessibilityLabel={t("booking.provinceFilter")}
+          accessibilityHint={t("booking.chooseProvince")}
+          accessibilityState={{expanded:provincePickerOpen}}
+          onPress={()=>setProvincePickerOpen(true)}
+          style={[styles.selectButton,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="location-outline" size={19} color={colors.primary}/>
+          <AppText style={{flex:1}} weight="medium" numberOfLines={1}>
+            {province||t("booking.allProvinces")}
+          </AppText>
+          <Ionicons name="chevron-down" size={19} color={colors.textMuted}/>
+        </Pressable>
+        {optionsError?<AppText variant="caption" style={{color:colors.danger}}>{t("booking.provinceOptionsError")}</AppText>:null}
+      </View>
+
+      <Button label={t("booking.search")} onPress={()=>applySearch()} loading={loading}/>
     </View>
+
+    <Modal visible={provincePickerOpen} transparent animationType="fade"
+      onRequestClose={()=>setProvincePickerOpen(false)}>
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.modalBackdrop} accessibilityRole="button"
+          accessibilityLabel={t("common.cancel")} onPress={()=>setProvincePickerOpen(false)}/>
+        <View style={styles.provincePanel}>
+          <View style={[styles.pickerHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>{t("booking.chooseProvince")}</AppText>
+            <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")}
+              onPress={()=>setProvincePickerOpen(false)} style={styles.pickerClose}>
+              <Ionicons name="close" size={22} color={colors.text}/>
+            </Pressable>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled">
+            {["",...provinceOptions].map(option=><Pressable key={option||"all"}
+              testID={option?`venue-province-${option}`:"venue-province-all"}
+              accessibilityRole="button"
+              accessibilityState={{selected:province===option}}
+              onPress={()=>selectProvince(option)}
+              style={[styles.provinceOption,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <AppText weight={province===option?"bold":"regular"} style={{flex:1}}>
+                {option||t("booking.allProvinces")}
+              </AppText>
+              {province===option?<Ionicons name="checkmark-circle" size={21} color={colors.primary}/>:null}
+            </Pressable>)}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {loading?<DataLoadingState variant="list" minHeight={370}/>:null}
@@ -153,6 +279,25 @@ const styles=StyleSheet.create({
   inlineError:{flexDirection:"row",alignItems:"center",gap:spacing.sm,paddingHorizontal:spacing.sm},
   inlineRetry:{flexDirection:"row",gap:spacing.xs,alignItems:"center",minHeight:44},
   searchSection:{gap:spacing.sm},
+  suggestionsBox:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.md,overflow:"hidden"},
+  suggestionRow:{alignItems:"center",gap:spacing.sm,minHeight:54,
+    paddingHorizontal:spacing.md,paddingVertical:spacing.sm,
+    borderBottomWidth:1,borderBottomColor:colors.border},
+  selectField:{gap:spacing.sm},
+  selectButton:{minHeight:51,borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.md,backgroundColor:colors.surface,
+    alignItems:"center",paddingHorizontal:spacing.md,gap:spacing.sm},
+  modalRoot:{flex:1,justifyContent:"center",alignItems:"center",padding:spacing.md},
+  modalBackdrop:{position:"absolute",top:0,bottom:0,left:0,right:0,
+    backgroundColor:"rgba(0,0,0,.55)"},
+  provincePanel:{backgroundColor:colors.surface,width:"100%",maxWidth:520,
+    maxHeight:"75%",borderRadius:radius.lg,overflow:"hidden"},
+  pickerHeader:{minHeight:58,paddingHorizontal:spacing.md,alignItems:"center",
+    borderBottomWidth:1,borderBottomColor:colors.border},
+  pickerClose:{height:44,width:44,alignItems:"center",justifyContent:"center"},
+  provinceOption:{minHeight:49,paddingHorizontal:spacing.lg,paddingVertical:spacing.sm,
+    alignItems:"center",borderBottomWidth:1,borderBottomColor:colors.border},
   listLogo:{width:52,height:52,borderRadius:26},
   logoFallback:{alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   pressed:{opacity:.8},

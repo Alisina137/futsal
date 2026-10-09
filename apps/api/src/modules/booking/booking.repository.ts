@@ -125,11 +125,35 @@ export class DrizzleBookingRepository implements BookingRepository {
     };
   }
 
+  async listVenueDiscoveryRecords(){
+    return this.db.select({
+      id:venues.id,name:venues.name,province:venues.province,city:venues.city,
+      address:venues.address,status:venues.status,
+      subscriptionStatus:venueSubscriptions.status,
+      trialEndsAt:venueSubscriptions.trialEndsAt,
+      activeUntil:venueSubscriptions.activeUntil,
+    }).from(venues).innerJoin(venueSubscriptions,eq(venues.id,venueSubscriptions.venueId))
+      .where(eq(venues.status,"ACTIVE"))
+      .then(rows=>rows.map(row=>({
+        id:row.id,name:row.name,province:row.province,city:row.city,
+        address:row.address,status:row.status,
+        subscription:{status:row.subscriptionStatus,trialEndsAt:row.trialEndsAt,activeUntil:row.activeUntil},
+      })));
+  }
+
   async listPublicVenueRecords(filters: { city?: string; province?: string; q?: string }): Promise<BookingVenueRecord[]> {
     const conditions = [eq(venues.status, "ACTIVE")];
     if (filters.city) conditions.push(eq(venues.city, filters.city));
     if (filters.province) conditions.push(eq(venues.province, filters.province));
-    if (filters.q) conditions.push(ilike(venues.name, `%${filters.q}%`));
+    if (filters.q) {
+      // ILIKE across venue identity and location. The search phrase remains data,
+      // and user wildcard characters are escaped as literal input.
+      const match="%"+filters.q.replace(/[\\%_]/g,(char)=>"\\"+char)+"%";
+      conditions.push(or(
+        ilike(venues.name,match),ilike(venues.city,match),
+        ilike(venues.province,match),ilike(venues.address,match)
+      )!);
+    }
     const rows = await this.db.select().from(venues).where(and(...conditions));
     return Promise.all(rows.map((row) => this.hydrateVenue(row)));
   }

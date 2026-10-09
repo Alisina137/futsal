@@ -31,6 +31,14 @@ export function createPublicVenueRouter(booking: BookingService) {
     } catch (error) { next(error); }
   });
 
+  router.get("/discovery",async(request,response,next)=>{
+    try{
+      const q=typeof request.query.q==="string"?request.query.q.trim().slice(0,120):undefined;
+      const province=typeof request.query.province==="string"?request.query.province.trim().slice(0,80):undefined;
+      response.json(await booking.venueDiscovery({...(q?{q}:{}),...(province?{province}:{})}));
+    }catch(error){next(error);}
+  });
+
   router.get("/:venueId", async (request, response, next) => {
     try { response.json({ venue: await booking.getPublicVenue(routeIdSchema.parse(request.params.venueId)) }); }
     catch (error) { next(error); }

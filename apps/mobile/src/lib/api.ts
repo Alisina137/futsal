@@ -11,6 +11,7 @@ import type {
   OwnerVenueSetupRequest,
   PublicVenueDto,
   PublicVenueListResponse,
+  VenueDiscoveryResponse,
   PaidRole,
   RegisterRequest,
   RoleSubscriptionOfferDto,
@@ -474,6 +475,13 @@ export const ownerApi = {
 
 
 export const venueApi = {
+  discovery: (filters?:{q?:string;province?:string})=>{
+    const params=new URLSearchParams();
+    if(filters?.q)params.set("q",filters.q.slice(0,120));
+    if(filters?.province)params.set("province",filters.province);
+    const query=params.toString();
+    return request<VenueDiscoveryResponse>(`/api/v1/venues/discovery${query?`?${query}`:""}`);
+  },
   list: (filters?: { city?: string; province?: string; q?: string }) => {
     const params = new URLSearchParams();
     if (filters?.city) params.set("city", filters.city);
