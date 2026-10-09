@@ -1,4 +1,4 @@
-import type { CompetitionMatchDto } from "./index";
+import type { CompetitionMatchDto } from "./index.js";
 
 export type LeagueFormResult="W"|"D"|"L";
 

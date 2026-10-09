@@ -1738,5 +1738,5 @@ export function normalizeUsername(value: string | undefined): string | null {
   return trimmed ? trimmed.toLowerCase() : null;
 }
 
-export { lastFiveLeagueResults } from "./league-form";
-export type { LeagueFormResult } from "./league-form";
+export { lastFiveLeagueResults } from "./league-form.js";
+export type { LeagueFormResult } from "./league-form.js";
