@@ -13,6 +13,7 @@ const notificationService = read("apps/api/src/modules/notifications/notificatio
 const feedScreen = read("apps/mobile/app/(app)/(tabs)/feed.tsx");
 const venueScreen = read("apps/mobile/app/(app)/venues/[venueId].tsx");
 const notificationScreen = read("apps/mobile/app/(app)/notifications.tsx");
+const notificationPrefs = read("apps/mobile/app/(app)/notifications/preferences.tsx");
 const tests = read("apps/api/test/marketing.test.ts");
 
 const checks = [
@@ -25,7 +26,7 @@ const checks = [
   [notificationService.includes("MARKETING_LIMIT_PER_24H = 3"), "marketing notification frequency limit"],
   [feedScreen.includes("followingOnly") && feedScreen.includes("PROMOTION"), "player feed and following mode"],
   [venueScreen.includes("followState") && venueScreen.includes("promotedSlot"), "venue follow and promotion-aware slot UI"],
-  [notificationScreen.includes("updatePreferences") && notificationScreen.includes("markRead"), "notification center and preferences"],
+  [notificationPrefs.includes("updatePreferences") && notificationScreen.includes("markRead"), "notification center and preferences"],
   [tests.includes("books a promoted slot at the discounted server price"), "discount booking regression"],
 ];
 

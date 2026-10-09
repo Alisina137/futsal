@@ -28,6 +28,9 @@ for(const [key,href,icon,page] of paths){
   if(key==="home"||key==="venues"){
     assert(code.includes("<Screen showHeader publicNav")&&code.includes('{loading?<DataLoadingState'),
       `${key} must keep the top navigation mounted while content loads.`);
+  }else if(key==="notifications"){
+    assert(code.includes("<Screen showHeader publicNav")&&code.includes('loading?<DataLoadingState'),
+      "Notifications must keep the top bar mounted throughout loading and actions.");
   }else if(key==="teams"||key==="competitions"){
     const body=key==="teams"?teamExperience:competitionExperience;
     assert(code.includes('mode="directory"')&&body.includes("<Screen showHeader publicNav"),
