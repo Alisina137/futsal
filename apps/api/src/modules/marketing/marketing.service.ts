@@ -483,6 +483,17 @@ export class MarketingService {
     return asset;
   }
 
+  async mostFollowedVenues(){
+    const {venues,generatedAt}=await this.booking.listPublicVenues({});
+    const counts=await this.repository.listVenueFollowerCounts(venues.map(venue=>venue.id));
+    return {generatedAt,venues:venues.map(venue=>({
+      id:venue.id,name:venue.name,city:venue.city,province:venue.province,
+      imageUrl:venue.pageProfileImageUrl??venue.pageCoverImageUrl,
+      onlineBookingEnabled:venue.onlineBookingEnabled,
+      followerCount:counts[venue.id]??0,
+    })).sort((a,b)=>b.followerCount-a.followerCount||a.name.localeCompare(b.name)||a.id.localeCompare(b.id)).slice(0,15)};
+  }
+
   async followedVenues(userId:string){
     return {venues:await this.repository.listFollowedVenues(userId),generatedAt:this.now().toISOString()};
   }

@@ -120,6 +120,7 @@ export interface MarketingRepository {
   followerCount(venueId: string): Promise<number>;
   listFollowedVenueIds(userId: string): Promise<string[]>;
   listFollowedVenues(userId: string): Promise<FollowedVenueDto[]>;
+  listVenueFollowerCounts(venueIds:string[]):Promise<Record<string,number>>;
   listFollowerUserIds(venueId: string): Promise<string[]>;
 
   getSocialEntity(entityType: SocialEntityType, entityId: string): Promise<MarketingSocialEntityRecord | null>;

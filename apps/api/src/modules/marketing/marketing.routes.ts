@@ -108,6 +108,11 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
     }catch(error){next(error);}
   });
 
+  router.get("/social/venues/most-followed",async(_request,response,next)=>{
+    try{response.json(await marketing.mostFollowedVenues());}
+    catch(error){next(error);}
+  });
+
   router.get("/social/venues/followed",requireAuth(tokens),async(request,response,next)=>{
     try{
       response.json(await marketing.followedVenues(request.auth!.userId));

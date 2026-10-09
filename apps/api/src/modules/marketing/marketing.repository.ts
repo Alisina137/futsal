@@ -1012,6 +1012,14 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     return this.socialFollowerCount("VENUE", venueId);
   }
 
+  async listVenueFollowerCounts(venueIds:string[]):Promise<Record<string,number>>{
+    if(venueIds.length===0)return {};
+    const rows=await this.db.select({id:socialFollows.entityId,total:count()}).from(socialFollows)
+      .where(and(eq(socialFollows.entityType,"VENUE"),inArray(socialFollows.entityId,venueIds)))
+      .groupBy(socialFollows.entityId);
+    return Object.fromEntries(rows.map(row=>[row.id,Number(row.total)]));
+  }
+
   async listFollowedVenues(userId:string){
     // One account-scoped joined query, sorted by most recently followed.
     // Unavailable/suspended venue pages never appear in the discovery list.

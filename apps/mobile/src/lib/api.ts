@@ -11,6 +11,8 @@ import type {
   OwnerVenueSetupRequest,
   PublicVenueDto,
   PublicVenueListResponse,
+  MostFollowedVenuesResponse,
+  NearbyVenuesResponse,
   VenueDiscoveryResponse,
   PaidRole,
   RegisterRequest,
@@ -475,6 +477,8 @@ export const ownerApi = {
 
 
 export const venueApi = {
+  nearby: (latitude:number,longitude:number)=>
+    request<NearbyVenuesResponse>(`/api/v1/venues/nearby?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}`),
   discovery: (filters?:{q?:string;province?:string})=>{
     const params=new URLSearchParams();
     if(filters?.q)params.set("q",filters.q.slice(0,120));
@@ -506,6 +510,7 @@ export const bookingApi = {
 
 
 export const marketingApi = {
+  mostFollowedVenues: ()=>request<MostFollowedVenuesResponse>("/api/v1/social/venues/most-followed"),
   followedVenues: (accessToken:string) =>
     request<FollowedVenuesResponse>("/api/v1/social/venues/followed",{},accessToken),
   feed: (accessToken?: string, followingOnly = false) =>
