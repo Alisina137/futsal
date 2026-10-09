@@ -2,6 +2,7 @@ import type {
   CompetitionDto,
   CompetitionListItemDto,
   CompetitionMatchDto,
+  CompetitionPublicMatchPlayer,
   CompetitionMediaPostDto,
   CompetitionTeamDto,
 } from "@leaguekick/contracts";
@@ -822,6 +823,29 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         })));
       }
     });
+  }
+
+  async listPublicMatchPlayerStats(matchId:string):Promise<CompetitionPublicMatchPlayer[]>{
+    const rows=await this.db.select({
+      playerUserId:playerMatchStats.playerUserId,
+      teamId:playerMatchStats.teamId,teamName:teams.name,
+      publicDisplayName:playerProfiles.publicDisplayName,
+      fallbackName:users.displayName,appeared:playerMatchStats.appeared,
+      goals:playerMatchStats.goals,assists:playerMatchStats.assists,
+      yellowCards:playerMatchStats.yellowCards,redCards:playerMatchStats.redCards,
+      cleanSheet:playerMatchStats.cleanSheet,playerOfMatch:playerMatchStats.playerOfMatch,
+    }).from(playerMatchStats)
+      .innerJoin(users,eq(playerMatchStats.playerUserId,users.id))
+      .innerJoin(teams,eq(playerMatchStats.teamId,teams.id))
+      .leftJoin(playerProfiles,eq(playerMatchStats.playerUserId,playerProfiles.userId))
+      .where(eq(playerMatchStats.matchId,matchId));
+    return rows.map(row=>({
+      playerUserId:row.playerUserId,teamId:row.teamId,teamName:row.teamName,
+      publicDisplayName:row.publicDisplayName??row.fallbackName,
+      appeared:row.appeared,goals:row.goals,assists:row.assists,
+      yellowCards:row.yellowCards,redCards:row.redCards,
+      cleanSheet:row.cleanSheet,playerOfMatch:row.playerOfMatch,
+    }));
   }
 
   async getMatch(matchId: string) {

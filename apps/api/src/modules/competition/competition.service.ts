@@ -232,6 +232,15 @@ export class CompetitionService {
     };
   }
 
+  async getPublicMatch(competitionId:string,matchId:string){
+    const competition=await this.getPublic(competitionId);
+    const match=competition.matches.find(x=>x.id===matchId);
+    if(!match)throw errors.badRequest("MATCH_NOT_FOUND","Match not found in this competition.");
+    const playerStats=match.status==="COMPLETED"||match.status==="CORRECTED"
+      ?await this.repository.listPublicMatchPlayerStats(match.id):[];
+    return {match,playerStats};
+  }
+
   async listOwner(ownerUserId: string) {
     await this.ownerVenue(ownerUserId);
     return { competitions: await this.repository.listOwnerCompetitions(ownerUserId) };

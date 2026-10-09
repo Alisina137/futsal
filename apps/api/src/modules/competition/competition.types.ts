@@ -5,6 +5,7 @@ import type {
   CompetitionListItemDto,
   CompetitionMediaPostDto,
   CompetitionMatchDto,
+  CompetitionPublicMatchPlayer,
   CompetitionRegistrationStatus,
   PlayerMatchStatInput,
   CompetitionTieBreak,
@@ -70,6 +71,7 @@ export interface CompetitionRepository {
   isVenueReferee(venueId: string, userId: string): Promise<boolean>;
   getCompetitionRecord(competitionId: string): Promise<CompetitionRecord | null>;
   getCompetitionDto(competitionId: string): Promise<CompetitionDto | null>;
+  listPublicMatchPlayerStats(matchId:string):Promise<CompetitionPublicMatchPlayer[]>;
   listOwnerCompetitions(ownerUserId: string): Promise<CompetitionListItemDto[]>;
   listPublicCompetitions(): Promise<CompetitionListItemDto[]>;
   createCompetition(input: {

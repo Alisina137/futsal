@@ -69,6 +69,14 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
     } catch (error) { next(error); }
   });
 
+  router.get("/competitions/:competitionId/matches/:matchId",async(request,response,next)=>{
+    try{
+      const competitionId=idSchema.parse(request.params.competitionId);
+      const matchId=idSchema.parse(request.params.matchId);
+      response.json(await service.getPublicMatch(competitionId,matchId));
+    }catch(error){next(error);}
+  });
+
   router.get("/competitions/:competitionId", async (request, response, next) => {
     try {
       const competitionId = idSchema.parse(request.params.competitionId);

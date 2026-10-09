@@ -3,6 +3,7 @@ import type {
   CompetitionDto,
   CompetitionListItemDto,
   CompetitionMatchDto,
+  CompetitionPublicMatchPlayer,
   CompetitionMediaPostDto,
   CompetitionTeamDto,
 } from "@leaguekick/contracts";
@@ -20,6 +21,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   registrations = new Map<string, CompetitionTeamRecord>();
   matches = new Map<string, CompetitionMatchDto>();
   mediaPosts = new Map<string, CompetitionMediaPostDto>();
+  playerMatchStats = new Map<string,CompetitionPublicMatchPlayer[]>();
 
   seedVenue(ownerUserId:string, options?:{activeUntil?:Date|null;trialEndsAt?:Date|null;subscriptionStatus?:"TRIAL"|"ACTIVE"|"EXPIRED"|"CANCELLED";status?:CompetitionVenueRecord["status"]}) {
     const venue:CompetitionVenueRecord={
@@ -72,6 +74,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   }
 
   async getCompetitionDto(competitionId:string){return this.dto(competitionId);}
+  async listPublicMatchPlayerStats(matchId:string){return this.playerMatchStats.get(matchId)??[];}
 
   private async items(ownerUserId?:string,publicOnly=false):Promise<CompetitionListItemDto[]>{
     const out:CompetitionListItemDto[]=[];

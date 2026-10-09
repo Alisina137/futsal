@@ -1605,6 +1605,20 @@ export const competitionMatchDtoSchema = z.object({
 });
 export type CompetitionMatchDto = z.infer<typeof competitionMatchDtoSchema>;
 
+/** Public match-specific recorded player figures; no private contact or unconfirmed lineup data. */
+export const competitionPublicMatchPlayerSchema=z.object({
+  playerUserId:z.string().uuid(),teamId:z.string().uuid(),
+  publicDisplayName:z.string(),teamName:z.string(),
+  appeared:z.boolean(),goals:z.number().int().min(0),
+  assists:z.number().int().min(0),yellowCards:z.number().int().min(0),
+  redCards:z.number().int().min(0),cleanSheet:z.boolean(),playerOfMatch:z.boolean(),
+});
+export type CompetitionPublicMatchPlayer=z.infer<typeof competitionPublicMatchPlayerSchema>;
+export const competitionPublicMatchDetailSchema=z.object({
+  match:competitionMatchDtoSchema,playerStats:z.array(competitionPublicMatchPlayerSchema),
+});
+export type CompetitionPublicMatchDetail=z.infer<typeof competitionPublicMatchDetailSchema>;
+
 export const competitionStandingRowDtoSchema = z.object({
   position: z.number().int().min(1),
   groupId: z.string().uuid().nullable().optional(),

@@ -76,6 +76,7 @@ import type {
   TeamMemberUpdateRequest,
   CompetitionCreateRequest,
   CompetitionDto,
+  CompetitionPublicMatchDetail,
   CompetitionFeeUpdateRequest,
   CompetitionListItemDto,
   CompetitionMediaPostCreateRequest,
@@ -687,6 +688,9 @@ export const competitionApi = {
     request<{ generatedAt: string; competitions: CompetitionListItemDto[] }>("/api/v1/competitions"),
   get: (competitionId: string) =>
     request<{ competition: CompetitionDto }>(`/api/v1/competitions/${competitionId}`),
+  match: (competitionId:string,matchId:string)=>
+    request<CompetitionPublicMatchDetail>(
+      `/api/v1/competitions/${competitionId}/matches/${matchId}`),
   media: (competitionId: string) =>
     request<{ posts: CompetitionMediaPostDto[] }>(`/api/v1/competitions/${competitionId}/media`),
   register: (accessToken: string, competitionId: string, teamId: string) =>
