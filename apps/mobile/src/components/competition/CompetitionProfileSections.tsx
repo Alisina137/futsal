@@ -290,12 +290,12 @@ function Home({competition,posts}:Pick<Props,"competition"|"posts">){
         </AppText>
         <View style={styles.liveBadge}>
           <Ionicons name="radio-outline" size={16} color="#FFFFFF"/>
-          <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>LIVE</AppText>
+          <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>{t("competition.profile.liveBadge")}</AppText>
         </View>
       </View>
       {live.map(match=><MatchCard key={match.id} match={match}/>)}
     </View>:null}
-    <SectionHeading title={t("competition.profile.updates")} icon="newspaper-outline" count={updates.length}/>
+    <SectionHeading title={t("competition.profile.allPosts")} icon="newspaper-outline" count={updates.length}/>
     {updates.length===0?<Placeholder title={t("competition.publicMediaEmpty")} icon="newspaper-outline"/>:null}
     {updates.map(post=><Card key={post.id} testID={`competition-post-${post.id}`} style={styles.post}>
       <View style={[styles.postHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
