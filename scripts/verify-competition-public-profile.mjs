@@ -6,6 +6,7 @@ const sections=read("apps/mobile/src/components/competition/CompetitionProfileSe
 const directory=read("apps/mobile/src/components/social/CompetitionDirectoryExperience.tsx");
 const about=read("apps/mobile/app/(app)/competitions/[competitionId]/about.tsx");
 const localization=read("packages/localization/src/index.ts");
+const leagueBoard=read("apps/mobile/src/components/competition/LeagueStandingsTable.tsx");
 check(page.includes('testID="competition-public-profile"')&&page.includes("mediaPosts.find(post=>post.imageUrl)")
   &&page.includes('Ionicons name="trophy"')&&page.includes("styles.avatarFrame")&&page.includes("styles.cover"),
   "Competition identity must show a cover/avatar like a venue profile, with real media or an honest fallback.");
@@ -27,6 +28,9 @@ check(sections.includes('competition.format==="GROUP_KNOCKOUT"')
   &&sections.includes('testID={`competition-stage-${option}`}')
   &&sections.includes('match.stage==="KNOCKOUT"')&&sections.includes('StandingTable'),
   "League, knockout, and group+knockout formats must show appropriate standings/stages.");
+check(sections.includes('competition.format==="LEAGUE"')&&sections.includes("<LeagueStandingsTable")
+  &&leagueBoard.includes('testID="league-scrollable-stats"'),
+  "League standings must keep teams fixed and make statistics horizontally swipeable.");
 check(sections.includes('testID={`competition-stats-${value}`}')
   &&sections.includes('b.goals-a.goals')&&sections.includes('b.assists-a.assists')
   &&sections.includes('pathname:"/players/[playerId]"'),
