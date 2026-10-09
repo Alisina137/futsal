@@ -47,8 +47,9 @@ assert(header.includes('...(hasDashboard?['),
 assert(tabs.includes('title:t("home.title")'),"Home should not change its name for venue owners.");
 assert(home.includes("marketingApi.socialFeed")&&home.includes("formatPostTimeAgo")&&home.includes("likeSocialPost"),
   "Social Home must retain the real personalized feed, relative times and Like actions.");
-assert(home.includes('social.latestPosts')&&home.includes("openComments"),
-  "Social Home must show a compact latest-posts section and post interactions.");
+assert(!home.includes('t("social.latestPosts")')&&!home.includes('t("social.homeSubtitle")')
+  &&home.includes("openComments")&&home.includes("moments.map("),
+  "Social Home must flow directly from photo moments into interactive posts without a redundant title/subtitle.");
 assert(repo.includes("selectPersonalizedSocialPosts(candidates, followed, 100)"),
   "Social feed must blend followed updates with discoverable public posts.");
 assert(rank.includes('post.visibility==="PUBLIC"')&&rank.includes('post.visibility==="FOLLOWERS"'),

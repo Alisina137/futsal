@@ -88,13 +88,6 @@ function SocialHome(){
     <View style={styles.divider}/>
 
     <View style={styles.moments}>
-      <View style={[styles.sectionTitleRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <View style={styles.sectionTitleCluster}>
-          <Ionicons name="images-outline" size={20} color={colors.primary}/>
-          <AppText weight="bold" variant="bodyLarge">{t("social.momentsTitle")}</AppText>
-        </View>
-        <AppText variant="caption" muted>{t("social.momentsSubtitle")}</AppText>
-      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -135,17 +128,6 @@ function SocialHome(){
     </View>
 
     <View style={styles.divider}/>
-
-    <View style={[styles.feedHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <View style={{flex:1,alignItems:isRTL?"flex-end":"flex-start",gap:2}}>
-        <AppText weight="bold" variant="bodyLarge">{t("social.latestPosts")}</AppText>
-        <AppText variant="caption" muted>{t("social.homeSubtitle")}</AppText>
-      </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={t("common.retry")}
-        onPress={()=>void load(true)} style={({pressed})=>[styles.refreshButton,pressed&&styles.pressed]}>
-        <Ionicons name="refresh" size={21} color={colors.primary}/>
-      </Pressable>
-    </View>
 
     {error?<View style={styles.feedAlert}>
       <AppText style={{color:colors.danger}}>{error}</AppText>
@@ -371,8 +353,6 @@ const styles=StyleSheet.create({
   avatarFallback:{backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
   divider:{height:9,backgroundColor:"#EDF1F6"},
   moments:{backgroundColor:colors.surface,paddingVertical:spacing.sm,gap:spacing.sm},
-  sectionTitleRow:{alignItems:"center",justifyContent:"space-between",paddingHorizontal:spacing.md,gap:spacing.sm},
-  sectionTitleCluster:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
   momentsRow:{paddingHorizontal:spacing.md,gap:spacing.sm,paddingBottom:spacing.sm},
   storyCard:{height:182,width:123,borderRadius:radius.md,overflow:"hidden",backgroundColor:"#E4EDFA",
     borderWidth:1,borderColor:"#DFE6F1"},
@@ -389,9 +369,6 @@ const styles=StyleSheet.create({
   discoverCard:{padding:spacing.sm,justifyContent:"space-between",backgroundColor:colors.primarySoft},
   discoverGlyph:{flex:1,alignItems:"center",justifyContent:"center"},
   discoverName:{textAlign:"center",color:colors.primary,paddingBottom:spacing.sm},
-  feedHeading:{minHeight:74,backgroundColor:colors.surface,paddingHorizontal:spacing.md,
-    paddingVertical:spacing.sm,alignItems:"center",gap:spacing.sm},
-  refreshButton:{width:42,height:42,borderRadius:21,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   pressed:{opacity:.7},
   disabled:{opacity:.5},
   feedAlert:{padding:spacing.md,backgroundColor:colors.surface,gap:spacing.sm},

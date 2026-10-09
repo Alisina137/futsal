@@ -19,17 +19,22 @@ const test=read("apps/api/test/marketing.test.ts");
 
 for(const marker of [
   "styles.composer","social.composerPrompt","social.createMoment",
-  "social.momentsTitle","moments.map(", "marketingApi.socialFeed",
+  "moments.map(", "marketingApi.socialFeed",
   "marketingApi.likeSocialPost","marketingApi.unlikeSocialPost",
   "router.push(\"/posts/create\")","Share.share","formatPostTimeAgo",
   "router.push({pathname:\"/posts/[postId]/comments\"",
-  "social.latestPosts","onRefresh={()=>void load(true)}",
+  "onRefresh={()=>void load(true)}",
   "social.postOptions","social.hidePost","social.deletePost",
   'pathname:"/people/[userId]"',
 ]){
   assert(home.includes(marker),`Facebook-style Home missing: ${marker}`);
 }
 assert(home.includes('<Screen showHeader publicNav'),"Home must preserve the five shared navigation icons.");
+for(const key of ['social.latestPosts','social.homeSubtitle','social.momentsTitle','social.momentsSubtitle']){
+  assert(!home.includes('t("'+key+'")'),`Home must not render redundant heading or subtitle: ${key}`);
+}
+assert(!home.includes('styles.feedHeading')&&!home.includes('styles.sectionTitleRow'),
+  "Home feed and Moments must flow directly beneath the fixed navigation without section heading rows.");
 assert(home.includes("imageOpen&&image?<Modal"),"Tap-to-preview images must work.");
 assert(home.includes('post.authorType==="USER"&&post.authorId===userId'),
   "Only the author may see personal post deletion.");
