@@ -92,7 +92,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
     :mode==="ongoing"?t("competition.ongoingFollowedVenues")
     :mode==="following"?t("competition.followedCompetitions"):t("competition.title");
   return <Screen showHeader publicNav style={styles.page}>
-    {mode!=="directory"?<View style={styles.row}>
+    {mode!=="directory"?<View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <Pressable accessibilityRole="button" accessibilityLabel={t("competition.backToCompetitions")}
         onPress={()=>router.navigate("/competitions")} style={styles.back}>
         <Ionicons name={isRTL?"arrow-forward":"arrow-back"} size={21} color={colors.primary}/>

@@ -90,7 +90,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
   const title=mode==="popular"?t("teams.mostFollowed"):mode==="mine"?t("teams.myTeams")
     :mode==="following"?t("teams.followedTeams"):t("teams.title");
   return <Screen showHeader publicNav style={styles.page}>
-    {mode!=="directory"?<View style={[styles.row,{alignItems:"center"}]}>
+    {mode!=="directory"?<View style={[styles.row,{alignItems:"center",flexDirection:isRTL?"row-reverse":"row"}]}>
       <Pressable accessibilityRole="button" accessibilityLabel={t("teams.backToTeams")}
         onPress={()=>router.navigate("/teams")} style={styles.back}>
         <Ionicons name={isRTL?"arrow-forward":"arrow-back"} size={21} color={colors.primary}/>
