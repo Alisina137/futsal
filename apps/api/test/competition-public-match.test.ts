@@ -24,7 +24,7 @@ const fixture=(competitionId:string,homeId:string,awayId:string,status:Competiti
 });
 function setup(){
   const repo=new FakeCompetitionRepository();
-  const owner=randomUUID();repo.seedVenue(owner);
+  const owner=randomUUID();repo.seedVenue(owner,{subscriptionStatus:"ACTIVE",activeUntil:new Date("2026-12-20T00:00:00Z")});
   const service=new CompetitionService(repo,()=>now);
   return {repo,owner,service};
 }
