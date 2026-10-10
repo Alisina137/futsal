@@ -103,7 +103,7 @@ const app = createApp({
   playerDashboardPhase2:new PlayerDashboardPhase2Service(db,teamService),
   playerDashboardPhase3:new PlayerDashboardPhase3Service(db,teamService),
   competitionService,
-  refereeService:new RefereeService(db,competitionService),
+  refereeService:new RefereeService(db),
   commercialService,
   timetableService: timetable,
   manualTeamService: new ManualTeamService(db),
