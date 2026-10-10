@@ -72,6 +72,8 @@ export interface NotificationPublisher {
     teamId:string;activityId:string;teamName:string;title:string;startsAt:string|null;
     userIds:string[];dedupeKey:string;
   }):Promise<void>;
+  teamChallenge(input:{teamId:string;challengeId:string;teamName:string;title:string;userIds:string[]}):Promise<void>;
+  teamAnnouncement(input:{teamId:string;announcementId:string;teamName:string;title:string;userIds:string[]}):Promise<void>;
   competitionUpdate(input: {
     competitionId: string;
     title: string;

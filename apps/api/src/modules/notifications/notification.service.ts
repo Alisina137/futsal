@@ -199,6 +199,22 @@ export class NotificationService implements NotificationPublisher {
     })));
   }
 
+  async teamChallenge(input:{teamId:string;challengeId:string;teamName:string;title:string;userIds:string[]}){
+    await Promise.allSettled(input.userIds.map(userId=>this.publish({
+      userId,type:"TEAM_CHALLENGE",title:input.teamName,body:input.title,
+      deepLink:"/dashboard",data:{teamId:input.teamId,challengeId:input.challengeId},
+      dedupeKey:`team-challenge:${input.challengeId}:${input.title}:${userId}`,marketing:false,
+    })));
+  }
+  async teamAnnouncement(input:{teamId:string;announcementId:string;teamName:string;title:string;userIds:string[]}){
+    await Promise.allSettled(input.userIds.map(userId=>this.publish({
+      userId,type:"TEAM_ANNOUNCEMENT",title:input.teamName,body:input.title,
+      deepLink:`/teams/${input.teamId}/announcements`,
+      data:{teamId:input.teamId,announcementId:input.announcementId},
+      dedupeKey:`team-announcement:${input.announcementId}:${userId}`,marketing:false,
+    })));
+  }
+
   async competitionUpdate(input: {
     competitionId: string;
     title: string;

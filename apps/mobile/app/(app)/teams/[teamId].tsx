@@ -125,8 +125,12 @@ export default function TeamDetailScreen(){
           {profileDetails.foundedOn?<AppText variant="caption" muted>{t("tm1.foundedOn")}: {profileDetails.foundedOn}</AppText>:null}
           {profileDetails.contactPhone?<AppText variant="caption" muted>{t("tm1.contactPhone")}: {profileDetails.contactPhone}</AppText>:null}
         </Card>:null}
-      {myRole?<Card><Button label={t("tm2.memberSchedule")} variant="secondary"
-        onPress={()=>router.push({pathname:"/teams/[teamId]/activities",params:{teamId:team.id}})}/></Card>:null}
+      {myRole?<Card>
+        <Button label={t("tm2.memberSchedule")} variant="secondary"
+          onPress={()=>router.push({pathname:"/teams/[teamId]/activities",params:{teamId:team.id}})}/>
+        <Button label={t("tm3.privateAnnouncements")} variant="secondary"
+          onPress={()=>router.push({pathname:"/teams/[teamId]/announcements",params:{teamId:team.id}})}/>
+      </Card>:null}
 
       <View style={styles.statGrid}>
         <ProfileStat

@@ -1062,3 +1062,28 @@ export const teamActivityResponses = pgTable("team_activity_responses",{
   availability:varchar("availability",{length:12}).notNull(),
   updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
 },table=>[primaryKey({columns:[table.activityId,table.userId]})]);
+
+
+export const teamFriendlyChallenges=pgTable("team_friendly_challenges",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  fromTeamId:uuid("from_team_id").notNull().references(()=>teams.id,{onDelete:"cascade"}),
+  toTeamId:uuid("to_team_id").notNull().references(()=>teams.id,{onDelete:"cascade"}),
+  proposedAt:timestamp("proposed_at",{withTimezone:true}).notNull(),
+  venueName:varchar("venue_name",{length:160}),
+  message:varchar("message",{length:500}),
+  status:varchar("status",{length:12}).notNull().default("PENDING"),
+  respondedAt:timestamp("responded_at",{withTimezone:true}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[index("team_friendly_from_idx").on(table.fromTeamId,table.createdAt),
+  index("team_friendly_to_idx").on(table.toTeamId,table.createdAt),
+  uniqueIndex("team_friendly_pending_unique").on(table.fromTeamId,table.toTeamId).where(sql`${table.status}='PENDING'`) ]);
+
+export const teamAnnouncements=pgTable("team_announcements",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  teamId:uuid("team_id").notNull().references(()=>teams.id,{onDelete:"cascade"}),
+  authorId:uuid("author_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  title:varchar("title",{length:120}).notNull(),
+  body:text("body").notNull(),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[index("team_announcements_team_date_idx").on(table.teamId,table.createdAt)]);

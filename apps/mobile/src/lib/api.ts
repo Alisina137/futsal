@@ -651,6 +651,44 @@ export const teamOperationsApi={
       {method:"POST",body:JSON.stringify({availability})},token),
 };
 
+export type TeamGrowthPost={id:string;body:string;imageUrl:string|null;publishedAt:string};
+export type TeamGrowthAnnouncement={id:string;teamId:string;authorId:string;title:string;body:string;createdAt:string;updatedAt:string};
+export type TeamGrowthChallenge={id:string;fromTeamId:string;toTeamId:string;opponentName:string;proposedAt:string;
+  venueName:string|null;message:string|null;status:string;respondedAt:string|null;createdAt:string};
+export type TeamGrowthPlayer={userId:string;displayName:string;matches:number;goals:number;assists:number;
+  yellowCards:number;redCards:number;cleanSheets:number;playerOfMatch:number};
+export type TeamGrowthHistory={id:string;name:string;status:string;format:string;registrationStatus:string;
+  champion:boolean;rewards:{category:string;title:string;prize:string;description:string|null}[]};
+export type TeamGrowthData={
+  posts:TeamGrowthPost[];announcements:TeamGrowthAnnouncement[];challenges:TeamGrowthChallenge[];
+  stats:{played:number;wins:number;draws:number;losses:number;goalsFor:number;goalsAgainst:number;
+    goalDifference:number;winRate:number;championships:number;
+    players:TeamGrowthPlayer[];competitionHistory:TeamGrowthHistory[]};
+};
+export const teamGrowthApi={
+  list:(token:string,teamId:string)=>request<TeamGrowthData>(`/api/v1/teams/${teamId}/manager/growth`,{},token),
+  createPost:(token:string,teamId:string,input:{body:string;imageUrl:string|null})=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/manager/posts`,{method:"POST",body:JSON.stringify(input)},token),
+  updatePost:(token:string,teamId:string,id:string,input:{body:string;imageUrl:string|null})=>
+    request<{updated:boolean}>(`/api/v1/teams/${teamId}/manager/posts/${id}`,{method:"PUT",body:JSON.stringify(input)},token),
+  deletePost:(token:string,teamId:string,id:string)=>
+    request<{deleted:boolean}>(`/api/v1/teams/${teamId}/manager/posts/${id}`,{method:"DELETE"},token),
+  announcements:(token:string,teamId:string)=>
+    request<{announcements:TeamGrowthAnnouncement[]}>(`/api/v1/teams/${teamId}/announcements`,{},token),
+  createAnnouncement:(token:string,teamId:string,input:{title:string;body:string})=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/manager/announcements`,
+      {method:"POST",body:JSON.stringify(input)},token),
+  deleteAnnouncement:(token:string,teamId:string,id:string)=>
+    request<{deleted:boolean}>(`/api/v1/teams/${teamId}/manager/announcements/${id}`,{method:"DELETE"},token),
+  challenge:(token:string,teamId:string,input:{toTeamId:string;proposedAt:string;venueName:string|null;message:string|null})=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/manager/challenges`,{method:"POST",body:JSON.stringify(input)},token),
+  decideChallenge:(token:string,teamId:string,id:string,decision:"ACCEPTED"|"DECLINED")=>
+    request<{status:string}>(`/api/v1/teams/${teamId}/manager/challenges/${id}/decision`,
+      {method:"POST",body:JSON.stringify({decision})},token),
+  cancelChallenge:(token:string,teamId:string,id:string)=>
+    request<{status:string}>(`/api/v1/teams/${teamId}/manager/challenges/${id}/cancel`,{method:"POST"},token),
+};
+
 export type TeamManagerProfileDetails={
   province:string|null;district:string|null;description:string|null;foundedOn:string|null;
   primaryColor:string|null;secondaryColor:string|null;contactPhone:string|null;homeVenueId:string|null;

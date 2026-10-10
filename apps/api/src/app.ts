@@ -23,6 +23,7 @@ import { createAuthenticatedTeamRouter, createPublicTeamRouter } from "./modules
 import type { TeamService } from "./modules/team/team.service.js";
 import { createTeamManagerPhase1Router, type TeamManagerPhase1Service } from "./modules/team/team-manager-phase1.routes.js";
 import { createTeamManagerPhase2Router, type TeamManagerPhase2Service } from "./modules/team/team-manager-phase2.routes.js";
+import { createTeamManagerPhase3Router, type TeamManagerPhase3Service } from "./modules/team/team-manager-phase3.routes.js";
 import { createCompetitionRouter, createOwnerCompetitionRouter } from "./modules/competition/competition.routes.js";
 import type { CompetitionService } from "./modules/competition/competition.service.js";
 import { createAdminRouter, createOwnerCommercialRouter } from "./modules/commercial/commercial.routes.js";
@@ -42,6 +43,7 @@ export type AppDependencies = {
   teamService?: TeamService;
   teamManagerPhase1?: TeamManagerPhase1Service;
   teamManagerPhase2?: TeamManagerPhase2Service;
+  teamManagerPhase3?: TeamManagerPhase3Service;
   competitionService?: CompetitionService;
   commercialService?: CommercialService;
   timetableService?: TimetableService;
@@ -170,6 +172,7 @@ export function createApp(deps: AppDependencies) {
   }
   if (deps.teamManagerPhase1) app.use("/api/v1",createTeamManagerPhase1Router(deps.teamManagerPhase1,deps.tokenService));
   if (deps.teamManagerPhase2) app.use("/api/v1",createTeamManagerPhase2Router(deps.teamManagerPhase2,deps.tokenService));
+  if (deps.teamManagerPhase3) app.use("/api/v1",createTeamManagerPhase3Router(deps.teamManagerPhase3,deps.tokenService));
   if (deps.competitionService) {
     app.use("/api/v1", createCompetitionRouter(deps.competitionService, deps.tokenService));
     app.use("/api/v1/owner", createOwnerCompetitionRouter(deps.competitionService, deps.tokenService));

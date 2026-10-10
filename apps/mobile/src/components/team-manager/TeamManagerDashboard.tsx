@@ -16,15 +16,18 @@ import { DataLoadingState } from "../ui/DataLoadingState";
 import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
 import { TeamCompetitionOps } from "./TeamCompetitionOps";
+import { TeamGrowthPanel } from "./TeamGrowthPanel";
 
-type Section="overview"|"team"|"players"|"competitions"|"matches"|"schedule"|"settings";
-const tabs:{id:Section;icon:keyof typeof Ionicons.glyphMap;key:"tm1.overview"|"tm1.team"|"tm1.players"|"tm2.tab.competitions"|"tm2.tab.matches"|"tm2.tab.schedule"|"tm1.settings"}[]=[
+type Section="overview"|"team"|"players"|"competitions"|"matches"|"schedule"|"media"|"statistics"|"settings";
+const tabs:{id:Section;icon:keyof typeof Ionicons.glyphMap;key:"tm1.overview"|"tm1.team"|"tm1.players"|"tm2.tab.competitions"|"tm2.tab.matches"|"tm2.tab.schedule"|"tm3.tab.media"|"tm3.tab.statistics"|"tm1.settings"}[]=[
   {id:"overview",icon:"grid-outline" as const,key:"tm1.overview" as const},
   {id:"team",icon:"shield-outline" as const,key:"tm1.team" as const},
   {id:"players",icon:"people-outline" as const,key:"tm1.players" as const},
   {id:"competitions",icon:"trophy-outline" as const,key:"tm2.tab.competitions" as const},
   {id:"matches",icon:"football-outline" as const,key:"tm2.tab.matches" as const},
   {id:"schedule",icon:"calendar-outline" as const,key:"tm2.tab.schedule" as const},
+  {id:"media",icon:"images-outline" as const,key:"tm3.tab.media" as const},
+  {id:"statistics",icon:"stats-chart-outline" as const,key:"tm3.tab.statistics" as const},
   {id:"settings",icon:"settings-outline" as const,key:"tm1.settings" as const},
 ];
 const positions=["UNSPECIFIED","GOALKEEPER","FIXO","ALA","PIVO","UNIVERSAL"] as const;
@@ -388,6 +391,9 @@ export function TeamManagerDashboard(){
       </>:null}
 
       {(tab==="competitions"||tab==="matches"||tab==="schedule")&&token?<TeamCompetitionOps tab={tab} team={team} token={token} canWrite={canWrite} onSelectTab={chooseTab}/>:null}
+
+      {(tab==="media"||tab==="statistics"||tab==="matches")&&token?
+        <TeamGrowthPanel tab={tab} team={team} token={token} canWrite={canWrite}/>:null}
 
       {tab==="settings"?<>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.membershipSettings")}</AppText>
