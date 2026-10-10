@@ -886,6 +886,49 @@ export const competitionMatches = pgTable(
   ],
 );
 
+/** Assignment responses are tied to a specific referee and match.
+ * Reassigning a match never grants access to its previous official's report. */
+export const refereeMatchResponses=pgTable("referee_match_responses",{
+  matchId:uuid("match_id").notNull().references(()=>competitionMatches.id,{onDelete:"cascade"}),
+  refereeUserId:uuid("referee_user_id").notNull().references(()=>users.id,{onDelete:"cascade"}),
+  status:varchar("status",{length:24}).notNull().default("PENDING"),
+  reason:varchar("reason",{length:400}),
+  respondedAt:timestamp("responded_at",{withTimezone:true}),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  primaryKey({columns:[table.matchId,table.refereeUserId]}),
+  index("referee_responses_user_idx").on(table.refereeUserId,table.status),
+]);
+
+export const refereeProfiles=pgTable("referee_profiles",{
+  userId:uuid("user_id").primaryKey().references(()=>users.id,{onDelete:"cascade"}),
+  level:varchar("level",{length:60}),
+  experienceYears:integer("experience_years").notNull().default(0),
+  biography:varchar("biography",{length:500}),
+  weeklyAvailability:jsonb("weekly_availability").$type<{day:number;start:string;end:string}[]>().notNull().default([]),
+  exceptions:jsonb("exceptions").$type<{date:string;available:boolean}[]>().notNull().default([]),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+});
+
+export const refereeMatchReports=pgTable("referee_match_reports",{
+  matchId:uuid("match_id").primaryKey().references(()=>competitionMatches.id,{onDelete:"cascade"}),
+  refereeUserId:uuid("referee_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  status:varchar("status",{length:24}).notNull().default("DRAFT"),
+  events:jsonb("events").$type<Array<{id:string;kind:string;side:string|null;playerUserId:string|null;elapsedSeconds:number;period:number;details:string}>>().notNull().default([]),
+  checks:jsonb("checks").$type<{homePresent:boolean;awayPresent:boolean;rosterChecked:boolean;venueReady:boolean}>().notNull().default({homePresent:false,awayPresent:false,rosterChecked:false,venueReady:false}),
+  startedAt:timestamp("started_at",{withTimezone:true}),
+  finishedAt:timestamp("finished_at",{withTimezone:true}),
+  summary:varchar("summary",{length:2000}).notNull().default(""),
+  revision:integer("revision").notNull().default(0),
+  submittedAt:timestamp("submitted_at",{withTimezone:true}),
+  reviewedAt:timestamp("reviewed_at",{withTimezone:true}),
+  reviewedByUserId:uuid("reviewed_by_user_id").references(()=>users.id,{onDelete:"set null"}),
+  feedback:varchar("feedback",{length:800}),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  index("referee_reports_referee_idx").on(table.refereeUserId,table.status),
+]);
+
 export const playerMatchStats = pgTable(
   "player_match_stats",
   {

@@ -31,6 +31,7 @@ import { createPlayerDashboardPhase2Router, type PlayerDashboardPhase2Service } 
 import { createPlayerDashboardPhase3Router, type PlayerDashboardPhase3Service } from "./modules/team/player-dashboard-phase3.routes.js";
 import { createCompetitionRouter, createOwnerCompetitionRouter } from "./modules/competition/competition.routes.js";
 import type { CompetitionService } from "./modules/competition/competition.service.js";
+import {createRefereeRouter,createOwnerRefereeReportRouter,type RefereeService} from "./modules/referee/referee.routes.js";
 import { createAdminRouter, createOwnerCommercialRouter } from "./modules/commercial/commercial.routes.js";
 import type { CommercialService } from "./modules/commercial/commercial.service.js";
 import { createOwnerTimetableRouter } from "./modules/timetable/timetable.routes.js";
@@ -54,6 +55,7 @@ export type AppDependencies = {
   playerDashboardPhase2?: PlayerDashboardPhase2Service;
   playerDashboardPhase3?: PlayerDashboardPhase3Service;
   competitionService?: CompetitionService;
+  refereeService?: RefereeService;
   commercialService?: CommercialService;
   timetableService?: TimetableService;
   manualTeamService?: ManualTeamService;
@@ -189,6 +191,10 @@ export function createApp(deps: AppDependencies) {
   if (deps.playerDashboardPhase1) app.use("/api/v1",createPlayerDashboardPhase1Router(deps.playerDashboardPhase1,deps.tokenService));
   if (deps.playerDashboardPhase2) app.use("/api/v1",createPlayerDashboardPhase2Router(deps.playerDashboardPhase2,deps.tokenService));
   if (deps.playerDashboardPhase3) app.use("/api/v1",createPlayerDashboardPhase3Router(deps.playerDashboardPhase3,deps.tokenService));
+  if (deps.refereeService) {
+    app.use("/api/v1",createRefereeRouter(deps.refereeService,deps.tokenService));
+    app.use("/api/v1/owner",createOwnerRefereeReportRouter(deps.refereeService,deps.tokenService));
+  }
   if (deps.competitionService) {
     app.use("/api/v1", createCompetitionRouter(deps.competitionService, deps.tokenService));
     app.use("/api/v1/owner", createOwnerCompetitionRouter(deps.competitionService, deps.tokenService));
