@@ -171,6 +171,10 @@ export class RefereeService{
       const [previous]=await tx.select().from(refereeMatchResponses).where(and(
         eq(refereeMatchResponses.matchId,matchId),eq(refereeMatchResponses.refereeUserId,userId))).limit(1);
       const status=previous?.status??"PENDING";
+      // Past and finished matches cannot have their appointment state rewritten.
+      if((input.action==="DECLINED"||input.action==="WITHDRAW_REQUESTED")&&
+        (match.status!=="SCHEDULED"||!match.startsAt||match.startsAt<=now))
+        throw errors.conflict("REFEREE_INVITATION_CLOSED","This match is no longer open for appointment changes.");
       if(input.action==="ACCEPTED"){
         if(status==="ACCEPTED")return {status};
         if(status!=="PENDING")throw errors.conflict("REFEREE_INVITATION_CLOSED","This assignment must be reissued by its organizer.");
