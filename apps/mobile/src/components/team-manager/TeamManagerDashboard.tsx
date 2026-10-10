@@ -17,7 +17,7 @@ import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
 
 type Section="overview"|"team"|"players"|"settings";
-const tabs=[
+const tabs:{id:Section;icon:keyof typeof Ionicons.glyphMap;key:"tm1.overview"|"tm1.team"|"tm1.players"|"tm1.settings"}[]=[
   {id:"overview",icon:"grid-outline" as const,key:"tm1.overview" as const},
   {id:"team",icon:"shield-outline" as const,key:"tm1.team" as const},
   {id:"players",icon:"people-outline" as const,key:"tm1.players" as const},

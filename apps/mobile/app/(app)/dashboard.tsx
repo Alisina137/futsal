@@ -56,15 +56,7 @@ export default function DashboardScreen() {
     </Screen>;
   }
 
-  const config = role === "TEAM_MANAGER"
-    ? {
-        title: t("dashboard.teamOwnerTitle"),
-        body: t("dashboard.teamOwnerBody"),
-        icon: "people-circle-outline" as const,
-        actionLabel: t("teams.title"),
-        action: () => router.push("/teams"),
-      }
-    : role === "PLAYER"
+  const config = role === "PLAYER"
       ? {
           title: t("dashboard.playerTitle"),
           body: t("dashboard.playerBody"),
