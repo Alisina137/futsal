@@ -253,7 +253,8 @@ export class RefereePhase2Service{
       .from(refereeMatchReports)
       .innerJoin(competitionMatches,eq(refereeMatchReports.matchId,competitionMatches.id))
       .innerJoin(users,eq(users.id,refereeMatchReports.refereeUserId))
-      .where(eq(competitionMatches.competitionId,competitionId));
+      .where(and(eq(competitionMatches.competitionId,competitionId),
+        inArray(refereeMatchReports.status,["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"])));
     return {reports:rows.map(({report,match,refereeName})=>({
       ...this.format(report),refereeName,refereeUserId:report.refereeUserId,
       competitionId:match.competitionId,homeTeamId:match.homeTeamId,awayTeamId:match.awayTeamId,
