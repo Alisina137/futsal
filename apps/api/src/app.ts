@@ -71,10 +71,12 @@ export type AppDependencies = {
 };
 
 function normalizePath(path: string) {
-  return path.replace(
-    /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi,
-    ":id",
-  );
+  return path
+    .replace(/(\/referee\/reports\/download\/)[a-f0-9]{64}\b/gi,"$1:ticket")
+    .replace(
+      /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi,
+      ":id",
+    );
 }
 
 function requestIdOf(response: Response) {

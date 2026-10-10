@@ -29,7 +29,11 @@ async function load(userId:string,matchId:string):Promise<RefereeOfflineRecord>{
       !Array.isArray(decoded.pending)||decoded.pending.length>maxPending||
       decoded.cached!==null&&typeof decoded.cached!=="object")throw new Error("Invalid saved record.");
     return decoded;
-  }catch{return blank(userId,matchId);}
+  }catch{
+    // Never erase a durable queue because its bytes are unexpected. Surface
+    // the error so the referee can preserve/recover the device data.
+    throw new Error("Saved referee events could not be read. Do not clear app storage.");
+  }
 }
 async function locked<T>(userId:string,matchId:string,fn:()=>Promise<T>):Promise<T>{
   const key=refereeOfflineKey(userId,matchId),previous=locks.get(key)??Promise.resolve();

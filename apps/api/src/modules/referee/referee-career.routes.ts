@@ -1,5 +1,6 @@
 import {randomBytes} from "node:crypto";
 import {Router,type NextFunction,type Request,type Response} from "express";
+import {rateLimit} from "express-rate-limit";
 import {and,eq,inArray} from "drizzle-orm";
 import {z} from "zod";
 import type {Database} from "@leaguekick/database";
@@ -143,12 +144,14 @@ export class RefereeCareerService{
 }
 export function createRefereeCareerRouter(service:RefereeCareerService,tokens:TokenService){
  const router=Router(),auth=requireAuth(tokens);
+ const downloadLimiter=rateLimit({windowMs:60000,limit:8,
+   standardHeaders:"draft-8",legacyHeaders:false});
  const limit=(fn:(userId:string,req:Request)=>Promise<unknown>)=>
    async(req:Request,res:Response,next:NextFunction)=>{try{res.json(await fn(req.auth!.userId,req));}catch(e){next(e);}};
  router.get("/referee/career",auth,limit((uid,req)=>service.career(uid,windowSchema.parse(req.query.period))));
- router.post("/referee/matches/:matchId/pdf-ticket",auth,limit((uid,req)=>
+ router.post("/referee/matches/:matchId/pdf-ticket",auth,downloadLimiter,limit((uid,req)=>
    service.newTicket(uid,id.parse(req.params.matchId),false)));
- router.post("/owner/referee-reports/:matchId/pdf-ticket",auth,limit((uid,req)=>
+ router.post("/owner/referee-reports/:matchId/pdf-ticket",auth,downloadLimiter,limit((uid,req)=>
    service.newTicket(uid,id.parse(req.params.matchId),true)));
  router.get("/referee/reports/download/:ticket",(req,res,next)=>{
    try{
