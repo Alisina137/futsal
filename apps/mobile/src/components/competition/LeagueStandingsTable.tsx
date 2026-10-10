@@ -171,7 +171,9 @@ export function LeagueStandingsTable({competition,rows}:{
             <AppText variant="bodyLarge" weight="bold" style={{flex:1,flexShrink:1}}
               numberOfLines={3}>{preview.name}</AppText>
           </View>
-          <Pressable testID="league-tooltip-open-team"
+          {teams.get(preview.id)?.offline?<AppText variant="caption" muted>
+            {t("competition.manualTeamBadge")}
+          </AppText>:<Pressable testID="league-tooltip-open-team"
             accessibilityRole="button" onPress={()=>{const id=preview.id;setPreview(null);open(id);}}
             style={[styles.tooltipAction,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <AppText weight="semibold" style={{color:colors.primary,flex:1}}>
@@ -179,7 +181,7 @@ export function LeagueStandingsTable({competition,rows}:{
             </AppText>
             <Ionicons name={isRTL?"arrow-back-outline":"arrow-forward-outline"}
               color={colors.primary} size={18}/>
-          </Pressable>
+          </Pressable>}
         </View>:null}
       </View>
     </Modal>

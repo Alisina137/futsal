@@ -58,7 +58,7 @@ function Placeholder({title,icon}:{title:string;icon:keyof typeof Ionicons.glyph
   </Card>;
 }
 
-function MatchCard({match}:{match:CompetitionMatchDto}){
+function MatchCard({match,offlineIds}:{match:CompetitionMatchDto;offlineIds:Set<string>}){
   const {t,isRTL,language}=useLocale();
   const date=displayTime(match.startsAt,language);
   return <Card style={styles.matchCard}>
@@ -74,8 +74,8 @@ function MatchCard({match}:{match:CompetitionMatchDto}){
       </View>
     </View>
     <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <Pressable accessibilityRole={match.homeTeamId?"button":"text"}
-        disabled={!match.homeTeamId} onPress={()=>match.homeTeamId&&openTeam(match.homeTeamId)}
+      <Pressable accessibilityRole={match.homeTeamId&&!offlineIds.has(match.homeTeamId)?"button":"text"}
+        disabled={!match.homeTeamId||offlineIds.has(match.homeTeamId)} onPress={()=>match.homeTeamId&&!offlineIds.has(match.homeTeamId)&&openTeam(match.homeTeamId)}
         style={{flex:1,minWidth:0,paddingVertical:8}}>
         <AppText weight={match.winnerTeamId&&match.homeTeamId===match.winnerTeamId?"bold":"semibold"}
           numberOfLines={2} style={{textAlign:isRTL?"right":"left"}}>
@@ -87,8 +87,8 @@ function MatchCard({match}:{match:CompetitionMatchDto}){
           {match.homeScore===null||match.awayScore===null?"–":`${match.homeScore} : ${match.awayScore}`}
         </AppText>
       </View>
-      <Pressable accessibilityRole={match.awayTeamId?"button":"text"}
-        disabled={!match.awayTeamId} onPress={()=>match.awayTeamId&&openTeam(match.awayTeamId)}
+      <Pressable accessibilityRole={match.awayTeamId&&!offlineIds.has(match.awayTeamId)?"button":"text"}
+        disabled={!match.awayTeamId||offlineIds.has(match.awayTeamId)} onPress={()=>match.awayTeamId&&!offlineIds.has(match.awayTeamId)&&openTeam(match.awayTeamId)}
         style={{flex:1,minWidth:0,paddingVertical:8}}>
         <AppText weight={match.winnerTeamId&&match.awayTeamId===match.winnerTeamId?"bold":"semibold"}
           numberOfLines={2} style={{textAlign:isRTL?"left":"right"}}>
@@ -104,7 +104,7 @@ function MatchCard({match}:{match:CompetitionMatchDto}){
   </Card>;
 }
 
-function StandingTable({rows}:{rows:CompetitionStandingRowDto[]}){
+function StandingTable({rows,offlineIds}:{rows:CompetitionStandingRowDto[];offlineIds:Set<string>}){
   const {t,isRTL}=useLocale();
   const col=(label:string,width:number)=><AppText variant="caption" weight="semibold" muted
     style={{width,textAlign:"center"}}>{label}</AppText>;
@@ -120,8 +120,8 @@ function StandingTable({rows}:{rows:CompetitionStandingRowDto[]}){
           {col(t("competition.points"),34)}
         </View>
         {rows.slice().sort((a,b)=>a.position-b.position).map(row=>
-          <Pressable key={row.teamId} accessibilityRole="button"
-            onPress={()=>openTeam(row.teamId)}
+          <Pressable key={row.teamId} accessibilityRole={offlineIds.has(row.teamId)?"text":"button"}
+            disabled={offlineIds.has(row.teamId)} onPress={()=>!offlineIds.has(row.teamId)&&openTeam(row.teamId)}
             style={[styles.tableRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <AppText variant="caption" weight="bold" style={{width:25,textAlign:"center"}}>
               {row.position}
@@ -142,6 +142,7 @@ function CompetitionStandings({competition,initialStage}:{competition:Competitio
   const mixed=competition.format==="GROUP_KNOCKOUT";
   const knockoutOnly=competition.format==="KNOCKOUT";
   const [stage,setStage]=useState<Stage>(initialStage??(knockoutOnly?"KNOCKOUT":"GROUPS"));
+  const offlineIds=new Set(competition.teams.filter(team=>team.offline).map(team=>team.teamId));
   const knockout=competition.matches.filter(match=>match.stage==="KNOCKOUT")
     .sort((a,b)=>b.roundNumber-a.roundNumber||a.slotNumber-b.slotNumber);
   const groups=[...new Set(competition.standings.map(row=>row.groupName??""))];
@@ -166,7 +167,7 @@ function CompetitionStandings({competition,initialStage}:{competition:Competitio
             {t("competition.round",{number:round})}
           </AppText>
           {knockout.filter(m=>m.roundNumber===round).map(match=>
-            <MatchCard key={match.id} match={match}/>)}
+            <MatchCard key={match.id} match={match} offlineIds={offlineIds}/>)}
         </View>)}
     </>:<>
       {competition.standings.length===0?<Placeholder title={t("competition.noStandings")}
@@ -178,7 +179,7 @@ function CompetitionStandings({competition,initialStage}:{competition:Competitio
         {competition.format==="LEAGUE"
           ?<LeagueStandingsTable competition={competition}
             rows={competition.standings.filter(row=>(row.groupName??"")===group)}/>
-          :<StandingTable rows={competition.standings.filter(row=>(row.groupName??"")===group)}/>}
+          :<StandingTable rows={competition.standings.filter(row=>(row.groupName??"")===group)} offlineIds={offlineIds}/>}
       </Card>)}
     </>}
   </View>;
@@ -263,6 +264,7 @@ function CompetitionTeams({competition,registration}:{competition:CompetitionDto
  * appear as live scores; completed results and upcoming fixtures have their own tabs.
  * Feed entries are not truncated, hidden, or reclassified as fake social posts. */
 function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"onTabChange">){
+  const offlineIds=new Set(competition.teams.filter(team=>team.offline).map(team=>team.teamId));
   const {t,isRTL,language}=useLocale();
   const live=competition.matches.filter(match=>match.status==="IN_PROGRESS")
     .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
@@ -294,7 +296,7 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
           <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>{t("competition.profile.liveBadge")}</AppText>
         </View>
       </View>
-      {live.map(match=><MatchCard key={match.id} match={match}/>)}
+      {live.map(match=><MatchCard key={match.id} match={match} offlineIds={offlineIds}/>)}
     </View>:null}
     <SectionHeading title={t("competition.profile.allPosts")} icon="newspaper-outline" count={updates.length}/>
     {updates.length===0?<Placeholder title={t("competition.publicMediaEmpty")} icon="newspaper-outline"/>:null}

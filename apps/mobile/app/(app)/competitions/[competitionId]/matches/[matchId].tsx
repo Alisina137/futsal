@@ -18,13 +18,13 @@ const TABS:Tab[]=["OVERVIEW","PLAYERS","STANDINGS"];
 const completed=(match:CompetitionMatchDto)=>
   match.status==="COMPLETED"||match.status==="CORRECTED";
 
-function TeamPanel({id,name,logo,highlight}:{
-  id:string|null;name:string|null;logo:string|null|undefined;highlight:boolean;
+function TeamPanel({id,name,logo,highlight,offline}:{
+  id:string|null;name:string|null;logo:string|null|undefined;highlight:boolean;offline?:boolean;
 }){
   const {t}=useLocale();
   const resolved=resolveMediaImageUrl(logo);
-  return <Pressable style={styles.team} accessibilityRole="button" disabled={!id}
-    onPress={()=>{if(id)router.push({pathname:"/teams/[teamId]",params:{teamId:id}});}}>
+  return <Pressable style={styles.team} accessibilityRole={id&&!offline?"button":"text"} disabled={!id||offline}
+    onPress={()=>{if(id&&!offline)router.push({pathname:"/teams/[teamId]",params:{teamId:id}});}}>
     <View style={[styles.crest,highlight&&styles.crestHighlight]}>
       {resolved?<Image source={{uri:resolved}} style={styles.crestImage} resizeMode="cover"/>:
         <Ionicons name="shield-outline" color={colors.primary} size={32}/>}
@@ -161,7 +161,7 @@ export default function MatchDetailScreen(){
       <AppText muted variant="caption">{date}</AppText>
       <View style={[styles.scoreboard,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <TeamPanel id={match.homeTeamId} name={match.homeTeamName}
-          logo={home?.logoUrl} highlight={match.winnerTeamId===match.homeTeamId}/>
+          logo={home?.logoUrl} offline={home?.offline} highlight={match.winnerTeamId===match.homeTeamId}/>
         <View style={styles.scoreMid}>
           <AppText forceLtr weight="bold" variant="display" style={{color:colors.primary}}>
             {scored?`${match.homeScore} : ${match.awayScore}`:"– : –"}
@@ -171,7 +171,7 @@ export default function MatchDetailScreen(){
           </AppText>
         </View>
         <TeamPanel id={match.awayTeamId} name={match.awayTeamName}
-          logo={away?.logoUrl} highlight={match.winnerTeamId===match.awayTeamId}/>
+          logo={away?.logoUrl} offline={away?.offline} highlight={match.winnerTeamId===match.awayTeamId}/>
       </View>
     </Card>
     <View style={styles.tabViewport}>
@@ -209,7 +209,9 @@ export default function MatchDetailScreen(){
       <AppText weight="bold" variant="bodyLarge">{t("competition.standings")}</AppText>
       {competition.standings.filter(x=>x.teamId===match.homeTeamId||x.teamId===match.awayTeamId)
         .sort((a,b)=>a.position-b.position).map(row=><Pressable key={row.teamId}
-          accessibilityRole="button" onPress={()=>router.push({
+          accessibilityRole={competition.teams.some(team=>team.teamId===row.teamId&&team.offline)?"text":"button"}
+          disabled={competition.teams.some(team=>team.teamId===row.teamId&&team.offline)}
+          onPress={()=>router.push({
             pathname:"/teams/[teamId]",params:{teamId:row.teamId},
           })} style={[styles.standingRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <AppText weight="semibold" style={{width:24}}>{row.position}</AppText>
