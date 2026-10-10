@@ -4,6 +4,8 @@ const assert=(truth,message)=>{if(!truth)throw new Error(message);};
 const directory=read("apps/mobile/app/(app)/(tabs)/venues.tsx");
 const popular=read("apps/mobile/app/(app)/venues/popular.tsx");
 const nearby=read("apps/mobile/app/(app)/venues/nearby.tsx");
+const nativeLocation=read("apps/mobile/src/components/venues/NearbyDeviceLocation.native.tsx");
+const browserLocation=read("apps/mobile/src/components/venues/NearbyDeviceLocation.web.tsx");
 const map=read("apps/mobile/src/components/venues/NearbyVenuesMap.tsx");
 const contracts=read("packages/contracts/src/index.ts");
 const bookService=read("apps/api/src/modules/booking/booking.service.ts");
@@ -48,11 +50,14 @@ assert(bookService.includes("async nearbyVenues(")
   &&bookRoutes.indexOf('router.get("/nearby"')<bookRoutes.indexOf('router.get("/:venueId"'),
   "Nearby requires validated coordinates and Haversine ranking before /:venueId route.");
 assert(nearby.includes("PermissionsAndroid.request")
-  &&nearby.includes("onUserLocationChange")
-  &&nearby.includes("setTimeout")
+  &&nearby.includes("<NearbyDeviceLocation")
+  &&nativeLocation.includes("onUserLocationChange")
+  &&browserLocation.includes("navigator.geolocation.getCurrentPosition")
+  &&nearby.includes("setTimeout(()=>fallback(\"timeout\"),10_000)")
   &&nearby.includes("venueApi.nearby(")
+  &&nearby.includes('testID="nearby-default-fallback"')
   &&nearby.includes('testID="nearby-selected-venue"')
-  &&nearby.includes("<VenueResultCard"),"Nearby must request foreground location, handle timeout, and expose selected venue card.");
+  &&nearby.includes("<VenueResultCard"),"Nearby must use foreground geolocation with 10-second saved-location fallback and display selected venues.");
 assert(map.includes("L.marker(")&&map.includes("L.tileLayer(")
   &&map.includes("bubble.appendChild(photo)")&&map.includes("label.textContent=venue.name")
   &&map.includes('send("select",venue.id)')&&map.includes("onSelect(data.id)")
