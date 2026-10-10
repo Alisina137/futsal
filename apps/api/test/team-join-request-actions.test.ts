@@ -47,7 +47,7 @@ describe.each([
     const ctx=setup();
     const manager=await register(ctx,"join_manager","0705591021");
     const player=await register(ctx,"join_player","0705591022");
-    const outsider=await register(ctx,"join_outsider","0705591023");
+    const outsider=await register(ctx,"join_other","0705591023");
     const created=await request(ctx.app).post("/api/v1/teams")
       .set("Authorization",`Bearer ${manager.token}`)
       .send({name:"Join Request Test",city:"Kabul",privacy:"PUBLIC"});
