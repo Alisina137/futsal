@@ -5,7 +5,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { ApiRequestError, authApi, notificationApi, resolveMediaImageUrl, teamApi, teamManagerApi, venueApi,
-  type TeamGuestPlayer, type TeamManagerOverview, type TeamManagerProfileDetails } from "../../lib/api";
+  type TeamGuestPlayer, type TeamManagerOverview, type TeamManagerProfileDetails, type TeamCapacity } from "../../lib/api";
 import { formatCompetitionDateTime } from "../../lib/date-time";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
@@ -19,9 +19,9 @@ import { TeamCompetitionOps } from "./TeamCompetitionOps";
 import { TeamGrowthPanel } from "./TeamGrowthPanel";
 
 // Keep the existing Section IDs: this is a navigation-only regrouping, not a data/workflow change.
-type Section="overview"|"team"|"players"|"competitions"|"matches"|"schedule"|"media"|"statistics"|"settings";
+type Section="overview"|"players"|"competitions"|"matches"|"schedule"|"media"|"statistics"|"settings";
 type MainSection="overview"|"aboutTeam"|"media"|"statistics"|"settings";
-type AboutTeamSection="team"|"players"|"competitions"|"matches"|"schedule";
+type AboutTeamSection="players"|"competitions"|"matches"|"schedule";
 const mainTabs=[
   {id:"overview",icon:"grid-outline",key:"tmnav.overall"},
   {id:"aboutTeam",icon:"shield-checkmark-outline",key:"tmnav.aboutTeam"},
@@ -30,7 +30,6 @@ const mainTabs=[
   {id:"settings",icon:"settings-outline",key:"tmnav.settings"},
 ] as const satisfies ReadonlyArray<{id:MainSection;icon:keyof typeof Ionicons.glyphMap;key:string}>;
 const aboutTeamTabs=[
-  {id:"team",icon:"shield-outline",key:"tmnav.team"},
   {id:"players",icon:"people-outline",key:"tmnav.players"},
   {id:"competitions",icon:"trophy-outline",key:"tmnav.competitions"},
   {id:"matches",icon:"football-outline",key:"tmnav.matches"},
@@ -38,7 +37,7 @@ const aboutTeamTabs=[
   {id:"schedule",icon:"calendar-outline",key:"tmnav.program"},
 ] as const satisfies ReadonlyArray<{id:AboutTeamSection;icon:keyof typeof Ionicons.glyphMap;key:string}>;
 function isAboutTeamSection(id:Section):id is AboutTeamSection{
-  return id==="team"||id==="players"||id==="competitions"||id==="matches"||id==="schedule";
+  return id==="players"||id==="competitions"||id==="matches"||id==="schedule";
 }
 function mainSectionFor(id:Section):MainSection{
   return isAboutTeamSection(id)?"aboutTeam":id;
@@ -71,13 +70,16 @@ export function TeamManagerDashboard(){
   const userId=session?.user.id;
   const [tab,setTab]=useState<Section>("overview");
   // Returning to About Team restores the last selected subtab.
-  const [lastAboutTeamTab,setLastAboutTeamTab]=useState<AboutTeamSection>("team");
+  const [lastAboutTeamTab,setLastAboutTeamTab]=useState<AboutTeamSection>("players");
   const activeMain=mainSectionFor(tab);
   const [teams,setTeams]=useState<TeamListItemDto[]>([]);
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const [team,setTeam]=useState<TeamDto|null>(null);
   const [overview,setOverview]=useState<TeamManagerOverview|null>(null);
   const [offer,setOffer]=useState<RoleSubscriptionOfferDto|null>(null);
+  const [capacity,setCapacity]=useState<TeamCapacity|null>(null);
+  const [paymentRef,setPaymentRef]=useState("");
+  const [slotBusy,setSlotBusy]=useState(false);
   const [requests,setRequests]=useState<TeamJoinRequestDto[]>([]);
   const [joinAction,setJoinAction]=useState<{requestId:string;accept:boolean}|null>(null);
   const [joinActionError,setJoinActionError]=useState<{requestId:string;message:string}|null>(null);
@@ -147,12 +149,13 @@ export function TeamManagerDashboard(){
     let active=true;
     if(!token||!userId){setLoadingTeams(false);return()=>{active=false;};}
     setLoadingTeams(true);
-    void Promise.all([teamApi.mine(token),authApi.roleSubscriptions(token)]).then(([mine,offers])=>{
+    void Promise.all([teamApi.mine(token),authApi.roleSubscriptions(token),teamApi.capacity(token)]).then(([mine,offers,quota])=>{
       if(!active)return;
       const owned=mine.teams.filter(item=>item.managerUserId===userId);
       setTeams(owned);
       setSelectedId(previous=>owned.some(item=>item.id===previous)?previous:owned[0]?.id??null);
       setOffer(offers.offers.find(item=>item.role==="TEAM_MANAGER")??null);
+      setCapacity(quota);
       setError(null);
     }).catch(e=>{if(active)setError(e instanceof ApiRequestError?e.message:t("teams.loadError"));})
       .finally(()=>{if(active)setLoadingTeams(false);});
@@ -214,6 +217,16 @@ export function TeamManagerDashboard(){
     try{await fn();after?.();setMessage(t("tm1.saved"));setRefresh(value=>value+1);}
     catch(e){setError(e instanceof ApiRequestError?e.message:t("tm1.actionFailed"));}
     finally{setBusy(false);}
+  }
+  async function requestSlot(slotId?:string){
+    if(!token||slotBusy)return;
+    setSlotBusy(true);setError(null);
+    try{
+      await teamApi.requestSlot(token,paymentRef.trim(),slotId);
+      setMessage(t("tmBilling.requestSent"));
+      setCapacity(await teamApi.capacity(token));
+    }catch(e){setError(e instanceof ApiRequestError?e.message:t("tmBilling.requestError"));}
+    finally{setSlotBusy(false);}
   }
   const canWrite=overview?.canWrite===true&&offer?.status==="ACTIVE";
   const pending=requests.filter(item=>item.status==="PENDING");
@@ -292,7 +305,6 @@ export function TeamManagerDashboard(){
             <Ionicons name="shield-outline" size={22} color={colors.primary}/>}
           <AppText weight="semibold" style={item.id===selectedId?{color:colors.primary}:undefined}>{item.name}</AppText>
         </Pressable>)}
-        <Button variant="secondary" label={t("tm1.newTeam")} onPress={()=>router.push("/teams/create")}/>
       </ScrollView>
       {!canWrite&&!loading?<Card style={{borderColor:colors.warning}}>
         <AppText weight="bold" style={{color:colors.warning}}>{t("tm1.readOnly")}</AppText>
@@ -327,7 +339,7 @@ export function TeamManagerDashboard(){
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.quickActions")}</AppText>
           <View style={styles.actions}>
             <Button label={t("tm1.invitePlayer")} variant="secondary" style={styles.action} onPress={()=>chooseTab("players")}/>
-            <Button label={t("tm1.editTeam")} variant="secondary" style={styles.action} onPress={()=>chooseTab("team")}/>
+            <Button label={t("tm1.editTeam")} variant="secondary" style={styles.action} onPress={()=>chooseTab("settings")}/>
             <Button label={t("tm1.findCompetition")} variant="secondary" style={styles.action} onPress={()=>router.push("/competitions")}/>
             <Button label={t("tm1.bookVenue")} variant="secondary" style={styles.action} onPress={()=>router.push("/venues")}/>
           </View>
@@ -336,37 +348,6 @@ export function TeamManagerDashboard(){
           <AppText muted>{t("tm1.pendingRequests")}: {pending.length} · {t("tm1.pendingInvites")}: {outstanding.length}</AppText>
           <AppText muted>{t("tm1.notifications")}: {unread}</AppText>
           <Button variant="ghost" label={t("tm1.notifications")} onPress={()=>router.push("/notifications")}/>
-        </Card>
-      </>:null}
-
-      {tab==="team"?<>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.teamIdentity")}</AppText>
-          <TextField label={t("teams.name")} value={name} onChangeText={setName}/>
-          <TextField label={t("teams.city")} value={city} onChangeText={setCity}/>
-          <TextField label={t("teams.logoUrl")} value={logoUrl} onChangeText={setLogoUrl} autoCapitalize="none" forceLtr/>
-          <TextField label={t("tm1.province")} value={profile.province??""} onChangeText={v=>updateProfile("province",v||null)}/>
-          <TextField label={t("tm1.district")} value={profile.district??""} onChangeText={v=>updateProfile("district",v||null)}/>
-          <TextField label={t("tm1.description")} value={profile.description??""} onChangeText={v=>updateProfile("description",v||null)} multiline/>
-          <TextField label={t("tm1.foundedOn")} value={profile.foundedOn??""}
-            onChangeText={v=>updateProfile("foundedOn",v||null)} placeholder="YYYY-MM-DD" forceLtr/>
-          <TextField label={t("tm1.primaryColor")} value={profile.primaryColor??""}
-            onChangeText={v=>updateProfile("primaryColor",v||null)} placeholder="#155EEF" forceLtr/>
-          <TextField label={t("tm1.secondaryColor")} value={profile.secondaryColor??""}
-            onChangeText={v=>updateProfile("secondaryColor",v||null)} placeholder="#FFFFFF" forceLtr/>
-          <TextField label={t("tm1.contactPhone")} value={profile.contactPhone??""} keyboardType="phone-pad"
-            onChangeText={v=>updateProfile("contactPhone",v||null)} forceLtr/>
-          <AppText weight="semibold">{t("teams.privacy")}</AppText>
-          <Options selected={privacy} onSelect={v=>setPrivacy(v as TeamPrivacy)}
-            items={["PUBLIC","PRIVATE"].map(id=>({id,label:t(`teams.privacy.${id}` as never)}))}/>
-          <Button label={t("common.save")} loading={busy}
-            disabled={!canWrite||name.trim().length<2||city.trim().length<2||!foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)}
-            onPress={()=>void saveTeam()}/>
-          <AppText variant="caption" muted>{t("tm1.publicHint")}</AppText>
-        </Card>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.publicProfile")}</AppText>
-          <Button label={t("teams.viewTeam")} variant="secondary" onPress={()=>router.push({
-            pathname:"/teams/[teamId]",params:{teamId:team.id},
-          })}/>
         </Card>
       </>:null}
 
@@ -448,6 +429,60 @@ export function TeamManagerDashboard(){
         <TeamGrowthPanel tab={tab} team={team} token={token} canWrite={canWrite}/>:null}
 
       {tab==="settings"?<>
+        <Card>
+          <AppText variant="bodyLarge" weight="bold">{t("tmBilling.subscriptionPerTeam")}</AppText>
+          <AppText variant="caption" muted>{t("tmBilling.policy")}</AppText>
+          <AppText variant="caption" muted>{t("tmBilling.ownedTeams")}: {capacity?.ownedTeams??teams.length}</AppText>
+          <AppText variant="caption" muted>{t("tmBilling.price")}: {capacity?.monthlyPriceAfn??300} AFN/{t("roles.month")}</AppText>
+          {(capacity?.slots??[]).filter(slot=>slot.teamId).map(slot=><View key={slot.id} style={styles.divider}>
+            <AppText weight="semibold">{slot.teamName??t("tmBilling.additionalTitle")}</AppText>
+            <AppText variant="caption" muted>{t("tmBilling.status")}: {slot.status}</AppText>
+            <AppText variant="caption" muted>{t("tm1.expires")}: {date(slot.activeUntil)}</AppText>
+            {slot.status==="EXPIRED"||slot.status==="CANCELLED"?<Button
+              label={t("tmBilling.renew")} disabled={slotBusy} loading={slotBusy}
+              onPress={()=>void requestSlot(slot.id)}/>:null}
+          </View>)}
+          {(capacity?.slots??[]).filter(slot=>!slot.teamId).map(slot=><View key={slot.id} style={styles.divider}>
+            <AppText variant="caption" muted>{t("tmBilling.status")}: {slot.status}</AppText>
+            <AppText variant="caption" muted>{t("tm1.expires")}: {date(slot.activeUntil)}</AppText>
+          </View>)}
+          <TextField label={t("roles.paymentReference")} value={paymentRef} onChangeText={setPaymentRef}/>
+          <Button label={t("tmBilling.requestExtra")} variant="secondary"
+            disabled={!capacity?.baseActive||slotBusy} loading={slotBusy}
+            onPress={()=>void requestSlot()}/>
+          <Button label={t("tm1.newTeam")} onPress={()=>router.push("/teams/create")}/>
+          <AppText variant="caption" muted>{t("tmBilling.approvalHint")}</AppText>
+        </Card>
+
+        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.teamIdentity")}</AppText>
+          <TextField label={t("teams.name")} value={name} onChangeText={setName}/>
+          <TextField label={t("teams.city")} value={city} onChangeText={setCity}/>
+          <TextField label={t("teams.logoUrl")} value={logoUrl} onChangeText={setLogoUrl} autoCapitalize="none" forceLtr/>
+          <TextField label={t("tm1.province")} value={profile.province??""} onChangeText={v=>updateProfile("province",v||null)}/>
+          <TextField label={t("tm1.district")} value={profile.district??""} onChangeText={v=>updateProfile("district",v||null)}/>
+          <TextField label={t("tm1.description")} value={profile.description??""} onChangeText={v=>updateProfile("description",v||null)} multiline/>
+          <TextField label={t("tm1.foundedOn")} value={profile.foundedOn??""}
+            onChangeText={v=>updateProfile("foundedOn",v||null)} placeholder="YYYY-MM-DD" forceLtr/>
+          <TextField label={t("tm1.primaryColor")} value={profile.primaryColor??""}
+            onChangeText={v=>updateProfile("primaryColor",v||null)} placeholder="#155EEF" forceLtr/>
+          <TextField label={t("tm1.secondaryColor")} value={profile.secondaryColor??""}
+            onChangeText={v=>updateProfile("secondaryColor",v||null)} placeholder="#FFFFFF" forceLtr/>
+          <TextField label={t("tm1.contactPhone")} value={profile.contactPhone??""} keyboardType="phone-pad"
+            onChangeText={v=>updateProfile("contactPhone",v||null)} forceLtr/>
+          <AppText weight="semibold">{t("teams.privacy")}</AppText>
+          <Options selected={privacy} onSelect={v=>setPrivacy(v as TeamPrivacy)}
+            items={["PUBLIC","PRIVATE"].map(id=>({id,label:t(`teams.privacy.${id}` as never)}))}/>
+          <Button label={t("common.save")} loading={busy}
+            disabled={!canWrite||name.trim().length<2||city.trim().length<2||!foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)}
+            onPress={()=>void saveTeam()}/>
+          <AppText variant="caption" muted>{t("tm1.publicHint")}</AppText>
+        </Card>
+        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.publicProfile")}</AppText>
+          <Button label={t("teams.viewTeam")} variant="secondary" onPress={()=>router.push({
+            pathname:"/teams/[teamId]",params:{teamId:team.id},
+          })}/>
+        </Card>
+
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.membershipSettings")}</AppText>
           <AppText variant="caption" muted>{t("tm1.allowRequestsHint")}</AppText>
           <Options selected={profile.allowJoinRequests?"YES":"NO"}

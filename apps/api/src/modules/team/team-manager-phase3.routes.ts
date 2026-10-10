@@ -9,6 +9,7 @@ import {
   teamMemberships,teams,
 } from "@leaguekick/database";
 import { errors } from "../../lib/errors.js";
+import {teamLicenseActive,requireTeamLicense} from "./team-slots.js";
 import { requireAuth } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
@@ -58,10 +59,7 @@ export class TeamManagerPhase3Service{
       if(!membership)throw errors.forbidden("TEAM_MEMBER_REQUIRED","This information is for team members only.");
     }
     if(mode==="WRITE"){
-      const [offer]=await this.db.select({status:roleSubscriptions.status,activeUntil:roleSubscriptions.activeUntil})
-        .from(roleSubscriptions).where(and(eq(roleSubscriptions.userId,userId),eq(roleSubscriptions.role,"TEAM_MANAGER"))).limit(1);
-      if(!offer||offer.status!=="ACTIVE"||!offer.activeUntil||offer.activeUntil<=this.now())
-        throw errors.forbidden("TEAM_SUBSCRIPTION_REQUIRED","Renew your Team Manager subscription to make changes.");
+      await requireTeamLicense(this.db,userId,teamId,this.now());
     }
     return record;
   }

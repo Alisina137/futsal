@@ -6,6 +6,7 @@ import { and, asc, eq, gte, inArray, or } from "drizzle-orm";
 import { competitionMatches, competitionTeams, competitions, roleSubscriptions,
   teamGuestPlayers, teamManagerProfiles, teamMemberships, teams } from "@leaguekick/database";
 import { errors } from "../../lib/errors.js";
+import {teamLicenseActive,requireTeamLicense} from "./team-slots.js";
 import { requireAuth } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
 
@@ -39,10 +40,8 @@ export class TeamManagerPhase1Service {
     if(!team||team.managerUserId!==userId||team.status!=="ACTIVE"||(team.offlineVenueId&&!team.claimedAt)){
       throw errors.forbidden("TEAM_MANAGER_REQUIRED","You do not manage this active team.");
     }
-    const [offer]=await this.db.select({status:roleSubscriptions.status,activeUntil:roleSubscriptions.activeUntil})
-      .from(roleSubscriptions).where(and(eq(roleSubscriptions.userId,userId),eq(roleSubscriptions.role,"TEAM_MANAGER"))).limit(1);
-    const canWrite=!!offer&&offer.status==="ACTIVE"&&!!offer.activeUntil&&offer.activeUntil>this.now();
-    if(write&&!canWrite)throw errors.forbidden("TEAM_SUBSCRIPTION_REQUIRED","Renew your Team Manager subscription to manage your team.");
+    const canWrite=await teamLicenseActive(this.db,userId,teamId,this.now());
+    if(write&&!canWrite)throw errors.forbidden("TEAM_SUBSCRIPTION_REQUIRED","Renew this team's subscription to manage it.");
     return {canWrite};
   }
   private async guestShirtAvailable(teamId:string,shirtNumber:number|null,excludeId?:string){

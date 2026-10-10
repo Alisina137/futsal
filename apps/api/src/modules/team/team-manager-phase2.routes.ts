@@ -9,6 +9,7 @@ import {
   teamMatchLineups, teamMemberships, teams, venues,
 } from "@leaguekick/database";
 import { errors } from "../../lib/errors.js";
+import {teamLicenseActive,requireTeamLicense} from "./team-slots.js";
 import { requireAuth } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
@@ -71,10 +72,7 @@ export class TeamManagerPhase2Service{
     }else if(!manager)throw errors.forbidden("TEAM_MANAGER_REQUIRED","Only this team's manager can access operations.");
     if(write){
       if(!manager)throw errors.forbidden("TEAM_MANAGER_REQUIRED","Only the team manager can change this team.");
-      const [offer]=await this.db.select({status:roleSubscriptions.status,activeUntil:roleSubscriptions.activeUntil})
-        .from(roleSubscriptions).where(and(eq(roleSubscriptions.userId,userId),eq(roleSubscriptions.role,"TEAM_MANAGER"))).limit(1);
-      if(!offer||offer.status!=="ACTIVE"||!offer.activeUntil||offer.activeUntil<=this.now())
-        throw errors.forbidden("TEAM_SUBSCRIPTION_REQUIRED","Renew your Team Manager subscription before making changes.");
+      await requireTeamLicense(this.db,userId,teamId,this.now());
     }
     return {manager};
   }

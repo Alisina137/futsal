@@ -47,6 +47,7 @@ export class TeamService {
     if (team.managerUserId !== userId) {
       throw errors.forbidden("TEAM_MANAGER_REQUIRED", "Only this team's manager can perform that action.");
     }
+    await this.repository.assertManagerSubscription(userId,teamId,this.now());
     return team;
   }
 

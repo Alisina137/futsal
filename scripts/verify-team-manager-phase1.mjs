@@ -9,10 +9,12 @@ const client=load("apps/mobile/src/lib/api.ts");
 const language=load("packages/localization/src/index.ts");
 const teamService=load("apps/api/src/modules/team/team.service.ts");
 const createTeam=load("apps/mobile/app/(app)/teams/create.tsx");
-for(const section of ["overview","team","players","settings"]){
+for(const section of ["overview","players","settings"]){
   check(dash.includes('id:"'+section+'"'),"Missing Phase 1 tab "+section);
   check(language.split('"tm1.'+section+'"').length-1===3,"Missing Phase 1 translations "+section);
 }
+check(dash.includes('t("tm1.teamIdentity")')&&dash.includes('tab==="settings"'),
+  "Team base information must remain editable in Settings.");
 check(route.includes('roles.includes("TEAM_MANAGER")')&&route.includes("<TeamManagerDashboard/>"),
   "Team Manager route not connected");
 check(!dash.includes('t("dashboard.title")')&&!dash.includes('t("dashboard.subtitle")'),

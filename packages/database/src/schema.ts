@@ -1098,3 +1098,24 @@ export const playerDashboardPreferences=pgTable("player_dashboard_preferences",{
   preferredFoot:varchar("preferred_foot",{length:8}),
   updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
 },table=>[index("player_dashboard_default_team_idx").on(table.defaultTeamId)]);
+
+/** Paid extra Team Manager subscriptions: the first owned team uses the paid role;
+ * every additional managed team consumes one independently renewable extra slot.
+ * A slot without a teamId is a paid, one-time provisioning entitlement.
+ */
+export const teamExtraSubscriptions=pgTable("team_extra_subscriptions",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  userId:uuid("user_id").notNull().references(()=>users.id,{onDelete:"cascade"}),
+  teamId:uuid("team_id").unique().references(()=>teams.id,{onDelete:"set null"}),
+  status:paidRoleSubscriptionStatusEnum("status").notNull().default("PENDING"),
+  monthlyPriceAfn:integer("monthly_price_afn").notNull().default(300),
+  requestedAt:timestamp("requested_at",{withTimezone:true}).notNull().defaultNow(),
+  activeUntil:timestamp("active_until",{withTimezone:true}),
+  activatedAt:timestamp("activated_at",{withTimezone:true}),
+  activatedByUserId:uuid("activated_by_user_id").references(()=>users.id,{onDelete:"set null"}),
+  paymentReference:varchar("payment_reference",{length:120}),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  index("team_extra_subscriptions_user_idx").on(table.userId,table.status),
+  index("team_extra_subscriptions_status_idx").on(table.status,table.requestedAt),
+]);

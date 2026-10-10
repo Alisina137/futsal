@@ -17,12 +17,14 @@ import {
   teamJoinRequests,
   teamMemberships,
   roleSubscriptions,
+  teamExtraSubscriptions,
   teams,
   userRoles,
   users,
 } from "@leaguekick/database";
 import { and, asc, count, desc, eq, isNull, isNotNull, lte, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
+import {requireTeamLicense} from "./team-slots.js";
 import type {
   TeamIdentityUser,
   TeamMembershipRecord,
@@ -262,6 +264,26 @@ export class DrizzleTeamRepository implements TeamRepository {
     now: Date;
   }): Promise<TeamDto> {
     const teamId = await this.db.transaction(async (tx) => {
+      // Lock by actor so concurrent requests cannot claim the same base subscription or paid slot.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.managerUserId}))`);
+      const [role]=await tx.select({status:roleSubscriptions.status,activeUntil:roleSubscriptions.activeUntil})
+        .from(roleSubscriptions).where(and(eq(roleSubscriptions.userId,input.managerUserId),
+          eq(roleSubscriptions.role,"TEAM_MANAGER"))).limit(1);
+      if(role?.status!=="ACTIVE"||!role.activeUntil||role.activeUntil<=input.now)
+        throw errors.forbidden("TEAM_OWNER_SUBSCRIPTION_REQUIRED","An active Team Manager subscription is required.");
+      const existing=await tx.select({id:teams.id}).from(teams)
+        .leftJoin(teamExtraSubscriptions,eq(teamExtraSubscriptions.teamId,teams.id))
+        .where(and(eq(teams.managerUserId,input.managerUserId),eq(teams.status,"ACTIVE"),
+          or(isNull(teams.offlineVenueId),isNotNull(teams.claimedAt)),isNull(teamExtraSubscriptions.id)));
+      const needsExtra=existing.length>0;
+      const [available]=needsExtra?await tx.select({id:teamExtraSubscriptions.id})
+        .from(teamExtraSubscriptions).where(and(eq(teamExtraSubscriptions.userId,input.managerUserId),
+          isNull(teamExtraSubscriptions.teamId),eq(teamExtraSubscriptions.status,"ACTIVE"),
+          sql`${teamExtraSubscriptions.activeUntil} > ${input.now}`))
+        .orderBy(asc(teamExtraSubscriptions.requestedAt)).limit(1):[];
+      if(needsExtra&&!available)
+        throw errors.forbidden("TEAM_ADDITIONAL_SUBSCRIPTION_REQUIRED",
+          "A separate paid and activated team subscription is required to create another team.");
       const [created] = await tx.insert(teams).values({
         name: input.name,
         logoUrl: input.logoUrl,
@@ -274,6 +296,15 @@ export class DrizzleTeamRepository implements TeamRepository {
       }).returning({ id: teams.id });
       if (!created) throw new Error("Team could not be created.");
 
+      if(available){
+        // Atomic one-time consumption: an extra subscription can license only one team.
+        const [assigned]=await tx.update(teamExtraSubscriptions).set({teamId:created.id,updatedAt:input.now})
+          .where(and(eq(teamExtraSubscriptions.id,available.id),isNull(teamExtraSubscriptions.teamId),
+            eq(teamExtraSubscriptions.status,"ACTIVE"),
+            sql`${teamExtraSubscriptions.activeUntil} > ${input.now}`))
+          .returning({id:teamExtraSubscriptions.id});
+        if(!assigned)throw errors.conflict("TEAM_SLOT_CONSUMED","This subscription was already used. Refresh.");
+      }
       await tx.insert(teamMemberships).values({
         teamId: created.id,
         userId: input.managerUserId,
@@ -288,6 +319,10 @@ export class DrizzleTeamRepository implements TeamRepository {
     const team = await this.getTeam(teamId, true);
     if (!team) throw new Error("Team could not be loaded.");
     return team;
+  }
+
+  async assertManagerSubscription(userId:string,teamId:string,now:Date){
+    await requireTeamLicense(this.db,userId,teamId,now);
   }
 
   async getTeamRecord(teamId: string): Promise<TeamRecord | null> {
@@ -541,7 +576,20 @@ export class DrizzleTeamRepository implements TeamRepository {
         eq(teamMemberships.status, "ACTIVE"),
       )).limit(1);
       if (!nextMembership) return false;
-
+      // A transfer cannot turn an unpaid member into a manager of an extra team.
+      // For now a target manager must have a paid role and no already-managed team.
+      const [paid]=await tx.select({status:roleSubscriptions.status,activeUntil:roleSubscriptions.activeUntil})
+        .from(roleSubscriptions).where(and(eq(roleSubscriptions.userId,nextManagerUserId),
+          eq(roleSubscriptions.role,"TEAM_MANAGER"))).limit(1);
+      if(paid?.status!=="ACTIVE"||!paid.activeUntil||paid.activeUntil<=now)
+        throw errors.forbidden("TEAM_OWNER_SUBSCRIPTION_REQUIRED","The new manager must have an active Team Manager subscription.");
+      const [already]=await tx.select({id:teams.id}).from(teams)
+        .where(and(eq(teams.managerUserId,nextManagerUserId),eq(teams.status,"ACTIVE"))).limit(1);
+      if(already)throw errors.conflict("TEAM_TARGET_MANAGER_HAS_TEAM",
+        "The new manager already has a team. Transfer requires a separate paid team slot.");
+      await tx.update(teamExtraSubscriptions).set({teamId:null,updatedAt:now})
+        .where(and(eq(teamExtraSubscriptions.userId,currentManagerUserId),
+          eq(teamExtraSubscriptions.teamId,teamId)));
       await tx.update(teams).set({ managerUserId: nextManagerUserId, updatedAt: now }).where(eq(teams.id, teamId));
       await tx.update(teamMemberships).set({ role: "MANAGER", updatedAt: now }).where(and(
         eq(teamMemberships.teamId, teamId),

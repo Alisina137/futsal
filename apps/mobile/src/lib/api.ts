@@ -808,7 +808,20 @@ export const playerDashboardApi={
     `/api/v1/player-dashboard/teams/${teamId}/leave`,{method:"POST"},token),
 };
 
+export type TeamExtraSlot={
+  id:string;userId:string;teamId:string|null;teamName:string|null;
+  status:"PENDING"|"ACTIVE"|"EXPIRED"|"CANCELLED";
+  monthlyPriceAfn:number;requestedAt:string;activeUntil:string|null;
+  paymentReference:string|null;username?:string|null;displayName?:string;
+};
+export type TeamCapacity={
+  baseActive:boolean;monthlyPriceAfn:number;ownedTeams:number;canCreate:boolean;slots:TeamExtraSlot[];
+};
 export const teamApi = {
+  capacity:(token:string)=>request<TeamCapacity>("/api/v1/teams/manager/capacity",{},token),
+  requestSlot:(token:string,paymentReference:string,renewSlotId?:string)=>
+    request<{slot:TeamExtraSlot}>("/api/v1/teams/manager/slots/request",
+      {method:"POST",body:JSON.stringify({paymentReference,...(renewSlotId?{renewSlotId}:{})})},token),
   myProfile: (accessToken: string) =>
     request<{ player: OwnPlayerProfileDto }>("/api/v1/players/me", {}, accessToken),
   updateMyProfile: (accessToken: string, input: PlayerProfileUpdateRequest) =>
@@ -861,6 +874,10 @@ export const teamApi = {
 
 
 export const adminApi = {
+  teamSlots:(token:string)=>request<{slots:TeamExtraSlot[]}>("/api/v1/admin/team-slots",{},token),
+  activateTeamSlot:(token:string,id:string,months:number,paymentReference:string)=>
+    request<{slot:TeamExtraSlot}>(`/api/v1/admin/team-slots/${id}/activate`,
+      {method:"POST",body:JSON.stringify({months,paymentReference})},token),
   manualTeams: (accessToken: string) =>
     request<{ teams: AdminManualTeamDto[] }>("/api/v1/admin/manual-teams", {}, accessToken),
   assignManualTeam: (accessToken: string, teamId: string, input: ManualTeamClaimRequest) =>

@@ -7,7 +7,7 @@ const main=dash.slice(dash.indexOf("const mainTabs=["),dash.indexOf("const about
 const sub=dash.slice(dash.indexOf("const aboutTeamTabs=["),dash.indexOf("function isAboutTeamSection"));
 for(const id of ["overview","aboutTeam","media","statistics","settings"])
   expect(main.includes('id:"'+id+'"'),"Missing main tab "+id);
-for(const id of ["team","players","competitions","matches","schedule"])
+for(const id of ["players","competitions","matches","schedule"])
   expect(sub.includes('id:"'+id+'"'),"Missing About Team subtab "+id);
 expect(main.includes('key:"tmnav.analytics"')&&sub.includes('key:"tmnav.program"'),
   "Analytics must reuse Statistics and Program must reuse Schedule.");
@@ -29,8 +29,11 @@ for(const key of ["overall","aboutTeam","media","analytics","settings","team",
   "players","competitions","matches","program","mainNavigation","subNavigation"])
   expect(locale.split('"tmnav.'+key+'"').length-1===3,
     "Missing translation in three languages: "+key);
-for(const key of ['tab==="overview"','tab==="team"','tab==="players"',
+for(const key of ['tab==="overview"','tab==="players"',
   'tab==="competitions"','tab==="matches"','tab==="schedule"',
   'tab==="media"','tab==="statistics"','tab==="settings"'])
   expect(dash.includes(key),"Existing section no longer reachable: "+key);
-console.log("Team Manager two-level navigation verified.");
+expect(!sub.includes('id:"team"'),"Team creation/editing must be removed from About Team navigation.");
+expect(dash.includes('tab==="settings"')&&dash.includes('t("tm1.teamIdentity")'),
+  "All team base information must be editable inside Settings.");
+console.log("Team Manager navigation verified: four About Team subtabs; team identity inside Settings.");

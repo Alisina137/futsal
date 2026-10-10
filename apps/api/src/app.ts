@@ -20,6 +20,8 @@ import type { MarketingService } from "./modules/marketing/marketing.service.js"
 import { createNotificationRouter } from "./modules/notifications/notification.routes.js";
 import type { NotificationService } from "./modules/notifications/notification.service.js";
 import { createAuthenticatedTeamRouter, createPublicTeamRouter } from "./modules/team/team.routes.js";
+import {createAdminTeamSlotRouter,createTeamSlotRouter} from "./modules/team/team-slots.routes.js";
+import type {TeamSlotsService} from "./modules/team/team-slots.js";
 import type { TeamService } from "./modules/team/team.service.js";
 import { createTeamManagerPhase1Router, type TeamManagerPhase1Service } from "./modules/team/team-manager-phase1.routes.js";
 import { createTeamManagerPhase2Router, type TeamManagerPhase2Service } from "./modules/team/team-manager-phase2.routes.js";
@@ -44,6 +46,7 @@ export type AppDependencies = {
   marketingService?: MarketingService;
   notificationService?: NotificationService;
   teamService?: TeamService;
+  teamSlots?: TeamSlotsService;
   teamManagerPhase1?: TeamManagerPhase1Service;
   teamManagerPhase2?: TeamManagerPhase2Service;
   teamManagerPhase3?: TeamManagerPhase3Service;
@@ -175,6 +178,10 @@ export function createApp(deps: AppDependencies) {
   if (deps.teamService) {
     app.use("/api/v1", createAuthenticatedTeamRouter(deps.teamService, deps.tokenService));
     app.use("/api/v1", createPublicTeamRouter(deps.teamService));
+  }
+  if(deps.teamSlots){
+    app.use("/api/v1",createTeamSlotRouter(deps.teamSlots,deps.tokenService));
+    app.use("/api/v1/admin",createAdminTeamSlotRouter(deps.teamSlots,deps.tokenService));
   }
   if (deps.teamManagerPhase1) app.use("/api/v1",createTeamManagerPhase1Router(deps.teamManagerPhase1,deps.tokenService));
   if (deps.teamManagerPhase2) app.use("/api/v1",createTeamManagerPhase2Router(deps.teamManagerPhase2,deps.tokenService));
