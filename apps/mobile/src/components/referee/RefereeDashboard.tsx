@@ -5,7 +5,7 @@ import {router,useFocusEffect} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {Linking,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
 import {ApiRequestError,refereeApi,type RefereeMatch,type RefereeOverview,type RefereeProfile} from "../../lib/api";
-import {formatCompetitionDateTime,formatRefereeScheduleParts,formatRefereeCalendarPeriod} from "../../lib/date-time";
+import {formatRefereeScheduleParts,formatRefereeCalendarPeriod} from "../../lib/date-time";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -109,7 +109,6 @@ export function RefereeDashboard(){
     catch(e){setError(e instanceof ApiRequestError?e.message:tr("actionError"));}
     finally{setBusy(null);}
   }
-  const fmt=(date:string|null)=>date?formatCompetitionDateTime(date,language):tr("notSet");
   async function map(latitude:number|null,longitude:number|null){
     if(latitude===null||longitude===null)return;
     try{await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`);}

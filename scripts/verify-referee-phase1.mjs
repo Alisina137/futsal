@@ -33,4 +33,23 @@ for(const key of ["nav.overview","nav.assignments","nav.center","nav.stats","nav
   "settings.availability","assignments.pending","center.live","stats.performance","status.ACCEPTED"]){
   assert(loc.split('"rf1.'+key+'"').length-1===3,"Missing referee locale: "+key);
 }
-console.log("Referee Phase 1 verified: five tabs, RTL, profile/availability, private appointments, atomic invitation resets, access and conflict checks.");
+const career=read("apps/mobile/src/components/referee/RefereeCareerPanel.tsx");
+const dateTime=read("apps/mobile/src/lib/date-time.ts");
+assert(screen.includes('flexBasis:"46%"')&&career.includes('flexBasis:"46%"')&&
+  screen.includes('flexWrap:"wrap"')&&career.includes('flexWrap:"wrap"')&&
+  screen.includes('minHeight:112')&&career.includes('minHeight:112'),
+  "Referee overview and career statistics must render in two readable columns.");
+assert(screen.includes("formatRefereeCalendarPeriod(calendarAnchor,calendarView,language)")&&
+  screen.includes("styles.calendarPeriodPanel")&&screen.includes("styles.calendarControls")&&
+  !screen.includes("fmt(calendarAnchor.toISOString())")&&
+  dateTime.includes("formatRefereeCalendarPeriod")&&
+  dateTime.includes("AFGHANISTAN_TIME_ZONE"),
+  "Calendar must show the selected Kabul calendar period separately from navigation.");
+assert(screen.includes("formatRefereeScheduleParts(value,language)")&&
+  career.includes("formatRefereeScheduleParts(item.finishedAt,language)")&&
+  screen.includes('tr("calendar.kabulTime")'),
+  "Referee appointment cards must display date/time separately in Kabul time.");
+for(const key of ["rf1.calendar.selectedPeriod","rf1.calendar.kabulTime","rf3.kabulTime"]){
+  assert(loc.split('"'+key+'"').length-1===3,"Missing localized referee date label: "+key);
+}
+console.log("Referee Phase 1 verified: five tabs, RTL, appointments, 2x2 metric cards and readable Kabul calendar.");
