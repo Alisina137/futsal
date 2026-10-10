@@ -14,6 +14,7 @@ import {DataLoadingState} from "../ui/DataLoadingState";
 import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
 import {RefereeMatchCenter} from "./RefereeMatchCenter";
+import {RefereeCareerPanel} from "./RefereeCareerPanel";
 
 type Main="overview"|"assignments"|"center"|"stats"|"settings";
 const tabs:{id:Main;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -263,20 +264,8 @@ export function RefereeDashboard(){
         (active.length?active.map(card):<Card><AppText muted>{t("rf2.noLiveMatches")}</AppText></Card>):null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="reports"?
         (reports.length?reports.map(card):<Card><AppText muted>{t("rf2.noReports")}</AppText></Card>):null}
-      {main==="stats"&&selectedSub==="overview"?<View style={styles.stats}>
-        <RefStat value={data.stats.total} label={tr("stat.total")}/>
-        <RefStat value={data.stats.accepted} label={tr("stat.accepted")}/>
-        <RefStat value={data.stats.completed} label={tr("stat.completed")}/>
-        <RefStat value={data.stats.declined} label={tr("stat.declined")}/>
-      </View>:null}
-      {main==="stats"&&selectedSub==="history"?
-        (finished.length?finished.map(card):<Card><AppText muted>{tr("emptyHistory")}</AppText></Card>):null}
-      {main==="stats"&&selectedSub==="performance"?<Card>
-        <AppText weight="semibold">{tr("stat.acceptance")}</AppText>
-        <AppText variant="title" weight="bold">{data.stats.accepted+data.stats.declined?
-          Math.round(100*data.stats.accepted/(data.stats.accepted+data.stats.declined))+"%":"—"}</AppText>
-        <AppText variant="caption" muted>{tr("performanceHint")}</AppText>
-      </Card>:null}
+      {main==="stats"&&["overview","history","performance"].includes(selectedSub)&&token?
+        <RefereeCareerPanel token={token} section={selectedSub as "overview"|"history"|"performance"}/>:null}
       {main==="settings"&&selectedSub==="profile"&&draft?<Card>
         <AppText variant="bodyLarge" weight="bold">{tr("settings.profile")}</AppText>
         <TextField label={tr("level")} value={draft.level??""} maxLength={60}

@@ -25,11 +25,14 @@ for(const term of ["refereeChecksSchema","refereeEventSchema","REFEREE_NOT_CONFI
 test(app.includes("createRefereePhase2Router")&&app.includes("createOwnerRefereePhase2Router"),
   "Phase 2 routes must have authenticating API mounts.");
 test(comp.includes("REFEREE_MATCH_LOCKED"),"No rescheduling after kickoff or report submission.");
-for(const term of ["refereePhase2Api.clock","refereePhase2Api.event",
+const offline=read("apps/mobile/src/lib/referee-offline.ts");
+for(const term of ["refereePhase2Api.clock","enqueueRefereeEvent",
   "refereePhase2Api.removeEvent","refereePhase2Api.submit",'tr("checks."+key)',
   '"YELLOW_CARD"','"RED_CARD"','"FOUL"','"TIMEOUT"','"SUBSTITUTION"']){
   test(refUi.includes(term),"Mobile referee Match Center incomplete: "+term);
 }
+test(offline.includes("refereePhase2Api.event")&&offline.includes("syncRefereeOffline"),
+  "Existing event recording is now a queued, authenticated retry-safe synchronization call.");
 test(dash.includes("<RefereeMatchCenter")&&dash.includes("reportFinishedAt")&&
   client.includes("refereePhase2Api"),"Phase 2 match center must be reachable through the referee dashboard.");
 test(ownerUi.includes("refereePhase2Api.review")&&control.includes("<OwnerRefereeReports"),

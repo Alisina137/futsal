@@ -1,7 +1,7 @@
 import {colors,spacing,radius} from "@leaguekick/design-tokens";
 import {useCallback,useEffect,useState} from "react";
-import {Pressable,View,StyleSheet} from "react-native";
-import {refereePhase2Api,type OrganizerRefereeReport} from "../../lib/api";
+import {Linking,Pressable,View,StyleSheet} from "react-native";
+import {refereeCareerApi,refereePhase2Api,type OrganizerRefereeReport} from "../../lib/api";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
@@ -35,6 +35,14 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
     }catch(e){setError(e instanceof Error?e.message:tr("actionFailed"));}
     finally{setBusy(null);}
   }
+  async function download(matchId:string){
+    setBusy(matchId);setError(null);
+    try{
+      const {token:ticket}=await refereeCareerApi.pdfTicket(token,matchId,true);
+      await Linking.openURL(refereeCareerApi.pdfUrl(ticket));
+    }catch(e){setError(e instanceof Error?e.message:tr("actionFailed"));}
+    finally{setBusy(null);}
+  }
   return <View style={{gap:spacing.sm}}>
     <AppText variant="bodyLarge" weight="bold">{tr("ownerReports")}</AppText>
     <AppText variant="caption" muted>{tr("approvalHint")}</AppText>
@@ -63,6 +71,9 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
           <AppText variant="caption" muted>{tr("period")} {event.period} · {Math.floor(event.elapsedSeconds/60)}:{String(event.elapsedSeconds%60).padStart(2,"0")}</AppText>
           {event.details?<AppText variant="caption" muted>{event.details}</AppText>:null}
         </View>)}
+        {report.status==="APPROVED"?<Button label={t("rf3.downloadPdf")} variant="secondary"
+          disabled={busy!==null} loading={busy===report.matchId}
+          onPress={()=>void download(report.matchId)}/>:null}
         {report.status==="APPROVING"?<Button label={tr("recoverApproval")} variant="secondary"
           disabled={busy!==null} onPress={()=>void review(report.matchId,"APPROVE")}/>:null}
         {report.status==="SUBMITTED"?<>
