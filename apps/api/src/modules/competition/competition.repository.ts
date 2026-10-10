@@ -1008,6 +1008,11 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         .where(eq(refereeMatchReports.matchId,input.matchId)).limit(1);
       if(inProgressReport&&(inProgressReport.startedAt||inProgressReport.status!=="DRAFT"))
         throw errors.conflict("REFEREE_MATCH_LOCKED","A referee has started or submitted a match report. Scheduling is locked.");
+      // A pre-kickoff draft belongs to its original assignment. Clear it during
+      // an organizer's reschedule/reassignment, otherwise a new referee cannot
+      // initialize their own report for this same fixture.
+      if(inProgressReport)await tx.delete(refereeMatchReports)
+        .where(eq(refereeMatchReports.matchId,input.matchId));
 
       await tx.update(competitionMatches).set({
         venueId: input.venueId,

@@ -1141,6 +1141,7 @@ export type RefereeReportMember={teamId:string;userId:string;name:string;shirtNu
 export type OrganizerRefereeReport=RefereeMatchReport&{
   refereeName:string;refereeUserId:string;competitionId:string;
   homeTeamId:string|null;awayTeamId:string|null;matchStatus:string;
+  homeTeamName:string;awayTeamName:string;
 };
 export const refereePhase2Api={
   get:(token:string,matchId:string)=>request<{report:RefereeMatchReport|null;match:RefereeReportMatch;roster:RefereeReportMember[]}>(

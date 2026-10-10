@@ -10,6 +10,7 @@ import {errors} from "../../lib/errors.js";
 import {requireAuth} from "../../middleware/auth.js";
 import type {TokenService} from "../auth/token.service.js";
 import type {CompetitionService} from "../competition/competition.service.js";
+import type {NotificationService} from "../notifications/notification.service.js";
 
 const id=z.string().uuid();
 export const refereeChecksSchema=z.object({
@@ -75,7 +76,12 @@ function checksComplete(checks:typeof emptyChecks){return Object.values(checks).
 
 export class RefereePhase2Service{
   constructor(private readonly db:Database,private readonly competitionsService:CompetitionService,
-    private readonly now:()=>Date=()=>new Date()){}
+    private readonly notifications?:NotificationService,private readonly now:()=>Date=()=>new Date()){}
+  private async notify(userId:string,competitionId:string,title:string,body:string,dedupeKey:string){
+    try{await this.notifications?.competitionUpdate({competitionId,title,body,userIds:[userId],dedupeKey});}
+    catch(error){console.error(JSON.stringify({event:"referee_notification_failed",
+      kind:title,errorType:error instanceof Error?error.name:typeof error}));}
+  }
   private async access(userId:string,matchId:string,write:boolean){
     const [record]=await this.db.select({match:competitionMatches,competition:competitions,
       ownerUserId:venues.ownerUserId,userStatus:users.status})
@@ -237,7 +243,7 @@ export class RefereePhase2Service{
     return result;
   }
   async submit(userId:string,matchId:string,input:z.infer<typeof submitSchema>){
-    return this.mutate(userId,matchId,input.revision,(row,match)=>{
+    const result=await this.mutate(userId,matchId,input.revision,(row,match)=>{
       if(!row.startedAt||!row.finishedAt||!checksComplete(row.checks))
         throw errors.conflict("REPORT_NOT_READY","Start and finish the match after completing the checklist.");
       const score=reportScore(row.events as RefereeEvent[]);
@@ -245,6 +251,15 @@ export class RefereePhase2Service{
         throw errors.conflict("KNOCKOUT_WINNER_REQUIRED","A knockout report requires a winner.");
       return {status:"SUBMITTED",submittedAt:this.now(),feedback:null};
     });
+    const [match]=await this.db.select({competitionId:competitionMatches.competitionId,
+      ownerId:venues.ownerUserId}).from(competitionMatches)
+      .innerJoin(competitions,eq(competitions.id,competitionMatches.competitionId))
+      .innerJoin(venues,eq(venues.id,competitions.venueId))
+      .where(eq(competitionMatches.id,matchId)).limit(1);
+    if(match)void this.notify(match.ownerId,match.competitionId,"Referee report submitted",
+      "A referee submitted an official match report for your review.",
+      "referee-report-submitted:"+matchId+":"+result.report.revision);
+    return result;
   }
   async listReports(ownerId:string,competitionId:string){
     await this.organizer(ownerId,competitionId);
@@ -255,9 +270,16 @@ export class RefereePhase2Service{
       .innerJoin(users,eq(users.id,refereeMatchReports.refereeUserId))
       .where(and(eq(competitionMatches.competitionId,competitionId),
         inArray(refereeMatchReports.status,["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"])));
+    const teamIds=[...new Set(rows.flatMap(x=>[x.match.homeTeamId,x.match.awayTeamId])
+      .filter((value):value is string=>!!value))];
+    const teamsList=teamIds.length?await this.db.select({id:teams.id,name:teams.name})
+      .from(teams).where(inArray(teams.id,teamIds)):[];
+    const teamNames=new Map(teamsList.map(x=>[x.id,x.name]));
     return {reports:rows.map(({report,match,refereeName})=>({
       ...this.format(report),refereeName,refereeUserId:report.refereeUserId,
       competitionId:match.competitionId,homeTeamId:match.homeTeamId,awayTeamId:match.awayTeamId,
+      homeTeamName:teamNames.get(match.homeTeamId??"")??"TBD",
+      awayTeamName:teamNames.get(match.awayTeamId??"")??"TBD",
       matchStatus:match.status,
     }))};
   }
@@ -275,6 +297,9 @@ export class RefereePhase2Service{
         .where(and(eq(refereeMatchReports.matchId,matchId),eq(refereeMatchReports.status,"SUBMITTED"),
           eq(refereeMatchReports.revision,row.report.revision))).returning();
       if(!changed)throw errors.conflict("REPORT_REVIEW_CONFLICT","Refresh the report before reviewing.");
+      void this.notify(changed.refereeUserId,row.match.competitionId,"Referee report correction requested",
+        "The competition organizer returned your report with feedback.",
+        "referee-report-returned:"+matchId+":"+changed.revision);
       return {report:this.format(changed)};
     }
     if(row.report.status!=="SUBMITTED")
@@ -295,6 +320,13 @@ export class RefereePhase2Service{
         status:"APPROVED",feedback:input.feedback||null,reviewedAt:this.now(),reviewedByUserId:ownerId,
         revision:locked.revision+1,updatedAt:this.now(),
       }).where(and(eq(refereeMatchReports.matchId,matchId),eq(refereeMatchReports.status,"APPROVING"))).returning();
+      await this.db.insert(auditLogs).values({actorUserId:ownerId,action:"REFEREE_REPORT_APPROVED",
+        targetType:"competition_match",targetId:matchId,
+        metadata:{competitionId:row.match.competitionId,refereeUserId:row.report.refereeUserId,
+          score:reportScore(approved!.events as RefereeEvent[])},createdAt:this.now()});
+      void this.notify(approved!.refereeUserId,row.match.competitionId,"Referee report approved",
+        "Your match report was approved and the official result is published.",
+        "referee-report-approved:"+matchId+":"+approved!.revision);
       return {report:this.format(approved!)};
     }catch(error){
       await this.db.update(refereeMatchReports).set({status:"SUBMITTED",updatedAt:this.now()})

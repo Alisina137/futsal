@@ -44,7 +44,8 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
     {reports.map(report=><Card key={report.matchId} style={{gap:spacing.sm}}>
       <View style={styles.header}>
         <View style={{flex:1,gap:spacing.xs}}>
-          <AppText weight="bold">{report.refereeName}</AppText>
+          <AppText weight="bold">{report.homeTeamName} VS {report.awayTeamName}</AppText>
+          <AppText variant="caption" muted>{report.refereeName}</AppText>
           <AppText variant="caption" muted>{tr("reportStatus")}: {tr("status."+report.status)}</AppText>
         </View>
         <AppText variant="title" weight="bold">
