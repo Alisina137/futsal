@@ -19,8 +19,9 @@ assert(header.includes('user?.profileImageUrl'), "Header profile control must re
 assert(header.includes('href:"/home"'), "Hamburger menu must include Home.");
 assert(header.includes('label:t("home.title")') && header.includes('icon:"home-outline"'), "Home menu item must use the Home label and home icon for every account type.");
 assert(header.includes('href:"/dashboard"') && header.includes('label:t("dashboard.title")'), "Role users must receive the shared Dashboard item.");
-assert(header.includes('...(hasDashboard?['), "Dashboard must be conditional instead of appearing for Normal User.");
-assert(header.includes('["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE"]'), "Regular role Dashboards must cover Player, Owner, Team Manager and Referee.");
+assert(header.includes('...(hasDashboard?['), "Shared Dashboard item must remain in the menu.");
+assert(header.includes('const hasDashboard=true;')&&header.includes('key:"playerDashboard"')&&
+  header.includes('href:"/dashboard/player"'), "Normal and paid-role accounts must be able to reach the free Player Dashboard.");
 assert(header.includes('const isPlatformAdmin=')&&header.includes('items:Array<{key:string;label:string;icon:IconName;href:string}>=isPlatformAdmin?['), "Platform Admin must have a separate admin navigation.");
 assert(header.includes('href:"/admin"'), "Platform Admin navigation must lead to the dedicated management app.");
 assert(!header.includes('owner?t("owner.dashboardTitle"):t("home.title")'), "Home must remain Home for every role.");
