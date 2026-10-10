@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { competitionApi, ownerApi, teamApi, manualTeamApi, refereeApi } from "../../../../../src/lib/api";
+import {OwnerRefereeReports} from "../../../../../src/components/referee/OwnerRefereeReports";
 import { formatLocalDateTimeParts } from "../../../../../src/lib/date-time";
 import { CompetitionRewardsManager } from "../../../../../src/components/competition/CompetitionRewardsManager";
 import { AppText } from "../../../../../src/components/ui/AppText";
@@ -844,6 +845,8 @@ export default function ManageCompetitionScreen(){
           </Card>;
         })}
         {unassignedMatches.length>0?<Button label={t("competition.control.assignInFixtures")} onPress={()=>setActiveTab("FIXTURES")}/>:null}
+        {session?<OwnerRefereeReports token={session.accessToken} competitionId={competitionId!}
+          onApproved={()=>void load()}/>:null}
       </>:null}
 
       {activeTab==="STATISTICS"?<>
