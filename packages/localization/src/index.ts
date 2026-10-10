@@ -9,6 +9,18 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "tmnav.mainNavigation": "Team Manager navigation",
+  "tmnav.subNavigation": "About Team navigation",
+  "tmnav.overall": "Overall",
+  "tmnav.aboutTeam": "About Team",
+  "tmnav.media": "Media",
+  "tmnav.analytics": "Analytics",
+  "tmnav.settings": "Settings",
+  "tmnav.team": "Team",
+  "tmnav.players": "Players",
+  "tmnav.competitions": "Competitions",
+  "tmnav.matches": "Matches",
+  "tmnav.program": "Program",
   "pd3.loadError": "Could not load your career records.",
   "pd3.shareFailed": "Could not open sharing.",
   "pd3.officialOnly": "Official career record",
@@ -2234,6 +2246,18 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "tmnav.mainNavigation": "ناوبری مدیریت تیم",
+  "tmnav.subNavigation": "ناوبری درباره تیم",
+  "tmnav.overall": "نمای کلی",
+  "tmnav.aboutTeam": "درباره تیم",
+  "tmnav.media": "رسانه",
+  "tmnav.analytics": "تحلیل‌ها",
+  "tmnav.settings": "تنظیمات",
+  "tmnav.team": "تیم",
+  "tmnav.players": "بازیکنان",
+  "tmnav.competitions": "مسابقات",
+  "tmnav.matches": "بازی‌ها",
+  "tmnav.program": "برنامه",
   "pd3.loadError": "سوابق ورزشی شما بارگذاری نشد.",
   "pd3.shareFailed": "اشتراک‌گذاری باز نشد.",
   "pd3.officialOnly": "سوابق رسمی بازیکن",
@@ -4457,6 +4481,18 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "tmnav.mainNavigation": "د ټیم مدیریت لارښود",
+  "tmnav.subNavigation": "د ټیم په اړه لارښود",
+  "tmnav.overall": "لنډیز",
+  "tmnav.aboutTeam": "د ټیم په اړه",
+  "tmnav.media": "رسنۍ",
+  "tmnav.analytics": "شننې",
+  "tmnav.settings": "تنظیمات",
+  "tmnav.team": "ټیم",
+  "tmnav.players": "لوبغاړي",
+  "tmnav.competitions": "سیالۍ",
+  "tmnav.matches": "لوبې",
+  "tmnav.program": "پروګرام",
   "pd3.loadError": "ستاسو د لوبغاړي سوابق نه بارېږي.",
   "pd3.shareFailed": "شریکول نه پرانیستل کېږي.",
   "pd3.officialOnly": "د لوبغاړي رسمي سابقه",

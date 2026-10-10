@@ -18,18 +18,31 @@ import { TextField } from "../ui/TextField";
 import { TeamCompetitionOps } from "./TeamCompetitionOps";
 import { TeamGrowthPanel } from "./TeamGrowthPanel";
 
+// Keep the existing Section IDs: this is a navigation-only regrouping, not a data/workflow change.
 type Section="overview"|"team"|"players"|"competitions"|"matches"|"schedule"|"media"|"statistics"|"settings";
-const tabs:{id:Section;icon:keyof typeof Ionicons.glyphMap;key:"tm1.overview"|"tm1.team"|"tm1.players"|"tm2.tab.competitions"|"tm2.tab.matches"|"tm2.tab.schedule"|"tm3.tab.media"|"tm3.tab.statistics"|"tm1.settings"}[]=[
-  {id:"overview",icon:"grid-outline" as const,key:"tm1.overview" as const},
-  {id:"team",icon:"shield-outline" as const,key:"tm1.team" as const},
-  {id:"players",icon:"people-outline" as const,key:"tm1.players" as const},
-  {id:"competitions",icon:"trophy-outline" as const,key:"tm2.tab.competitions" as const},
-  {id:"matches",icon:"football-outline" as const,key:"tm2.tab.matches" as const},
-  {id:"schedule",icon:"calendar-outline" as const,key:"tm2.tab.schedule" as const},
-  {id:"media",icon:"images-outline" as const,key:"tm3.tab.media" as const},
-  {id:"statistics",icon:"stats-chart-outline" as const,key:"tm3.tab.statistics" as const},
-  {id:"settings",icon:"settings-outline" as const,key:"tm1.settings" as const},
-];
+type MainSection="overview"|"aboutTeam"|"media"|"statistics"|"settings";
+type AboutTeamSection="team"|"players"|"competitions"|"matches"|"schedule";
+const mainTabs=[
+  {id:"overview",icon:"grid-outline",key:"tmnav.overall"},
+  {id:"aboutTeam",icon:"shield-checkmark-outline",key:"tmnav.aboutTeam"},
+  {id:"media",icon:"images-outline",key:"tmnav.media"},
+  {id:"statistics",icon:"stats-chart-outline",key:"tmnav.analytics"},
+  {id:"settings",icon:"settings-outline",key:"tmnav.settings"},
+] as const satisfies ReadonlyArray<{id:MainSection;icon:keyof typeof Ionicons.glyphMap;key:string}>;
+const aboutTeamTabs=[
+  {id:"team",icon:"shield-outline",key:"tmnav.team"},
+  {id:"players",icon:"people-outline",key:"tmnav.players"},
+  {id:"competitions",icon:"trophy-outline",key:"tmnav.competitions"},
+  {id:"matches",icon:"football-outline",key:"tmnav.matches"},
+  // The requested Program tab uses the existing, fully functional Schedule page.
+  {id:"schedule",icon:"calendar-outline",key:"tmnav.program"},
+] as const satisfies ReadonlyArray<{id:AboutTeamSection;icon:keyof typeof Ionicons.glyphMap;key:string}>;
+function isAboutTeamSection(id:Section):id is AboutTeamSection{
+  return id==="team"||id==="players"||id==="competitions"||id==="matches"||id==="schedule";
+}
+function mainSectionFor(id:Section):MainSection{
+  return isAboutTeamSection(id)?"aboutTeam":id;
+}
 const positions=["UNSPECIFIED","GOALKEEPER","FIXO","ALA","PIVO","UNIVERSAL"] as const;
 type Position=(typeof positions)[number];
 const initialProfile:TeamManagerProfileDetails={
@@ -57,6 +70,9 @@ export function TeamManagerDashboard(){
   const token=session?.accessToken;
   const userId=session?.user.id;
   const [tab,setTab]=useState<Section>("overview");
+  // Returning to About Team restores the last selected subtab.
+  const [lastAboutTeamTab,setLastAboutTeamTab]=useState<AboutTeamSection>("team");
+  const activeMain=mainSectionFor(tab);
   const [teams,setTeams]=useState<TeamListItemDto[]>([]);
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const [team,setTeam]=useState<TeamDto|null>(null);
@@ -91,19 +107,40 @@ export function TeamManagerDashboard(){
   const navRef=useRef<ScrollView|null>(null);
   const navViewport=useRef(0);
   const navWidth=useRef(0);
-  const navCells=useRef<Partial<Record<Section,{x:number;width:number}>>>({});
+  const navCells=useRef<Partial<Record<MainSection,{x:number;width:number}>>>({});
+  const subNavRef=useRef<ScrollView|null>(null);
+  const subNavViewport=useRef(0);
+  const subNavWidth=useRef(0);
+  const subNavCells=useRef<Partial<Record<AboutTeamSection,{x:number;width:number}>>>({});
 
-  const focusTab=useCallback((id:Section,animated=false)=>{
+  const focusTab=useCallback((id:MainSection,animated=false)=>{
     const layout=navCells.current[id];
     if(!layout||!navViewport.current)return;
-    const x=Math.max(0,Math.min(navWidth.current-navViewport.current,layout.x+layout.width/2-navViewport.current/2));
+    const x=Math.max(0,Math.min(Math.max(0,navWidth.current-navViewport.current),layout.x+layout.width/2-navViewport.current/2));
     navRef.current?.scrollTo({x,y:0,animated});
   },[]);
+  const focusSubTab=useCallback((id:AboutTeamSection,animated=false)=>{
+    const layout=subNavCells.current[id];
+    if(!layout||!subNavViewport.current)return;
+    const x=Math.max(0,Math.min(Math.max(0,subNavWidth.current-subNavViewport.current),layout.x+layout.width/2-subNavViewport.current/2));
+    subNavRef.current?.scrollTo({x,y:0,animated});
+  },[]);
   useEffect(()=>{
-    const raf=requestAnimationFrame(()=>focusTab(tab));
+    const raf=requestAnimationFrame(()=>{
+      focusTab(activeMain);
+      if(isAboutTeamSection(tab))focusSubTab(tab);
+    });
     return()=>cancelAnimationFrame(raf);
-  },[tab,focusTab]);
-  const chooseTab=(section:Section)=>{setTab(section);focusTab(section,true);};
+  },[tab,activeMain,focusTab,focusSubTab]);
+  const chooseTab=(section:Section)=>{
+    if(isAboutTeamSection(section))setLastAboutTeamTab(section);
+    setTab(section);
+    focusTab(mainSectionFor(section),true);
+    if(isAboutTeamSection(section))focusSubTab(section,true);
+  };
+  const chooseMainTab=(section:MainSection)=>{
+    chooseTab(section==="aboutTeam"?lastAboutTeamTab:section);
+  };
   const date=(value:string|null)=>value?formatCompetitionDateTime(value,language):t("tm1.notScheduled");
 
   useFocusEffect(useCallback(()=>{
@@ -206,17 +243,32 @@ export function TeamManagerDashboard(){
   if(loadingTeams)return <Screen showHeader><DataLoadingState variant="dashboard" minHeight={500}/></Screen>;
   return <Screen showHeader>
     <ScrollView ref={navRef} horizontal style={styles.nav} showsHorizontalScrollIndicator={false}
-      onLayout={e=>{navViewport.current=e.nativeEvent.layout.width;focusTab(tab);}}
-      onContentSizeChange={width=>{navWidth.current=width;focusTab(tab);}}
-      contentContainerStyle={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,padding:spacing.xs,alignItems:"center"}}>
-      {tabs.map(item=><Pressable key={item.id} accessibilityRole="tab"
-        accessibilityState={{selected:tab===item.id}}
-        onLayout={(event:LayoutChangeEvent)=>{navCells.current[item.id]=event.nativeEvent.layout;if(tab===item.id)focusTab(item.id);}}
-        onPress={()=>chooseTab(item.id)} style={[styles.navItem,tab===item.id&&styles.navActive]}>
-        <Ionicons name={item.icon} size={18} color={tab===item.id?colors.primary:colors.textMuted}/>
-        <AppText variant="caption" weight="semibold" style={tab===item.id?{color:colors.primary}:undefined}>{t(item.key)}</AppText>
+      accessibilityLabel={t("tmnav.mainNavigation")}
+      onLayout={e=>{navViewport.current=e.nativeEvent.layout.width;focusTab(activeMain);}}
+      onContentSizeChange={width=>{navWidth.current=width;focusTab(activeMain);}}
+      contentContainerStyle={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,paddingHorizontal:spacing.xs,alignItems:"center"}}>
+      {mainTabs.map(item=><Pressable key={item.id} accessibilityRole="tab"
+        accessibilityLabel={t(item.key)} accessibilityState={{selected:activeMain===item.id}}
+        onLayout={(event:LayoutChangeEvent)=>{navCells.current[item.id]=event.nativeEvent.layout;if(activeMain===item.id)focusTab(item.id);}}
+        onPress={()=>chooseMainTab(item.id)} style={[styles.navItem,activeMain===item.id&&styles.navActive]}>
+        <Ionicons name={item.icon} size={18} color={activeMain===item.id?colors.primary:colors.textMuted}/>
+        <AppText variant="caption" weight="semibold" style={activeMain===item.id?{color:colors.primary}:undefined}>{t(item.key)}</AppText>
       </Pressable>)}
     </ScrollView>
+    {activeMain==="aboutTeam"?<ScrollView ref={subNavRef} horizontal style={styles.subNav}
+      accessibilityLabel={t("tmnav.subNavigation")}
+      showsHorizontalScrollIndicator={false}
+      onLayout={e=>{subNavViewport.current=e.nativeEvent.layout.width;if(isAboutTeamSection(tab))focusSubTab(tab);}}
+      onContentSizeChange={width=>{subNavWidth.current=width;if(isAboutTeamSection(tab))focusSubTab(tab);}}
+      contentContainerStyle={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.xs,paddingHorizontal:spacing.xs,alignItems:"center"}}>
+      {aboutTeamTabs.map(item=><Pressable key={item.id} accessibilityRole="tab"
+        accessibilityLabel={t(item.key)} accessibilityState={{selected:tab===item.id}}
+        onLayout={(event:LayoutChangeEvent)=>{subNavCells.current[item.id]=event.nativeEvent.layout;if(tab===item.id)focusSubTab(item.id);}}
+        onPress={()=>chooseTab(item.id)} style={[styles.subItem,tab===item.id&&styles.subActive]}>
+        <Ionicons name={item.icon} size={16} color={tab===item.id?colors.primary:colors.textMuted}/>
+        <AppText variant="caption" weight="semibold" style={tab===item.id?{color:colors.primary}:undefined}>{t(item.key)}</AppText>
+      </Pressable>)}
+    </ScrollView>:null}
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button variant="secondary" label={t("common.retry")} onPress={()=>{setTeamListRefresh(x=>x+1);setRefresh(x=>x+1);}}/></Card>:null}
@@ -439,9 +491,15 @@ export function TeamManagerDashboard(){
 const styles=StyleSheet.create({
   nav:{flexGrow:0,flexShrink:0,borderTopWidth:1,borderBottomWidth:1,
     borderTopColor:colors.border,borderBottomColor:colors.border,backgroundColor:colors.background,marginHorizontal:-spacing.xs},
-  navItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs,height:44,
-    paddingHorizontal:spacing.md,borderWidth:1,borderColor:"transparent",backgroundColor:colors.surface,borderRadius:radius.pill},
-  navActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
+  navItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs,height:48,
+    paddingHorizontal:spacing.md,borderBottomWidth:3,borderBottomColor:"transparent",
+    backgroundColor:colors.background},
+  navActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft},
+  subNav:{flexGrow:0,flexShrink:0,borderBottomWidth:1,borderBottomColor:colors.border,
+    backgroundColor:colors.surface,marginHorizontal:-spacing.xs},
+  subItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs,height:43,
+    paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
+  subActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft},
   option:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
     padding:spacing.md,backgroundColor:colors.surface,minHeight:40,justifyContent:"center"},
   optionActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
