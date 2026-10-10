@@ -9,6 +9,7 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "rf1.organizer.status": "Appointment response",
   "rf1.nav.overview": "Overview",
   "rf1.nav.assignments": "Assignments",
   "rf1.nav.center": "Match Center",
@@ -2357,6 +2358,7 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "rf1.organizer.status": "پاسخ داور به دعوت",
   "rf1.nav.overview": "نمای کلی",
   "rf1.nav.assignments": "داوری‌های محول‌شده",
   "rf1.nav.center": "مرکز مسابقه",
@@ -4703,6 +4705,7 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "rf1.organizer.status": "د ریفري د بلنې ځواب",
   "rf1.nav.overview": "عمومي کتنه",
   "rf1.nav.assignments": "ټاکل شوې لوبې",
   "rf1.nav.center": "د لوبې مرکز",
