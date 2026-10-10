@@ -24,7 +24,7 @@ check(pdf.includes("%PDF-1.4")&&pdf.includes("full-report.txt")&&
   "PDF renderer must generate pages and preserve original Unicode as attachment.");
 for(const phrase of ["AsyncStorage.setItem","refereeOfflineKey","pending.filter",
   "existing.pending.some","await store(next)","async function","syncRefereeOffline",
-  "report.events.some","recordedOffline:true"]){
+  "partitionRefereeReplay([queued],report.events)","recordedOffline:true"]){
   check(storage.includes(phrase),"Durable offline replay requirement missing: "+phrase);
 }
 for(const phrase of ["refereePhase2Api.get","stagedScore(visibleEvents)","enqueueRefereeEvent",
