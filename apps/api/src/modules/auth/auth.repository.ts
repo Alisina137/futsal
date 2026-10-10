@@ -1,7 +1,7 @@
 import type { AdminRoleSubscriptionDto, PaidRole, RoleSubscriptionOfferDto, UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { accountProfileImages, auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueSubscriptions, venues } from "@leaguekick/database";
+import { accountProfileImages, auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueReferees, venueSubscriptions, venues } from "@leaguekick/database";
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
@@ -19,22 +19,27 @@ export class DrizzleAuthRepository implements AuthRepository {
   constructor(private readonly db: Database) {}
 
   private async rolesFor(userId: string): Promise<UserRole[]> {
-    const [roleRows, paidRows] = await Promise.all([
+    const [roleRows, paidRows, venueRoles] = await Promise.all([
       this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId)),
       this.db.select({
         role: roleSubscriptions.role,
         status: roleSubscriptions.status,
         activeUntil: roleSubscriptions.activeUntil,
       }).from(roleSubscriptions).where(eq(roleSubscriptions.userId, userId)),
+      // A venue's grant automatically supplies the free Referee role;
+      // removing the final grant removes this derived role at next refresh.
+      this.db.select({userId:venueReferees.userId}).from(venueReferees)
+        .where(eq(venueReferees.userId,userId)).limit(1),
     ]);
     const activePaid = new Set(
       paidRows
         .filter((row) => row.status === "ACTIVE" && row.activeUntil && row.activeUntil.getTime() > Date.now())
         .map((row) => row.role),
     );
-    return roleRows
-      .map((row) => row.role as UserRole)
-      .filter((role) => role !== "VENUE_OWNER" && role !== "TEAM_MANAGER" || activePaid.has(role));
+    const granted=roleRows.map(row=>row.role as UserRole)
+      .filter(role=>(role!=="VENUE_OWNER"&&role!=="TEAM_MANAGER")||activePaid.has(role));
+    if(venueRoles.length>0&&!granted.includes("REFEREE"))granted.push("REFEREE");
+    return granted;
   }
 
   private async hydrate(row: typeof users.$inferSelect): Promise<AuthUserRecord> {
