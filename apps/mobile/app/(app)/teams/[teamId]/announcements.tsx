@@ -43,6 +43,6 @@ export default function PrivateTeamAnnouncements(){
         <AppText>{item.body}</AppText>
       </Card>)}
     </>}
-    <Button label={t("common.back")} variant="ghost" onPress={()=>router.back()}/>
+    <Button label={t("teams.backToTeams")} variant="ghost" onPress={()=>router.back()}/>
   </Screen>;
 }

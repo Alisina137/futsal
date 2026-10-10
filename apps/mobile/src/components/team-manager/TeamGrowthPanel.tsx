@@ -86,7 +86,8 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
       setUploading(true);setError(null);
       const asset=result.assets[0];
       const image=await marketingApi.uploadUserPostImage(token,{
-        uri:asset.uri,mimeType:asset.mimeType??"image/jpeg",size:asset.fileSize,
+        uri:asset.uri,mimeType:asset.mimeType??"image/jpeg",
+        ...(asset.fileSize!==undefined?{size:asset.fileSize}:{}),
       });
       setImageUrl(image.imageUrl);
     }catch(e){setError(e instanceof ApiRequestError?e.message:t("tm3.uploadError"));}
