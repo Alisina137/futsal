@@ -22,7 +22,7 @@ check(route.includes('role === "TEAM_MANAGER"')&&route.includes("<TeamManagerDas
 check(!dash.includes('t("dashboard.title")')&&!dash.includes('t("dashboard.subtitle")'),
   "Generic dashboard title/subtitle should not appear");
 for(const table of ["teamGuestPlayers","teamManagerProfiles"])check(schema.includes("export const "+table),"Missing table "+table);
-for(const action of ["overview","updateProfile","addGuest","updateGuest","removeGuest"]){
+for(const action of ["overview","updateProfile","addGuest","updateGuest","deleteGuest"]){
   check(client.includes(action+":"),"Missing API client action "+action);
 }
 check(api.includes("TEAM_SUBSCRIPTION_REQUIRED")&&api.includes("TEAM_MANAGER_REQUIRED"),"Missing write gate");
