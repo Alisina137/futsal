@@ -1481,6 +1481,27 @@ export type CompetitionCreateRequest = z.infer<typeof competitionCreateRequestSc
 export const competitionUpdateRequestSchema = competitionConfigSchema.partial().superRefine(validateCompetitionConfig);
 export type CompetitionUpdateRequest = z.infer<typeof competitionUpdateRequestSchema>;
 
+/** Announced prizes, not a claim that a winner has already received one. */
+export const competitionRewardSchema=z.object({
+  category:z.enum(["TEAM","INDIVIDUAL"]),
+  title:z.string().trim().min(2).max(90),
+  prize:z.string().trim().min(2).max(240),
+  description:z.string().trim().max(500).nullable(),
+});
+export type CompetitionRewardDto=z.infer<typeof competitionRewardSchema>;
+export const competitionRewardsUpdateRequestSchema=z.object({
+  rewards:z.array(competitionRewardSchema).max(30),
+}).superRefine((input,ctx)=>{
+  const used=new Set<string>();
+  input.rewards.forEach((reward,index)=>{
+    const key=`${reward.category}:${reward.title.toLocaleLowerCase()}`;
+    if(used.has(key))ctx.addIssue({code:"custom",path:["rewards",index,"title"],
+      message:"This reward title already exists in the same category."});
+    used.add(key);
+  });
+});
+export type CompetitionRewardsUpdateRequest=z.infer<typeof competitionRewardsUpdateRequestSchema>;
+
 export const competitionStateRequestSchema = z.object({
   action: z.enum(["OPEN_REGISTRATION", "CLOSE_REGISTRATION", "PUBLISH", "UNPUBLISH", "GENERATE_FIXTURES", "GENERATE_KNOCKOUT", "COMPLETE", "ARCHIVE", "CANCEL"]),
 });
@@ -1687,6 +1708,7 @@ export const competitionDtoSchema = z.object({
   standings: z.array(competitionStandingRowDtoSchema),
   playerStats: z.array(playerCompetitionStatDtoSchema),
   championTeamId: z.string().uuid().nullable(),
+  rewards:z.array(competitionRewardSchema),
 });
 export type CompetitionDto = z.infer<typeof competitionDtoSchema>;
 
@@ -1696,6 +1718,7 @@ export const competitionListItemDtoSchema = competitionDtoSchema.omit({
   standings: true,
   playerStats: true,
   championTeamId: true,
+  rewards: true,
 }).extend({
   acceptedTeams: z.number().int().min(0),
 });

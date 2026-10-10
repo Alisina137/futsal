@@ -1,5 +1,6 @@
 import type {
   CompetitionDto,
+  CompetitionRewardDto,
   CompetitionFeeStatus,
   CompetitionFormat,
   CompetitionListItemDto,
@@ -41,6 +42,7 @@ export type CompetitionRecord = {
   drawPoints: number;
   lossPoints: number;
   tieBreakOrder: CompetitionTieBreak[];
+  rewards:CompetitionRewardDto[];
   groupCount: number | null;
   qualifiersPerGroup: number | null;
   registrationClosesAt: Date | null;
@@ -104,6 +106,7 @@ export interface CompetitionRepository {
     drawPoints?: number;
     lossPoints?: number;
     tieBreakOrder?: CompetitionTieBreak[];
+    rewards?:CompetitionRewardDto[];
     groupCount?: number | null;
     qualifiersPerGroup?: number | null;
     registrationClosesAt?: Date | null;

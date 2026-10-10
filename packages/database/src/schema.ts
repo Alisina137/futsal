@@ -787,6 +787,7 @@ export const competitions = pgTable(
     drawPoints: integer("draw_points").notNull().default(1),
     lossPoints: integer("loss_points").notNull().default(0),
     tieBreakOrder: jsonb("tie_break_order").$type<string[]>().notNull().default(["POINTS", "GOAL_DIFFERENCE", "GOALS_FOR"]),
+    rewards:jsonb("rewards").$type<Array<{category:"TEAM"|"INDIVIDUAL";title:string;prize:string;description:string|null}>>().notNull().default([]),
     groupCount: integer("group_count"),
     qualifiersPerGroup: integer("qualifiers_per_group"),
     registrationClosesAt: timestamp("registration_closes_at", { withTimezone: true }),

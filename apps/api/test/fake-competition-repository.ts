@@ -66,7 +66,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
       id:row.id,venueId:row.venueId,venueName:row.venueName,name:row.name,description:row.description,
       format:row.format,status:row.status,published:row.published,maxTeams:row.maxTeams,
       registrationFeeAfn:row.registrationFeeAfn,winPoints:row.winPoints,drawPoints:row.drawPoints,lossPoints:row.lossPoints,
-      tieBreakOrder:row.tieBreakOrder,groupCount:row.groupCount,qualifiersPerGroup:row.qualifiersPerGroup,
+      tieBreakOrder:row.tieBreakOrder,rewards:row.rewards,groupCount:row.groupCount,qualifiersPerGroup:row.qualifiersPerGroup,
       registrationClosesAt:row.registrationClosesAt?.toISOString()??null,matchDurationMinutes:row.matchDurationMinutes,
       startsAt:row.startsAt?.toISOString()??null,endsAt:row.endsAt?.toISOString()??null,
       teams,matches,standings:[],playerStats:[],championTeamId:final?.winnerTeamId??null,
@@ -108,7 +108,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
       registrationFeeAfn:input.registrationFeeAfn,winPoints:input.winPoints,drawPoints:input.drawPoints,lossPoints:input.lossPoints,
       tieBreakOrder:input.tieBreakOrder,groupCount:input.groupCount,qualifiersPerGroup:input.qualifiersPerGroup,
       registrationClosesAt:input.registrationClosesAt,matchDurationMinutes:input.matchDurationMinutes,
-      startsAt:input.startsAt,endsAt:input.endsAt,materialPlayStartedAt:null,venueName:venue.name,
+      startsAt:input.startsAt,endsAt:input.endsAt,rewards:[],materialPlayStartedAt:null,venueName:venue.name,
     };
     this.competitions.set(row.id,row);
     return (await this.dto(row.id))!;
@@ -118,7 +118,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
     const row=this.competitions.get(competitionId);
     if(!row)return null;
     const next={...row};
-    for(const key of ["name","description","format","maxTeams","registrationFeeAfn","winPoints","drawPoints","lossPoints","tieBreakOrder","groupCount","qualifiersPerGroup","registrationClosesAt","matchDurationMinutes","startsAt","endsAt"] as const){
+    for(const key of ["name","description","format","maxTeams","registrationFeeAfn","winPoints","drawPoints","lossPoints","tieBreakOrder","rewards","groupCount","qualifiersPerGroup","registrationClosesAt","matchDurationMinutes","startsAt","endsAt"] as const){
       if(input[key]!==undefined)(next as Record<string,unknown>)[key]=input[key];
     }
     this.competitions.set(competitionId,next);

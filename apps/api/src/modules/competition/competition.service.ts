@@ -241,6 +241,20 @@ export class CompetitionService {
     return {match,playerStats};
   }
 
+  async replaceRewards(ownerUserId:string,competitionId:string,
+    rewards:import("@leaguekick/contracts").CompetitionRewardDto[]){
+    // Enforce venue ownership, premium write permissions and account status.
+    const {competition}=await this.ownerCompetition(ownerUserId,competitionId);
+    if(["ARCHIVED","CANCELLED"].includes(competition.status)){
+      throw errors.conflict("COMPETITION_REWARDS_LOCKED","Archived or cancelled competition rewards cannot be edited.");
+    }
+    const updated=await this.repository.updateCompetition(competitionId,{
+      rewards,updatedAt:this.now(),
+    });
+    if(!updated)throw errors.badRequest("COMPETITION_NOT_FOUND","Competition not found.");
+    return this.derive(updated);
+  }
+
   async listOwner(ownerUserId: string) {
     await this.ownerVenue(ownerUserId);
     return { competitions: await this.repository.listOwnerCompetitions(ownerUserId) };

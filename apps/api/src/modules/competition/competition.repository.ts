@@ -1,5 +1,6 @@
 import type {
   CompetitionDto,
+  CompetitionRewardDto,
   CompetitionListItemDto,
   CompetitionMatchDto,
   CompetitionPublicMatchPlayer,
@@ -53,6 +54,7 @@ function toRecord(row: typeof competitions.$inferSelect): CompetitionRecord {
     drawPoints: row.drawPoints,
     lossPoints: row.lossPoints,
     tieBreakOrder: row.tieBreakOrder as CompetitionRecord["tieBreakOrder"],
+    rewards:row.rewards as CompetitionRewardDto[],
     groupCount: row.groupCount,
     qualifiersPerGroup: row.qualifiersPerGroup,
     registrationClosesAt: row.registrationClosesAt,
@@ -276,6 +278,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       drawPoints: row.competition.drawPoints,
       lossPoints: row.competition.lossPoints,
       tieBreakOrder: row.competition.tieBreakOrder as CompetitionDto["tieBreakOrder"],
+      rewards:row.competition.rewards,
       groupCount: row.competition.groupCount,
       qualifiersPerGroup: row.competition.qualifiersPerGroup,
       registrationClosesAt: row.competition.registrationClosesAt?.toISOString() ?? null,
@@ -378,6 +381,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     if (input.drawPoints !== undefined) patch.drawPoints = input.drawPoints;
     if (input.lossPoints !== undefined) patch.lossPoints = input.lossPoints;
     if (input.tieBreakOrder !== undefined) patch.tieBreakOrder = input.tieBreakOrder;
+    if (input.rewards !== undefined) patch.rewards = input.rewards;
     if (input.groupCount !== undefined) patch.groupCount = input.groupCount;
     if (input.qualifiersPerGroup !== undefined) patch.qualifiersPerGroup = input.qualifiersPerGroup;
     if (input.registrationClosesAt !== undefined) patch.registrationClosesAt = input.registrationClosesAt;
