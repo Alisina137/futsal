@@ -4,6 +4,7 @@ const assert=(ok,message)=>{if(!ok)throw new Error(message);};
 
 const home=read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const create=read("apps/mobile/app/(app)/posts/create.tsx");
+const optimistic=read("apps/mobile/src/lib/optimistic-social-likes.ts");
 const profile=read("apps/mobile/app/(app)/people/[userId].tsx");
 const screen=read("apps/mobile/src/components/ui/Screen.tsx");
 const contracts=read("packages/contracts/src/index.ts");
@@ -35,6 +36,9 @@ for(const key of ['social.latestPosts','social.homeSubtitle','social.momentsTitl
 }
 assert(!home.includes('styles.feedHeading')&&!home.includes('styles.sectionTitleRow'),
   "Home feed and Moments must flow directly beneath the fixed navigation without section heading rows.");
+assert(home.includes("likes.toggle(post)")&&home.includes("likes.mergeFeed(")
+  &&optimistic.includes("operation.desired=!operation.desired"),
+  "Home Like button must optimistically update before waiting for its request.");
 assert(home.includes("imageOpen&&image?<Modal"),"Tap-to-preview images must work.");
 assert(home.includes('post.authorType==="USER"&&post.authorId===userId'),
   "Only the author may see personal post deletion.");
