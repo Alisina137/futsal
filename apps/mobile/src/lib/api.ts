@@ -1125,7 +1125,8 @@ export type RefereeOverview={
 export type RefereeMatchClock={elapsedSeconds:number;period:number;runningSince:string|null};
 export type RefereeMatchChecks={homePresent:boolean;awayPresent:boolean;rosterChecked:boolean;venueReady:boolean};
 export type RefereeMatchEvent={id:string;kind:"GOAL"|"YELLOW_CARD"|"RED_CARD"|"FOUL"|"TIMEOUT"|"SUBSTITUTION"|"INCIDENT";
-  side:"HOME"|"AWAY"|null;playerUserId:string|null;elapsedSeconds:number;period:number;details:string};
+  side:"HOME"|"AWAY"|null;playerUserId:string|null;assistingUserId?:string|null;
+  elapsedSeconds:number;period:number;details:string};
 export type RefereeMatchReport={
   matchId:string;status:"DRAFT"|"SUBMITTED"|"CHANGES_REQUESTED"|"APPROVING"|"APPROVED";
   events:RefereeMatchEvent[];checks:RefereeMatchChecks;clock:RefereeMatchClock;

@@ -19,6 +19,13 @@ describe("referee match reports",()=>{
     expect(rows[0]).toMatchObject({teamId:first,playerUserId:player,
       appeared:true,goals:2,yellowCards:1,redCards:1,assists:0});
   });
+  it("credits a documented goal assist only to a different player in the same team",()=>{
+    const assist="44444444-4444-4444-8444-444444444444";
+    const stats=reportPlayerStats([{...event("GOAL","HOME"),assistingUserId:assist}],match);
+    expect(stats).toHaveLength(2);
+    expect(stats.find(p=>p.playerUserId===player)?.goals).toBe(1);
+    expect(stats.find(p=>p.playerUserId===assist)?.assists).toBe(1);
+  });
   it("uses the saved server clock and never decrements after a pause",()=>{
     expect(effectiveSeconds({elapsedSeconds:81,period:1,runningSince:null},
       new Date("2026-10-10T11:00:00Z"))).toBe(81);

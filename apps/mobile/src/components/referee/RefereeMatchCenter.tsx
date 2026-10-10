@@ -33,6 +33,7 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
   const [editingKind,setEditingKind]=useState<Kind|null>(null);
   const [side,setSide]=useState<"HOME"|"AWAY">("HOME");
   const [player,setPlayer]=useState<string|null>(null),[details,setDetails]=useState("");
+  const [assistingUserId,setAssistingUserId]=useState<string|null>(null);
   const [deleteId,setDeleteId]=useState<string|null>(null),[deleteReason,setDeleteReason]=useState("");
   const [now,setNow]=useState(Date.now());
   const load=useCallback(async()=>{
@@ -134,7 +135,7 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
       {recording?<Card style={{gap:spacing.md}}>
         <AppText variant="bodyLarge" weight="bold">{tr("recordEvent")}</AppText>
         <View style={styles.actions}>{kinds.map(kind=><Pressable key={kind}
-          accessibilityRole="button" onPress={()=>{setEditingKind(kind);setPlayer(null);setDetails("");}}
+          accessibilityRole="button" onPress={()=>{setEditingKind(kind);setPlayer(null);setAssistingUserId(null);setDetails("");}}
           style={[styles.kind,editingKind===kind&&styles.kindActive]}>
           <AppText variant="caption" weight="semibold">{tr("kind."+kind)}</AppText>
         </Pressable>)}</View>
@@ -144,7 +145,7 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
             {(["HOME","AWAY"] as const).map(choice=><Button key={choice}
               label={choice==="HOME"?match.homeTeamName:match.awayTeamName}
               variant={side===choice?"primary":"secondary"}
-              onPress={()=>{setSide(choice);setPlayer(null);}}/>)}
+              onPress={()=>{setSide(choice);setPlayer(null);setAssistingUserId(null);}}/>)}
           </View>
           {allowsPlayer?<><AppText variant="caption" muted>{tr("optionalPlayer")}</AppText>
             <ScrollView style={{maxHeight:180}}>
@@ -156,12 +157,23 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
                   onPress={()=>setPlayer(p.userId)}/>)}
               </View>
             </ScrollView></>:null}
+          {editingKind==="GOAL"&&players.length>0?<View style={{gap:spacing.xs}}>
+            <AppText variant="caption" muted>{tr("optionalAssister")}</AppText>
+            <ScrollView style={{maxHeight:130}}><View style={styles.actions}>
+              <Button label={tr("unassignedPlayer")} variant={assistingUserId===null?"primary":"secondary"}
+                onPress={()=>setAssistingUserId(null)}/>
+              {players.filter(p=>p.userId!==player).map(p=><Button key={p.userId}
+                label={p.name} variant={assistingUserId===p.userId?"primary":"secondary"}
+                onPress={()=>setAssistingUserId(p.userId)}/>)}
+            </View></ScrollView>
+          </View>:null}
           <TextField label={tr("eventDetails")} value={details} onChangeText={setDetails} maxLength={400}/>
           <View style={styles.actions}>
             <Button label={tr("addEvent")} disabled={busy} onPress={()=>void (async()=>{
               await perform(()=>refereePhase2Api.event(token!,match.id,{id:eventId(),
                 kind:editingKind,side:editingKind==="INCIDENT"?null:side,
                 playerUserId:editingKind==="INCIDENT"?null:player,
+                assistingUserId:editingKind==="GOAL"&&assistingUserId!==player?assistingUserId:null,
                 period:clock.period,details,elapsedSeconds:seconds}));
               setEditingKind(null);
             })()}/>
@@ -179,6 +191,9 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
             {event.details?<AppText variant="caption" muted>{event.details}</AppText>:null}
             {event.playerUserId?<AppText variant="caption" muted>
               {roster.find(p=>p.userId===event.playerUserId)?.name??event.playerUserId}</AppText>:null}
+            {event.assistingUserId?<AppText variant="caption" muted>
+              {tr("assist")}: {roster.find(p=>p.userId===event.assistingUserId)?.name??event.assistingUserId}
+            </AppText>:null}
           </View>
           {recording?<Button label={tr("correctEvent")} variant="secondary"
             onPress={()=>{setDeleteId(event.id);setDeleteReason("");}}/>:null}

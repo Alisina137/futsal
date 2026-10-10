@@ -21,6 +21,7 @@ export const refereeEventSchema=z.object({
   kind:z.enum(["GOAL","YELLOW_CARD","RED_CARD","FOUL","TIMEOUT","SUBSTITUTION","INCIDENT"]),
   side:z.enum(["HOME","AWAY"]).nullable(),
   playerUserId:id.nullable(),
+  assistingUserId:id.nullable().optional(),
   period:z.number().int().min(1).max(2),
   elapsedSeconds:z.number().int().min(0).max(10800).optional(),
   details:z.string().trim().max(400).default(""),
@@ -58,19 +59,25 @@ export function reportPlayerStats(events:ReadonlyArray<RefereeEvent>,match:Pick<
   const byPlayer=new Map<string,{playerUserId:string;teamId:string;appeared:boolean;goals:number;assists:number;
     yellowCards:number;redCards:number;cleanSheet:boolean;playerOfMatch:boolean}>();
   for(const e of events){
-    if(!e.playerUserId||!e.side||!["GOAL","YELLOW_CARD","RED_CARD"].includes(e.kind))continue;
+    if(!e.side||!["GOAL","YELLOW_CARD","RED_CARD"].includes(e.kind))continue;
     const teamId=e.side==="HOME"?match.homeTeamId:match.awayTeamId;
     if(!teamId)continue;
-    const key=teamId+":"+e.playerUserId;
-    const row=byPlayer.get(key)??{playerUserId:e.playerUserId,teamId,appeared:true,goals:0,
-      assists:0,yellowCards:0,redCards:0,cleanSheet:false,playerOfMatch:false};
-    if(e.kind==="GOAL")row.goals++;
-    if(e.kind==="YELLOW_CARD")row.yellowCards++;
-    if(e.kind==="RED_CARD")row.redCards++;
-    byPlayer.set(key,row);
+    for(const userId of [e.playerUserId,e.kind==="GOAL"?e.assistingUserId??null:null]){
+      if(!userId)continue;
+      const key=teamId+":"+userId;
+      const row=byPlayer.get(key)??{playerUserId:userId,teamId,appeared:true,goals:0,
+        assists:0,yellowCards:0,redCards:0,cleanSheet:false,playerOfMatch:false};
+      if(e.playerUserId===userId){
+        if(e.kind==="GOAL")row.goals++;
+        if(e.kind==="YELLOW_CARD")row.yellowCards++;
+        if(e.kind==="RED_CARD")row.redCards++;
+      }else if(e.kind==="GOAL"&&e.assistingUserId===userId)row.assists++;
+      byPlayer.set(key,row);
+    }
   }
   return [...byPlayer.values()];
 }
+
 function canEdit(status:string){return status==="DRAFT"||status==="CHANGES_REQUESTED";}
 function checksComplete(checks:typeof emptyChecks){return Object.values(checks).every(Boolean);}
 
@@ -219,11 +226,15 @@ export class RefereePhase2Service{
       if(input.kind!=="INCIDENT"&&!input.side)throw errors.badRequest("EVENT_TEAM_REQUIRED","Choose the team for this event.");
       if(input.side&&!(input.side==="HOME"?match.homeTeamId:match.awayTeamId))
         throw errors.conflict("MATCH_TEAM_MISSING","Team is unavailable.");
-      if(input.playerUserId){
+      if(input.assistingUserId&&(input.kind!=="GOAL"||!input.side||
+          input.assistingUserId===input.playerUserId))
+        throw errors.badRequest("EVENT_INVALID_ASSIST","Choose another registered player as the assister of a goal.");
+      for(const person of [input.playerUserId,input.assistingUserId]){
+        if(!person)continue;
         if(!input.side)throw errors.badRequest("EVENT_TEAM_REQUIRED","Choose the player's team.");
         const teamId=input.side==="HOME"?match.homeTeamId:match.awayTeamId;
         const [member]=await this.db.select({id:teamMemberships.userId}).from(teamMemberships)
-          .where(and(eq(teamMemberships.userId,input.playerUserId),
+          .where(and(eq(teamMemberships.userId,person),
             eq(teamMemberships.teamId,teamId!),eq(teamMemberships.status,"ACTIVE"))).limit(1);
         if(!member)throw errors.forbidden("EVENT_PLAYER_NOT_ON_TEAM","Player is not on this team's roster.");
       }
