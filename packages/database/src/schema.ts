@@ -919,6 +919,8 @@ export const refereeMatchReports=pgTable("referee_match_reports",{
   startedAt:timestamp("started_at",{withTimezone:true}),
   finishedAt:timestamp("finished_at",{withTimezone:true}),
   summary:varchar("summary",{length:2000}).notNull().default(""),
+  clock:jsonb("clock").$type<{elapsedSeconds:number;period:number;runningSince:string|null}>().notNull()
+    .default({elapsedSeconds:0,period:1,runningSince:null}),
   revision:integer("revision").notNull().default(0),
   submittedAt:timestamp("submitted_at",{withTimezone:true}),
   reviewedAt:timestamp("reviewed_at",{withTimezone:true}),

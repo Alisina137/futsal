@@ -16,7 +16,7 @@ import {
   competitions,
   competitionTeams,
   playerMatchStats,
-  refereeMatchResponses,
+  refereeMatchResponses,refereeMatchReports,
   playerProfiles,
   socialFollows,
   socialPosts,
@@ -1002,6 +1002,12 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         eq(competitionMatches.competitionId, input.competitionId),
       )).limit(1);
       if (!ownedMatch) throw errors.badRequest("MATCH_NOT_FOUND", "Competition match not found.");
+
+      const [inProgressReport]=await tx.select({status:refereeMatchReports.status,
+        startedAt:refereeMatchReports.startedAt}).from(refereeMatchReports)
+        .where(eq(refereeMatchReports.matchId,input.matchId)).limit(1);
+      if(inProgressReport&&(inProgressReport.startedAt||inProgressReport.status!=="DRAFT"))
+        throw errors.conflict("REFEREE_MATCH_LOCKED","A referee has started or submitted a match report. Scheduling is locked.");
 
       await tx.update(competitionMatches).set({
         venueId: input.venueId,

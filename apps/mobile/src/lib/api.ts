@@ -1121,6 +1121,50 @@ export type RefereeOverview={
   stats:{total:number;upcoming:number;pending:number;completed:number;accepted:number;declined:number};
   nextMatch:RefereeMatch|null;
 };
+export type RefereeMatchClock={elapsedSeconds:number;period:number;runningSince:string|null};
+export type RefereeMatchChecks={homePresent:boolean;awayPresent:boolean;rosterChecked:boolean;venueReady:boolean};
+export type RefereeMatchEvent={id:string;kind:"GOAL"|"YELLOW_CARD"|"RED_CARD"|"FOUL"|"TIMEOUT"|"SUBSTITUTION"|"INCIDENT";
+  side:"HOME"|"AWAY"|null;playerUserId:string|null;elapsedSeconds:number;period:number;details:string};
+export type RefereeMatchReport={
+  matchId:string;status:"DRAFT"|"SUBMITTED"|"CHANGES_REQUESTED"|"APPROVING"|"APPROVED";
+  events:RefereeMatchEvent[];checks:RefereeMatchChecks;clock:RefereeMatchClock;
+  currentSeconds:number;score:{homeScore:number;awayScore:number};
+  startedAt:string|null;finishedAt:string|null;summary:string;revision:number;
+  submittedAt:string|null;reviewedAt:string|null;feedback:string|null;
+};
+export type RefereeReportMatch={
+  id:string;competitionId:string;homeTeamId:string|null;awayTeamId:string|null;
+  matchStatus:string;stage:string;startsAt:string|null;durationMinutes:number;
+};
+export type RefereeReportMember={teamId:string;userId:string;name:string;shirtNumber:number|null};
+export type OrganizerRefereeReport=RefereeMatchReport&{
+  refereeName:string;refereeUserId:string;competitionId:string;
+  homeTeamId:string|null;awayTeamId:string|null;matchStatus:string;
+};
+export const refereePhase2Api={
+  get:(token:string,matchId:string)=>request<{report:RefereeMatchReport|null;match:RefereeReportMatch;roster:RefereeReportMember[]}>(
+    `/api/v1/referee/matches/${matchId}/report`,{},token),
+  update:(token:string,matchId:string,input:{revision:number;checks?:RefereeMatchChecks;summary?:string})=>
+    request<{report:RefereeMatchReport}>(`/api/v1/referee/matches/${matchId}/report`,
+      {method:"PATCH",body:JSON.stringify(input)},token),
+  clock:(token:string,matchId:string,action:"START"|"PAUSE"|"RESUME"|"NEXT_PERIOD"|"FINISH",revision:number)=>
+    request<{report:RefereeMatchReport}>(`/api/v1/referee/matches/${matchId}/clock`,
+      {method:"POST",body:JSON.stringify({action,revision})},token),
+  event:(token:string,matchId:string,input:Omit<RefereeMatchEvent,"elapsedSeconds">&{elapsedSeconds?:number})=>
+    request<{report:RefereeMatchReport}>(`/api/v1/referee/matches/${matchId}/events`,
+      {method:"POST",body:JSON.stringify(input)},token),
+  removeEvent:(token:string,matchId:string,eventId:string,revision:number,reason:string)=>
+    request<{report:RefereeMatchReport}>(`/api/v1/referee/matches/${matchId}/events/${eventId}`,
+      {method:"DELETE",body:JSON.stringify({revision,reason})},token),
+  submit:(token:string,matchId:string,revision:number)=>
+    request<{report:RefereeMatchReport}>(`/api/v1/referee/matches/${matchId}/submit`,
+      {method:"POST",body:JSON.stringify({revision})},token),
+  organizerReports:(token:string,competitionId:string)=>
+    request<{reports:OrganizerRefereeReport[]}>(`/api/v1/owner/referee-reports/${competitionId}`,{},token),
+  review:(token:string,matchId:string,action:"APPROVE"|"RETURN",feedback:string,confirmImpact=false)=>
+    request<{report:RefereeMatchReport}>(`/api/v1/owner/referee-reports/${matchId}/review`,
+      {method:"POST",body:JSON.stringify({action,feedback,confirmImpact})},token),
+};
 export const refereeApi={
   overview:(token:string)=>request<RefereeOverview>("/api/v1/referee/overview",{},token),
   updateProfile:(token:string,input:RefereeProfile)=>

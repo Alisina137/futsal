@@ -225,6 +225,13 @@
       "when": 1791710800000,
       "tag": "0031_referee_dashboard",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791714400000,
+      "tag": "0032_referee_match_clock",
+      "breakpoints": true
     }
   ]
 }
