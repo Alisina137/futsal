@@ -9,6 +9,9 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "rf1.calendar.selectedPeriod": "Selected period",
+  "rf1.calendar.kabulTime": "Kabul time",
+  "rf3.kabulTime": "Kabul time",
   "rf3.offlineNoCache": "This match has not been opened online yet. Connect to download its verified roster.",
   "rf3.offlineSnapshot": "Viewing your last saved match data while offline.",
   "rf3.pendingCount": "Locally saved events waiting to sync",
@@ -2480,6 +2483,9 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "rf1.calendar.selectedPeriod": "بازه انتخاب‌شده",
+  "rf1.calendar.kabulTime": "به وقت کابل",
+  "rf3.kabulTime": "به وقت کابل",
   "rf3.offlineNoCache": "این بازی قبلاً به‌صورت آنلاین باز نشده است؛ برای دریافت فهرست بازیکنان وصل شوید.",
   "rf3.offlineSnapshot": "اطلاعات ذخیره‌شدهٔ آخرین بازی در حالت آفلاین نمایش داده می‌شود.",
   "rf3.pendingCount": "رویدادهای ذخیره‌شده در انتظار همگام‌سازی",
@@ -4949,6 +4955,9 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "rf1.calendar.selectedPeriod": "ټاکل شوې موده",
+  "rf1.calendar.kabulTime": "د کابل وخت",
+  "rf3.kabulTime": "د کابل وخت",
   "rf3.offlineNoCache": "دا لوبه مخکې آنلاین نه ده پرانیستل شوې؛ د لوبغاړو لېست ترلاسه کولو لپاره وصل شئ.",
   "rf3.offlineSnapshot": "د لوبې وروستي خوندي شوي معلومات آفلاین ښودل کېږي.",
   "rf3.pendingCount": "د همغږۍ په تمه خوندي شوې پېښې",

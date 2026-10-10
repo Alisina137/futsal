@@ -46,6 +46,40 @@ export function formatCompetitionDateTime(value:string|Date,language:LanguageCod
   return `${day} · ${time}`;
 }
 
+/** Separate Kabul-local calendar date and 24-hour clock for compact RTL cards. */
+export function formatRefereeScheduleParts(value:string|Date,language:LanguageCode){
+ const date=value instanceof Date?value:new Date(value);
+ if(!Number.isFinite(date.getTime()))return {date:String(value),time:""};
+ const zone={timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory"} as const;
+ return {
+   date:new Intl.DateTimeFormat(localeByLanguage[language],{
+     ...zone,weekday:"short",year:"numeric",month:"long",day:"numeric",
+   }).format(date),
+   time:new Intl.DateTimeFormat(localeByLanguage[language],{
+     ...zone,hour:"2-digit",minute:"2-digit",hourCycle:"h23",
+   }).format(date),
+ };
+}
+/** The calendar shows its selected Kabul-local period, not an arbitrary anchor time. */
+export function formatRefereeCalendarPeriod(value:Date,mode:"day"|"week"|"month",language:LanguageCode){
+ const locale=localeByLanguage[language];
+ const zone={timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory"} as const;
+ const parts=new Intl.DateTimeFormat("en-GB",{...zone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(value);
+ const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+ const y=Number(v.year),m=Number(v.month),d=Number(v.day);
+ const localDay=(offset:number)=>new Date(Date.UTC(y,m-1,d+offset,12));
+ if(mode==="day")return new Intl.DateTimeFormat(locale,{
+   ...zone,weekday:"long",day:"numeric",month:"long",year:"numeric",
+ }).format(localDay(0));
+ if(mode==="month")return new Intl.DateTimeFormat(locale,{
+   ...zone,month:"long",year:"numeric",
+ }).format(localDay(0));
+ const monday=-((new Date(Date.UTC(y,m-1,d)).getUTCDay()+6)%7);
+ const start=new Intl.DateTimeFormat(locale,{...zone,day:"numeric",month:"short"}).format(localDay(monday));
+ const end=new Intl.DateTimeFormat(locale,{...zone,day:"numeric",month:"short",year:"numeric"}).format(localDay(monday+6));
+ return start+" – "+end;
+}
+
 export function formatLocalDateTimeParts(
   value: string | Date,
   language: LanguageCode,
