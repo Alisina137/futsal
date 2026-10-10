@@ -3,7 +3,7 @@ import {router} from "expo-router";
 import {useCallback,useEffect,useState} from "react";
 import {Linking,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {refereeCareerApi,type RefereeCareerResponse,type RefereeCareerWindow} from "../../lib/api";
-import {formatCompetitionDateTime} from "../../lib/date-time";
+import {formatRefereeScheduleParts} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
@@ -12,8 +12,10 @@ import {DataLoadingState} from "../ui/DataLoadingState";
 
 const filters:RefereeCareerWindow[]=["7d","30d","90d","year","all"];
 function Tile({value,label}:{value:number|string;label:string}){
-  return <View style={styles.tile}><AppText variant="title" weight="bold" style={{color:colors.primary}}>{value}</AppText>
-    <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText></View>;
+  return <View style={styles.tile}>
+    <AppText variant="title" weight="bold" style={{color:colors.primary,textAlign:"center"}}>{value}</AppText>
+    <AppText variant="body" weight="medium" style={styles.tileLabel}>{label}</AppText>
+  </View>;
 }
 export function RefereeCareerPanel({token,section}:{token:string;section:"overview"|"history"|"performance"}){
  const {t,isRTL,language}=useLocale(),tr=(k:string)=>t(("rf3."+k) as never);
@@ -75,7 +77,12 @@ export function RefereeCareerPanel({token,section}:{token:string;section:"overvi
          <AppText weight="bold">{item.homeName} VS {item.awayName}</AppText>
          <AppText variant="title" weight="bold" forceLtr>{item.homeScore} – {item.awayScore}</AppText>
          <AppText variant="caption" muted>{item.competitionName} · {item.venueName}</AppText>
-         <AppText variant="caption" muted>{item.finishedAt?formatCompetitionDateTime(item.finishedAt,language):""}</AppText>
+         {item.finishedAt?<View style={styles.historyDateTime}>
+           <AppText variant="caption" muted>{formatRefereeScheduleParts(item.finishedAt,language).date}</AppText>
+           <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+             {formatRefereeScheduleParts(item.finishedAt,language).time} · {tr("kabulTime")}
+           </AppText>
+         </View>:null}
          <View style={styles.actions}>
            <Button label={tr("details")} variant="secondary" onPress={()=>router.push({
              pathname:"/competitions/[competitionId]/matches/[matchId]",
@@ -118,9 +125,13 @@ export function RefereeCareerPanel({token,section}:{token:string;section:"overvi
 }
 const styles=StyleSheet.create({
  grid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
- tile:{flexGrow:1,flexBasis:"21%",minWidth:75,alignItems:"center",gap:spacing.xs,
+ tile:{flexGrow:1,flexBasis:"46%",minWidth:0,minHeight:112,alignItems:"center",
+   justifyContent:"center",gap:spacing.sm,
    padding:spacing.md,backgroundColor:colors.surface,borderWidth:1,
    borderColor:colors.border,borderRadius:radius.md},
+ tileLabel:{textAlign:"center",lineHeight:23,flexShrink:1},
+ historyDateTime:{gap:spacing.xs,padding:spacing.sm,
+   backgroundColor:colors.surfaceMuted,borderRadius:radius.md},
  filter:{minHeight:40,paddingHorizontal:spacing.md,justifyContent:"center",
    borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface},
  active:{backgroundColor:colors.primarySoft,borderColor:colors.primary},
