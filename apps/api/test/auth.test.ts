@@ -119,6 +119,53 @@ describe("Authentication identity and role model", () => {
     expect(login.body.user.age).toBe(26);
   });
 
+  it("persists a private default location, preserves it across edits and validates coordinate pairs",async()=>{
+    const {app}=setup();
+    const first=await request(app).post("/api/v1/auth/register").send(baseRegistration);
+    expect(first.status).toBe(201);
+    expect(first.body.user.defaultLatitude).toBe(null);
+    expect(first.body.user.defaultLongitude).toBe(null);
+    const auth=`Bearer ${first.body.accessToken}`;
+    const second=await request(app).post("/api/v1/auth/register").send({
+      ...baseRegistration,username:"location2",phone:"0791234568",
+    });
+    expect(second.status).toBe(201);
+
+    const saved=await request(app).patch("/api/v1/users/me").set("Authorization",auth).send({
+      defaultLatitude:34.5553,defaultLongitude:69.2075,
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body.user.defaultLatitude).toBe(34.5553);
+    expect(saved.body.user.defaultLongitude).toBe(69.2075);
+    const changedBio=await request(app).patch("/api/v1/users/me").set("Authorization",auth).send({
+      bio:"Futsal fan",
+    });
+    expect(changedBio.status).toBe(200);
+    expect(changedBio.body.user.defaultLatitude).toBe(34.5553);
+    const again=await request(app).get("/api/v1/users/me").set("Authorization",auth);
+    expect(again.status).toBe(200);
+    expect(again.body.user.defaultLongitude).toBe(69.2075);
+    const other=await request(app).get("/api/v1/users/me").set("Authorization",`Bearer ${second.body.accessToken}`);
+    expect(other.body.user.defaultLatitude).toBeNull();
+
+    for(const bad of [
+      {defaultLatitude:34.5},
+      {defaultLongitude:69.2},
+      {defaultLatitude:95,defaultLongitude:69.2},
+      {defaultLatitude:34.5,defaultLongitude:-181},
+      {defaultLatitude:null,defaultLongitude:69.2},
+    ]){
+      const res=await request(app).patch("/api/v1/users/me").set("Authorization",auth).send(bad);
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    }
+    const clear=await request(app).patch("/api/v1/users/me").set("Authorization",auth)
+      .send({defaultLatitude:null,defaultLongitude:null});
+    expect(clear.status).toBe(200);
+    expect(clear.body.user.defaultLatitude).toBeNull();
+    expect(clear.body.user.defaultLongitude).toBeNull();
+  });
+
   it("keeps optional account profile email unique", async () => {
     const { app } = setup();
     const first = await request(app).post("/api/v1/auth/register").send(baseRegistration);
