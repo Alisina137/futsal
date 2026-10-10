@@ -43,6 +43,9 @@ for(const [key,href,icon,page] of paths){
 assert(screen.indexOf("<PublicTopNavigation/>")<screen.indexOf("<KeyboardAvoidingView"),
   "Top navigation must be fixed above the scrollable page content.");
 assert(bar.includes('flexDirection:isRTL?"row-reverse":"row"'),"Dari and Pashto must reverse the physical tab order.");
+assert(bar.includes("numberOfLines={1} adjustsFontSizeToFit")&&bar.includes("styles.labelActive")
+  &&bar.includes("{item.label}</AppText>")&&bar.includes("height:64"),
+  "Every one of five navigation icons must have an always-visible localized label underneath.");
 assert(bar.includes("accessibilityRole=\"tab\"")&&bar.includes("accessibilityState={{selected:active}}"),
   "Public navigation must provide accessible selected-tab states.");
 assert(bar.includes("unread>99")&&bar.includes("notificationApi.list(token)")
