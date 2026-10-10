@@ -914,7 +914,7 @@ export const refereeMatchReports=pgTable("referee_match_reports",{
   matchId:uuid("match_id").primaryKey().references(()=>competitionMatches.id,{onDelete:"cascade"}),
   refereeUserId:uuid("referee_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
   status:varchar("status",{length:24}).notNull().default("DRAFT"),
-  events:jsonb("events").$type<Array<{id:string;kind:string;side:string|null;playerUserId:string|null;assistingUserId?:string|null;elapsedSeconds:number;period:number;details:string}>>().notNull().default([]),
+  events:jsonb("events").$type<Array<{id:string;kind:string;side:string|null;playerUserId:string|null;assistingUserId?:string|null|undefined;elapsedSeconds:number;period:number;details:string}>>().notNull().default([]),
   checks:jsonb("checks").$type<{homePresent:boolean;awayPresent:boolean;rosterChecked:boolean;venueReady:boolean}>().notNull().default({homePresent:false,awayPresent:false,rosterChecked:false,venueReady:false}),
   startedAt:timestamp("started_at",{withTimezone:true}),
   finishedAt:timestamp("finished_at",{withTimezone:true}),
