@@ -965,6 +965,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
   async scheduleMatchAtomic(input: Parameters<CompetitionRepository["scheduleMatchAtomic"]>[0]) {
     await this.db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.areaId}))`);
+      // Coordinate fixture reassignment with the referee's report mutations.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.matchId}))`);
 
       const [area] = await tx.select({ id: venueAreas.id }).from(venueAreas).where(and(
         eq(venueAreas.id, input.areaId),

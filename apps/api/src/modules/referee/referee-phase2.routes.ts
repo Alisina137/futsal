@@ -156,10 +156,15 @@ export class RefereePhase2Service{
     const {match}=await this.access(userId,matchId,true);
     const result=await this.db.transaction(async tx=>{
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${matchId}))`);
+      const [fresh]=await tx.select().from(competitionMatches)
+        .where(eq(competitionMatches.id,matchId)).limit(1);
+      if(!fresh||fresh.refereeUserId!==userId||
+        !["SCHEDULED","IN_PROGRESS"].includes(fresh.status))
+        throw errors.conflict("REFEREE_ASSIGNMENT_CHANGED","This match assignment was changed. Refresh before editing.");
       const row=await this.initialized(matchId,userId);
       if(!canEdit(row.status))throw errors.conflict("REFEREE_REPORT_LOCKED","This report is under organizer review.");
       if(row.revision!==revision)throw errors.conflict("REFEREE_REPORT_STALE","Report changed. Refresh before editing.");
-      const patch=await fn(row,match);
+      const patch=await fn(row,fresh);
       const [updated]=await tx.update(refereeMatchReports).set({...patch,revision:row.revision+1,
         updatedAt:this.now()}).where(and(eq(refereeMatchReports.matchId,matchId),
           eq(refereeMatchReports.refereeUserId,userId),eq(refereeMatchReports.revision,revision)))
