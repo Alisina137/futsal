@@ -25,7 +25,7 @@ assert((contracts.match(/export const teamDirectoryItemDtoSchema/g) ?? []).lengt
 assert(migration.includes('"requester_user_id"') && migration.includes('"team_join_requests_pending_uq"'), "join-request migration must preserve requester history with one pending request");
 assert((repository.match(/async listDirectoryTeams/g) ?? []).length === 1, "team directory repository method must exist once");
 assert((repository.match(/async createJoinRequest/g) ?? []).length === 1, "join-request repository method must exist once");
-assert(repository.includes('where(eq(teams.status, "ACTIVE"))'), "directory must list active teams");
+assert(repository.includes('eq(teams.status, "ACTIVE")') && repository.includes('or(isNull(teams.offlineVenueId), isNotNull(teams.claimedAt))'), "directory must list active public account teams but exclude unclaimed offline teams");
 assert(service.includes("listTeamsDirectory") && service.includes("requestToJoin"), "team directory service methods missing");
 assert(service.includes("ALREADY_TEAM_MEMBER"), "join request must reject existing active members");
 assert(routes.includes('router.get("/teams", auth') && routes.includes('router.post("/teams/:teamId/join-request"'), "team directory/join routes missing");
