@@ -45,7 +45,7 @@ const checks = [
     &&mobileSections.includes("CompetitionStandings")&&mobileSections.includes("CompetitionMatchList")&&matchList.includes("competitionApi")===false
     &&mobileSections.includes("CompetitionStats"), "public competition six-tab profile hub"],
   [mobileOwner.includes('competitionApi.scheduleMatch') && mobileOwner.includes('competitionApi.enterResult'), "owner competition mobile operations"],
-  [mobileOwner.includes('type ControlTab="OVERVIEW"|"TEAMS"|"FIXTURES"|"STANDINGS"|"REFEREES"|"STATISTICS"|"MEDIA"|"SETTINGS"'), "owner competition eight-section control center"],
+  [mobileOwner.includes('type ControlTab="OVERVIEW"|"TEAMS"|"FIXTURES"|"STANDINGS"|"REFEREES"|"STATISTICS"|"REWARDS"|"MEDIA"|"SETTINGS"'), "owner competition nine-section control center"],
   [mobileOwner.includes("competitionApi.duplicate") && mobileOwner.includes("competitionApi.removeTeam") && mobileOwner.includes("competitionApi.updateSeed"), "owner duplicate/remove/reseed controls"],
   [competitionService.includes("async duplicate(") && competitionService.includes("async removeTeam(") && competitionService.includes("async updateSeed("), "competition duplicate/remove/reseed service rules"],
   [competitionRoutes.includes('/duplicate"') && competitionRoutes.includes('/registrations/:teamId/seed"') && competitionRoutes.includes('router.delete("/competitions/:competitionId/registrations/:teamId"'), "competition duplicate/remove/reseed routes"],
