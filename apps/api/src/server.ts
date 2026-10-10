@@ -20,6 +20,7 @@ import { DrizzleCommercialRepository } from "./modules/commercial/commercial.rep
 import { CommercialService } from "./modules/commercial/commercial.service.js";
 import { DrizzleTimetableRepository } from "./modules/timetable/timetable.repository.js";
 import { TimetableService } from "./modules/timetable/timetable.service.js";
+import { ManualTeamService } from "./modules/manual-team/manual-team.service.js";
 
 const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
@@ -89,6 +90,7 @@ const app = createApp({
   competitionService,
   commercialService,
   timetableService: timetable,
+  manualTeamService: new ManualTeamService(db),
   trustProxyHops: env.TRUST_PROXY_HOPS,
   corsOrigin: env.CORS_ORIGIN,
   appVersion: env.APP_VERSION,

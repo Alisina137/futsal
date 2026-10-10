@@ -20,7 +20,7 @@ import {
   userRoles,
   users,
 } from "@leaguekick/database";
-import { and, asc, count, desc, eq, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, isNotNull, lte, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   TeamIdentityUser,
@@ -36,6 +36,8 @@ function teamRecord(row: typeof teams.$inferSelect): TeamRecord {
     logoUrl: row.logoUrl,
     city: row.city,
     managerUserId: row.managerUserId,
+    offlineVenueId: row.offlineVenueId,
+    claimedAt: row.claimedAt,
     captainUserId: row.captainUserId,
     status: row.status,
     privacy: row.privacy,
@@ -114,7 +116,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       eq(teamMemberships.userId, userId),
       eq(teamMemberships.status, "ACTIVE"),
       eq(teams.status, "ACTIVE"),
-      ...(publicOnly ? [eq(teams.privacy, "PUBLIC")] : []),
+      ...(publicOnly ? [eq(teams.privacy, "PUBLIC"), or(isNull(teams.offlineVenueId), isNotNull(teams.claimedAt))] : []),
     );
     const rows = await this.db.select({
       id: teams.id,
@@ -335,7 +337,7 @@ export class DrizzleTeamRepository implements TeamRepository {
 
   async listDirectoryTeams(userId: string): Promise<TeamDirectoryItemDto[]> {
     const rows = await this.db.select({ id: teams.id }).from(teams)
-      .where(eq(teams.status, "ACTIVE"))
+      .where(and(eq(teams.status, "ACTIVE"), or(isNull(teams.offlineVenueId), isNotNull(teams.claimedAt))))
       .orderBy(asc(teams.name));
 
     const result: TeamDirectoryItemDto[] = [];
@@ -464,6 +466,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         eq(teamMemberships.userId, userId),
         eq(teamMemberships.status, "ACTIVE"),
         eq(teams.status, "ACTIVE"),
+        or(isNull(teams.offlineVenueId), isNotNull(teams.claimedAt)),
       ));
 
     const result: TeamListItemDto[] = [];

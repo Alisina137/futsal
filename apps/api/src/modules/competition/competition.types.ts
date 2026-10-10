@@ -59,6 +59,8 @@ export type CompetitionTeamRecord = {
   logoUrl: string | null;
   managerUserId: string;
   teamPrivacy: TeamPrivacy;
+  offlineVenueId: string | null;
+  claimedAt: Date | null;
   status: CompetitionRegistrationStatus;
   seed: number | null;
   groupId: string | null;
@@ -124,7 +126,7 @@ export interface CompetitionRepository {
     archivedAt?: Date | null;
     updatedAt: Date;
   }): Promise<CompetitionDto | null>;
-  getTeam(teamId: string): Promise<{ id: string; name: string; managerUserId: string; status: "ACTIVE" | "ARCHIVED" } | null>;
+  getTeam(teamId: string): Promise<{ id: string; name: string; managerUserId: string; offlineVenueId?: string | null; claimedAt?: Date | null; status: "ACTIVE" | "ARCHIVED" } | null>;
   getRegistration(competitionId: string, teamId: string): Promise<CompetitionTeamRecord | null>;
   listCompetitionTeams(competitionId: string): Promise<CompetitionTeamRecord[]>;
   applyTeam(input: { competitionId: string; teamId: string; managerUserId: string; now: Date }): Promise<void>;

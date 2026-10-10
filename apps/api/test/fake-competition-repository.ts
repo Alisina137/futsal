@@ -148,7 +148,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   private registration(competitionId:string,teamId:string,status:CompetitionTeamRecord["status"],seed:number|null):CompetitionTeamRecord{
     const team=this.teams.get(teamId)!;
     return {
-      competitionId,teamId,teamName:team.name,logoUrl:team.logoUrl,managerUserId:team.managerUserId,teamPrivacy:team.privacy,
+      competitionId,teamId,teamName:team.name,logoUrl:team.logoUrl,managerUserId:team.managerUserId,teamPrivacy:team.privacy,offlineVenueId:null,claimedAt:null,
       status,seed,groupId:null,groupName:null,feeStatus:"UNPAID",feePaymentReference:null,feeConfirmedAt:null,
     };
   }

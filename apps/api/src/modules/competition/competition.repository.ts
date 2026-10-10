@@ -128,6 +128,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       logoUrl: teams.logoUrl,
       managerUserId: teams.managerUserId,
       teamPrivacy: teams.privacy,
+      offlineVenueId: teams.offlineVenueId,
+      claimedAt: teams.claimedAt,
       status: competitionTeams.status,
       seed: competitionTeams.seed,
       groupId: competitionTeams.groupId,
@@ -248,6 +250,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
 
     const teamsDto: CompetitionTeamDto[] = teamRows.map((team) => ({
       teamId: team.teamId,
+      offline: Boolean(team.offlineVenueId && !team.claimedAt),
       teamName: team.teamName,
       logoUrl: team.logoUrl,
       status: team.status,
@@ -409,6 +412,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       id: teams.id,
       name: teams.name,
       managerUserId: teams.managerUserId,
+      offlineVenueId: teams.offlineVenueId,
+      claimedAt: teams.claimedAt,
       status: teams.status,
     }).from(teams).where(eq(teams.id, teamId)).limit(1);
     return row ?? null;

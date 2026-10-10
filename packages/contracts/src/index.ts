@@ -1328,6 +1328,31 @@ export const teamUpdateRequestSchema = z.object({
 });
 export type TeamUpdateRequest = z.infer<typeof teamUpdateRequestSchema>;
 
+export const manualTeamCreateRequestSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  city: z.string().trim().min(2).max(80),
+});
+export type ManualTeamCreateRequest = z.infer<typeof manualTeamCreateRequestSchema>;
+export const manualTeamUpdateRequestSchema = manualTeamCreateRequestSchema.partial().refine(
+  value => value.name !== undefined || value.city !== undefined,
+  { message: "At least one field is required." },
+);
+export type ManualTeamUpdateRequest = z.infer<typeof manualTeamUpdateRequestSchema>;
+export const manualTeamClaimRequestSchema = z.object({
+  username: usernameSchema,
+  phone: phoneInputSchema,
+});
+export type ManualTeamClaimRequest = z.infer<typeof manualTeamClaimRequestSchema>;
+export const manualTeamDtoSchema = z.object({
+  id: z.string().uuid(), name: z.string(), city: z.string(),
+  createdAt: isoDateTimeSchema,
+});
+export type ManualTeamDto = z.infer<typeof manualTeamDtoSchema>;
+export const adminManualTeamDtoSchema = manualTeamDtoSchema.extend({
+  venueId: z.string().uuid(), venueName: z.string(),
+});
+export type AdminManualTeamDto = z.infer<typeof adminManualTeamDtoSchema>;
+
 export const teamMemberDtoSchema = z.object({
   userId: z.string().uuid(),
   publicDisplayName: z.string(),
@@ -1598,6 +1623,7 @@ export type CompetitionMatchResultRequest = z.infer<typeof competitionMatchResul
 
 export const competitionTeamDtoSchema = z.object({
   teamId: z.string().uuid(),
+  offline: z.boolean().optional(),
   teamName: z.string(),
   logoUrl: z.string().nullable(),
   status: competitionRegistrationStatusSchema,

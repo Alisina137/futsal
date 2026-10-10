@@ -781,7 +781,7 @@ export class CompetitionService {
       throw errors.conflict("REGISTRATION_DEADLINE_PASSED", "The competition registration deadline has passed.");
     }
     const team = await this.repository.getTeam(input.teamId);
-    if (!team || team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
+    if (!team || team.status !== "ACTIVE" || (team.offlineVenueId && !team.claimedAt)) throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
     if (team.managerUserId !== userId) throw errors.forbidden("TEAM_MANAGER_REQUIRED", "Only the team manager can register this team.");
 
     const existing = await this.repository.getRegistration(competitionId, input.teamId);
@@ -802,7 +802,7 @@ export class CompetitionService {
     const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
     this.assertRegistrationMutable(competition);
     const team = await this.repository.getTeam(input.teamId);
-    if (!team || team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
+    if (!team || team.status !== "ACTIVE" || (team.offlineVenueId && !team.claimedAt)) throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
     const existing = await this.repository.getRegistration(competitionId, input.teamId);
     if (existing && ["INVITED", "APPLIED", "PENDING", "ACCEPTED"].includes(existing.status)) {
       throw errors.conflict("REGISTRATION_EXISTS", "This team already has an active registration record.");

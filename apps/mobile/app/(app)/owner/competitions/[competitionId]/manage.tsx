@@ -9,13 +9,13 @@ import type {
   CompetitionStateRequest,
   CompetitionTeamDto,
   CompetitionUpdateRequest,
-  TeamDirectoryItemDto,
+  TeamDirectoryItemDto, ManualTeamDto,
   VenueRefereeDto,
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { competitionApi, ownerApi, teamApi } from "../../../../../src/lib/api";
+import { competitionApi, ownerApi, teamApi, manualTeamApi } from "../../../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../../../src/lib/date-time";
 import { CompetitionRewardsManager } from "../../../../../src/components/competition/CompetitionRewardsManager";
 import { AppText } from "../../../../../src/components/ui/AppText";
@@ -59,6 +59,7 @@ export default function ManageCompetitionScreen(){
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [referees,setReferees]=useState<VenueRefereeDto[]>([]);
   const [directoryTeams,setDirectoryTeams]=useState<TeamDirectoryItemDto[]>([]);
+  const [offlineTeams,setOfflineTeams]=useState<ManualTeamDto[]>([]);
   const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState<string|null>(null);
@@ -120,17 +121,19 @@ export default function ManageCompetitionScreen(){
     if(!session||!competitionId)return;
     setLoading(true);setError(null);
     try{
-      const [{competition:next},status,refereeResult,teamResult,mediaResult]=await Promise.all([
+      const [{competition:next},status,refereeResult,teamResult,mediaResult,manualResult]=await Promise.all([
         competitionApi.ownerGet(session.accessToken,competitionId),
         ownerApi.getStatus(session.accessToken),
         ownerApi.referees(session.accessToken),
         teamApi.directory(session.accessToken),
         competitionApi.ownerMedia(session.accessToken,competitionId),
+        manualTeamApi.mine(session.accessToken),
       ]);
       setCompetition(next);
       syncSettings(next);
       setReferees(refereeResult.referees);
       setDirectoryTeams(teamResult.teams);
+      setOfflineTeams(manualResult.teams);
       setMediaPosts(mediaResult.posts);
       const court=status.venue?.areas[0]??null;
       setAreaId((current)=>current||court?.id||"");
@@ -248,6 +251,16 @@ export default function ManageCompetitionScreen(){
     finally{setBusy(null);}
   }
 
+  async function addOfflineTeam(teamId:string){
+    if(!session||!competitionId)return;
+    setBusy("offline:"+teamId);setError(null);
+    try{
+      await manualTeamApi.register(session.accessToken,competitionId,teamId);
+      await load();
+      setMessage(t("manualTeams.registered"));
+    }catch(e){setError(e instanceof Error?e.message:t("manualTeams.registrationError"));}
+    finally{setBusy(null);}
+  }
   function beginSeed(team:CompetitionTeamDto){
     setSeedTeamId(team.teamId);
     setSeedDraft(team.seed===null?"":String(team.seed));
@@ -577,6 +590,24 @@ export default function ManageCompetitionScreen(){
               <Button label={t("competition.reject")} onPress={()=>void decide(team.teamId,"REJECTED")} variant="secondary" style={{flex:1}}/>
             </View>
           </View>)}
+        </Card>:null}
+
+        {canManageRegistration?<Card style={{gap:spacing.md}}>
+          <AppText variant="bodyLarge" weight="bold">{t("manualTeams.registerDirect")}</AppText>
+          <AppText muted>{t("manualTeams.registerDirectHint")}</AppText>
+          <Button label={t("manualTeams.create")} variant="secondary" onPress={()=>
+            router.push("/owner/manual-teams")}/>
+          {offlineTeams.filter(team=>!competition.teams.some(reg=>
+            reg.teamId===team.id&&!["REJECTED","WITHDRAWN"].includes(reg.status))).map(team=>
+              <View key={team.id} style={[styles.dividedRow,{flexDirection:isRTL?"row-reverse":"row",alignItems:"center"}]}>
+                <View style={{flex:1}}>
+                  <AppText weight="bold">{team.name}</AppText>
+                  <AppText variant="caption" muted>{team.city}</AppText>
+                </View>
+                <Button label={t("manualTeams.registerDirect")} variant="secondary"
+                  loading={busy==="offline:"+team.id} onPress={()=>void addOfflineTeam(team.id)}/>
+              </View>
+          )}
         </Card>:null}
 
         {canManageRegistration?<Card style={{gap:spacing.md}}>

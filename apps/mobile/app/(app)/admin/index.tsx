@@ -10,6 +10,7 @@ import type {
   SubscriptionPaymentDto,
 } from "@leaguekick/contracts";
 import { useCallback, useEffect, useState } from "react";
+import { ManualTeamsAdminSection } from "../../../src/components/admin/ManualTeamsAdminSection";
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { adminApi, ApiRequestError } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -24,6 +25,7 @@ type SectionKey =
   | "dashboard"
   | "users"
   | "venues"
+  | "manualTeams"
   | "subscriptions"
   | "configuration"
   | "support"
@@ -36,6 +38,7 @@ const adminNavItems: Array<{ key: SectionKey; icon: IconName; labelKey: string }
   { key: "dashboard", icon: "grid-outline", labelKey: "phase7.admin.dashboard" },
   { key: "users", icon: "people-outline", labelKey: "phase7.admin.users" },
   { key: "venues", icon: "business-outline", labelKey: "phase7.admin.venues" },
+  { key: "manualTeams", icon: "people-circle-outline", labelKey: "manualTeams.adminTitle" },
   { key: "subscriptions", icon: "card-outline", labelKey: "phase7.admin.payments" },
   { key: "configuration", icon: "options-outline", labelKey: "phase7.admin.configuration" },
   { key: "support", icon: "help-buoy-outline", labelKey: "phase7.admin.support" },
@@ -200,6 +203,7 @@ export default function AdminScreen() {
         {loading?<DataLoadingState variant="dashboard" minHeight={520}/>:<>
           {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={setSection} t={t} /> : null}
           {section === "users" ? <UsersSection users={users} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "manualTeams" ? <ManualTeamsAdminSection /> : null}
           {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}

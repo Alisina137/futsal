@@ -1,10 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {CompetitionDto,CompetitionMediaPostDto,SocialFollowStateDto,TeamDirectoryItemDto,TeamListItemDto} from "@leaguekick/contracts";
+import type {CompetitionDto,CompetitionMediaPostDto,SocialFollowStateDto,TeamDirectoryItemDto,TeamListItemDto,ManualTeamDto} from "@leaguekick/contracts";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {AppState,Image,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
-import {competitionApi,marketingApi,ownerApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
+import {competitionApi,marketingApi,ownerApi,manualTeamApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
 import {TextField} from "../../../src/components/ui/TextField";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
@@ -45,6 +45,8 @@ export default function CompetitionDetailScreen(){
   const [selectedTeamId,setSelectedTeamId]=useState<string|null>(null);
   const [organizerCanInvite,setOrganizerCanInvite]=useState(false);
   const [directoryTeams,setDirectoryTeams]=useState<TeamDirectoryItemDto[]>([]);
+  const [manualTeams,setManualTeams]=useState<ManualTeamDto[]>([]);
+  const [selectedManualId,setSelectedManualId]=useState<string|null>(null);
   const [invitedTeamId,setInvitedTeamId]=useState<string|null>(null);
   const [teamSearch,setTeamSearch]=useState("");
   const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
@@ -80,25 +82,27 @@ export default function CompetitionDetailScreen(){
         // Venue owners can invite teams only into competitions hosted at their own venue.
         if(session.user.roles.includes("VENUE_OWNER")){
           try{
-            const [status,teamResult]=await Promise.all([
-              ownerApi.getStatus(session.accessToken),
-              teamApi.directory(session.accessToken),
-            ]);
+            const status=await ownerApi.getStatus(session.accessToken);
             if(status.venue?.id===next.venueId){
+              const [teamResult,manualResult]=await Promise.all([
+                teamApi.directory(session.accessToken).catch(()=>({teams:[] as TeamDirectoryItemDto[]})),
+                manualTeamApi.mine(session.accessToken).catch(()=>({teams:[] as ManualTeamDto[]})),
+              ]);
               setOrganizerCanInvite(true);
               setDirectoryTeams(teamResult.teams);
+              setManualTeams(manualResult.teams);
             }else{
-              setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);
+              setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
             }
           }catch{
-            setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);
+            setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
           }
         }else{
-          setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);
+          setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
         }
       }else{
         setMyTeams([]);setSelectedTeamId(null);
-        setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);
+        setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
       }
     }catch{setError(t("competition.loadError"));}
     finally{setLoading(false);}
@@ -173,6 +177,18 @@ export default function CompetitionDetailScreen(){
     }catch{setError(t("competition.inviteError"));}
     finally{setBusy(false);}
   }
+  async function registerManualTeam(){
+    if(!session||!competitionId||!organizerCanInvite||!selectedManualId)return;
+    setBusy(true);setError(null);setMessage(null);
+    try{
+      await manualTeamApi.register(session.accessToken,competitionId,selectedManualId);
+      setSelectedManualId(null);
+      await load();
+      setMessage(t("manualTeams.registered"));
+    }catch(e){
+      setError(e instanceof Error?e.message:t("manualTeams.registrationError"));
+    }finally{setBusy(false);}
+  }
   function focusSelectedTab(target:CompetitionProfileTab,animated=true){
     const bounds=tabPositions.current.get(target);
     if(!bounds||!tabViewportWidth.current)return;
@@ -216,6 +232,7 @@ export default function CompetitionDetailScreen(){
     [team.name,team.city].some(value=>value.toLowerCase().includes(teamSearch.trim().toLowerCase()))
   ).slice(0,12);
   const eligibleManagedTeams=myTeams.filter(team=>!representedIds.has(team.id));
+  const eligibleManualTeams=manualTeams.filter(team=>!representedIds.has(team.id));
   const accepted=competition?.teams.filter(team=>team.status==="ACCEPTED")??[];
   const played=competition?.matches.filter(match=>match.status==="COMPLETED"||match.status==="CORRECTED").length??0;
   // Competitions do not yet have a dedicated cover/avatar column. A real published
@@ -249,6 +266,28 @@ export default function CompetitionDetailScreen(){
       {eligibleManagedTeams.length>0?<Button label={t("competition.register")} onPress={()=>void register()}
         loading={busy} disabled={!selectedTeamId||!eligibleManagedTeams.some(team=>team.id===selectedTeamId)}/>:null}
       {organizerCanInvite?<>
+        <View style={{height:1,backgroundColor:colors.border,marginVertical:spacing.xs}}/>
+        <AppText weight="bold" variant="bodyLarge">{t("manualTeams.registerDirect")}</AppText>
+        <AppText muted>{t("manualTeams.registerDirectHint")}</AppText>
+        {eligibleManualTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
+          accessibilityState={{selected:selectedManualId===team.id}}
+          onPress={()=>setSelectedManualId(team.id)}
+          style={[styles.teamChoice,{flexDirection:isRTL?"row-reverse":"row"},
+            selectedManualId===team.id&&styles.teamSelected]}>
+          <View style={styles.radioOuter}>
+            {selectedManualId===team.id?<View style={styles.radioInner}/>:null}
+          </View>
+          <View style={{flex:1}}>
+            <AppText weight="semibold">{team.name}</AppText>
+            <AppText variant="caption" muted>{team.city} · {t("competition.manualTeamBadge")}</AppText>
+          </View>
+        </Pressable>)}
+        <Button label={t("manualTeams.registerDirect")} loading={busy}
+          disabled={!selectedManualId||!eligibleManualTeams.some(team=>team.id===selectedManualId)}
+          onPress={()=>void registerManualTeam()}/>
+        <Button variant="secondary" label={t("manualTeams.create")} onPress={()=>
+          router.push("/owner/manual-teams")}/>
+
         <View style={{height:1,backgroundColor:colors.border,marginVertical:spacing.xs}}/>
         <AppText weight="bold" variant="bodyLarge">{t("competition.inviteTeam")}</AppText>
         <AppText muted>{t("competition.organizerInviteHint")}</AppText>

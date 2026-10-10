@@ -21,7 +21,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, asc, count, desc, eq, gt, inArray, isNull, lt, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { MarketingRepository, MarketingSocialEntityRecord, MarketingVenueRecord } from "./marketing.types.js";
 import { selectPersonalizedSocialPosts } from "./social-feed-ranking.js";
@@ -682,7 +682,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     }
     if (entityType === "TEAM") {
       const [row] = await this.db.select({ id: teams.id, name: teams.name, imageUrl: teams.logoUrl }).from(teams)
-        .where(and(eq(teams.id, entityId), eq(teams.status, "ACTIVE")))
+        .where(and(eq(teams.id, entityId), eq(teams.status, "ACTIVE"), or(isNull(teams.offlineVenueId), isNotNull(teams.claimedAt))))
         .limit(1);
       return row ? { id: row.id, type: entityType, name: row.name, imageUrl: row.imageUrl } : null;
     }

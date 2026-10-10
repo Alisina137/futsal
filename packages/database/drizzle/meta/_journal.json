@@ -169,6 +169,13 @@
       "when": 1791628200000,
       "tag": "0023_competition_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791631800000,
+      "tag": "0024_offline_competition_teams",
+      "breakpoints": true
     }
   ]
 }

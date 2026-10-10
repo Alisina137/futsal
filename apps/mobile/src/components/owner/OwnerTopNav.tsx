@@ -6,20 +6,22 @@ import { Pressable, ScrollView, StyleSheet, type LayoutChangeEvent } from "react
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
 
-type OwnerSection="competitions"|"schedule"|"media"|"analysis"|"settings";
+type OwnerSection="competitions"|"manualTeams"|"schedule"|"media"|"analysis"|"settings";
 
 const items:{
   key:OwnerSection;
   icon:keyof typeof Ionicons.glyphMap;
   labelKey:
     |"owner.dashboardNav.competitions"
+    |"manualTeams.title"
     |"owner.dashboardNav.schedule"
     |"owner.dashboardNav.posts"
     |"owner.dashboardNav.analysis"
     |"owner.dashboardNav.settings";
-  href:"/owner/competitions"|"/owner/schedule"|"/owner/posts"|"/owner/analytics"|"/owner/settings";
+  href:"/owner/manual-teams"|"/owner/competitions"|"/owner/schedule"|"/owner/posts"|"/owner/analytics"|"/owner/settings";
 }[]=[
   {key:"competitions",icon:"trophy-outline",labelKey:"owner.dashboardNav.competitions",href:"/owner/competitions"},
+  {key:"manualTeams",icon:"people-circle-outline",labelKey:"manualTeams.title",href:"/owner/manual-teams"},
   {key:"schedule",icon:"calendar-outline",labelKey:"owner.dashboardNav.schedule",href:"/owner/schedule"},
   {key:"media",icon:"images-outline",labelKey:"owner.dashboardNav.posts",href:"/owner/posts"},
   {key:"analysis",icon:"stats-chart-outline",labelKey:"owner.dashboardNav.analysis",href:"/owner/analytics"},
@@ -28,6 +30,7 @@ const items:{
 
 function activeSection(pathname:string):OwnerSection|null{
   if(pathname==="/dashboard"||pathname.startsWith("/owner/competitions"))return "competitions";
+  if(pathname.startsWith("/owner/manual-teams"))return "manualTeams";
   if(pathname.startsWith("/owner/schedule")||pathname.startsWith("/owner/timetable")||pathname.startsWith("/owner/manual-booking")||pathname.startsWith("/owner/block-time"))return "schedule";
   if(pathname.startsWith("/owner/posts")||pathname.startsWith("/owner/promotions"))return "media";
   if(pathname.startsWith("/owner/analytics"))return "analysis";

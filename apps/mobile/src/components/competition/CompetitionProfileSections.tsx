@@ -236,8 +236,8 @@ function CompetitionTeams({competition,registration}:{competition:CompetitionDto
     <SectionHeading icon="people-outline" title={t("competition.teams")} count={teams.length}/>
     {registration}
     {teams.length===0?<Placeholder icon="people-outline" title={t("competition.profile.noTeams")}/>:null}
-    {teams.map(team=><Pressable key={team.teamId} accessibilityRole="button"
-      onPress={()=>openTeam(team.teamId)}>
+    {teams.map(team=><Pressable key={team.teamId} accessibilityRole={team.offline?"text":"button"}
+      disabled={team.offline} onPress={()=>!team.offline&&openTeam(team.teamId)}>
       <Card style={[styles.teamRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.teamLogo}>
           {resolveMediaImageUrl(team.logoUrl)
@@ -247,12 +247,13 @@ function CompetitionTeams({competition,registration}:{competition:CompetitionDto
         </View>
         <View style={{flex:1,minWidth:0,gap:4}}>
           <AppText weight="bold" numberOfLines={2}>{team.teamName}</AppText>
+          {team.offline?<AppText variant="caption" muted>{t("competition.manualTeamBadge")}</AppText>:null}
           {team.groupName?<AppText muted variant="caption">{t("competition.group",{name:team.groupName})}</AppText>:null}
         </View>
         {team.seed?<View style={styles.seedBadge}>
           <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>#{team.seed}</AppText>
         </View>:null}
-        <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={19} color={colors.textMuted}/>
+        {!team.offline?<Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={19} color={colors.textMuted}/>:null}
       </Card>
     </Pressable>)}
   </View>;

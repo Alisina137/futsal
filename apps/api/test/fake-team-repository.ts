@@ -175,6 +175,8 @@ export class FakeTeamRepository implements TeamRepository {
       logoUrl: input.logoUrl,
       city: input.city,
       managerUserId: input.managerUserId,
+      offlineVenueId: null,
+      claimedAt: null,
       captainUserId: null,
       status: "ACTIVE",
       privacy: input.privacy,

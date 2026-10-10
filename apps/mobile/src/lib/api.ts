@@ -71,6 +71,11 @@ import type {
   TeamInviteRequest,
   TeamJoinRequestDto,
   TeamListItemDto,
+  ManualTeamDto,
+  AdminManualTeamDto,
+  ManualTeamCreateRequest,
+  ManualTeamUpdateRequest,
+  ManualTeamClaimRequest,
   TeamUpdateRequest,
   PlayerProfileUpdateRequest,
   TeamMemberUpdateRequest,
@@ -646,6 +651,12 @@ export const teamApi = {
 
 
 export const adminApi = {
+  manualTeams: (accessToken: string) =>
+    request<{ teams: AdminManualTeamDto[] }>("/api/v1/admin/manual-teams", {}, accessToken),
+  assignManualTeam: (accessToken: string, teamId: string, input: ManualTeamClaimRequest) =>
+    request<{ assignment: { teamId: string; managerUserId: string; claimedAt: string } }>(
+      `/api/v1/admin/manual-teams/${teamId}/assign`,
+      { method: "POST", body: JSON.stringify(input) }, accessToken),
   dashboard: (accessToken: string) =>
     request<AdminDashboardResponse>("/api/v1/admin/dashboard", {}, accessToken),
   users: (accessToken: string, q = "") =>
@@ -682,6 +693,19 @@ export const adminApi = {
     request<{ unpublished: boolean }>(`/api/v1/admin/content/posts/${postId}/unpublish`, { method: "POST", body: JSON.stringify({ reason }) }, accessToken),
   closePromotion: (accessToken: string, promotionId: string, reason: string) =>
     request<{ closed: boolean }>(`/api/v1/admin/content/promotions/${promotionId}/close`, { method: "POST", body: JSON.stringify({ reason }) }, accessToken),
+};
+
+export const manualTeamApi = {
+  mine: (accessToken: string) =>
+    request<{ teams: ManualTeamDto[] }>("/api/v1/owner/manual-teams", {}, accessToken),
+  create: (accessToken: string, input: ManualTeamCreateRequest) =>
+    request<{ team: ManualTeamDto }>("/api/v1/owner/manual-teams", { method: "POST", body: JSON.stringify(input) }, accessToken),
+  update: (accessToken: string, teamId: string, input: ManualTeamUpdateRequest) =>
+    request<{ team: ManualTeamDto }>(`/api/v1/owner/manual-teams/${teamId}`, { method: "PATCH", body: JSON.stringify(input) }, accessToken),
+  register: (accessToken: string, competitionId: string, teamId: string) =>
+    request<{ registration: { teamId: string; status: "ACCEPTED" } }>(
+      `/api/v1/owner/competitions/${competitionId}/manual-teams/${teamId}`,
+      { method: "POST" }, accessToken),
 };
 
 export const competitionApi = {

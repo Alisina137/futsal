@@ -23,6 +23,8 @@ export type TeamRecord = {
   logoUrl: string | null;
   city: string;
   managerUserId: string;
+  offlineVenueId: string | null;
+  claimedAt: Date | null;
   captainUserId: string | null;
   status: "ACTIVE" | "ARCHIVED";
   privacy: "PUBLIC" | "PRIVATE";

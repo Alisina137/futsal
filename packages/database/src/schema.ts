@@ -690,6 +690,8 @@ export const teams = pgTable(
     logoUrl: text("logo_url"),
     city: varchar("city", { length: 80 }).notNull(),
     managerUserId: uuid("manager_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    offlineVenueId: uuid("offline_venue_id").references(() => venues.id, { onDelete: "restrict" }),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
     captainUserId: uuid("captain_user_id").references(() => users.id, { onDelete: "set null" }),
     status: teamStatusEnum("status").notNull().default("ACTIVE"),
     privacy: teamPrivacyEnum("privacy").notNull().default("PUBLIC"),
@@ -699,6 +701,7 @@ export const teams = pgTable(
   },
   (table) => [
     index("teams_manager_idx").on(table.managerUserId),
+    index("teams_offline_venue_idx").on(table.offlineVenueId, table.claimedAt),
     index("teams_city_status_idx").on(table.city, table.status),
     index("teams_privacy_status_idx").on(table.privacy, table.status),
   ],
