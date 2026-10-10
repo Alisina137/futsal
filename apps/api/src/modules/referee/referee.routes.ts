@@ -134,6 +134,24 @@ export class RefereeService{
       .onConflictDoUpdate({target:refereeProfiles.userId,set:data});
     return {profile:await this.profile(userId)};
   }
+  async organizerAssignments(ownerId:string,competitionId:string){
+    const [c]=await this.db.select({id:competitions.id}).from(competitions)
+      .innerJoin(venues,eq(venues.id,competitions.venueId))
+      .where(and(eq(competitions.id,competitionId),eq(venues.ownerUserId,ownerId))).limit(1);
+    if(!c)throw errors.forbidden("COMPETITION_OWNER_REQUIRED","Only the competition owner can inspect assignments.");
+    const matches=await this.db.select({id:competitionMatches.id,refereeUserId:competitionMatches.refereeUserId,
+      startsAt:competitionMatches.startsAt}).from(competitionMatches)
+      .where(eq(competitionMatches.competitionId,competitionId));
+    const ids=matches.map(m=>m.id);
+    const responses=ids.length?await this.db.select().from(refereeMatchResponses)
+      .where(inArray(refereeMatchResponses.matchId,ids)):[];
+    const byKey=new Map(responses.map(r=>[r.matchId+":"+r.refereeUserId,r]));
+    return {assignments:matches.map(m=>({
+      matchId:m.id,refereeUserId:m.refereeUserId,
+      status:m.refereeUserId?byKey.get(m.id+":"+m.refereeUserId)?.status??"PENDING":null,
+      reason:m.refereeUserId?byKey.get(m.id+":"+m.refereeUserId)?.reason??null:null,
+    }))};
+  }
   async respond(userId:string,matchId:string,input:z.infer<typeof replySchema>){
     const now=this.now();
     return this.db.transaction(async tx=>{
@@ -212,4 +230,11 @@ export function createRefereeRouter(service:RefereeService,tokens:TokenService){
   return router;
 }
 // Report review endpoints are reserved for Phase 2; never expose unauthenticated placeholders.
-export function createOwnerRefereeReportRouter(_service:RefereeService,_tokens:TokenService){return Router();}
+export function createOwnerRefereeReportRouter(service:RefereeService,tokens:TokenService){
+  const router=Router(),auth=requireAuth(tokens);
+  router.get("/referee-assignments/:competitionId",auth,async(req,res,next)=>{
+    try{res.json(await service.organizerAssignments(req.auth!.userId,uuid.parse(req.params.competitionId)));}
+    catch(e){next(e);}
+  });
+  return router;
+}

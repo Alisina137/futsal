@@ -16,6 +16,7 @@ import {
   competitions,
   competitionTeams,
   playerMatchStats,
+  refereeMatchResponses,
   playerProfiles,
   socialFollows,
   socialPosts,
@@ -1011,6 +1012,17 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         status: "SCHEDULED",
         updatedAt: input.updatedAt,
       }).where(eq(competitionMatches.id, input.matchId));
+      // Every scheduling/reassignment resets the invitation atomically, including
+      // a referee's previously accepted/declined assignment to the same fixture.
+      if(input.refereeUserId){
+        await tx.insert(refereeMatchResponses).values({
+          matchId:input.matchId,refereeUserId:input.refereeUserId,status:"PENDING",
+          reason:null,respondedAt:null,updatedAt:input.updatedAt,
+        }).onConflictDoUpdate({
+          target:[refereeMatchResponses.matchId,refereeMatchResponses.refereeUserId],
+          set:{status:"PENDING",reason:null,respondedAt:null,updatedAt:input.updatedAt},
+        });
+      }
     });
   }
 }
