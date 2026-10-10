@@ -42,7 +42,8 @@ assert(dashboard.includes('roles.includes("TEAM_MANAGER")'),"Team Owner dashboar
 assert(dashboard.includes('return <PlayerDashboard/>'),"Player dashboard shell missing for normal users.");
 assert(dashboard.includes('roles.includes("REFEREE")'),"Referee dashboard shell missing.");
 assert(dashboard.includes("PLATFORM_ADMIN"),"Platform Admin dashboard shell missing.");
-assert(dashboard.includes('"/dashboard/player"'),"Normal-user direct player dashboard must be reachable.");
+const playerDirect = read("apps/mobile/app/(app)/dashboard/player.tsx");
+assert(playerDirect.includes("<PlayerDashboard"),"Normal-user direct player dashboard must remain reachable.");
 
 assert(ownerLayout.includes("<AppHeader/>"), "Venue Owner shell must render the app header once.");
 assert(ownerLayout.includes("<OwnerTopNav/>"), "Venue Owner shell must render the owner navigation once.");
