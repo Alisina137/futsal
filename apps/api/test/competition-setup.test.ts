@@ -154,6 +154,11 @@ describe("Phase 6 competition setup and registration",()=>{
     const created=await service.create(ownerId,input());
     await service.changeState(ownerId,created.id,{action:"OPEN_REGISTRATION"});
 
+    const otherVenueOwner="88888888-8888-4888-8888-888888888888";
+    repository.seedVenue(otherVenueOwner);
+    await expect(service.inviteTeam(otherVenueOwner,created.id,{teamId:team.id,seed:1}))
+      .rejects.toMatchObject({code:"COMPETITION_ACCESS_DENIED",statusCode:403});
+
     const invitation=await service.inviteTeam(ownerId,created.id,{teamId:team.id,seed:1});
     expect(invitation?.status).toBe("INVITED");
 

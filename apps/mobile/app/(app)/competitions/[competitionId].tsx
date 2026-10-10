@@ -1,10 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {CompetitionDto,CompetitionMediaPostDto,SocialFollowStateDto,TeamListItemDto} from "@leaguekick/contracts";
+import type {CompetitionDto,CompetitionMediaPostDto,SocialFollowStateDto,TeamDirectoryItemDto,TeamListItemDto} from "@leaguekick/contracts";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {AppState,Image,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
-import {competitionApi,marketingApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
+import {competitionApi,marketingApi,ownerApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
+import {TextField} from "../../../src/components/ui/TextField";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
 import {Card} from "../../../src/components/ui/Card";
@@ -42,6 +43,10 @@ export default function CompetitionDetailScreen(){
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [myTeams,setMyTeams]=useState<TeamListItemDto[]>([]);
   const [selectedTeamId,setSelectedTeamId]=useState<string|null>(null);
+  const [organizerCanInvite,setOrganizerCanInvite]=useState(false);
+  const [directoryTeams,setDirectoryTeams]=useState<TeamDirectoryItemDto[]>([]);
+  const [invitedTeamId,setInvitedTeamId]=useState<string|null>(null);
+  const [teamSearch,setTeamSearch]=useState("");
   const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
   const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
   const [loading,setLoading]=useState(true);
@@ -72,7 +77,29 @@ export default function CompetitionDetailScreen(){
           setMyTeams(owned);
           setSelectedTeamId(current=>owned.some(team=>team.id===current)?current:owned[0]?.id??null);
         }catch{setMyTeams([]);setSelectedTeamId(null);}
-      }else{setMyTeams([]);setSelectedTeamId(null);}
+        // Venue owners can invite teams only into competitions hosted at their own venue.
+        if(session.user.roles.includes("VENUE_OWNER")){
+          try{
+            const [status,teamResult]=await Promise.all([
+              ownerApi.getStatus(session.accessToken),
+              teamApi.directory(session.accessToken),
+            ]);
+            if(status.venue?.id===next.venueId){
+              setOrganizerCanInvite(true);
+              setDirectoryTeams(teamResult.teams);
+            }else{
+              setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);
+            }
+          }catch{
+            setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);
+          }
+        }else{
+          setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);
+        }
+      }else{
+        setMyTeams([]);setSelectedTeamId(null);
+        setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);
+      }
     }catch{setError(t("competition.loadError"));}
     finally{setLoading(false);}
   },[competitionId,session?.accessToken,session?.user.id,retry,t]);
@@ -129,8 +156,21 @@ export default function CompetitionDetailScreen(){
     setBusy(true);setError(null);setMessage(null);
     try{
       await competitionApi.register(session.accessToken,competitionId,selectedTeamId);
+      await load();
       setMessage(t("competition.registrationSent"));
     }catch{setError(t("competition.registrationError"));}
+    finally{setBusy(false);}
+  }
+  async function inviteAsOrganizer(){
+    if(!session||!competitionId||!organizerCanInvite||!invitedTeamId)return;
+    setBusy(true);setError(null);setMessage(null);
+    try{
+      // Invitations remain INVITED until the actual team manager accepts.
+      await competitionApi.inviteTeam(session.accessToken,competitionId,{teamId:invitedTeamId,seed:null});
+      setInvitedTeamId(null);
+      await load();
+      setMessage(t("competition.organizerInvitationSent"));
+    }catch{setError(t("competition.inviteError"));}
     finally{setBusy(false);}
   }
   function focusSelectedTab(target:CompetitionProfileTab,animated=true){
@@ -166,6 +206,16 @@ export default function CompetitionDetailScreen(){
     }));
   }
 
+  const representedIds=new Set(competition?.teams
+    .filter(team=>!["REJECTED","WITHDRAWN"].includes(team.status))
+    .map(team=>team.teamId)??[]);
+  const availableOwnerTeams=organizerCanInvite
+    ?directoryTeams.filter(team=>!representedIds.has(team.id))
+    :[];
+  const filteredOwnerTeams=availableOwnerTeams.filter(team=>
+    [team.name,team.city].some(value=>value.toLowerCase().includes(teamSearch.trim().toLowerCase()))
+  ).slice(0,12);
+  const eligibleManagedTeams=myTeams.filter(team=>!representedIds.has(team.id));
   const accepted=competition?.teams.filter(team=>team.status==="ACCEPTED")??[];
   const played=competition?.matches.filter(match=>match.status==="COMPLETED"||match.status==="CORRECTED").length??0;
   // Competitions do not yet have a dedicated cover/avatar column. A real published
@@ -180,9 +230,10 @@ export default function CompetitionDetailScreen(){
         </View>
         <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>{t("competition.register")}</AppText>
       </View>
-      <AppText muted>{t("competition.selectTeam")}</AppText>
-      {myTeams.length===0?<AppText>{t("competition.noTeamsForRegistration")}</AppText>:null}
-      {myTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
+      {eligibleManagedTeams.length>0?<AppText muted>{t("competition.selectTeam")}</AppText>:null}
+      {eligibleManagedTeams.length===0&&!organizerCanInvite
+        ?<AppText>{t("competition.noTeamsForRegistration")}</AppText>:null}
+      {eligibleManagedTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
         accessibilityState={{selected:selectedTeamId===team.id}}
         onPress={()=>setSelectedTeamId(team.id)}
         style={[styles.teamChoice,{flexDirection:isRTL?"row-reverse":"row"},
@@ -195,8 +246,34 @@ export default function CompetitionDetailScreen(){
           <AppText variant="caption" muted>{team.city}</AppText>
         </View>
       </Pressable>)}
-      <Button label={t("competition.register")} onPress={()=>void register()}
-        loading={busy} disabled={!selectedTeamId}/>
+      {eligibleManagedTeams.length>0?<Button label={t("competition.register")} onPress={()=>void register()}
+        loading={busy} disabled={!selectedTeamId||!eligibleManagedTeams.some(team=>team.id===selectedTeamId)}/>:null}
+      {organizerCanInvite?<>
+        <View style={{height:1,backgroundColor:colors.border,marginVertical:spacing.xs}}/>
+        <AppText weight="bold" variant="bodyLarge">{t("competition.inviteTeam")}</AppText>
+        <AppText muted>{t("competition.organizerInviteHint")}</AppText>
+        {availableOwnerTeams.length>0?<TextField label={t("teams.searchName")}
+          placeholder={t("teams.searchPlaceholder")} value={teamSearch}
+          onChangeText={setTeamSearch}/>:null}
+        {availableOwnerTeams.length===0?<AppText muted>{t("competition.control.noTeamsAvailable")}</AppText>:null}
+        {availableOwnerTeams.length>0&&filteredOwnerTeams.length===0
+          ?<AppText muted>{t("teams.noMatches")}</AppText>:null}
+        {filteredOwnerTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
+          accessibilityState={{selected:invitedTeamId===team.id}}
+          onPress={()=>setInvitedTeamId(team.id)}
+          style={[styles.teamChoice,{flexDirection:isRTL?"row-reverse":"row"},
+            invitedTeamId===team.id&&styles.teamSelected]}>
+          <View style={styles.radioOuter}>
+            {invitedTeamId===team.id?<View style={styles.radioInner}/>:null}
+          </View>
+          <View style={{flex:1}}>
+            <AppText weight="semibold">{team.name}</AppText>
+            <AppText variant="caption" muted>{team.city}</AppText>
+          </View>
+        </Pressable>)}
+        <Button label={t("competition.inviteTeam")} onPress={()=>void inviteAsOrganizer()}
+          loading={busy} disabled={!invitedTeamId||!availableOwnerTeams.some(team=>team.id===invitedTeamId)}/>
+      </>:null}
       {message?<AppText style={{color:colors.success}}>{message}</AppText>:null}
     </Card>:null;
 
