@@ -692,7 +692,7 @@ export const teamGrowthApi={
 export type TeamManagerProfileDetails={
   province:string|null;district:string|null;description:string|null;foundedOn:string|null;
   primaryColor:string|null;secondaryColor:string|null;contactPhone:string|null;homeVenueId:string|null;
-  allowJoinRequests:boolean;
+  allowJoinRequests:boolean;whatsappGroupUrl:string|null;
 };
 export type TeamGuestPlayer={id:string;teamId:string;name:string;position:string;shirtNumber:number|null;createdAt:string};
 export type TeamManagerOverview={
@@ -703,7 +703,7 @@ export type TeamManagerOverview={
 export const teamManagerApi={
   overview:(token:string,teamId:string)=>
     request<TeamManagerOverview>(`/api/v1/teams/${teamId}/manager/overview`,{},token),
-  publicDetails:(teamId:string)=>request<{profile:Omit<TeamManagerProfileDetails,"allowJoinRequests">}>(`/api/v1/teams/${teamId}/profile-details`),
+  publicDetails:(teamId:string)=>request<{profile:Omit<TeamManagerProfileDetails,"allowJoinRequests"|"whatsappGroupUrl">}>(`/api/v1/teams/${teamId}/profile-details`),
   updateProfile:(token:string,teamId:string,input:TeamManagerProfileDetails)=>
     request<{profile:TeamManagerProfileDetails}>(`/api/v1/teams/${teamId}/manager/profile`,
       {method:"PUT",body:JSON.stringify(input)},token),
@@ -787,6 +787,7 @@ export type PlayerDashboardActivity={id:string;teamId:string;kind:string;title:s
   startsAt:string;endsAt:string;availability:string|null};
 export type PlayerDashboardOverview={
   profile:OwnPlayerProfileDto;teams:TeamListItemDto[];selectedTeamId:string|null;
+  whatsappGroups:Record<string,string>;
   preferences:PlayerDashboardPreferences;requests:PlayerDashboardRequest[];invitations:TeamInvitationDto[];
   stats:{matches:number;goals:number;assists:number;awards:number};
   nextMatch:null|{id:string;competitionId:string;startsAt:string|null;homeTeamName:string;awayTeamName:string;teamId:string|null};

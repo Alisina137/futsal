@@ -17,6 +17,7 @@ import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
 import { TeamCompetitionOps } from "./TeamCompetitionOps";
 import { TeamGrowthPanel } from "./TeamGrowthPanel";
+import {WhatsAppGroupButton,isWhatsAppGroupInviteLink} from "../ui/WhatsAppGroupButton";
 
 // Keep the existing Section IDs: this is a navigation-only regrouping, not a data/workflow change.
 type Section="overview"|"players"|"competitions"|"matches"|"schedule"|"media"|"statistics"|"settings";
@@ -47,6 +48,7 @@ type Position=(typeof positions)[number];
 const initialProfile:TeamManagerProfileDetails={
   province:null,district:null,description:null,foundedOn:null,
   primaryColor:null,secondaryColor:null,contactPhone:null,homeVenueId:null,allowJoinRequests:true,
+  whatsappGroupUrl:null,
 };
 
 function Stat({value,label}:{value:number;label:string}){
@@ -242,6 +244,7 @@ export function TeamManagerDashboard(){
     !Number.isNaN(Date.parse(profile.foundedOn+"T00:00:00Z"))&&
     new Date(profile.foundedOn+"T00:00:00Z").toISOString().slice(0,10)===profile.foundedOn;
   const colorOk=(value:string|null)=>!value||/^#[0-9a-fA-F]{6}$/.test(value);
+  const whatsappOk=!profile.whatsappGroupUrl||isWhatsAppGroupInviteLink(profile.whatsappGroupUrl);
   const saveTeam=()=>perform(async()=>{
     await teamApi.update(token!,selectedId!,{name:name.trim(),city:city.trim(),logoUrl:logoUrl.trim(),privacy});
     await teamManagerApi.updateProfile(token!,selectedId!,profile);
@@ -337,6 +340,9 @@ export function TeamManagerDashboard(){
             })}/></>:<AppText muted>{t("tm1.noUpcoming")}</AppText>}
         </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.quickActions")}</AppText>
+          {overview.profile.whatsappGroupUrl?
+            <WhatsAppGroupButton url={overview.profile.whatsappGroupUrl}/>:
+            <Button label={t("teamWhatsApp.setup")} variant="secondary" onPress={()=>chooseTab("settings")}/>}
           <View style={styles.actions}>
             <Button label={t("tm1.invitePlayer")} variant="secondary" style={styles.action} onPress={()=>chooseTab("players")}/>
             <Button label={t("tm1.editTeam")} variant="secondary" style={styles.action} onPress={()=>chooseTab("settings")}/>
@@ -473,7 +479,7 @@ export function TeamManagerDashboard(){
           <Options selected={privacy} onSelect={v=>setPrivacy(v as TeamPrivacy)}
             items={["PUBLIC","PRIVATE"].map(id=>({id,label:t(`teams.privacy.${id}` as never)}))}/>
           <Button label={t("common.save")} loading={busy}
-            disabled={!canWrite||name.trim().length<2||city.trim().length<2||!foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)}
+            disabled={!canWrite||name.trim().length<2||city.trim().length<2||!foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)||!whatsappOk}
             onPress={()=>void saveTeam()}/>
           <AppText variant="caption" muted>{t("tm1.publicHint")}</AppText>
         </Card>
@@ -490,6 +496,22 @@ export function TeamManagerDashboard(){
             items={[{id:"YES",label:t("tm1.allowRequests")},{id:"NO",label:t("tm1.invitationOnly")}]}/>
           <Button label={t("common.save")} loading={busy} disabled={!canWrite}
             onPress={()=>void perform(()=>teamManagerApi.updateProfile(token!,team.id,profile))}/>
+        </Card>
+        <Card>
+          <AppText variant="bodyLarge" weight="bold">{t("teamWhatsApp.title")}</AppText>
+          <AppText variant="caption" muted>{t("teamWhatsApp.managerHint")}</AppText>
+          <TextField label={t("teamWhatsApp.groupInviteUrl")}
+            placeholder="https://chat.whatsapp.com/..."
+            value={profile.whatsappGroupUrl??""}
+            onChangeText={value=>updateProfile("whatsappGroupUrl",value.trim()?value:null)}
+            maxLength={400} autoCapitalize="none" forceLtr/>
+          {!whatsappOk?<AppText variant="caption" style={{color:colors.danger}}>
+            {t("teamWhatsApp.invalid")}</AppText>:null}
+          <AppText variant="caption" muted>{t("teamWhatsApp.privacyHint")}</AppText>
+          <Button label={t("common.save")} disabled={!canWrite||!whatsappOk||busy}
+            loading={busy} onPress={()=>void perform(()=>
+              teamManagerApi.updateProfile(token!,team.id,profile))}/>
+          {overview.profile.whatsappGroupUrl?<WhatsAppGroupButton url={overview.profile.whatsappGroupUrl}/>:null}
         </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.homeVenue")}</AppText>
           <AppText variant="caption" muted>{t("tm1.homeVenueHint")}</AppText>

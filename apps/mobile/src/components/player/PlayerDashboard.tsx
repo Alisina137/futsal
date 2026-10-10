@@ -17,6 +17,7 @@ import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
 import {PlayerActivityTabs} from "./PlayerActivityTabs";
 import {PlayerCareerTabs} from "./PlayerCareerTabs";
+import {WhatsAppGroupButton} from "../ui/WhatsAppGroupButton";
 
 type Section="overview"|"teams"|"competitions"|"matches"|"schedule"|"statistics"|"achievements"|"bookings"|"settings";
 const sections:{id:Section;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -173,6 +174,8 @@ export function PlayerDashboard(){
           <View style={styles.actions}>
             <Button label={tr("editProfile")} variant="secondary" onPress={()=>router.push("/profile/player")}/>
             <Button label={tr("myTeams")} variant="secondary" onPress={()=>choose("teams")}/>
+            {selected&&data.whatsappGroups?.[selected.id]?
+              <WhatsAppGroupButton url={data.whatsappGroups[selected.id]}/>:null}
           </View>
         </Card>
         <View style={styles.stats}>
@@ -258,6 +261,7 @@ export function PlayerDashboard(){
                   }))}/>:null}
                 <Button label={tr("teamActivities")} variant="secondary" onPress={()=>router.push({
                   pathname:"/teams/[teamId]/activities",params:{teamId:team.id}})}/>
+                {data.whatsappGroups?.[team.id]?<WhatsAppGroupButton url={data.whatsappGroups[team.id]}/>:null}
               </View>
               {team.managerUserId!==session?.user.id?<View>
                 {confirmLeave===team.id?<View style={styles.actions}>

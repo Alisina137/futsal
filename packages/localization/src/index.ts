@@ -9,6 +9,14 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "teamWhatsApp.title": "Team WhatsApp group",
+  "teamWhatsApp.groupInviteUrl": "WhatsApp group invite link",
+  "teamWhatsApp.managerHint": "Create the group in WhatsApp, choose Invite via link, then paste its link here. You can update or remove it at any time.",
+  "teamWhatsApp.privacyHint": "The link is visible only to active team members inside Futsal. Anyone who obtains the link may still request to join on WhatsApp.",
+  "teamWhatsApp.invalid": "Paste a valid https://chat.whatsapp.com/... group invitation link.",
+  "teamWhatsApp.open": "Open team WhatsApp chat",
+  "teamWhatsApp.openFailed": "Could not open WhatsApp. Check your app or internet connection.",
+  "teamWhatsApp.setup": "Set up team WhatsApp chat",
   "tmBilling.subscriptionPerTeam": "One paid subscription per team",
   "tmBilling.policy": "Your Team Manager subscription covers one team. Every additional team needs a separate monthly subscription and admin payment approval.",
   "tmBilling.ownedTeams": "Teams managed",
@@ -2267,6 +2275,14 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "teamWhatsApp.title": "گروپ واتساپ تیم",
+  "teamWhatsApp.groupInviteUrl": "لینک دعوت گروپ واتساپ",
+  "teamWhatsApp.managerHint": "گروپ را در واتساپ بسازید، گزینه دعوت از طریق لینک را انتخاب کنید و لینک را اینجا وارد کنید. می‌توانید آن را تغییر دهید یا حذف کنید.",
+  "teamWhatsApp.privacyHint": "لینک در فوتسال فقط به اعضای فعال تیم نشان داده می‌شود. هر کسی که لینک را به دست آورد ممکن است بتواند درخواست عضویت در گروپ بدهد.",
+  "teamWhatsApp.invalid": "یک لینک معتبر دعوت گروپ https://chat.whatsapp.com/... وارد کنید.",
+  "teamWhatsApp.open": "باز کردن چت واتساپ تیم",
+  "teamWhatsApp.openFailed": "واتساپ باز نشد. برنامه یا اتصال اینترنت را بررسی کنید.",
+  "teamWhatsApp.setup": "تنظیم چت واتساپ تیم",
   "tmBilling.subscriptionPerTeam": "اشتراک جداگانه برای هر تیم",
   "tmBilling.policy": "اشتراک مدیر شامل یک تیم است. هر تیم اضافی نیاز به اشتراک ماهانه جداگانه و تأیید پرداخت دارد.",
   "tmBilling.ownedTeams": "تیم‌های تحت مدیریت",
@@ -4523,6 +4539,14 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "teamWhatsApp.title": "د ټیم واټساپ ګروپ",
+  "teamWhatsApp.groupInviteUrl": "د واټساپ ګروپ د بلنې لینک",
+  "teamWhatsApp.managerHint": "ګروپ په واټساپ کې جوړ کړئ، د لینک له لارې بلنه وټاکئ او لینک دلته دننه کړئ. هر وخت یې بدلول یا لرې کولای شئ.",
+  "teamWhatsApp.privacyHint": "دا لینک په فوتسال کې یوازې فعال ټیم غړي لیدلی شي. هر څوک چې لینک ترلاسه کړي، ښايي په واټساپ کې د یوځای کېدو غوښتنه وکړي.",
+  "teamWhatsApp.invalid": "د https://chat.whatsapp.com/... د ګروپ معتبر بلنیز لینک دننه کړئ.",
+  "teamWhatsApp.open": "د ټیم واټساپ چټ پرانیستل",
+  "teamWhatsApp.openFailed": "واټساپ نه پرانیستل کېږي. اپ یا انټرنېټ وګورئ.",
+  "teamWhatsApp.setup": "د ټیم واټساپ چټ برابرول",
   "tmBilling.subscriptionPerTeam": "د هر ټیم لپاره جلا ګډون",
   "tmBilling.policy": "د مدیر ګډون یو ټیم پوښي. هر اضافي ټیم جلا میاشتني ګډون او د پیسو تایید ته اړتیا لري.",
   "tmBilling.ownedTeams": "تر مدیریت لاندې ټیمونه",
