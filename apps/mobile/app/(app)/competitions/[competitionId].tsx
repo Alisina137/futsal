@@ -31,6 +31,10 @@ export default function CompetitionDetailScreen(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const scrollRef=useRef<ScrollView>(null);
+  const tabScrollRef=useRef<ScrollView>(null);
+  const tabViewportWidth=useRef(0);
+  const tabPositions=useRef(new Map<CompetitionProfileTab,{x:number;width:number}>());
+  const tabScrollTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const tabsY=useRef(0);
   const contentY=useRef(0);
   const handledRegistration=useRef(false);
@@ -129,8 +133,26 @@ export default function CompetitionDetailScreen(){
     }catch{setError(t("competition.registrationError"));}
     finally{setBusy(false);}
   }
+  function focusSelectedTab(target:CompetitionProfileTab,animated=true){
+    const bounds=tabPositions.current.get(target);
+    if(!bounds||!tabViewportWidth.current)return;
+    const x=Math.max(0,bounds.x+bounds.width/2-tabViewportWidth.current/2);
+    tabScrollRef.current?.scrollTo({x,animated});
+  }
+
+  useEffect(()=>{
+    // Wait for the horizontal nav viewport and all tab measurements to stabilize
+    // after initial deep linking or RTL layout, then center the active selection.
+    if(tabScrollTimer.current)clearTimeout(tabScrollTimer.current);
+    tabScrollTimer.current=setTimeout(()=>{
+      requestAnimationFrame(()=>focusSelectedTab(activeTab,true));
+    },30);
+    return()=>{if(tabScrollTimer.current)clearTimeout(tabScrollTimer.current);};
+  },[activeTab,isRTL,competition?.id]);
+
   function switchTab(next:CompetitionProfileTab){
     setActiveTab(next);
+    requestAnimationFrame(()=>focusSelectedTab(next,true));
     requestAnimationFrame(()=>scrollRef.current?.scrollTo({
       y:Math.max(0,tabsY.current-spacing.sm),animated:true,
     }));
@@ -262,10 +284,19 @@ export default function CompetitionDetailScreen(){
 
     <View onLayout={e=>{tabsY.current=e.nativeEvent.layout.y;}} style={styles.tabWrapper}>
       <ScrollView horizontal testID="competition-profile-tabs" showsHorizontalScrollIndicator={false}
+        ref={tabScrollRef} onLayout={event=>{
+          tabViewportWidth.current=event.nativeEvent.layout.width;
+          requestAnimationFrame(()=>focusSelectedTab(activeTab,false));
+        }}
         style={styles.tabViewport} contentContainerStyle={[
           styles.tabList,{flexDirection:isRTL?"row-reverse":"row"},
         ]}>
         {COMPETITION_PROFILE_TABS.map(value=><Pressable key={value}
+          onLayout={event=>{
+            const {x,width}=event.nativeEvent.layout;
+            tabPositions.current.set(value,{x,width});
+            if(value===activeTab)requestAnimationFrame(()=>focusSelectedTab(activeTab,false));
+          }}
           testID={`competition-tab-${value}`} accessibilityRole="tab"
           accessibilityState={{selected:activeTab===value}}
           accessibilityLabel={value==="STANDINGS"&&competition.format!=="LEAGUE"
