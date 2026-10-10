@@ -141,7 +141,7 @@ export class RefereePhase2Service{
       Partial<typeof refereeMatchReports.$inferInsert> | Promise<Partial<typeof refereeMatchReports.$inferInsert>>){
     const {match}=await this.access(userId,matchId,true);
     const result=await this.db.transaction(async tx=>{
-      await tx.execute(sql\`select pg_advisory_xact_lock(hashtext(\${matchId}))\`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${matchId}))`);
       const row=await this.initialized(matchId,userId);
       if(!canEdit(row.status))throw errors.conflict("REFEREE_REPORT_LOCKED","This report is under organizer review.");
       if(row.revision!==revision)throw errors.conflict("REFEREE_REPORT_STALE","Report changed. Refresh before editing.");
