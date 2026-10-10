@@ -26,8 +26,8 @@ test(app.includes("createRefereePhase2Router")&&app.includes("createOwnerReferee
   "Phase 2 routes must have authenticating API mounts.");
 test(comp.includes("REFEREE_MATCH_LOCKED"),"No rescheduling after kickoff or report submission.");
 for(const term of ["refereePhase2Api.clock","refereePhase2Api.event",
-  "refereePhase2Api.removeEvent","refereePhase2Api.submit","checks.homePresent",
-  "kind.YELLOW_CARD","kind.RED_CARD","kind.FOUL","kind.TIMEOUT","kind.SUBSTITUTION"]){
+  "refereePhase2Api.removeEvent","refereePhase2Api.submit",'tr("checks."+key)',
+  '"YELLOW_CARD"','"RED_CARD"','"FOUL"','"TIMEOUT"','"SUBSTITUTION"']){
   test(refUi.includes(term),"Mobile referee Match Center incomplete: "+term);
 }
 test(dash.includes("<RefereeMatchCenter")&&dash.includes("reportFinishedAt")&&
