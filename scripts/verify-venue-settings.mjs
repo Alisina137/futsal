@@ -28,6 +28,9 @@ const localization=read("packages/localization/src/index.ts");
 const mobilePackage=read("apps/mobile/package.json");
 const mobileLock=read("pnpm-lock.yaml");
 const venueWebMap=read("apps/mobile/src/components/owner/VenueLocationWebMap.tsx");
+const browserMap=read("apps/mobile/src/components/owner/VenueLocationWebMap.web.tsx");
+const nativeGoogle=read("apps/mobile/src/components/owner/VenueGoogleMap.native.tsx");
+const webGoogle=read("apps/mobile/src/components/owner/VenueGoogleMap.web.tsx");
 const bookingTests=read("apps/api/test/booking.test.ts");
 const ownerTests=read("apps/api/test/owner.test.ts");
 
@@ -132,17 +135,13 @@ for(const marker of [
   assert(settingsPage.includes(marker),`Venue Settings mobile control missing: ${marker}`);
 }
 for(const marker of [
-  'from "react-native-maps"',
-  "PROVIDER_GOOGLE",
-  "DEFAULT_MAP_REGION",
+  "VenueGoogleMap",
   "onPress={openLocationPicker}",
   'accessibilityLabel={t("venueSettings.chooseOnMap")}',
   'coordinateMapButton',
   'styles.coordinateFields',
   'locationPickerOpen?<Modal',
-  'onPress={(event)=>acceptDraftPoint(event.nativeEvent.coordinate)}',
-  "draggable",
-  "onDragEnd={(event)=>acceptDraftPoint(event.nativeEvent.coordinate)}",
+  "onPick={acceptDraftPoint}",
   "setLatitude(String(next.latitude))",
   "setLongitude(String(next.longitude))",
   'editable={false}',
@@ -166,9 +165,29 @@ const locationSection=settingsPage.slice(settingsPage.indexOf('<SectionTitle ico
 assert(locationSection.indexOf('styles.coordinateFields')>=0
   && locationSection.indexOf("onPress={openLocationPicker}")>locationSection.indexOf('styles.coordinateFields'),
   "Google Maps button must appear NEXT TO latitude and longitude inputs.");
-assert((settingsPage.match(/<MapView\b/g)??[]).length===1
-  && settingsPage.indexOf("<MapView")>settingsPage.indexOf("locationPickerOpen?<Modal"),
+assert(settingsPage.includes('<VenueGoogleMap')&&settingsPage.indexOf("<VenueGoogleMap")>
+    settingsPage.indexOf("locationPickerOpen?<Modal"),
   "Google Map must open in fullscreen modal, not consume Venue Settings layout.");
+assert(!settingsPage.includes('from "react-native-maps"')
+  &&!settingsPage.includes('from "react-native-webview"')
+  &&settingsPage.includes('Platform.OS!=="web"'),
+  "Expo Router eagerly loads settings on web: never import native maps or show unsupported Google map choice.");
+for(const marker of ['from "react-native-maps"',"PROVIDER_GOOGLE",
+  "DEFAULT_MAP_REGION","<MapView","<Marker","draggable",
+  'onPress={(event)=>onPick(event.nativeEvent.coordinate)}',
+  'onDragEnd={(event)=>onPick(event.nativeEvent.coordinate)}']){
+  assert(nativeGoogle.includes(marker),`Android Google Map functionality missing: ${marker}`);
+}
+assert(!webGoogle.includes("react-native-maps")
+  &&webGoogle.includes("<VenueLocationWebMap"),
+  "Browser Google fallback must never evaluate react-native-maps.");
+assert(!browserMap.includes('from "react-native-webview"')
+  &&browserMap.includes('createElement("iframe"')
+  &&browserMap.includes('window.parent.postMessage')
+  &&browserMap.includes('event.source!==frame.current?.contentWindow')
+  &&browserMap.includes('sandbox:"allow-scripts"')
+  &&browserMap.includes('if(parsed.type!=="pick"||readOnly||!parsed.point)return;'),
+  "Browser venue picker must use a safe real Leaflet iframe without importing native WebView.");
 const addressRow=settingsPage.slice(settingsPage.indexOf('<SectionTitle icon="business-outline"'),settingsPage.indexOf('<SectionTitle icon="call-outline"'));
 assert(addressRow.includes('t("owner.address")')&&addressRow.includes('t("venueSettings.viewSavedAddress")')&&addressRow.includes('onPress={openSavedAddress}'),
   "General → Address must retain its label and expose a view-saved-address action.");
