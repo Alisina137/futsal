@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,spacing,radius} from "@leaguekick/design-tokens";
 import {router,useFocusEffect} from "expo-router";
@@ -45,7 +46,7 @@ function StatusBadge({status}:{status:string}){
 }
 export function RefereeDashboard(){
   const {session}=useAuth(),{t,isRTL,language}=useLocale();
-  const token=session?.accessToken;
+  const token=session?.accessToken,userId=session?.user.id;
   const tr=(key:string)=>t(("rf1."+key) as never);
   const [main,setMain]=useState<Main>("overview");
   const [sub,setSub]=useState<Record<string,string>>({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
@@ -59,6 +60,7 @@ export function RefereeDashboard(){
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
   const [calendarAnchor,setCalendarAnchor]=useState(new Date());
   const [refresh,setRefresh]=useState(0);
+  const previousScope=useRef<string|null>(null);
   const navRef=useRef<ScrollView|null>(null),navViewport=useRef(0),navWidth=useRef(0);
   const cells=useRef<Partial<Record<Main,{x:number;width:number}>>>({});
   const focusTab=useCallback((id:Main,animated=false)=>{
@@ -69,14 +71,34 @@ export function RefereeDashboard(){
   useEffect(()=>{const h=requestAnimationFrame(()=>focusTab(main));return()=>cancelAnimationFrame(h);},[main,focusTab]);
   useFocusEffect(useCallback(()=>{
     let active=true;
-    if(!token){setLoading(false);return()=>{active=false;};}
+    if(!token||!userId){setData(null);setLoading(false);return()=>{active=false;};}
+    if(previousScope.current!==userId){
+      previousScope.current=userId;setData(null);setDraft(null);
+    }
     setLoading(true);
-    void refereeApi.overview(token).then(value=>{
-      if(active){setData(value);setDraft(value.profile);setError(null);}
-    }).catch(e=>{if(active){setError(e instanceof ApiRequestError?e.message:tr("loadError"));setData(null);}})
-      .finally(()=>{if(active)setLoading(false);});
+    void (async()=>{
+      let cached=false;
+      try{
+        const json=await AsyncStorage.getItem("futsal.referee.overview.v1."+userId);
+        if(json){
+          const value=JSON.parse(json) as RefereeOverview;
+          if(value.person?.id===userId){
+            cached=true;
+            if(active){setData(value);setDraft(value.profile);setLoading(false);}
+          }
+        }
+      }catch{/* Cache is optional; a corrupt entry never grants permissions. */}
+      try{
+        const value=await refereeApi.overview(token);
+        if(active){setData(value);setDraft(value.profile);setError(null);}
+        await AsyncStorage.setItem("futsal.referee.overview.v1."+userId,JSON.stringify(value));
+      }catch(e){if(active){
+        setError(e instanceof ApiRequestError?e.message:tr("loadError"));
+        if(!cached)setData(null);
+      }}finally{if(active)setLoading(false);}
+    })();
     return()=>{active=false;};
-  },[token,refresh,t]));
+  },[token,userId,refresh,t]));
   const choose=(tab:Main)=>{setMain(tab);focusTab(tab,true);};
   async function act(key:string,fn:()=>Promise<unknown>){
     if(busy)return;
