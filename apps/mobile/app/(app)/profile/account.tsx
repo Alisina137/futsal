@@ -1,7 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { useEffect, useState } from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { VenueLocationWebMap } from "../../../src/components/owner/VenueLocationWebMap";
 import { ApiRequestError, resolveMediaImageUrl } from "../../../src/lib/api";
 import { AccountAvatarPicker } from "../../../src/components/profile/AccountAvatarPicker";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -12,7 +14,14 @@ import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
-type Field="displayName"|"age"|"email"|"city"|"bio";
+type Field="displayName"|"age"|"email"|"city"|"bio"|"defaultLocation";
+type Point={latitude:number;longitude:number};
+const validPoint=(latitude:string,longitude:string):Point|null=>{
+  if(!latitude.trim()||!longitude.trim())return null;
+  const lat=Number(latitude),lng=Number(longitude);
+  return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180
+    ?{latitude:lat,longitude:lng}:null;
+};
 type FieldErrors=Partial<Record<Field,string>>;
 
 export default function AccountProfileScreen(){
@@ -25,6 +34,11 @@ export default function AccountProfileScreen(){
   const [email,setEmail]=useState("");
   const [city,setCity]=useState("");
   const [bio,setBio]=useState("");
+  const [defaultLatitude,setDefaultLatitude]=useState("");
+  const [defaultLongitude,setDefaultLongitude]=useState("");
+  const [locationPickerOpen,setLocationPickerOpen]=useState(false);
+  const [draftPoint,setDraftPoint]=useState<Point|null>(null);
+  const [mapError,setMapError]=useState(false);
   const [fieldErrors,setFieldErrors]=useState<FieldErrors>({});
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState<string|null>(null);
@@ -37,6 +51,8 @@ export default function AccountProfileScreen(){
     setEmail(user.email??"");
     setCity(user.city??"");
     setBio(user.bio??"");
+    setDefaultLatitude(user.defaultLatitude===null?"":String(user.defaultLatitude));
+    setDefaultLongitude(user.defaultLongitude===null?"":String(user.defaultLongitude));
   },[user?.id]);
 
   const previewImage=resolveMediaImageUrl(user?.profileImageUrl);
@@ -69,6 +85,10 @@ export default function AccountProfileScreen(){
     if(emailValue&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) next.email=t("profile.emailInvalid");
     if(cityValue.length>80) next.city=t("profile.cityInvalid");
     if(bioValue.length>280) next.bio=t("profile.bioInvalid");
+    if((defaultLatitude.trim()!=="")||(defaultLongitude.trim()!=="")){
+      if(!validPoint(defaultLatitude,defaultLongitude))
+        next.defaultLocation=t("profile.defaultLocationInvalid");
+    }
 
     setFieldErrors(next);
     return Object.keys(next).length===0;
@@ -87,6 +107,8 @@ export default function AccountProfileScreen(){
         email:email.trim(),
         city:city.trim(),
         bio:bio.trim(),
+        defaultLatitude:defaultLatitude.trim()?Number(defaultLatitude):null,
+        defaultLongitude:defaultLongitude.trim()?Number(defaultLongitude):null,
       });
       setMessage(t("profile.profileSaved"));
     }catch(cause){
@@ -174,6 +196,38 @@ export default function AccountProfileScreen(){
         maxLength={80}
       />
 
+      <Card style={styles.locationCard}>
+        <View style={[styles.locationHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.locationIcon}><Ionicons name="location-outline" size={24} color={colors.primary}/></View>
+          <View style={{flex:1,gap:3}}>
+            <AppText weight="bold" variant="bodyLarge">{t("profile.defaultLocationTitle")}</AppText>
+            <AppText variant="caption" muted>{t("profile.defaultLocationDescription")}</AppText>
+          </View>
+        </View>
+        <View style={[styles.coordRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <TextField label={t("profile.latitude")} value={defaultLatitude}
+            onChangeText={value=>{setDefaultLatitude(value);clearFieldError("defaultLocation");}}
+            placeholder="34.5553" keyboardType="numbers-and-punctuation"
+            forceLtr containerStyle={{flex:1}}/>
+          <TextField label={t("profile.longitude")} value={defaultLongitude}
+            onChangeText={value=>{setDefaultLongitude(value);clearFieldError("defaultLocation");}}
+            placeholder="69.2075" keyboardType="numbers-and-punctuation"
+            forceLtr containerStyle={{flex:1}}/>
+        </View>
+        {fieldErrors.defaultLocation?<AppText accessibilityRole="alert"
+          style={{color:colors.danger}}>{fieldErrors.defaultLocation}</AppText>:null}
+        <Button label={t("profile.chooseDefaultOnMap")}
+          variant="secondary" icon={<Ionicons name="map-outline" size={20} color={colors.primary}/>}
+          onPress={()=>{
+            setDraftPoint(validPoint(defaultLatitude,defaultLongitude));
+            setMapError(false);setLocationPickerOpen(true);
+          }}/>
+        {(defaultLatitude!==""||defaultLongitude!=="")?<Button
+          label={t("profile.clearDefaultLocation")} variant="secondary"
+          onPress={()=>{setDefaultLatitude("");setDefaultLongitude("");clearFieldError("defaultLocation");}}/>:null}
+        <AppText variant="caption" muted>{t("profile.defaultLocationPrivacy")}</AppText>
+      </Card>
+
       <TextField
         label={t("profile.bio")}
         placeholder={t("profile.bioPlaceholder")}
@@ -201,6 +255,47 @@ export default function AccountProfileScreen(){
         icon={<Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF"/>}
       />
     </Card>
+
+    <Modal visible={locationPickerOpen} animationType="slide"
+      onRequestClose={()=>setLocationPickerOpen(false)} statusBarTranslucent>
+      <SafeAreaView edges={["top","bottom","left","right"]} style={styles.modalSafe}>
+        <View style={[styles.modalTop,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={{flex:1,gap:3}}>
+            <AppText variant="bodyLarge" weight="bold">{t("profile.defaultLocationTitle")}</AppText>
+            <AppText variant="caption" muted>{t("profile.tapMapToChoose")}</AppText>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")}
+            style={styles.modalClose} onPress={()=>setLocationPickerOpen(false)}>
+            <Ionicons name="close" size={24} color={colors.text}/>
+          </Pressable>
+        </View>
+        <View style={styles.mapContainer}>
+          <VenueLocationWebMap initialPoint={draftPoint}
+            onPick={point=>{setDraftPoint(point);setMapError(false);}}
+            onReady={()=>setMapError(false)}
+            onFailed={()=>setMapError(true)}/>
+        </View>
+        <View style={styles.modalFooter}>
+          {mapError?<AppText variant="caption" style={{color:colors.danger}}>
+            {t("profile.mapUnavailable")}
+          </AppText>:null}
+          {draftPoint?<AppText forceLtr variant="caption" style={{textAlign:"center"}}>
+            {draftPoint.latitude.toFixed(6)}, {draftPoint.longitude.toFixed(6)}
+          </AppText>:null}
+          <View style={[styles.modalButtons,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button label={t("common.cancel")} variant="secondary" style={{flex:1}}
+              onPress={()=>setLocationPickerOpen(false)}/>
+            <Button label={t("profile.useThisLocation")} disabled={!draftPoint} style={{flex:1}}
+              onPress={()=>{
+                if(!draftPoint)return;
+                setDefaultLatitude(String(Number(draftPoint.latitude.toFixed(6))));
+                setDefaultLongitude(String(Number(draftPoint.longitude.toFixed(6))));
+                clearFieldError("defaultLocation");setLocationPickerOpen(false);
+              }}/>
+          </View>
+        </View>
+      </SafeAreaView>
+    </Modal>
   </Screen>;
 }
 
@@ -211,4 +306,17 @@ const styles=StyleSheet.create({
   formCard:{gap:spacing.md,padding:spacing.lg},
   bioInput:{minHeight:96,textAlignVertical:"top"},
   statusBox:{alignItems:"center",gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:"#F0FBF4"},
+  locationCard:{gap:spacing.md,padding:spacing.md},
+  locationHeader:{alignItems:"center",gap:spacing.sm},
+  locationIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center"},
+  coordRow:{gap:spacing.sm},
+  modalSafe:{flex:1,backgroundColor:colors.surface},
+  modalTop:{padding:spacing.md,alignItems:"center",gap:spacing.sm},
+  modalClose:{height:44,width:44,borderRadius:22,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center"},
+  mapContainer:{flex:1,minHeight:220,marginHorizontal:spacing.sm,overflow:"hidden",
+    borderRadius:radius.md,borderWidth:1,borderColor:colors.border},
+  modalFooter:{padding:spacing.md,gap:spacing.sm},
+  modalButtons:{gap:spacing.sm},
 });
