@@ -72,11 +72,14 @@ export function PublicTopNavigation(){
           style={({pressed})=>[styles.tab,pressed&&styles.pressed]}
         >
           <View style={styles.iconArea}>
-            <Ionicons name={active?item.selectedIcon:item.icon} size={25} color={active?colors.primary:colors.textMuted}/>
+            <Ionicons name={active?item.selectedIcon:item.icon} size={23} color={active?colors.primary:colors.textMuted}/>
             {badge?<View style={styles.badge} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <AppText variant="caption" weight="bold" style={styles.badgeText} forceLtr>{unread>99?"99+":String(unread)}</AppText>
             </View>:null}
           </View>
+          <AppText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}
+            variant="caption" weight={active?"bold":"medium"}
+            style={[styles.label,active&&styles.labelActive]}>{item.label}</AppText>
           <View style={[styles.indicator,active&&styles.indicatorActive]}/>
         </Pressable>;
       })}
@@ -87,9 +90,11 @@ export function PublicTopNavigation(){
 const styles=StyleSheet.create({
   container:{width:"100%",maxWidth:720,alignSelf:"center",backgroundColor:colors.surface,borderBottomWidth:1,borderBottomColor:colors.border},
   row:{width:"100%",alignItems:"stretch"},
-  tab:{flex:1,minWidth:0,height:58,alignItems:"center",justifyContent:"flex-end",paddingTop:spacing.xs},
+  tab:{flex:1,minWidth:0,height:64,alignItems:"center",justifyContent:"flex-end",paddingTop:3,paddingHorizontal:2},
   pressed:{backgroundColor:colors.surfaceMuted},
-  iconArea:{flex:1,minHeight:43,alignItems:"center",justifyContent:"center"},
+  iconArea:{height:34,minHeight:34,alignItems:"center",justifyContent:"center"},
+  label:{color:colors.textMuted,textAlign:"center",fontSize:10,lineHeight:15,marginBottom:5,width:"100%"},
+  labelActive:{color:colors.primary},
   indicator:{height:3,width:"100%",backgroundColor:"transparent",borderTopLeftRadius:4,borderTopRightRadius:4},
   indicatorActive:{backgroundColor:colors.primary},
   badge:{position:"absolute",top:0,right:-16,minWidth:19,height:19,paddingHorizontal:3,borderRadius:10,backgroundColor:"#DC2626",
