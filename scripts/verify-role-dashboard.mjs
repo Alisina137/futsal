@@ -26,19 +26,20 @@ const tabsLayout = read("apps/mobile/app/(app)/(tabs)/_layout.tsx");
 const screen = read("apps/mobile/src/components/ui/Screen.tsx");
 
 for (const role of ["PLAYER","VENUE_OWNER","TEAM_MANAGER","REFEREE"]) {
-  assert(header.includes(role), `Dashboard hamburger eligibility missing regular role: ${role}`);
-  assert(dashboard.includes(role), `Dashboard route does not resolve role: ${role}`);
+  assert(dashboard.includes(role), `Dashboard route does not support role: ${role}`);
 }
 assert(header.includes("isPlatformAdmin")&&header.includes('href:"/admin"'),
-  "Platform Admin must have its own navigation, not the regular five public pages.");
-
-assert(dashboard.includes("resolveDashboardRole"), "Role-aware dashboard resolver missing.");
-assert(dashboard.includes('role === "VENUE_OWNER"') && dashboard.includes('<Redirect href="/owner/competitions" />'), "Venue Owner dashboard must enter the persistent owner shell at Competitions.");
-assert(dashboard.includes('role === "TEAM_MANAGER"'), "Team Owner dashboard shell missing.");
-assert(dashboard.includes('role === "PLAYER"'), "Player dashboard shell missing.");
-assert(dashboard.includes('role === "REFEREE"'), "Referee dashboard shell missing.");
-assert(dashboard.includes('PLATFORM_ADMIN'), "Platform Admin dashboard shell missing.");
-assert(dashboard.includes("dashboard.normalUnavailableTitle"), "Normal-user direct dashboard fallback missing.");
+  "Platform Admin must have its own navigation.");
+assert(header.includes('href:"/dashboard/player"')&&header.includes("const hasDashboard=true;"),
+  "All normal and paid-role accounts must be able to reach their free Player Dashboard.");
+assert(dashboard.includes("roles.includes"),"Role-aware dashboard resolver missing.");
+assert(dashboard.includes('roles.includes("VENUE_OWNER")')&&dashboard.includes('<Redirect href="/owner/competitions"/>'),
+  "Venue Owner dashboard must enter the persistent owner shell at Competitions.");
+assert(dashboard.includes('roles.includes("TEAM_MANAGER")'),"Team Owner dashboard shell missing.");
+assert(dashboard.includes('return <PlayerDashboard/>'),"Player dashboard shell missing for normal users.");
+assert(dashboard.includes('roles.includes("REFEREE")'),"Referee dashboard shell missing.");
+assert(dashboard.includes("PLATFORM_ADMIN"),"Platform Admin dashboard shell missing.");
+assert(dashboard.includes('"/dashboard/player"'),"Normal-user direct player dashboard must be reachable.");
 
 assert(ownerLayout.includes("<AppHeader/>"), "Venue Owner shell must render the app header once.");
 assert(ownerLayout.includes("<OwnerTopNav/>"), "Venue Owner shell must render the owner navigation once.");
@@ -102,7 +103,8 @@ assert(
 assert(home.includes("marketingApi.socialFeed"), "Home must remain the shared social feed.");
 assert(!home.includes("OwnerDashboard"), "Venue Owner dashboard must no longer replace Home.");
 assert(!header.includes('href:"/schedule"'), "Role-specific Schedule must not be in the shared hamburger.");
-assert(header.includes('...(hasDashboard?['), "Dashboard must remain conditional for role users.");
+assert(header.includes('...(hasDashboard?[')&&header.includes("const hasDashboard=true;"),
+  "Shared dashboard navigation must include normal accounts as well as paid roles.");
 
 assert((localization.match(/"dashboard\.title"/g) ?? []).length === 3, "Dashboard title must exist in all three languages.");
 assert((localization.match(/"dashboard\.teamOwnerTitle"/g) ?? []).length === 3, "Team Owner dashboard copy missing in one or more languages.");
