@@ -34,13 +34,13 @@ describe("Competition announced rewards",()=>{
     const created=await svc.create(owner,template);
     expect(created.rewards).toEqual([]);
     const updated=await svc.replaceRewards(owner,created.id,prizes);
-    expect(updated.rewards).toEqual(prizes);
+    expect(updated?.rewards).toEqual(prizes);
     await expect(svc.getPublic(created.id)).rejects.toMatchObject({code:"COMPETITION_NOT_FOUND"});
     const previous=repo.competitions.get(created.id)!;
     repo.competitions.set(created.id,{...previous,published:true,status:"REGISTRATION_OPEN"});
     expect((await svc.getPublic(created.id)).rewards).toEqual(prizes);
     const modified=await svc.replaceRewards(owner,created.id,[prizes[0]!]);
-    expect(modified.rewards).toHaveLength(1);
+    expect(modified?.rewards).toHaveLength(1);
     expect((await svc.getPublic(created.id)).rewards).toEqual([prizes[0]!]);
     await svc.replaceRewards(owner,created.id,[]);
     expect((await svc.getPublic(created.id)).rewards).toEqual([]);
