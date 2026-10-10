@@ -693,8 +693,8 @@ export const teamApi = {
   joinRequests:(token:string,teamId:string)=>
     request<{requests:TeamJoinRequestDto[]}>(`/api/v1/teams/${teamId}/join-requests`,{},token),
   respondJoinRequest:(token:string,teamId:string,requestId:string,accept:boolean)=>
-    request<{request:TeamJoinRequestDto}>(`/api/v1/teams/${teamId}/join-requests/${requestId}/respond`,
-      {method:"POST",body:JSON.stringify({accept})},token),
+    request<{request:TeamJoinRequestDto}>(`/api/v1/teams/${teamId}/join-requests/${requestId}`,
+      {method:"PATCH",body:JSON.stringify({accept})},token),
   joinRequest: (accessToken: string, teamId: string) =>
     request<{ request: TeamJoinRequestDto | null }>(`/api/v1/teams/${teamId}/join-request`, {}, accessToken),
   requestJoin: (accessToken: string, teamId: string) =>

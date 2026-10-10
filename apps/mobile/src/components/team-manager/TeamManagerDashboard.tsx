@@ -60,6 +60,8 @@ export function TeamManagerDashboard(){
   const [overview,setOverview]=useState<TeamManagerOverview|null>(null);
   const [offer,setOffer]=useState<RoleSubscriptionOfferDto|null>(null);
   const [requests,setRequests]=useState<TeamJoinRequestDto[]>([]);
+  const [joinAction,setJoinAction]=useState<{requestId:string;accept:boolean}|null>(null);
+  const [joinActionError,setJoinActionError]=useState<{requestId:string;message:string}|null>(null);
   const [invitations,setInvitations]=useState<TeamInvitationDto[]>([]);
   const [unread,setUnread]=useState(0);
   const [venues,setVenues]=useState<PublicVenueDto[]>([]);
@@ -145,6 +147,26 @@ export function TeamManagerDashboard(){
       .catch(()=>{if(active)setVenues([]);});
     return()=>{active=false;};
   },[showVenues,venueSearch]);
+
+  async function respondToPlayerRequest(requestId:string,accept:boolean){
+    if(!token||!team||busy)return;
+    setBusy(true);
+    setJoinAction({requestId,accept});
+    setJoinActionError(null);
+    setError(null);
+    setMessage(null);
+    try{
+      const {request:updated}=await teamApi.respondJoinRequest(token,team.id,requestId,accept);
+      setRequests(current=>current.map(item=>item.id===updated.id?updated:item));
+      setMessage(t("tm1.saved"));
+      setRefresh(v=>v+1);
+    }catch(e){
+      setJoinActionError({requestId,message:e instanceof ApiRequestError?e.message:t("tm1.actionFailed")});
+    }finally{
+      setBusy(false);
+      setJoinAction(null);
+    }
+  }
 
   async function perform(fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
@@ -324,10 +346,14 @@ export function TeamManagerDashboard(){
             <AppText weight="semibold">{request.requesterDisplayName}</AppText>
             <View style={styles.actions}>
               <Button label={t("teams.accept")} style={styles.action} disabled={!canWrite||busy}
-                onPress={()=>void perform(()=>teamApi.respondJoinRequest(token!,team.id,request.id,true))}/>
+                loading={joinAction?.requestId===request.id&&joinAction.accept}
+                onPress={()=>void respondToPlayerRequest(request.id,true)}/>
               <Button label={t("teams.decline")} style={styles.action} variant="secondary" disabled={!canWrite||busy}
-                onPress={()=>void perform(()=>teamApi.respondJoinRequest(token!,team.id,request.id,false))}/>
+                loading={joinAction?.requestId===request.id&&!joinAction.accept}
+                onPress={()=>void respondToPlayerRequest(request.id,false)}/>
             </View>
+            {joinActionError?.requestId===request.id?
+              <AppText style={{color:colors.danger}}>{joinActionError.message}</AppText>:null}
           </View>)}
         </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.temporaryPlayers")} ({overview.guests.length})</AppText>

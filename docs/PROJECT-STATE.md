@@ -624,3 +624,10 @@ Phase 2 implemented on main with three additional tabs **Competitions**, **Match
 Migration `0026_team_manager_phase2`: `team_competition_roster`, `team_match_lineups`, `team_activities`, and `team_activity_responses`. Roster has composite FK to the exact competition/team registration and active member checks at the API; team activity responses require membership, all management mutations active subscription. Booking venue reuses existing public venue booking flow. Dedicated media/statistics/friendly challenges and achievements are Phase 3, not Phase 2.
 
 After pull: `pnpm db:migrate`, `pnpm verify:team-manager-phase2`, `pnpm verify`. Changes delivered only after CI checks.
+
+
+## Team Manager join request Accept/Reject hotfix (2026-10-10)
+- Root cause: mobile team-manager `respondJoinRequest` incorrectly sent `POST /api/v1/teams/:teamId/join-requests/:requestId/respond`, whereas the existing protected server route is `PATCH /api/v1/teams/:teamId/join-requests/:requestId` with JSON `{accept:boolean}`. Both buttons therefore returned 404.
+- Corrected the mobile API client to match the existing server contract. Added request-specific in-flight action feedback and visible inline errors in Players > Join Requests. On successful decision, the row is updated immediately and roster/details are refreshed.
+- Added request-level Supertest coverage for both Accept and Reject: authorization, state transition, membership change, pending-list refresh and duplicate-conflict. Added invariant check `pnpm verify:team-join-requests` to the full verification chain.
+- This is a targeted UI/API contract repair: no schema migration or changed competition/venue semantics.
