@@ -97,10 +97,17 @@ export class RefereePhase2Service{
         .where(and(eq(venueReferees.userId,userId),eq(venueReferees.venueId,record.competition.venueId))).limit(1),
     ]);
     if(response[0]?.status!=="ACCEPTED")throw errors.forbidden("REFEREE_NOT_CONFIRMED","Accept the assignment first.");
-    if(write&&!auth.length)throw errors.forbidden("REFEREE_VENUE_REQUIRED","Venue authorization was removed.");
+    if(!auth.length){
+      if(write)throw errors.forbidden("REFEREE_VENUE_REQUIRED","Venue authorization was removed.");
+      const [oldReport]=await this.db.select({status:refereeMatchReports.status})
+        .from(refereeMatchReports).where(and(eq(refereeMatchReports.matchId,matchId),
+          eq(refereeMatchReports.refereeUserId,userId))).limit(1);
+      if(!oldReport||!["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"].includes(oldReport.status))
+        throw errors.forbidden("REFEREE_VENUE_REQUIRED","Venue authorization was removed.");
+    }
     if(write&&!["SCHEDULED","IN_PROGRESS"].includes(record.match.status))
       throw errors.conflict("MATCH_ALREADY_OFFICIAL","Official result is finalized or match is unavailable.");
-    return record;
+    return {...record,authorized:auth.length>0};
   }
   private async organizer(userId:string,competitionId:string){
     const [record]=await this.db.select({competitionId:competitions.id})
@@ -116,14 +123,14 @@ export class RefereePhase2Service{
     return row;
   }
   async get(userId:string,matchId:string){
-    const {match,competition}=await this.access(userId,matchId,false);
+    const {match,competition,authorized}=await this.access(userId,matchId,false);
     const [rows,roster]=await Promise.all([
       this.db.select().from(refereeMatchReports).where(eq(refereeMatchReports.matchId,matchId)).limit(1),
-      this.db.select({teamId:teamMemberships.teamId,userId:teamMemberships.userId,
+      authorized?this.db.select({teamId:teamMemberships.teamId,userId:teamMemberships.userId,
         name:users.displayName,shirtNumber:teamMemberships.shirtNumber})
         .from(teamMemberships).innerJoin(users,eq(users.id,teamMemberships.userId))
         .where(and(inArray(teamMemberships.teamId,[match.homeTeamId,match.awayTeamId].filter((v):v is string=>!!v)),
-          eq(teamMemberships.status,"ACTIVE"))),
+          eq(teamMemberships.status,"ACTIVE"))):Promise.resolve([]),
     ]);
     const row=rows[0];
     // No report is created merely by viewing a match.

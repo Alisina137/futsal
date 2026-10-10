@@ -53,6 +53,12 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
   const recording=editable&&(active||report?.status==="CHANGES_REQUESTED");
   const canStart=editable&&!report?.startedAt;
   const scores=report?.score??{homeScore:0,awayScore:0};
+  const fouls=(s:"HOME"|"AWAY")=>report?.events.filter(e=>
+    e.kind==="FOUL"&&e.side===s&&e.period===clock.period).length??0;
+  const repeatCautions=(report?.events??[]).filter(e=>e.kind==="YELLOW_CARD"&&e.playerUserId)
+    .reduce<Record<string,number>>((acc,e)=>({...acc,[e.playerUserId!]:
+      (acc[e.playerUserId!]??0)+1}),{});
+  const secondCaution=Object.entries(repeatCautions).some(([,count])=>count>=2);
   async function perform(fn:()=>Promise<{report:RefereeMatchReport}>){
     if(busy||!token)return;
     setBusy(true);setError(null);setMessage(null);
@@ -83,6 +89,10 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
         <AppText variant="title" weight="bold" forceLtr>{clockText(seconds)}</AppText>
         <AppText variant="caption" muted>{tr("period")} {clock.period} · {data?.match.durationMinutes??match.durationMinutes} {tr("minutes")}</AppText>
       </View>
+      <AppText variant="caption" muted>{tr("foulCount")}: {match.homeTeamName} {fouls("HOME")} · {match.awayTeamName} {fouls("AWAY")}</AppText>
+      {(fouls("HOME")>=5||fouls("AWAY")>=5)?
+        <AppText variant="caption" style={{color:colors.warning}}>{tr("foulWarning")}</AppText>:null}
+      {secondCaution?<AppText variant="caption" style={{color:colors.warning}}>{tr("secondCaution")}</AppText>:null}
       <AppText variant="caption" muted>{tr("reportStatus")}: {tr("status."+status)}</AppText>
       {report?.feedback?<AppText variant="caption" style={{color:colors.warning}}>
         {tr("reviewFeedback")}: {report.feedback}</AppText>:null}

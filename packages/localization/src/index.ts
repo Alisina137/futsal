@@ -9,6 +9,9 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "rf2.foulCount": "Accumulated fouls (current period)",
+  "rf2.foulWarning": "Fifth accumulated foul reached. Apply the competition's rules for any subsequent fouls.",
+  "rf2.secondCaution": "A player has two cautions. Confirm any required dismissal.",
   "rf2.back": "Back to matches",
   "rf2.period": "Period",
   "rf2.minutes": "minutes",
@@ -2435,6 +2438,9 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "rf2.foulCount": "خطاهای تجمعی (نیمه جاری)",
+  "rf2.foulWarning": "تعداد خطاهای تجمعی به پنج رسید؛ قوانین مسابقه را برای خطاهای بعدی اجرا کنید.",
+  "rf2.secondCaution": "یک بازیکن دو کارت زرد دارد؛ اخراج لازم را بررسی کنید.",
   "rf2.back": "بازگشت به مسابقات",
   "rf2.period": "نیمه",
   "rf2.minutes": "دقیقه",
@@ -4859,6 +4865,9 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "rf2.foulCount": "ټولې شوې خطاوې (اوسنۍ نیمایي)",
+  "rf2.foulWarning": "پنځه جمع شوې خطاوې ثبت شوې؛ د راتلونکو خطاوو لپاره د سیالۍ اصول وکاروئ.",
+  "rf2.secondCaution": "یو لوبغاړی دوه ژېړ کارتونه لري؛ اړینه شړنه وګورئ.",
   "rf2.back": "لوبو ته ستنېدل",
   "rf2.period": "نیمایي",
   "rf2.minutes": "دقیقې",
