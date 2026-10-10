@@ -44,7 +44,7 @@ export function AppHeader(){
       icon:"grid-outline" as IconName,
       href:"/dashboard",
     }]:[]),
-    {key:"playerDashboard",label:t("pd1.playerDashboard"),icon:"person-outline",href:"/dashboard/player"},
+    // One Dashboard menu entry: /dashboard selects the signed-in account's role-specific view.
     {key:"venues",label:t("booking.venuesTitle"),icon:"football-outline",href:"/venues"},
     {key:"teams",label:t("teams.title"),icon:"people-outline",href:"/teams"},
     {key:"competitions",label:t("competition.title"),icon:"trophy-outline",href:"/competitions"},

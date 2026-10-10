@@ -18,8 +18,9 @@ requireInvariant(dash.includes('flexDirection:isRTL?"row-reverse":"row"')&&
   "Player navigation must focus selected tab, show active underline and support RTL.");
 requireInvariant(route.includes("return <PlayerDashboard")&&alt.includes("<PlayerDashboard"),
   "Player screen must be available for free accounts and through direct route.");
-requireInvariant(header.includes('key:"playerDashboard"')&&header.includes('href:"/dashboard/player"'),
-  "Paid roles must be able to access their free player dashboard.");
+requireInvariant(header.includes('key:"dashboard"')&&header.includes('href:"/dashboard"')&&
+  !header.includes('key:"playerDashboard"')&&!header.includes('href:"/dashboard/player"'),
+  "Hamburger must offer only the shared role-aware Dashboard; the direct player route stays compatible.");
 requireInvariant(app.includes("createPlayerDashboardPhase1Router")&&server.includes("new PlayerDashboardPhase1Service"),
   "Backend dashboard routes are not registered.");
 requireInvariant(schema.includes("export const playerDashboardPreferences"),
