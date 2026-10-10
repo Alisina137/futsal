@@ -38,6 +38,7 @@ export default function AccountProfileScreen(){
   const [defaultLongitude,setDefaultLongitude]=useState("");
   const [locationPickerOpen,setLocationPickerOpen]=useState(false);
   const [draftPoint,setDraftPoint]=useState<Point|null>(null);
+  const [pickerInitialPoint,setPickerInitialPoint]=useState<Point|null>(null);
   const [mapError,setMapError]=useState(false);
   const [fieldErrors,setFieldErrors]=useState<FieldErrors>({});
   const [busy,setBusy]=useState(false);
@@ -219,7 +220,8 @@ export default function AccountProfileScreen(){
         <Button label={t("profile.chooseDefaultOnMap")}
           variant="secondary" icon={<Ionicons name="map-outline" size={20} color={colors.primary}/>}
           onPress={()=>{
-            setDraftPoint(validPoint(defaultLatitude,defaultLongitude));
+            const current=validPoint(defaultLatitude,defaultLongitude);
+            setPickerInitialPoint(current);setDraftPoint(current);
             setMapError(false);setLocationPickerOpen(true);
           }}/>
         {(defaultLatitude!==""||defaultLongitude!=="")?<Button
@@ -270,7 +272,7 @@ export default function AccountProfileScreen(){
           </Pressable>
         </View>
         <View style={styles.mapContainer}>
-          <VenueLocationWebMap initialPoint={draftPoint}
+          <VenueLocationWebMap initialPoint={pickerInitialPoint}
             onPick={point=>{setDraftPoint(point);setMapError(false);}}
             onReady={()=>setMapError(false)}
             onFailed={()=>setMapError(true)}/>
