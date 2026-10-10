@@ -9,6 +9,7 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "rf2.recoverApproval": "Retry interrupted approval (after two minutes)",
   "rf2.optionalAssister": "Goal assister (optional)",
   "rf2.assist": "Assist",
   "rf2.foulCount": "Accumulated fouls (current period)",
@@ -2440,6 +2441,7 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "rf2.recoverApproval": "تلاش دوباره برای تأیید نیمه‌تمام (پس از دو دقیقه)",
   "rf2.optionalAssister": "پاس گول‌دهنده (اختیاری)",
   "rf2.assist": "پاس گول",
   "rf2.foulCount": "خطاهای تجمعی (نیمه جاری)",
@@ -4869,6 +4871,7 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "rf2.recoverApproval": "نیمګړی تأیید بیا هڅه کړئ (له دوو دقیقو وروسته)",
   "rf2.optionalAssister": "د ګول مرسته کوونکی (اختیاري)",
   "rf2.assist": "د ګول مرسته",
   "rf2.foulCount": "ټولې شوې خطاوې (اوسنۍ نیمایي)",

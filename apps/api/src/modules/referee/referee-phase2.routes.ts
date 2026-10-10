@@ -312,6 +312,30 @@ export class RefereePhase2Service{
       .where(eq(refereeMatchReports.matchId,matchId)).limit(1);
     if(!row)throw errors.badRequest("REFEREE_REPORT_NOT_FOUND","This match has no referee report.");
     await this.organizer(ownerId,row.match.competitionId);
+    if(input.action==="APPROVE"&&row.report.status==="APPROVED")
+      return {report:this.format(row.report)}; // Idempotent retry after a lost response.
+    if(row.report.status==="APPROVING"){
+      if(this.now().getTime()-row.report.updatedAt.getTime()<120_000)
+        throw errors.conflict("REPORT_REVIEW_IN_PROGRESS","The result is being published. Try again shortly.");
+      const score=reportScore(row.report.events as RefereeEvent[]);
+      if(["COMPLETED","CORRECTED"].includes(row.match.status)){
+        if(row.match.homeScore!==score.homeScore||row.match.awayScore!==score.awayScore)
+          throw errors.conflict("REPORT_OFFICIAL_SCORE_DIFFERENT",
+            "The official result differs from the referee report. Contact the organizer.");
+        // Recover an approval interrupted after the official competition write.
+        const [recovered]=await this.db.update(refereeMatchReports).set({
+          status:"APPROVED",reviewedAt:this.now(),reviewedByUserId:ownerId,
+          revision:row.report.revision+1,updatedAt:this.now(),
+        }).where(and(eq(refereeMatchReports.matchId,matchId),
+          eq(refereeMatchReports.status,"APPROVING"),eq(refereeMatchReports.revision,row.report.revision))).returning();
+        if(!recovered)throw errors.conflict("REPORT_REVIEW_CONFLICT","Refresh the report.");
+        return {report:this.format(recovered)};
+      }
+      await this.db.update(refereeMatchReports).set({status:"SUBMITTED",updatedAt:this.now()})
+        .where(and(eq(refereeMatchReports.matchId,matchId),eq(refereeMatchReports.status,"APPROVING"),
+          eq(refereeMatchReports.revision,row.report.revision)));
+      throw errors.conflict("REPORT_REVIEW_RECOVERED","The interrupted approval has been reset. Retry approval.");
+    }
     if(input.action==="RETURN"){
       if(input.feedback.length<3)throw errors.badRequest("REVIEW_REASON_REQUIRED","Provide a correction reason.");
       const [changed]=await this.db.update(refereeMatchReports).set({status:"CHANGES_REQUESTED",
@@ -343,10 +367,12 @@ export class RefereePhase2Service{
         status:"APPROVED",feedback:input.feedback||null,reviewedAt:this.now(),reviewedByUserId:ownerId,
         revision:locked.revision+1,updatedAt:this.now(),
       }).where(and(eq(refereeMatchReports.matchId,matchId),eq(refereeMatchReports.status,"APPROVING"))).returning();
-      await this.db.insert(auditLogs).values({actorUserId:ownerId,action:"REFEREE_REPORT_APPROVED",
+      try{await this.db.insert(auditLogs).values({actorUserId:ownerId,action:"REFEREE_REPORT_APPROVED",
         targetType:"competition_match",targetId:matchId,
         metadata:{competitionId:row.match.competitionId,refereeUserId:row.report.refereeUserId,
-          score:reportScore(approved!.events as RefereeEvent[])},createdAt:this.now()});
+          score:reportScore(approved!.events as RefereeEvent[])},createdAt:this.now()});}
+      catch(error){console.error(JSON.stringify({event:"referee_approval_audit_failed",
+        errorType:error instanceof Error?error.name:typeof error}));}
       void this.notify(approved!.refereeUserId,row.match.competitionId,"Referee report approved",
         "Your match report was approved and the official result is published.",
         "referee-report-approved:"+matchId+":"+approved!.revision);

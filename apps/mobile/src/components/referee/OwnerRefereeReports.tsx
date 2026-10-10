@@ -63,6 +63,8 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
           <AppText variant="caption" muted>{tr("period")} {event.period} · {Math.floor(event.elapsedSeconds/60)}:{String(event.elapsedSeconds%60).padStart(2,"0")}</AppText>
           {event.details?<AppText variant="caption" muted>{event.details}</AppText>:null}
         </View>)}
+        {report.status==="APPROVING"?<Button label={tr("recoverApproval")} variant="secondary"
+          disabled={busy!==null} onPress={()=>void review(report.matchId,"APPROVE")}/>:null}
         {report.status==="SUBMITTED"?<>
           <TextField label={tr("reviewFeedback")} value={feedback}
             onChangeText={setFeedback} maxLength={800}/>
