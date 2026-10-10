@@ -64,7 +64,7 @@ for (const marker of [
   "getRoleSubscriptionOffers",
   "requestRoleSubscription",
   "activateRoleSubscription",
-  'role !== "VENUE_OWNER" && role !== "TEAM_MANAGER" || activePaid.has(role)',
+  '(role!=="VENUE_OWNER"&&role!=="TEAM_MANAGER")||activePaid.has(role)',
 ]) requireText(authRepo, marker, "Paid role persistence/expiry invariant missing");
 
 for (const marker of [
