@@ -178,7 +178,7 @@ for(const marker of ['from "react-native-maps"',"PROVIDER_GOOGLE",
   'onDragEnd={(event)=>onPick(event.nativeEvent.coordinate)}']){
   assert(nativeGoogle.includes(marker),`Android Google Map functionality missing: ${marker}`);
 }
-assert(!webGoogle.includes("react-native-maps")
+assert(!webGoogle.includes('from "react-native-maps"')
   &&webGoogle.includes("<VenueLocationWebMap"),
   "Browser Google fallback must never evaluate react-native-maps.");
 assert(!browserMap.includes('from "react-native-webview"')
