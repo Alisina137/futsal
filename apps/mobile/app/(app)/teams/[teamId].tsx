@@ -18,7 +18,7 @@ export default function TeamDetailScreen(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const [team,setTeam]=useState<TeamDto|null>(null);
-  const [profileDetails,setProfileDetails]=useState<Omit<TeamManagerProfileDetails,"allowJoinRequests">|null>(null);
+  const [profileDetails,setProfileDetails]=useState<Omit<TeamManagerProfileDetails,"allowJoinRequests"|"whatsappGroupUrl">|null>(null);
   const [member,setMember]=useState(false);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);

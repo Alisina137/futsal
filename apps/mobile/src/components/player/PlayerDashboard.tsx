@@ -175,7 +175,7 @@ export function PlayerDashboard(){
             <Button label={tr("editProfile")} variant="secondary" onPress={()=>router.push("/profile/player")}/>
             <Button label={tr("myTeams")} variant="secondary" onPress={()=>choose("teams")}/>
             {selected&&data.whatsappGroups?.[selected.id]?
-              <WhatsAppGroupButton url={data.whatsappGroups[selected.id]}/>:null}
+              <WhatsAppGroupButton url={data.whatsappGroups[selected.id]!}/>:null}
           </View>
         </Card>
         <View style={styles.stats}>
@@ -261,7 +261,7 @@ export function PlayerDashboard(){
                   }))}/>:null}
                 <Button label={tr("teamActivities")} variant="secondary" onPress={()=>router.push({
                   pathname:"/teams/[teamId]/activities",params:{teamId:team.id}})}/>
-                {data.whatsappGroups?.[team.id]?<WhatsAppGroupButton url={data.whatsappGroups[team.id]}/>:null}
+                {data.whatsappGroups?.[team.id]?<WhatsAppGroupButton url={data.whatsappGroups[team.id]!}/>:null}
               </View>
               {team.managerUserId!==session?.user.id?<View>
                 {confirmLeave===team.id?<View style={styles.actions}>
