@@ -154,7 +154,7 @@ export class TeamService {
       throw errors.forbidden("TEAM_MEMBER_REQUIRED", "Only active team members can view this roster.");
     }
     const team = await this.repository.getTeam(teamId, true);
-    if (!team || team.status !== "ACTIVE" || (team.offlineVenueId && !team.claimedAt)) throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
+    if (!team || team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
     return team;
   }
 

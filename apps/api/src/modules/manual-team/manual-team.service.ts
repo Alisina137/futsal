@@ -131,6 +131,7 @@ export class ManualTeamService {
    */
   async assign(adminUserId: string, teamId: string, input: ManualTeamClaimRequest) {
     const usernameNormalized = normalizeUsername(input.username);
+    if (!usernameNormalized) throw errors.badRequest("TEAM_CLAIM_INVALID_USERNAME", "Provide a valid username.");
     const phoneE164 = normalizeAfghanistanPhone(input.phone);
     return this.db.transaction(async tx => {
       const [team] = await tx.select().from(teams).where(eq(teams.id, teamId)).for("update").limit(1);
