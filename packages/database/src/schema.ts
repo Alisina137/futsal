@@ -1021,3 +1021,44 @@ export const teamGuestPlayers = pgTable("team_guest_players",{
   shirtNumber:integer("shirt_number"),
   createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
 },table=>[index("team_guest_players_team_idx").on(table.teamId)]);
+
+
+/** Phase 2: per-competition player eligibility, manager-owned lineup and team calendar. */
+export const teamCompetitionRoster = pgTable("team_competition_roster",{
+  competitionId:uuid("competition_id").notNull(),
+  teamId:uuid("team_id").notNull(),
+  userId:uuid("user_id").notNull().references(()=>users.id,{onDelete:"cascade"}),
+  addedAt:timestamp("added_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  primaryKey({columns:[table.competitionId,table.teamId,table.userId]}),
+  index("team_competition_roster_team_idx").on(table.teamId,table.competitionId),
+]);
+
+export const teamMatchLineups = pgTable("team_match_lineups",{
+  matchId:uuid("match_id").notNull().references(()=>competitionMatches.id,{onDelete:"cascade"}),
+  teamId:uuid("team_id").notNull().references(()=>teams.id,{onDelete:"cascade"}),
+  starters:jsonb("starters").$type<string[]>().notNull().default([]),
+  substitutes:jsonb("substitutes").$type<string[]>().notNull().default([]),
+  captainUserId:uuid("captain_user_id").references(()=>users.id,{onDelete:"set null"}),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[primaryKey({columns:[table.matchId,table.teamId]})]);
+
+export const teamActivities = pgTable("team_activities",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  teamId:uuid("team_id").notNull().references(()=>teams.id,{onDelete:"cascade"}),
+  kind:varchar("kind",{length:16}).notNull(),
+  title:varchar("title",{length:120}).notNull(),
+  notes:text("notes"),
+  location:varchar("location",{length:200}),
+  startsAt:timestamp("starts_at",{withTimezone:true}).notNull(),
+  endsAt:timestamp("ends_at",{withTimezone:true}).notNull(),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[index("team_activities_team_start_idx").on(table.teamId,table.startsAt)]);
+
+export const teamActivityResponses = pgTable("team_activity_responses",{
+  activityId:uuid("activity_id").notNull().references(()=>teamActivities.id,{onDelete:"cascade"}),
+  userId:uuid("user_id").notNull().references(()=>users.id,{onDelete:"cascade"}),
+  availability:varchar("availability",{length:12}).notNull(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[primaryKey({columns:[table.activityId,table.userId]})]);

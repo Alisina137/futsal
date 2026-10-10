@@ -15,6 +15,7 @@ import { NotificationService } from "./modules/notifications/notification.servic
 import { DrizzleTeamRepository } from "./modules/team/team.repository.js";
 import { TeamService } from "./modules/team/team.service.js";
 import { TeamManagerPhase1Service } from "./modules/team/team-manager-phase1.routes.js";
+import { TeamManagerPhase2Service } from "./modules/team/team-manager-phase2.routes.js";
 import { DrizzleCompetitionRepository } from "./modules/competition/competition.repository.js";
 import { CompetitionService } from "./modules/competition/competition.service.js";
 import { DrizzleCommercialRepository } from "./modules/commercial/commercial.repository.js";
@@ -89,6 +90,7 @@ const app = createApp({
   notificationService,
   teamService,
   teamManagerPhase1:new TeamManagerPhase1Service(db),
+  teamManagerPhase2:new TeamManagerPhase2Service(db),
   competitionService,
   commercialService,
   timetableService: timetable,

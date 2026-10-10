@@ -603,6 +603,54 @@ export const notificationApi = {
 };
 
 
+export type TeamOpsCompetition={
+  id:string;name:string;format:string;status:string;published:boolean;venueName:string;venueId:string;
+  registrationStatus:string;feeStatus:string;registrationClosesAt:string|null;startsAt:string|null;endsAt:string|null;
+  rosterUserIds:string[];rosterLocked:boolean;
+};
+export type TeamOpsMatch={
+  id:string;competitionId:string;homeTeamId:string|null;awayTeamId:string|null;
+  competitionName:string;opponentName:string|null;status:string;stage:string;round:number;
+  startsAt:string|null;endsAt:string|null;homeScore:number|null;awayScore:number|null;
+  lineup:{matchId:string;starters:string[];substitutes:string[];captainUserId:string|null}|null;
+};
+export type TeamAvailability="AVAILABLE"|"UNAVAILABLE"|"UNSURE";
+export type TeamActivityInput={
+  kind:"TRAINING"|"MEETING"|"FRIENDLY"|"OTHER";title:string;notes:string|null;location:string|null;
+  startsAt:string;endsAt:string;
+};
+export type TeamOpsActivity=TeamActivityInput&{
+  id:string;teamId:string;createdAt:string;updatedAt:string;
+  rsvps:{activityId:string;userId:string;availability:string}[];
+};
+export type TeamOperations={
+  competitions:TeamOpsCompetition[];matches:TeamOpsMatch[];activities:TeamOpsActivity[];
+};
+export type TeamMemberActivity=Omit<TeamOpsActivity,"rsvps">&{myAvailability:TeamAvailability|null};
+export const teamOperationsApi={
+  list:(token:string,teamId:string)=>
+    request<TeamOperations>(`/api/v1/teams/${teamId}/manager/operations`,{},token),
+  roster:(token:string,teamId:string,competitionId:string,playerUserIds:string[])=>
+    request<{playerUserIds:string[]}>(`/api/v1/teams/${teamId}/manager/competitions/${competitionId}/roster`,
+      {method:"PUT",body:JSON.stringify({playerUserIds})},token),
+  lineup:(token:string,teamId:string,matchId:string,input:{starters:string[];substitutes:string[];captainUserId:string|null})=>
+    request<{saved:boolean}>(`/api/v1/teams/${teamId}/manager/matches/${matchId}/lineup`,
+      {method:"PUT",body:JSON.stringify(input)},token),
+  memberActivities:(token:string,teamId:string)=>
+    request<{activities:TeamMemberActivity[]}>(`/api/v1/teams/${teamId}/activities`,{},token),
+  createActivity:(token:string,teamId:string,input:TeamActivityInput)=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/manager/activities`,
+      {method:"POST",body:JSON.stringify(input)},token),
+  updateActivity:(token:string,teamId:string,id:string,input:TeamActivityInput)=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/manager/activities/${id}`,
+      {method:"PUT",body:JSON.stringify(input)},token),
+  deleteActivity:(token:string,teamId:string,id:string)=>
+    request<{deleted:boolean}>(`/api/v1/teams/${teamId}/manager/activities/${id}`,{method:"DELETE"},token),
+  rsvp:(token:string,teamId:string,id:string,availability:TeamAvailability)=>
+    request<{availability:TeamAvailability}>(`/api/v1/teams/${teamId}/activities/${id}/availability`,
+      {method:"POST",body:JSON.stringify({availability})},token),
+};
+
 export type TeamManagerProfileDetails={
   province:string|null;district:string|null;description:string|null;foundedOn:string|null;
   primaryColor:string|null;secondaryColor:string|null;contactPhone:string|null;homeVenueId:string|null;

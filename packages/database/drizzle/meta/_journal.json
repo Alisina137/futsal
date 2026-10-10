@@ -183,6 +183,13 @@
       "when": 1791635400000,
       "tag": "0025_team_manager_phase1",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791639000000,
+      "tag": "0026_team_manager_phase2",
+      "breakpoints": true
     }
   ]
 }

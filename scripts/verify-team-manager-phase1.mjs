@@ -9,13 +9,9 @@ const client=load("apps/mobile/src/lib/api.ts");
 const language=load("packages/localization/src/index.ts");
 const teamService=load("apps/api/src/modules/team/team.service.ts");
 const createTeam=load("apps/mobile/app/(app)/teams/create.tsx");
-const phase2=["competitions","matches","schedule","media","statistics"];
 for(const section of ["overview","team","players","settings"]){
-  check(dash.includes('id:"'+section+'"'),"Missing phase 1 tab "+section);
-  check(language.split('"tm1.'+section+'"').length-1===3,"Missing translations for "+section);
-}
-for(const section of phase2){
-  check(!dash.includes('id:"'+section+'"'),"Future phase tab should not be activated early: "+section);
+  check(dash.includes('id:"'+section+'"'),"Missing Phase 1 tab "+section);
+  check(language.split('"tm1.'+section+'"').length-1===3,"Missing Phase 1 translations "+section);
 }
 check(route.includes('role === "TEAM_MANAGER"')&&route.includes("<TeamManagerDashboard />"),
   "Team Manager route not connected");
