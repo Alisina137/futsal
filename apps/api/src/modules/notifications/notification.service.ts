@@ -184,6 +184,21 @@ export class NotificationService implements NotificationPublisher {
     });
   }
 
+  async teamActivity(input:{
+    teamId:string;activityId:string;teamName:string;title:string;startsAt:string|null;
+    userIds:string[];dedupeKey:string;
+  }){
+    await Promise.allSettled(input.userIds.map(userId=>this.publish({
+      userId,type:"TEAM_ACTIVITY",
+      title:input.teamName,
+      body:input.title,
+      deepLink:`/teams/${input.teamId}/activities`,
+      data:{teamId:input.teamId,activityId:input.activityId,startsAt:input.startsAt},
+      dedupeKey:`${input.dedupeKey}:${userId}`,
+      marketing:false,
+    })));
+  }
+
   async competitionUpdate(input: {
     competitionId: string;
     title: string;

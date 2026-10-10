@@ -1,3 +1,5 @@
+-- Add team event notifications without changing legacy notification records.
+ALTER TYPE "notification_type" ADD VALUE IF NOT EXISTS 'TEAM_ACTIVITY';
 -- Team Manager Phase 2: competition roster / match lineups / private team calendar.
 CREATE TABLE "team_competition_roster" (
   "competition_id" uuid NOT NULL,

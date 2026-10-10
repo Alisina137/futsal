@@ -68,6 +68,10 @@ export interface NotificationPublisher {
     teamId: string;
     teamName: string;
   }): Promise<void>;
+  teamActivity(input:{
+    teamId:string;activityId:string;teamName:string;title:string;startsAt:string|null;
+    userIds:string[];dedupeKey:string;
+  }):Promise<void>;
   competitionUpdate(input: {
     competitionId: string;
     title: string;

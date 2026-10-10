@@ -90,7 +90,7 @@ const app = createApp({
   notificationService,
   teamService,
   teamManagerPhase1:new TeamManagerPhase1Service(db),
-  teamManagerPhase2:new TeamManagerPhase2Service(db),
+  teamManagerPhase2:new TeamManagerPhase2Service(db,undefined,notificationService),
   competitionService,
   commercialService,
   timetableService: timetable,

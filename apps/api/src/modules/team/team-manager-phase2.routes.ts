@@ -11,6 +11,7 @@ import {
 import { errors } from "../../lib/errors.js";
 import { requireAuth } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
+import type { NotificationPublisher } from "../notifications/notification.types.js";
 
 const uuid=z.string().uuid();
 const iso=z.string().datetime({offset:true});
@@ -53,7 +54,8 @@ export function assertEligibleSelection(ids:string[],registered:string[],roster:
 }
 
 export class TeamManagerPhase2Service{
-  constructor(private readonly db:Database,private readonly now:()=>Date=()=>new Date()){}
+  constructor(private readonly db:Database,private readonly now:()=>Date=()=>new Date(),
+    private readonly notifications?:NotificationPublisher){}
 
   private async access(userId:string,teamId:string,write=false,member=false){
     const [team]=await this.db.select({managerUserId:teams.managerUserId,status:teams.status,
@@ -219,12 +221,25 @@ export class TeamManagerPhase2Service{
       startsAt:a.startsAt.toISOString(),endsAt:a.endsAt.toISOString(),
       myAvailability:answers.find(v=>v.activityId===a.id)?.availability??null}))};
   }
+  private async notifyActivity(userId:string,teamId:string,activityId:string,title:string,startsAt:string|null,action:string){
+    if(!this.notifications)return;
+    try{
+      const [team]=await this.db.select({name:teams.name}).from(teams).where(eq(teams.id,teamId)).limit(1);
+      const members=await this.activePlayers(teamId);
+      await this.notifications.teamActivity({teamId,activityId,teamName:team?.name??"Team",
+        title,startsAt,userIds:members.filter(id=>id!==userId),
+        dedupeKey:`team-activity:${action}:${activityId}:${this.now().getTime()}`});
+    }catch{
+      // A notification outage must never roll back a successful team activity write.
+    }
+  }
   async createActivity(userId:string,teamId:string,input:z.infer<typeof activityInput>){
     await this.access(userId,teamId,true);
     if(Date.parse(input.startsAt)<=this.now().getTime())
       throw errors.badRequest("ACTIVITY_IN_PAST","Choose a future start date.");
     const [item]=await this.db.insert(teamActivities).values({...input,teamId,
       startsAt:new Date(input.startsAt),endsAt:new Date(input.endsAt)}).returning({id:teamActivities.id});
+    await this.notifyActivity(userId,teamId,item!.id,"New team activity: "+input.title,input.startsAt,"create");
     return {id:item!.id};
   }
   async updateActivity(userId:string,teamId:string,id:string,input:z.infer<typeof activityInput>){
@@ -235,6 +250,7 @@ export class TeamManagerPhase2Service{
     const [item]=await this.db.update(teamActivities).set({...input,
       startsAt:new Date(input.startsAt),endsAt:new Date(input.endsAt),updatedAt:this.now()})
       .where(and(eq(teamActivities.id,id),eq(teamActivities.teamId,teamId))).returning({id:teamActivities.id});
+    await this.notifyActivity(userId,teamId,item!.id,"Updated team activity: "+input.title,input.startsAt,"update");
     return {id:item!.id};
   }
   async deleteActivity(userId:string,teamId:string,id:string){
@@ -242,6 +258,7 @@ export class TeamManagerPhase2Service{
     const [deleted]=await this.db.delete(teamActivities).where(and(eq(teamActivities.teamId,teamId),eq(teamActivities.id,id)))
       .returning({id:teamActivities.id});
     if(!deleted)throw errors.badRequest("ACTIVITY_NOT_FOUND","Activity not found.");
+    await this.notifyActivity(userId,teamId,id,"A team activity was cancelled",null,"delete");
     return {deleted:true};
   }
   async rsvp(userId:string,teamId:string,id:string,availability:"AVAILABLE"|"UNAVAILABLE"|"UNSURE"){

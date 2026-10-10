@@ -25,7 +25,7 @@ const FILTER_ICONS:Record<NotificationListFilter,IconName>={
 const ICONS:Record<NotificationDto["type"],IconName>={
   BOOKING_CONFIRMED:"checkmark-circle-outline",BOOKING_CANCELLED:"close-circle-outline",
   SLOT_PROMOTION:"pricetag-outline",VENUE_POST:"megaphone-outline",
-  TEAM_INVITATION:"people-outline",COMPETITION_UPDATE:"trophy-outline",
+  TEAM_INVITATION:"people-outline",COMPETITION_UPDATE:"trophy-outline",TEAM_ACTIVITY:"calendar-outline",
 };
 function groupDay(value:string){
   const date=new Date(value);
@@ -41,6 +41,7 @@ function target(item:NotificationDto):()=>void{
   switch(item.type){
     case "BOOKING_CONFIRMED":case "BOOKING_CANCELLED":return ()=>router.push("/bookings");
     case "TEAM_INVITATION":return ()=>router.push("/teams/invitations");
+    case "TEAM_ACTIVITY":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/activities",params:{teamId}});else router.push("/teams");};
     case "COMPETITION_UPDATE":return ()=>{
       const competitionId=id("competitionId");
       if(competitionId)router.push({pathname:"/competitions/[competitionId]",params:{competitionId}});
