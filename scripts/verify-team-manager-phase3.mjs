@@ -23,7 +23,7 @@ for(const name of ["createPost:","updatePost:","deletePost:","announcements:","c
   "deleteAnnouncement:","challenge:","decideChallenge:","cancelChallenge:"]){
   assert(client.includes(name),"Missing Phase 3 typed API action: "+name);
 }
-for(const property of ["TEAM_SUBSCRIPTION_REQUIRED","TEAM_MANAGER_REQUIRED","TEAM_MEMBER_REQUIRED",
+for(const property of ["TEAM_MANAGER_REQUIRED","TEAM_MEMBER_REQUIRED",
   "POST_IMAGE_NOT_OWNED","assertFriendlyChallengeAllowed","aggregateCompletedMatches",
   'eq(socialPosts.entityType,"TEAM")','eq(socialPosts.entityId,teamId)',
   'eq(teamFriendlyChallenges.toTeamId,teamId)','eq(teamFriendlyChallenges.status,"PENDING")']){
@@ -42,4 +42,6 @@ assert(read("apps/mobile/app/(app)/teams/[teamId]/announcements.tsx").includes("
 assert(panel.includes("formatCompetitionDateTime"),"Dates must be localized to Kabul.");
 assert(!routes.includes("updateMatchResult(")&&!routes.includes("enterResult("),
   "Team managers cannot record official match results.");
+const license=read("apps/api/src/modules/team/team-slots.ts");
+assert(license.includes("TEAM_SUBSCRIPTION_REQUIRED")&&routes.includes('requireTeamLicense'),"missing team billing protection");
 console.log("Team Manager Phase 3 verified: Media, Statistics, private announcements, friendlies, notifications, safe uploads and permissions.");

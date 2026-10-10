@@ -17,7 +17,7 @@ requireInvariant(dash.includes("<TeamCompetitionOps"),"Dashboard must embed Phas
 for(const name of ["teamCompetitionRoster","teamMatchLineups","teamActivities","teamActivityResponses"]){
   requireInvariant(schema.includes("export const "+name),"Missing DB table: "+name);
 }
-for(const key of ["assertRosterEditable","assertEligibleSelection","TEAM_SUBSCRIPTION_REQUIRED",
+for(const key of ["assertRosterEditable","assertEligibleSelection",
   "TEAM_MEMBERSHIP_REQUIRED","LINEUP_LOCKED","ROSTER_LOCKED","ACTIVITY_STARTED"]){
   requireInvariant(route.includes(key),"Missing Phase 2 server invariant: "+key);
 }
@@ -41,4 +41,6 @@ requireInvariant(
   read("apps/api/src/modules/notifications/notification.repository.ts").includes('"TEAM_ACTIVITY"') &&
   read("apps/api/src/modules/notifications/notification.repository.ts").includes('filter==="TEAMS"'),
   "Team activity alerts should appear under Teams notifications, including when more types are added.");
+const license=read("apps/api/src/modules/team/team-slots.ts");
+requireInvariant(license.includes("TEAM_SUBSCRIPTION_REQUIRED")&&route.includes('requireTeamLicense'),"missing team billing protection");
 console.log("Team Manager Phase 2 verified: competition registration/roster, matches/lineups, calendar, member availability, and authorization.");
