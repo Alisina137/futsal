@@ -1153,7 +1153,7 @@ export const refereePhase2Api={
   clock:(token:string,matchId:string,action:"START"|"PAUSE"|"RESUME"|"NEXT_PERIOD"|"FINISH",revision:number)=>
     request<{report:RefereeMatchReport}>(`/api/v1/referee/matches/${matchId}/clock`,
       {method:"POST",body:JSON.stringify({action,revision})},token),
-  event:(token:string,matchId:string,input:Omit<RefereeMatchEvent,"elapsedSeconds">&{elapsedSeconds?:number})=>
+  event:(token:string,matchId:string,input:Omit<RefereeMatchEvent,"elapsedSeconds">&{elapsedSeconds?:number;recordedOffline?:boolean})=>
     request<{report:RefereeMatchReport}>(`/api/v1/referee/matches/${matchId}/events`,
       {method:"POST",body:JSON.stringify(input)},token),
   removeEvent:(token:string,matchId:string,eventId:string,revision:number,reason:string)=>

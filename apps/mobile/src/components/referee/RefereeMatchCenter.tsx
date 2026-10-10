@@ -1,11 +1,14 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import {useCallback,useEffect,useState} from "react";
-import {Pressable,ScrollView,StyleSheet,View} from "react-native";
-import {refereePhase2Api,type RefereeMatch,type RefereeMatchEvent,
+import {useCallback,useEffect,useRef,useState} from "react";
+import {Linking,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {refereeCareerApi,refereePhase2Api,type RefereeMatch,type RefereeMatchEvent,
   type RefereeMatchReport,type RefereeReportMember} from "../../lib/api";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useNetwork} from "../../providers/NetworkProvider";
+import {cacheRefereeMatch,enqueueRefereeEvent,readRefereeOffline,
+  stagedScore,syncRefereeOffline,type StagedRefereeEvent} from "../../lib/referee-offline";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -25,6 +28,9 @@ function clockText(seconds:number){const n=Math.max(0,Math.floor(seconds));
   return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");}
 export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:()=>void}){
   const {session}=useAuth(),{t,isRTL}=useLocale();
+  const {isOnline,apiReachable,apiReconnectVersion}=useNetwork();
+  const connected=isOnline&&apiReachable!==false;
+  const userId=session?.user.id;
   const tr=(s:string)=>t(("rf2."+s) as never),token=session?.accessToken;
   const [data,setData]=useState<MatchData|null>(null),[loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
@@ -36,15 +42,41 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
   const [assistingUserId,setAssistingUserId]=useState<string|null>(null);
   const [deleteId,setDeleteId]=useState<string|null>(null),[deleteReason,setDeleteReason]=useState("");
   const [now,setNow]=useState(Date.now());
+  const [pending,setPending]=useState<StagedRefereeEvent[]>([]);
+  const [syncing,setSyncing]=useState(false);
+  const syncRef=useRef(false);
   const load=useCallback(async()=>{
-    if(!token)return;
+    if(!token||!userId)return;
     setLoading(true);
-    try{const value=await refereePhase2Api.get(token,match.id);
-      setData(value);setSummary(value.report?.summary??"");setError(null);}
-    catch(e){setError(e instanceof Error?e.message:tr("loadFailed"));}
+    try{
+      const local=await readRefereeOffline(userId,match.id);
+      setPending(local.pending);
+      if(local.cached){setData(local.cached);setSummary(local.cached.report?.summary??"");}
+      if(!connected){
+        if(!local.cached)setError(tr("offlineNoCache"));
+        else setMessage(tr("offlineSnapshot"));
+        return;
+      }
+      const value=await refereePhase2Api.get(token,match.id);
+      setData(value);setSummary(value.report?.summary??"");setError(null);
+      await cacheRefereeMatch(userId,match.id,value);
+    }catch(e){setError(e instanceof Error?e.message:tr("loadFailed"));}
     finally{setLoading(false);}
-  },[token,match.id,t]);
+  },[token,userId,match.id,t,connected]);
   useEffect(()=>{void load();},[load]);
+  const synchronize=useCallback(async()=>{
+    if(!token||!userId||!connected||syncRef.current)return;
+    syncRef.current=true;setSyncing(true);
+    try{
+      const state=await syncRefereeOffline(userId,match.id,token);
+      setData(state.cached);setPending(state.pending);
+      setError(null);setMessage(tr("eventsSynced"));
+    }catch(e){setError(e instanceof Error?e.message:tr("syncFailed"));}
+    finally{syncRef.current=false;setSyncing(false);}
+  },[token,userId,match.id,connected,t]);
+  useEffect(()=>{
+    if(connected&&pending.length>0)void synchronize();
+  },[connected,apiReconnectVersion,pending.length,synchronize]);
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
   const report=data?.report??null,clock=report?.clock??{elapsedSeconds:0,period:1,runningSince:null};
   const seconds=clock.elapsedSeconds+(clock.runningSince?
@@ -53,19 +85,60 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
   const active=!!report?.startedAt&&!report.finishedAt;
   const recording=editable&&(active||report?.status==="CHANGES_REQUESTED");
   const canStart=editable&&!report?.startedAt;
-  const scores=report?.score??{homeScore:0,awayScore:0};
-  const fouls=(s:"HOME"|"AWAY")=>report?.events.filter(e=>
-    e.kind==="FOUL"&&e.side===s&&e.period===clock.period).length??0;
-  const repeatCautions=(report?.events??[]).filter(e=>e.kind==="YELLOW_CARD"&&e.playerUserId)
+  const visibleEvents:RefereeMatchEvent[]=[
+    ...(report?.events??[]),
+    ...pending.filter(e=>!(report?.events??[]).some(saved=>saved.id===e.id)),
+  ];
+  const scores=stagedScore(visibleEvents);
+  const fouls=(s:"HOME"|"AWAY")=>visibleEvents.filter(e=>
+    e.kind==="FOUL"&&e.side===s&&e.period===clock.period).length;
+  const repeatCautions=visibleEvents.filter(e=>e.kind==="YELLOW_CARD"&&e.playerUserId)
     .reduce<Record<string,number>>((acc,e)=>({...acc,[e.playerUserId!]:
       (acc[e.playerUserId!]??0)+1}),{});
   const secondCaution=Object.entries(repeatCautions).some(([,count])=>count>=2);
   async function perform(fn:()=>Promise<{report:RefereeMatchReport}>){
     if(busy||!token)return;
+    if(!connected||pending.length>0){setError(tr("syncBeforeChanges"));return;}
     setBusy(true);setError(null);setMessage(null);
-    try{const result=await fn();setData(previous=>previous?{...previous,report:result.report}:previous);
+    try{const result=await fn();
+      setData(previous=>{
+        if(!previous)return previous;
+        const next={...previous,report:result.report};
+        if(userId)void cacheRefereeMatch(userId,match.id,next);
+        return next;
+      });
       setSummary(result.report.summary);setMessage(tr("saved"));}
     catch(e){setError(e instanceof Error?e.message:tr("actionFailed"));}
+    finally{setBusy(false);}
+  }
+  async function addOfflineSafeEvent(){
+    if(!userId||!token||!editingKind||busy)return;
+    setBusy(true);setError(null);
+    const event:StagedRefereeEvent={
+      id:eventId(),kind:editingKind,side:editingKind==="INCIDENT"?null:side,
+      playerUserId:editingKind==="INCIDENT"?null:player,
+      assistingUserId:editingKind==="GOAL"&&assistingUserId!==player?assistingUserId:null,
+      period:clock.period,details,elapsedSeconds:seconds,
+    };
+    try{
+      const state=await enqueueRefereeEvent(userId,match.id,event);
+      setPending(state.pending);setEditingKind(null);setMessage(tr("eventSavedLocally"));
+      if(connected){
+        const flushed=await syncRefereeOffline(userId,match.id,token);
+        setData(flushed.cached);setPending(flushed.pending);setMessage(tr("eventsSynced"));
+      }
+    }catch(e){
+      // The durable queue remains intact after any transient or server failure.
+      setError(e instanceof Error?e.message:tr("syncFailed"));
+    }finally{setBusy(false);}
+  }
+  async function downloadPdf(){
+    if(!token||!connected)return;
+    setBusy(true);setError(null);
+    try{
+      const {token:ticket}=await refereeCareerApi.pdfTicket(token,match.id);
+      await Linking.openURL(refereeCareerApi.pdfUrl(ticket));
+    }catch(e){setError(e instanceof Error?e.message:tr("pdfError"));}
     finally{setBusy(false);}
   }
   const roster=data?.roster??[];
@@ -98,6 +171,13 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
       {report?.feedback?<AppText variant="caption" style={{color:colors.warning}}>
         {tr("reviewFeedback")}: {report.feedback}</AppText>:null}
     </Card>
+    {(pending.length>0||!connected)?<Card style={{gap:spacing.sm}}>
+      <AppText weight="semibold" style={{color:colors.primary}}>
+        {connected?tr("pendingCount")+": "+pending.length:tr("offlineMode")}</AppText>
+      <AppText variant="caption" muted>{tr("offlineHint")}</AppText>
+      {pending.length>0?<Button label={syncing?tr("syncing"):tr("syncNow")} variant="secondary"
+        disabled={!connected||busy||syncing} onPress={()=>void synchronize()}/>:null}
+    </Card>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={tr("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
     {message?<AppText variant="caption" style={{color:colors.success}}>{message}</AppText>:null}
@@ -115,20 +195,20 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
             <AppText>{tr("checks."+key)}</AppText>
           </Pressable>;
         })}
-        <Button label={tr("startMatch")} disabled={busy||!report||
+        <Button label={tr("startMatch")} disabled={busy||!connected||pending.length>0||!report||
           !Object.values(report.checks).every(Boolean)}
           onPress={()=>void perform(()=>refereePhase2Api.clock(token!,match.id,"START",report!.revision))}/>
       </Card>:null}
       {active?<Card style={{gap:spacing.sm}}>
         <AppText variant="bodyLarge" weight="bold">{tr("clockControls")}</AppText>
         <View style={styles.actions}>
-          <Button label={clock.runningSince?tr("pause"):tr("resume")} disabled={busy}
+          <Button label={clock.runningSince?tr("pause"):tr("resume")} disabled={busy||!connected||pending.length>0}
             onPress={()=>void perform(()=>refereePhase2Api.clock(token!,match.id,
               clock.runningSince?"PAUSE":"RESUME",report!.revision))}/>
           {clock.period===1?<Button label={tr("secondPeriod")} variant="secondary"
-            disabled={busy||!!clock.runningSince} onPress={()=>void perform(()=>
+            disabled={busy||!connected||pending.length>0||!!clock.runningSince} onPress={()=>void perform(()=>
               refereePhase2Api.clock(token!,match.id,"NEXT_PERIOD",report!.revision))}/>:null}
-          <Button label={tr("finishMatch")} variant="danger" disabled={busy}
+          <Button label={tr("finishMatch")} variant="danger" disabled={busy||!connected||pending.length>0}
             onPress={()=>void perform(()=>refereePhase2Api.clock(token!,match.id,"FINISH",report!.revision))}/>
         </View>
       </Card>:null}
@@ -169,33 +249,28 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
           </View>:null}
           <TextField label={tr("eventDetails")} value={details} onChangeText={setDetails} maxLength={400}/>
           <View style={styles.actions}>
-            <Button label={tr("addEvent")} disabled={busy} onPress={()=>void (async()=>{
-              await perform(()=>refereePhase2Api.event(token!,match.id,{id:eventId(),
-                kind:editingKind,side:editingKind==="INCIDENT"?null:side,
-                playerUserId:editingKind==="INCIDENT"?null:player,
-                assistingUserId:editingKind==="GOAL"&&assistingUserId!==player?assistingUserId:null,
-                period:clock.period,details,elapsedSeconds:seconds}));
-              setEditingKind(null);
-            })()}/>
+            <Button label={tr("addEvent")} disabled={busy} onPress={()=>void addOfflineSafeEvent()}/>
             <Button label={tr("cancel")} variant="secondary" onPress={()=>setEditingKind(null)}/>
           </View>
         </View>:null}
       </Card>:null}
       <Card style={{gap:spacing.sm}}>
         <AppText variant="bodyLarge" weight="bold">{tr("timeline")}</AppText>
-        {!report?.events.length?<AppText muted>{tr("noEvents")}</AppText>:null}
-        {(report?.events??[]).slice().reverse().map(event=><View key={event.id} style={styles.event}>
+        {!visibleEvents.length?<AppText muted>{tr("noEvents")}</AppText>:null}
+        {visibleEvents.slice().reverse().map(event=><View key={event.id} style={styles.event}>
           <View style={{flex:1}}>
             <AppText weight="semibold">{tr("kind."+event.kind)} · {event.side?tr("side."+event.side):""}</AppText>
             <AppText variant="caption" muted>{tr("period")} {event.period} · {clockText(event.elapsedSeconds)}</AppText>
             {event.details?<AppText variant="caption" muted>{event.details}</AppText>:null}
+            {pending.some(e=>e.id===event.id)?<AppText variant="caption"
+              style={{color:colors.primary}}>{tr("unsyncedEvent")}</AppText>:null}
             {event.playerUserId?<AppText variant="caption" muted>
               {roster.find(p=>p.userId===event.playerUserId)?.name??event.playerUserId}</AppText>:null}
             {event.assistingUserId?<AppText variant="caption" muted>
               {tr("assist")}: {roster.find(p=>p.userId===event.assistingUserId)?.name??event.assistingUserId}
             </AppText>:null}
           </View>
-          {recording?<Button label={tr("correctEvent")} variant="secondary"
+          {recording&&connected&&pending.length===0?<Button label={tr("correctEvent")} variant="secondary"
             onPress={()=>{setDeleteId(event.id);setDeleteReason("");}}/>:null}
         </View>)}
         {deleteId?<View style={{gap:spacing.sm}}>
@@ -216,13 +291,15 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
         <AppText variant="bodyLarge" weight="bold">{tr("officialReport")}</AppText>
         <AppText weight="semibold">{tr("finalScore")}: {scores.homeScore} – {scores.awayScore}</AppText>
         <TextField label={tr("summary")} multiline value={summary}
-          editable={editable} maxLength={2000} onChangeText={setSummary}/>
-        {editable?<Button label={tr("saveSummary")} variant="secondary" disabled={busy}
+          editable={editable&&connected&&pending.length===0} maxLength={2000} onChangeText={setSummary}/>
+        {editable?<Button label={tr("saveSummary")} variant="secondary" disabled={busy||!connected||pending.length>0}
           onPress={()=>void perform(()=>refereePhase2Api.update(token!,match.id,
             {revision:report.revision,summary}))}/>:null}
-        {editable?<Button label={tr("submitReport")} disabled={busy}
+        {editable?<Button label={tr("submitReport")} disabled={busy||!connected||pending.length>0}
           onPress={()=>void perform(()=>refereePhase2Api.submit(token!,match.id,report.revision))}/>:null}
         {!editable?<AppText variant="caption" muted>{tr("waitingReview")}</AppText>:null}
+        {report.status==="APPROVED"?<Button variant="secondary" label={tr("downloadPdf")}
+          disabled={busy||!connected} onPress={()=>void downloadPdf()}/>:null}
       </Card>:null}
     </>:null}
   </View>;
