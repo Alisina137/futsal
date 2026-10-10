@@ -19,6 +19,9 @@ import type {
 } from "../src/modules/team/team.types.js";
 
 export class FakeTeamRepository implements TeamRepository {
+  /** Test fake assumes seeded manager entitlements are paid; live Drizzle repository validates slots. */
+  async assertManagerSubscription(_userId:string,_teamId:string,_now:Date):Promise<void>{}
+
   users = new Map<string, TeamIdentityUser & { usernameNormalized: string | null; phoneE164: string }>();
   profiles = new Map<string, OwnPlayerProfileDto>();
   teams = new Map<string, TeamRecord>();
