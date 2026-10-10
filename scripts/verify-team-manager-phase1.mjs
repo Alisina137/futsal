@@ -13,7 +13,7 @@ for(const section of ["overview","team","players","settings"]){
   check(dash.includes('id:"'+section+'"'),"Missing Phase 1 tab "+section);
   check(language.split('"tm1.'+section+'"').length-1===3,"Missing Phase 1 translations "+section);
 }
-check(route.includes('role === "TEAM_MANAGER"')&&route.includes("<TeamManagerDashboard />"),
+check(route.includes('roles.includes("TEAM_MANAGER")')&&route.includes("<TeamManagerDashboard/>"),
   "Team Manager route not connected");
 check(!dash.includes('t("dashboard.title")')&&!dash.includes('t("dashboard.subtitle")'),
   "Generic dashboard title/subtitle should not appear");
