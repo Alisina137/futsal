@@ -24,6 +24,7 @@ export const refereeEventSchema=z.object({
   assistingUserId:id.nullable().optional(),
   period:z.number().int().min(1).max(2),
   elapsedSeconds:z.number().int().min(0).max(10800).optional(),
+  recordedOffline:z.boolean().optional(),
   details:z.string().trim().max(400).default(""),
 }).strict();
 const updateSchema=z.object({
@@ -239,8 +240,16 @@ export class RefereePhase2Service{
         if(!member)throw errors.forbidden("EVENT_PLAYER_NOT_ON_TEAM","Player is not on this team's roster.");
       }
       const clock=row.clock??emptyClock;
-      const second=row.finishedAt?input.elapsedSeconds??effectiveSeconds(clock,this.now()):effectiveSeconds(clock,this.now());
-      const event={...input,elapsedSeconds:second,details:input.details??""};
+      const liveSeconds=effectiveSeconds(clock,this.now());
+      if(input.period>clock.period)
+        throw errors.conflict("EVENT_PERIOD_IN_FUTURE","Refresh the match period before recording.");
+      if(input.recordedOffline&&input.elapsedSeconds!==undefined&&
+        input.period===clock.period&&input.elapsedSeconds>liveSeconds+30)
+        throw errors.badRequest("EVENT_TIME_AHEAD","Offline event time is ahead of the official match clock.");
+      const second=input.recordedOffline&&input.elapsedSeconds!==undefined?
+        input.elapsedSeconds:row.finishedAt?input.elapsedSeconds??liveSeconds:liveSeconds;
+      const {recordedOffline:_,...safeInput}=input;
+      const event={...safeInput,elapsedSeconds:second,details:input.details??""};
       const proposed=[...(row.events as RefereeEvent[]),event];
       const score=reportScore(proposed);
       if(score.homeScore>99||score.awayScore>99)throw errors.conflict("SCORE_LIMIT","A score cannot exceed 99.");
