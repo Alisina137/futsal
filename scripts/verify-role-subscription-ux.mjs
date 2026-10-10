@@ -19,7 +19,7 @@ assert(screen.includes("{validUntil.date}") && screen.includes("{validUntil.time
 assert(!screen.includes("{offer.activeUntil}</AppText>"), "Expiry must never display a raw ISO timestamp");
 assert(screen.includes('active || offer?.status === "EXPIRED"'), "Current and expired subscriptions should use appropriate deadline labels");
 assert(screen.includes('router.replace(role === "VENUE_OWNER" ? "/owner/competitions" : "/teams")'), "Open venue tools must navigate directly to the owner dashboard, without breaking team tools");
-assert(dashboard.includes('<Redirect href="/owner/competitions" />'), "Owner dashboard entry route must point to Competitions");
+assert(dashboard.includes('<Redirect href="/owner/competitions"/>'), "Owner dashboard entry route must point to Competitions");
 assert(formatter.includes('AFGHANISTAN_TIME_ZONE = "Asia/Kabul"') && formatter.includes('timeZone,'),
   "The formatter must use Afghanistan time for date and time");
 
