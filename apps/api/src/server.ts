@@ -19,6 +19,7 @@ import { TeamManagerPhase2Service } from "./modules/team/team-manager-phase2.rou
 import { TeamManagerPhase3Service } from "./modules/team/team-manager-phase3.routes.js";
 import { PlayerDashboardPhase1Service } from "./modules/team/player-dashboard-phase1.routes.js";
 import { PlayerDashboardPhase2Service } from "./modules/team/player-dashboard-phase2.routes.js";
+import { PlayerDashboardPhase3Service } from "./modules/team/player-dashboard-phase3.routes.js";
 import { DrizzleCompetitionRepository } from "./modules/competition/competition.repository.js";
 import { CompetitionService } from "./modules/competition/competition.service.js";
 import { DrizzleCommercialRepository } from "./modules/commercial/commercial.repository.js";
@@ -97,6 +98,7 @@ const app = createApp({
   teamManagerPhase3:new TeamManagerPhase3Service(db,undefined,notificationService),
   playerDashboardPhase1:new PlayerDashboardPhase1Service(db,teamService),
   playerDashboardPhase2:new PlayerDashboardPhase2Service(db,teamService),
+  playerDashboardPhase3:new PlayerDashboardPhase3Service(db,teamService),
   competitionService,
   commercialService,
   timetableService: timetable,

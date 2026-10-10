@@ -750,6 +750,32 @@ export const playerActivityApi={
   list:(token:string)=>request<PlayerActivities>("/api/v1/player-dashboard/activities",{},token),
 };
 
+export type PlayerCareerResult="WIN"|"DRAW"|"LOSS"|"UNKNOWN";
+export type PlayerCareerMatch={
+  matchId:string;teamId:string;teamName:string;competitionId:string;competitionName:string;
+  recordedAt:string;startsAt:string|null;goals:number;assists:number;yellowCards:number;
+  redCards:number;cleanSheet:boolean;playerOfMatch:boolean;homeScore:number|null;
+  awayScore:number|null;result:PlayerCareerResult;
+};
+export type PlayerCareerTotals={
+  matches:number;goals:number;assists:number;yellowCards:number;redCards:number;
+  cleanSheets:number;playerOfMatch:number;wins:number;draws:number;losses:number;
+  unknownResults:number;winRate:number;
+};
+export type PlayerCareerAward={
+  id:string;kind:"CHAMPION"|"PLAYER_OF_MATCH"|"MILESTONE";label:string;
+  competitionId:string|null;competitionName:string|null;teamId:string|null;teamName:string|null;
+  matchId:string|null;achievedAt:string;verified:true;
+};
+export type PlayerCareerData={
+  visibility:"PUBLIC"|"PRIVATE";totals:PlayerCareerTotals;records:PlayerCareerMatch[];
+  achievements:PlayerCareerAward[];
+  teams:Array<{id:string;name:string}>;competitions:Array<{id:string;name:string}>;
+};
+export const playerCareerApi={
+  mine:(token:string)=>request<PlayerCareerData>("/api/v1/player-dashboard/career",{},token),
+};
+
 export type PlayerDashboardPreferences={
   defaultTeamId:string|null;biography:string|null;province:string|null;district:string|null;
   secondaryPosition:"UNSPECIFIED"|"GOALKEEPER"|"FIXO"|"ALA"|"PIVO"|"UNIVERSAL"|null;

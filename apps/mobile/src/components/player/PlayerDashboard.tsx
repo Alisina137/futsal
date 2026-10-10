@@ -16,6 +16,7 @@ import {DataLoadingState} from "../ui/DataLoadingState";
 import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
 import {PlayerActivityTabs} from "./PlayerActivityTabs";
+import {PlayerCareerTabs} from "./PlayerCareerTabs";
 
 type Section="overview"|"teams"|"competitions"|"matches"|"schedule"|"statistics"|"achievements"|"bookings"|"settings";
 const sections:{id:Section;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -366,16 +367,8 @@ export function PlayerDashboard(){
         <PlayerActivityTabs tab={tab as "competitions"|"matches"|"schedule"|"bookings"}
           token={token!} teams={teams}/>:null}
 
-      {["statistics","achievements"].includes(tab)?
-        <Card>
-          <View style={{alignItems:"center",gap:spacing.sm}}>
-            <Ionicons name={sections.find(x=>x.id===tab)?.icon??"football-outline"} size={40} color={colors.primary}/>
-            <AppText variant="bodyLarge" weight="bold">{tr("tab."+tab)}</AppText>
-            <AppText muted style={{textAlign:"center"}}>{tr("comingNext")}</AppText>
-          </View>
-          {tab==="statistics"||tab==="achievements"?<Button label={tr("editProfile")}
-            variant="secondary" onPress={()=>router.push("/profile/player")}/>:null}
-        </Card>:null}
+      {(tab==="statistics"||tab==="achievements")?
+        <PlayerCareerTabs tab={tab} token={token!}/>:null}
     </>:null}
   </Screen>;
 }
