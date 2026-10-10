@@ -15,7 +15,7 @@ import type {
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { competitionApi, ownerApi, teamApi, manualTeamApi } from "../../../../../src/lib/api";
+import { competitionApi, ownerApi, teamApi, manualTeamApi, refereeApi } from "../../../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../../../src/lib/date-time";
 import { CompetitionRewardsManager } from "../../../../../src/components/competition/CompetitionRewardsManager";
 import { AppText } from "../../../../../src/components/ui/AppText";
@@ -58,6 +58,7 @@ export default function ManageCompetitionScreen(){
   const [activeTab,setActiveTab]=useState<ControlTab>("OVERVIEW");
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [referees,setReferees]=useState<VenueRefereeDto[]>([]);
+  const [refereeReplies,setRefereeReplies]=useState<Record<string,string|null>>({});
   const [directoryTeams,setDirectoryTeams]=useState<TeamDirectoryItemDto[]>([]);
   const [offlineTeams,setOfflineTeams]=useState<ManualTeamDto[]>([]);
   const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
@@ -121,17 +122,19 @@ export default function ManageCompetitionScreen(){
     if(!session||!competitionId)return;
     setLoading(true);setError(null);
     try{
-      const [{competition:next},status,refereeResult,teamResult,mediaResult,manualResult]=await Promise.all([
+      const [{competition:next},status,refereeResult,teamResult,mediaResult,manualResult,assignmentResult]=await Promise.all([
         competitionApi.ownerGet(session.accessToken,competitionId),
         ownerApi.getStatus(session.accessToken),
         ownerApi.referees(session.accessToken),
         teamApi.directory(session.accessToken),
         competitionApi.ownerMedia(session.accessToken,competitionId),
         manualTeamApi.mine(session.accessToken),
+        refereeApi.organizerAssignments(session.accessToken,competitionId),
       ]);
       setCompetition(next);
       syncSettings(next);
       setReferees(refereeResult.referees);
+      setRefereeReplies(Object.fromEntries(assignmentResult.assignments.map(a=>[a.matchId,a.status])));
       setDirectoryTeams(teamResult.teams);
       setOfflineTeams(manualResult.teams);
       setMediaPosts(mediaResult.posts);
@@ -353,6 +356,7 @@ export default function ManageCompetitionScreen(){
     try{
       const {competition:next}=await competitionApi.scheduleMatch(session.accessToken,competitionId,activeMatch.id,{areaId,startsAt,endsAt,refereeUserId});
       setCompetition(next);syncSettings(next);setActiveMatch(null);setEditMode(null);
+      setRefereeReplies((current)=>({...current,[activeMatch.id]:refereeUserId?"PENDING":null}));
     }catch{setError(t("competition.scheduleError"));}
     finally{setBusy(null);}
   }
@@ -732,6 +736,10 @@ export default function ManageCompetitionScreen(){
                 ?t("competition.control.refereeAssigned",{name:referees.find((item)=>item.userId===match.refereeUserId)?.displayName??"—"})
                 :t("competition.control.refereeUnassigned")}
             </AppText>
+            {match.refereeUserId?<AppText variant="caption" weight="semibold"
+              style={{color:refereeReplies[match.id]==="ACCEPTED"?colors.success:colors.primary}}>
+              {t("rf1.organizer.status")}: {t(("rf1.status."+(refereeReplies[match.id]??"PENDING")) as never)}
+            </AppText>:null}
             {match.homeTeamId&&match.awayTeamId?<View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
               <Button label={t("competition.scheduleMatch")} onPress={()=>openSchedule(match)} variant="secondary" style={{flex:1}}/>
               <Button label={t("competition.enterResult")} onPress={()=>openResult(match)} variant="secondary" style={{flex:1}}/>
