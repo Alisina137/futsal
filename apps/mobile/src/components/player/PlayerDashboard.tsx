@@ -15,6 +15,7 @@ import {Card} from "../ui/Card";
 import {DataLoadingState} from "../ui/DataLoadingState";
 import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
+import {PlayerActivityTabs} from "./PlayerActivityTabs";
 
 type Section="overview"|"teams"|"competitions"|"matches"|"schedule"|"statistics"|"achievements"|"bookings"|"settings";
 const sections:{id:Section;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -361,19 +362,17 @@ export function PlayerDashboard(){
           onPress={()=>router.push(hasManager?"/dashboard":"/owner/competitions")}/>:null}
       </>:null}
 
-      {["competitions","matches","schedule","statistics","achievements","bookings"].includes(tab)?
+      {(["competitions","matches","schedule","bookings"] as Section[]).includes(tab)?
+        <PlayerActivityTabs tab={tab as "competitions"|"matches"|"schedule"|"bookings"}
+          token={token!} teams={teams}/>:null}
+
+      {["statistics","achievements"].includes(tab)?
         <Card>
           <View style={{alignItems:"center",gap:spacing.sm}}>
             <Ionicons name={sections.find(x=>x.id===tab)?.icon??"football-outline"} size={40} color={colors.primary}/>
             <AppText variant="bodyLarge" weight="bold">{tr("tab."+tab)}</AppText>
             <AppText muted style={{textAlign:"center"}}>{tr("comingNext")}</AppText>
           </View>
-          {tab==="competitions"||tab==="matches"?<Button label={tr("browseCompetitions")}
-            onPress={()=>router.push("/competitions")}/>:null}
-          {tab==="schedule"?<Button label={tr("teamActivities")} onPress={()=>selected?
-            router.push({pathname:"/teams/[teamId]/activities",params:{teamId:selected.id}}):choose("teams")}
-            />:null}
-          {tab==="bookings"?<Button label={tr("openBookings")} onPress={()=>router.push("/bookings")}/>:null}
           {tab==="statistics"||tab==="achievements"?<Button label={tr("editProfile")}
             variant="secondary" onPress={()=>router.push("/profile/player")}/>:null}
         </Card>:null}

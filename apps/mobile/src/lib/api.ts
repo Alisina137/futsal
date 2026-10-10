@@ -717,6 +717,39 @@ export const teamManagerApi={
     request<{deleted:boolean}>(`/api/v1/teams/${teamId}/manager/guests/${guestId}`,{method:"DELETE"},token),
 };
 
+export type PlayerParticipation={
+  id:string;name:string;format:string;status:string;published:boolean;
+  teamId:string;teamName:string;venueName:string;registrationStatus:string;
+  startsAt:string|null;endsAt:string|null;inRoster:boolean;
+};
+export type PlayerMatchItem={
+  id:string;competitionId:string;competitionName:string;teamId:string;teamName:string;
+  opponentName:string;homeTeamName:string;awayTeamName:string;venueName:string|null;
+  status:string;stage:string;startsAt:string|null;endsAt:string|null;
+  homeScore:number|null;awayScore:number|null;
+  lineupStatus:"STARTER"|"SUBSTITUTE"|"NOT_SELECTED"|"NOT_PUBLISHED";
+  myStatistics:{
+    appeared:boolean;goals:number;assists:number;yellowCards:number;
+    redCards:number;cleanSheet:boolean;playerOfMatch:boolean;
+  }|null;
+};
+export type PlayerTeamEvent={
+  id:string;teamId:string;teamName:string;kind:string;title:string;notes:string|null;
+  location:string|null;startsAt:string;endsAt:string;
+  myAvailability:"AVAILABLE"|"UNAVAILABLE"|"UNSURE"|null;
+};
+export type PlayerFriendlyFixture={
+  id:string;teamId:string;teamName:string;opponentName:string;proposedAt:string;
+  venueName:string|null;status:string;
+};
+export type PlayerActivities={
+  competitions:PlayerParticipation[];matches:PlayerMatchItem[];
+  activities:PlayerTeamEvent[];friendlies:PlayerFriendlyFixture[];
+};
+export const playerActivityApi={
+  list:(token:string)=>request<PlayerActivities>("/api/v1/player-dashboard/activities",{},token),
+};
+
 export type PlayerDashboardPreferences={
   defaultTeamId:string|null;biography:string|null;province:string|null;district:string|null;
   secondaryPosition:"UNSPECIFIED"|"GOALKEEPER"|"FIXO"|"ALA"|"PIVO"|"UNIVERSAL"|null;
