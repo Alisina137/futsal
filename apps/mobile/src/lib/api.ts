@@ -76,6 +76,7 @@ import type {
   TeamMemberUpdateRequest,
   CompetitionCreateRequest,
   CompetitionDto,
+  CompetitionRewardsUpdateRequest,
   CompetitionPublicMatchDetail,
   CompetitionFeeUpdateRequest,
   CompetitionListItemDto,
@@ -741,6 +742,10 @@ export const competitionApi = {
       { method: "PATCH", body: JSON.stringify(input) },
       accessToken,
     ),
+  replaceRewards:(accessToken:string,competitionId:string,input:CompetitionRewardsUpdateRequest)=>
+    request<{competition:CompetitionDto}>(
+      `/api/v1/owner/competitions/${competitionId}/rewards`,
+      {method:"PUT",body:JSON.stringify(input)},accessToken),
   remove: (accessToken: string, competitionId: string) =>
     request<{ deleted: boolean }>(
       `/api/v1/owner/competitions/${competitionId}`,

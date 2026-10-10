@@ -5,7 +5,7 @@ import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useState} from "react";
 import {Pressable,StyleSheet,View} from "react-native";
 import {competitionApi} from "../../../../src/lib/api";
-import {formatLocalDateTimeParts} from "../../../../src/lib/date-time";
+import {formatCompetitionDateTime} from "../../../../src/lib/date-time";
 import {AppText} from "../../../../src/components/ui/AppText";
 import {Button} from "../../../../src/components/ui/Button";
 import {Card} from "../../../../src/components/ui/Card";
@@ -58,8 +58,7 @@ export default function CompetitionAboutScreen(){
 
   const date=(value:string|null)=>{
     if(!value)return t("competition.profile.notSet");
-    const parts=formatLocalDateTimeParts(value,language);
-    return `${parts.date} · ${parts.time}`;
+    return formatCompetitionDateTime(value,language);
   };
   const accepted=data?.teams.filter(x=>x.status==="ACCEPTED")??[];
   const finished=data?.matches.filter(x=>x.status==="COMPLETED"||x.status==="CORRECTED").length??0;
@@ -113,6 +112,33 @@ export default function CompetitionAboutScreen(){
             params:{competitionId,tab:"TEAMS",focusRegistration:"1"}})}/>:null}
       </AboutSection>
 
+      <AboutSection title={t("competition.rewards.title")} icon="gift-outline">
+        {data.rewards.length===0?<AppText muted>{t("competition.rewards.empty")}</AppText>:null}
+        {(["TEAM","INDIVIDUAL"] as const).map(category=>{
+          const rewards=data.rewards.filter(reward=>reward.category===category);
+          if(!rewards.length)return null;
+          return <View key={category} style={styles.rewardGroup}>
+            <View style={[styles.rewardGroupHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name={category==="TEAM"?"people-outline":"person-outline"}
+                size={18} color={colors.primary}/>
+              <AppText weight="bold" style={{flex:1}}>
+                {t(`competition.rewards.category.${category}`)}
+              </AppText>
+            </View>
+            {rewards.map((reward,index)=><View key={`${category}-${index}`} style={styles.rewardItem}>
+              <View style={[styles.rewardHead,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <View style={styles.rewardIcon}><Ionicons name="trophy-outline" size={20} color={colors.primary}/></View>
+                <View style={{flex:1,gap:4}}>
+                  <AppText weight="semibold" variant="bodyLarge">{reward.title}</AppText>
+                  <AppText weight="bold" style={{color:colors.primary}}>{reward.prize}</AppText>
+                </View>
+              </View>
+              {reward.description?<AppText muted>{reward.description}</AppText>:null}
+            </View>)}
+          </View>;
+        })}
+      </AboutSection>
+
       <AboutSection title={t("competition.profile.schedule")} icon="calendar-outline">
         <Info label={t("competition.startsAt")} value={date(data.startsAt)}/>
         <Info label={t("competition.endsAt")} value={date(data.endsAt)}/>
@@ -155,4 +181,11 @@ const styles=StyleSheet.create({
     borderTopWidth:1,borderTopColor:colors.border},
   value:{flex:1,textAlign:"auto"},
   pressed:{opacity:.7},
+  rewardGroup:{gap:spacing.sm},
+  rewardGroupHeading:{gap:spacing.sm,alignItems:"center"},
+  rewardItem:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+    padding:spacing.md,gap:spacing.sm,backgroundColor:colors.surface},
+  rewardHead:{gap:spacing.sm,alignItems:"center"},
+  rewardIcon:{width:40,height:40,borderRadius:20,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center"},
 });

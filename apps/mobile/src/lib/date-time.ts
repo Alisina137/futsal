@@ -30,6 +30,22 @@ export function formatLocalDateTime(
 }
 
 
+/** User-facing calendar date and clock time with Kabul wall time, no GMT offset,
+ * timezone abbreviation or seconds. Use in public competition About. */
+export function formatCompetitionDateTime(value:string|Date,language:LanguageCode):string{
+  const date=value instanceof Date?value:new Date(value);
+  if(!Number.isFinite(date.getTime()))return String(value);
+  const locale=localeByLanguage[language];
+  const options={timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory"} as const;
+  const day=new Intl.DateTimeFormat(locale,{
+    ...options,year:"numeric",month:"short",day:"numeric",
+  }).format(date);
+  const time=new Intl.DateTimeFormat(locale,{
+    ...options,hour:"numeric",minute:"2-digit",
+  }).format(date);
+  return `${day} · ${time}`;
+}
+
 export function formatLocalDateTimeParts(
   value: string | Date,
   language: LanguageCode,

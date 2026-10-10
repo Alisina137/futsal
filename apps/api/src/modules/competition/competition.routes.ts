@@ -15,6 +15,7 @@ import {
   competitionStateRequestSchema,
   competitionTeamRegisterRequestSchema,
   competitionUpdateRequestSchema,
+  competitionRewardsUpdateRequestSchema,
 } from "@leaguekick/contracts";
 import { requireAuth } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
@@ -129,6 +130,14 @@ export function createOwnerCompetitionRouter(service: CompetitionService, tokens
       const input = competitionUpdateRequestSchema.parse(request.body);
       response.json({ competition: await service.update(request.auth!.userId, competitionId, input) });
     } catch (error) { next(error); }
+  });
+
+  router.put("/competitions/:competitionId/rewards",auth,writeLimiter,async(request,response,next)=>{
+    try{
+      const competitionId=idSchema.parse(request.params.competitionId);
+      const {rewards}=competitionRewardsUpdateRequestSchema.parse(request.body);
+      response.json({competition:await service.replaceRewards(request.auth!.userId,competitionId,rewards)});
+    }catch(error){next(error);}
   });
 
   router.delete("/competitions/:competitionId", auth, writeLimiter, async (request, response, next) => {
