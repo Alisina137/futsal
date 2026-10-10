@@ -1087,3 +1087,14 @@ export const teamAnnouncements=pgTable("team_announcements",{
   createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
   updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
 },table=>[index("team_announcements_team_date_idx").on(table.teamId,table.createdAt)]);
+
+export const playerDashboardPreferences=pgTable("player_dashboard_preferences",{
+  userId:uuid("user_id").primaryKey().references(()=>users.id,{onDelete:"cascade"}),
+  defaultTeamId:uuid("default_team_id").references(()=>teams.id,{onDelete:"set null"}),
+  biography:varchar("biography",{length:500}),
+  province:varchar("province",{length:80}),
+  district:varchar("district",{length:80}),
+  secondaryPosition:playerPositionEnum("secondary_position"),
+  preferredFoot:varchar("preferred_foot",{length:8}),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[index("player_dashboard_default_team_idx").on(table.defaultTeamId)]);

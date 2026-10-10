@@ -717,6 +717,38 @@ export const teamManagerApi={
     request<{deleted:boolean}>(`/api/v1/teams/${teamId}/manager/guests/${guestId}`,{method:"DELETE"},token),
 };
 
+export type PlayerDashboardPreferences={
+  defaultTeamId:string|null;biography:string|null;province:string|null;district:string|null;
+  secondaryPosition:"UNSPECIFIED"|"GOALKEEPER"|"FIXO"|"ALA"|"PIVO"|"UNIVERSAL"|null;
+  preferredFoot:"LEFT"|"RIGHT"|"BOTH"|null;
+};
+export type PlayerDashboardRequest={id:string;teamId:string;teamName:string;status:"PENDING"|"ACCEPTED"|"REJECTED"|"CANCELLED";
+  createdAt:string;respondedAt:string|null};
+export type PlayerDashboardActivity={id:string;teamId:string;kind:string;title:string;location:string|null;
+  startsAt:string;endsAt:string;availability:string|null};
+export type PlayerDashboardOverview={
+  profile:OwnPlayerProfileDto;teams:TeamListItemDto[];selectedTeamId:string|null;
+  preferences:PlayerDashboardPreferences;requests:PlayerDashboardRequest[];invitations:TeamInvitationDto[];
+  stats:{matches:number;goals:number;assists:number;awards:number};
+  nextMatch:null|{id:string;competitionId:string;startsAt:string|null;homeTeamName:string;awayTeamName:string;teamId:string|null};
+  activities:PlayerDashboardActivity[];
+  recentMatches:Array<{matchId:string;teamId:string;goals:number;assists:number;
+    appeared:boolean;best:boolean;startsAt:string|null;homeScore:number|null;awayScore:number|null;
+    homeTeamId:string|null;awayTeamId:string|null;matchStatus:string}>;
+};
+export const playerDashboardApi={
+  overview:(token:string)=>request<PlayerDashboardOverview>("/api/v1/player-dashboard",{},token),
+  preferences:(token:string)=>request<{preferences:PlayerDashboardPreferences}>("/api/v1/player-dashboard/preferences",{},token),
+  updatePreferences:(token:string,input:Partial<PlayerDashboardPreferences>)=>
+    request<{preferences:PlayerDashboardPreferences}>("/api/v1/player-dashboard/preferences",
+      {method:"PATCH",body:JSON.stringify(input)},token),
+  outgoingRequests:(token:string)=>request<{requests:PlayerDashboardRequest[]}>("/api/v1/player-dashboard/join-requests",{},token),
+  cancelRequest:(token:string,id:string)=>request<{cancelled:boolean}>(
+    `/api/v1/player-dashboard/join-requests/${id}/cancel`,{method:"POST"},token),
+  leaveTeam:(token:string,teamId:string)=>request<{left:boolean}>(
+    `/api/v1/player-dashboard/teams/${teamId}/leave`,{method:"POST"},token),
+};
+
 export const teamApi = {
   myProfile: (accessToken: string) =>
     request<{ player: OwnPlayerProfileDto }>("/api/v1/players/me", {}, accessToken),
