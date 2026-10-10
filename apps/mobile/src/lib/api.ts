@@ -1168,6 +1168,25 @@ export const refereePhase2Api={
     request<{report:RefereeMatchReport}>(`/api/v1/owner/referee-reports/${matchId}/review`,
       {method:"POST",body:JSON.stringify({action,feedback,confirmImpact})},token),
 };
+export type RefereeCareerWindow="7d"|"30d"|"90d"|"year"|"all";
+export type RefereeCareerResponse={
+  period:RefereeCareerWindow;total:number;competitionsCount:number;submitted:number;
+  onTime:number;submissionRate:number;onTimeRate:number;
+  events:{GOAL:number;YELLOW_CARD:number;RED_CARD:number;FOUL:number;TIMEOUT:number;INCIDENT:number};
+  monthly:Array<{month:string;matches:number}>;
+  competitions:Array<{id:string;name:string;matches:number}>;
+  history:Array<{matchId:string;competitionId:string;competitionName:string;venueName:string;
+    homeName:string;awayName:string;finishedAt:string|null;homeScore:number|null;awayScore:number|null}>;
+};
+export const refereeCareerApi={
+  career:(token:string,period:RefereeCareerWindow)=>
+    request<RefereeCareerResponse>(`/api/v1/referee/career?period=${period}`,{},token),
+  pdfTicket:(token:string,matchId:string,owner=false)=>
+    request<{token:string;expiresAt:string}>(owner?
+      `/api/v1/owner/referee-reports/${matchId}/pdf-ticket`:
+      `/api/v1/referee/matches/${matchId}/pdf-ticket`,{method:"POST"},token),
+  pdfUrl:(ticket:string)=>`${baseUrl}/api/v1/referee/reports/download/${ticket}`,
+};
 export const refereeApi={
   overview:(token:string)=>request<RefereeOverview>("/api/v1/referee/overview",{},token),
   updateProfile:(token:string,input:RefereeProfile)=>

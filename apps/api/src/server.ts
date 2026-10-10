@@ -25,6 +25,7 @@ import { DrizzleCompetitionRepository } from "./modules/competition/competition.
 import { CompetitionService } from "./modules/competition/competition.service.js";
 import {RefereeService} from "./modules/referee/referee.routes.js";
 import {RefereePhase2Service} from "./modules/referee/referee-phase2.routes.js";
+import {RefereeCareerService} from "./modules/referee/referee-career.routes.js";
 import { DrizzleCommercialRepository } from "./modules/commercial/commercial.repository.js";
 import { CommercialService } from "./modules/commercial/commercial.service.js";
 import { DrizzleTimetableRepository } from "./modules/timetable/timetable.repository.js";
@@ -106,6 +107,7 @@ const app = createApp({
   competitionService,
   refereeService:new RefereeService(db),
   refereePhase2:new RefereePhase2Service(db,competitionService,notificationService),
+  refereeCareer:new RefereeCareerService(db),
   commercialService,
   timetableService: timetable,
   manualTeamService: new ManualTeamService(db),

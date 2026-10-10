@@ -33,6 +33,7 @@ import { createCompetitionRouter, createOwnerCompetitionRouter } from "./modules
 import type { CompetitionService } from "./modules/competition/competition.service.js";
 import {createRefereeRouter,createOwnerRefereeReportRouter,type RefereeService} from "./modules/referee/referee.routes.js";
 import {createRefereePhase2Router,createOwnerRefereePhase2Router,type RefereePhase2Service} from "./modules/referee/referee-phase2.routes.js";
+import {createRefereeCareerRouter,type RefereeCareerService} from "./modules/referee/referee-career.routes.js";
 import { createAdminRouter, createOwnerCommercialRouter } from "./modules/commercial/commercial.routes.js";
 import type { CommercialService } from "./modules/commercial/commercial.service.js";
 import { createOwnerTimetableRouter } from "./modules/timetable/timetable.routes.js";
@@ -58,6 +59,7 @@ export type AppDependencies = {
   competitionService?: CompetitionService;
   refereeService?: RefereeService;
   refereePhase2?: RefereePhase2Service;
+  refereeCareer?: RefereeCareerService;
   commercialService?: CommercialService;
   timetableService?: TimetableService;
   manualTeamService?: ManualTeamService;
@@ -201,6 +203,7 @@ export function createApp(deps: AppDependencies) {
     app.use("/api/v1",createRefereePhase2Router(deps.refereePhase2,deps.tokenService));
     app.use("/api/v1/owner",createOwnerRefereePhase2Router(deps.refereePhase2,deps.tokenService));
   }
+  if(deps.refereeCareer)app.use("/api/v1",createRefereeCareerRouter(deps.refereeCareer,deps.tokenService));
   if (deps.competitionService) {
     app.use("/api/v1", createCompetitionRouter(deps.competitionService, deps.tokenService));
     app.use("/api/v1/owner", createOwnerCompetitionRouter(deps.competitionService, deps.tokenService));
