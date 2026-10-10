@@ -1831,3 +1831,12 @@ export function lastFiveLeagueResults(matches:CompetitionMatchDto[],teamId:strin
     return scored>conceded?"W":scored<conceded?"L":"D";
   });
 }
+
+/** Pure, stable UUID-based offline event reconciliation; never rely on positional matching. */
+export function partitionRefereeReplay<T extends {id:string}>(
+  pending:ReadonlyArray<T>,remote:ReadonlyArray<{id:string}>,
+):{acknowledged:T[];toReplay:T[]}{
+  const ids=new Set(remote.map(item=>item.id));
+  return {acknowledged:pending.filter(item=>ids.has(item.id)),
+    toReplay:pending.filter(item=>!ids.has(item.id))};
+}

@@ -1,3 +1,4 @@
+import {partitionRefereeReplay} from "@leaguekick/contracts";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {refereePhase2Api,type RefereeMatchEvent,type RefereeMatchReport,
   type RefereeReportMatch,type RefereeReportMember} from "./api";
@@ -80,7 +81,7 @@ export async function syncRefereeOffline(userId:string,matchId:string,token:stri
     for(const queued of [...state.pending]){
       const report=current.report;
       if(!report)throw new Error("Match has not started. Saved events remain on this device.");
-      const exists=report.events.some(event=>event.id===queued.id);
+      const exists=partitionRefereeReplay([queued],report.events).acknowledged.length===1;
       if(!exists&&(!report.startedAt||
           !["DRAFT","CHANGES_REQUESTED"].includes(report.status)||
           !!report.finishedAt&&report.status!=="CHANGES_REQUESTED"))
