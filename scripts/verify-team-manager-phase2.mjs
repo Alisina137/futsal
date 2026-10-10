@@ -37,6 +37,8 @@ requireInvariant(!ops.includes("enterResult(")&&!route.includes("enterResult("),
   "Team Manager cannot edit official competition match results.");
 requireInvariant(read("apps/api/src/modules/notifications/notification.service.ts").includes("async teamActivity("),
   "Phase 2 team event alerts are not wired.");
-requireInvariant(read("apps/api/src/modules/notifications/notification.repository.ts").includes('["TEAM_INVITATION","TEAM_ACTIVITY"]'),
-  "Team activity alerts should appear under Teams notifications.");
+requireInvariant(
+  read("apps/api/src/modules/notifications/notification.repository.ts").includes('"TEAM_ACTIVITY"') &&
+  read("apps/api/src/modules/notifications/notification.repository.ts").includes('filter==="TEAMS"'),
+  "Team activity alerts should appear under Teams notifications, including when more types are added.");
 console.log("Team Manager Phase 2 verified: competition registration/roster, matches/lineups, calendar, member availability, and authorization.");
