@@ -5,7 +5,7 @@ import {router,useFocusEffect} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {Linking,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
 import {ApiRequestError,refereeApi,type RefereeMatch,type RefereeOverview,type RefereeProfile} from "../../lib/api";
-import {formatCompetitionDateTime} from "../../lib/date-time";
+import {formatCompetitionDateTime,formatRefereeScheduleParts,formatRefereeCalendarPeriod} from "../../lib/date-time";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -33,8 +33,10 @@ const subTabs:Record<Exclude<Main,"overview">,string[]>={
 };
 const days=["sun","mon","tue","wed","thu","fri","sat"] as const;
 function RefStat({value,label}:{value:number;label:string}){
-  return <View style={styles.stat}><AppText variant="title" weight="bold" style={{color:colors.primary}}>{value}</AppText>
-    <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText></View>;
+  return <View style={styles.stat} accessibilityLabel={label+": "+value}>
+    <AppText variant="title" weight="bold" style={{color:colors.primary,textAlign:"center"}}>{value}</AppText>
+    <AppText variant="body" weight="medium" style={styles.statLabel}>{label}</AppText>
+  </View>;
 }
 function StatusBadge({status}:{status:string}){
   const {t}=useLocale();
@@ -132,6 +134,7 @@ export function RefereeDashboard(){
     return `${data.year}-${data.month}-${data.day}`;
   };
   const calendarKey=kabulDay(calendarAnchor);
+  const calendarPeriod=formatRefereeCalendarPeriod(calendarAnchor,calendarView,language);
   const getWeek=(key:string)=>{
     const date=new Date(key+"T00:00:00Z");
     const weekday=(date.getUTCDay()+6)%7;
@@ -153,6 +156,23 @@ export function RefereeDashboard(){
     if(calendarView==="week")return getWeek(day)===getWeek(calendarKey);
     return day.slice(0,7)===calendarKey.slice(0,7);
   });
+  function scheduledDateTime(value:string|null,durationMinutes?:number){
+    if(!value)return <AppText variant="caption" muted>{tr("notSet")}</AppText>;
+    const parts=formatRefereeScheduleParts(value,language);
+    return <View style={styles.appointmentDateTime}>
+      <View style={[styles.dateTimeLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="calendar-outline" size={18} color={colors.primary}/>
+        <AppText weight="medium" style={styles.dateTimeText}>{parts.date}</AppText>
+      </View>
+      <View style={[styles.dateTimeLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="time-outline" size={18} color={colors.primary}/>
+        <AppText weight="semibold" style={styles.dateTimeText}>
+          {parts.time} · {tr("calendar.kabulTime")}
+          {durationMinutes===undefined?"":" · "+durationMinutes+" "+tr("minutes")}
+        </AppText>
+      </View>
+    </View>;
+  }
   const changeProfile=(patch:Partial<RefereeProfile>)=>setDraft(old=>old?{...old,...patch}:old);
   const editSlot=(day:number,field:"start"|"end",value:string)=>{
     if(!draft)return;
@@ -169,7 +189,7 @@ export function RefereeDashboard(){
         </View>
         <StatusBadge status={m.responseStatus}/>
       </View>
-      <AppText variant="caption" muted>{fmt(m.startsAt)} · {m.durationMinutes} {tr("minutes")}</AppText>
+      {scheduledDateTime(m.startsAt,m.durationMinutes)}
       <View style={styles.actions}>
         <Button label={tr("details")} variant="secondary" onPress={()=>router.push({
           pathname:"/competitions/[competitionId]/matches/[matchId]",
@@ -239,7 +259,8 @@ export function RefereeDashboard(){
         </View>
         <Card><AppText variant="bodyLarge" weight="bold">{tr("nextMatch")}</AppText>
           {data.nextMatch?<><AppText weight="bold">{data.nextMatch.homeTeamName} VS {data.nextMatch.awayTeamName}</AppText>
-            <AppText variant="caption" muted>{fmt(data.nextMatch.startsAt)} · {data.nextMatch.venueName}</AppText>
+            {scheduledDateTime(data.nextMatch.startsAt)}
+             <AppText variant="caption" muted>{data.nextMatch.venueName}</AppText>
             <Button label={tr("details")} variant="secondary" onPress={()=>router.push({
               pathname:"/competitions/[competitionId]/matches/[matchId]",
               params:{competitionId:data.nextMatch!.competitionId,matchId:data.nextMatch!.id},
@@ -260,18 +281,37 @@ export function RefereeDashboard(){
       {main==="assignments"&&selectedSub==="confirmed"?
         (accepted.length?accepted.map(card):<Card><AppText muted>{tr("emptyConfirmed")}</AppText></Card>):null}
       {main==="assignments"&&selectedSub==="calendar"?<>
-        <Card>
+        <Card style={{gap:spacing.md}}>
           <AppText variant="bodyLarge" weight="bold">{tr("calendarHint")}</AppText>
-          <View style={styles.actions}>
-            {(["day","week","month"] as const).map(mode=><Button key={mode}
-              label={tr("calendar."+mode)} variant={calendarView===mode?"primary":"secondary"}
-              onPress={()=>setCalendarView(mode)}/>)}
+          <View style={[styles.calendarModes,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            {(["day","week","month"] as const).map(mode=><Pressable
+              key={mode} accessibilityRole="tab"
+              accessibilityState={{selected:calendarView===mode}}
+              style={[styles.calendarMode,calendarView===mode&&styles.calendarModeActive]}
+              onPress={()=>setCalendarView(mode)}>
+              <AppText weight="semibold" style={{
+                color:calendarView===mode?"#FFFFFF":colors.primary,textAlign:"center",
+              }}>{tr("calendar."+mode)}</AppText>
+            </Pressable>)}
           </View>
-          <View style={styles.actions}>
-            <Button variant="secondary" label={tr("calendar.prev")} onPress={()=>shiftCalendar(-1)}/>
-            <AppText weight="semibold">{fmt(calendarAnchor.toISOString())}</AppText>
-            <Button variant="secondary" label={tr("calendar.next")} onPress={()=>shiftCalendar(1)}/>
-            <Button variant="secondary" label={tr("calendar.today")} onPress={()=>setCalendarAnchor(new Date())}/>
+          <View style={styles.calendarPeriodPanel}>
+            <View style={[styles.calendarPeriodCaption,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name="calendar-clear-outline" size={18} color={colors.primary}/>
+              <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+                {tr("calendar.selectedPeriod")}
+              </AppText>
+            </View>
+            <AppText variant="bodyLarge" weight="bold" style={styles.calendarPeriodText}>
+              {calendarPeriod}
+            </AppText>
+          </View>
+          <View style={[styles.calendarControls,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button variant="secondary" style={styles.calendarControl}
+              label={tr("calendar.prev")} onPress={()=>shiftCalendar(-1)}/>
+            <Button variant="secondary" style={styles.calendarControl}
+              label={tr("calendar.today")} onPress={()=>setCalendarAnchor(new Date())}/>
+            <Button variant="secondary" style={styles.calendarControl}
+              label={tr("calendar.next")} onPress={()=>shiftCalendar(1)}/>
           </View>
         </Card>
         {calendarItems.length?calendarItems.map(card):
@@ -375,9 +415,26 @@ const styles=StyleSheet.create({
     borderBottomWidth:2,borderBottomColor:"transparent"},
   subActive:{backgroundColor:colors.primarySoft,borderBottomColor:colors.primary},
   stats:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  stat:{flexGrow:1,flexBasis:"20%",minWidth:74,padding:spacing.md,backgroundColor:colors.surface,
-    borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
-    alignItems:"center",gap:spacing.xs},
+  stat:{flexGrow:1,flexBasis:"46%",minWidth:0,minHeight:112,padding:spacing.md,
+    backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+    alignItems:"center",justifyContent:"center",gap:spacing.sm},
+  statLabel:{textAlign:"center",lineHeight:23,flexShrink:1},
+  appointmentDateTime:{gap:spacing.sm,padding:spacing.md,
+    backgroundColor:colors.surfaceMuted,borderRadius:radius.md},
+  dateTimeLine:{alignItems:"center",gap:spacing.sm},
+  dateTimeText:{flex:1,flexShrink:1},
+  calendarModes:{gap:spacing.sm},
+  calendarMode:{flex:1,minWidth:0,minHeight:48,alignItems:"center",justifyContent:"center",
+    borderRadius:radius.md,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.primarySoft,paddingHorizontal:spacing.xs,paddingVertical:spacing.sm},
+  calendarModeActive:{backgroundColor:colors.primary,borderColor:colors.primary},
+  calendarPeriodPanel:{gap:spacing.sm,alignItems:"center",
+    backgroundColor:colors.primarySoft,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.border,paddingHorizontal:spacing.md,paddingVertical:spacing.lg},
+  calendarPeriodCaption:{alignItems:"center",justifyContent:"center",gap:spacing.sm},
+  calendarPeriodText:{textAlign:"center",lineHeight:28,alignSelf:"stretch"},
+  calendarControls:{gap:spacing.sm},
+  calendarControl:{flex:1,minWidth:0,paddingHorizontal:spacing.xs},
   row:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
   badge:{paddingVertical:5,paddingHorizontal:9,borderRadius:radius.pill},
   actions:{flexDirection:"row",flexWrap:"wrap",alignItems:"center",gap:spacing.sm},
