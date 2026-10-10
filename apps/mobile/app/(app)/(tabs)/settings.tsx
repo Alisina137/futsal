@@ -111,15 +111,15 @@ export default function ProfileScreen(){
     <SectionHeader icon="grid-outline" title={t("rf1.dashboardMode")} subtitle={t("rf1.dashboardModeHint")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
       <View style={{gap:spacing.sm}}>
-        {([{role:"PLAYER",icon:"football-outline"},
-          ...(user?.roles.includes("REFEREE")?[{role:"REFEREE",icon:"flag-outline"}]:[]),
-          ...(user?.roles.includes("TEAM_MANAGER")?[{role:"TEAM_MANAGER",icon:"people-outline"}]:[]),
-          ...(user?.roles.includes("VENUE_OWNER")?[{role:"VENUE_OWNER",icon:"business-outline"}]:[]),
-        ] as Array<{role:DashboardRole;icon:IconName}>).map(choice=>
-          <ActionRow key={choice.role} icon={choice.icon}
-            title={t(("rf1.dashboardRole."+choice.role) as never)}
+        {([{key:"PLAYER",icon:"football-outline"},
+          ...(user?.roles.includes("REFEREE")?[{key:"REFEREE",icon:"flag-outline"}]:[]),
+          ...(user?.roles.includes("TEAM_MANAGER")?[{key:"TEAM_MANAGER",icon:"people-outline"}]:[]),
+          ...(user?.roles.includes("VENUE_OWNER")?[{key:"VENUE_OWNER",icon:"business-outline"}]:[]),
+        ] as Array<{key:DashboardRole;icon:IconName}>).map(choice=>
+          <ActionRow key={choice.key} icon={choice.icon}
+            title={t(("rf1.dashboardRole."+choice.key) as never)}
             subtitle={t("rf1.dashboardSelect")} rtl={isRTL}
-            onPress={()=>{if(user)void setDashboardRole(user.id,choice.role).then(()=>router.push("/dashboard"));}}/>
+            onPress={()=>{if(user)void setDashboardRole(user.id,choice.key).then(()=>router.push("/dashboard"));}}/>
         )}
       </View>
     </Card>
