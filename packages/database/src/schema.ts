@@ -76,6 +76,8 @@ export const users = pgTable(
     age: integer("age"),
     city: varchar("city", { length: 80 }),
     bio: varchar("bio", { length: 280 }),
+    defaultLatitude:doublePrecision("default_latitude"),
+    defaultLongitude:doublePrecision("default_longitude"),
     lastCredentialResetAt: timestamp("last_credential_reset_at", { withTimezone: true }),
     passwordHash: text("password_hash").notNull(),
     preferredLanguage: languageCodeEnum("preferred_language").notNull().default("fa-AF"),

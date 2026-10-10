@@ -190,6 +190,8 @@ export class AuthService {
       emailNormalized,
       city: input.city?.trim() || null,
       bio: input.bio?.trim() || null,
+      defaultLatitude:input.defaultLatitude===undefined?user.defaultLatitude:input.defaultLatitude,
+      defaultLongitude:input.defaultLongitude===undefined?user.defaultLongitude:input.defaultLongitude,
     }));
   }
 

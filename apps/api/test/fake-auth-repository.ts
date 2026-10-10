@@ -41,7 +41,7 @@ export class FakeAuthRepository implements AuthRepository {
     }
     const user: AuthUserRecord = {
       id: randomUUID(), displayName: input.displayName, username: input.username, usernameNormalized: input.usernameNormalized,
-      phoneE164: input.phoneE164, profileImageUrl: null, age: null, emailNormalized: null, city: null, bio: null,
+      phoneE164: input.phoneE164, profileImageUrl: null, age: null, emailNormalized: null, city: null, bio: null, defaultLatitude:null, defaultLongitude:null,
       lastCredentialResetAt: null, passwordHash: input.passwordHash, preferredLanguage: input.preferredLanguage, status: "ACTIVE", roles: [],
     };
     this.users.set(user.id, user);

@@ -49,6 +49,8 @@ export class DrizzleAuthRepository implements AuthRepository {
       emailNormalized: row.emailNormalized,
       city: row.city,
       bio: row.bio,
+      defaultLatitude:row.defaultLatitude,
+      defaultLongitude:row.defaultLongitude,
       lastCredentialResetAt: row.lastCredentialResetAt,
       passwordHash: row.passwordHash,
       preferredLanguage: row.preferredLanguage,
@@ -102,6 +104,8 @@ export class DrizzleAuthRepository implements AuthRepository {
           emailNormalized: row.emailNormalized,
           city: row.city,
           bio: row.bio,
+          defaultLatitude:row.defaultLatitude,
+          defaultLongitude:row.defaultLongitude,
           lastCredentialResetAt: row.lastCredentialResetAt,
           passwordHash: row.passwordHash,
           preferredLanguage: row.preferredLanguage,
@@ -347,6 +351,8 @@ export class DrizzleAuthRepository implements AuthRepository {
           emailNormalized: input.emailNormalized,
           city: input.city,
           bio: input.bio,
+          defaultLatitude:input.defaultLatitude,
+          defaultLongitude:input.defaultLongitude,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId))

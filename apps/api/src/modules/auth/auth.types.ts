@@ -11,6 +11,8 @@ export type AuthUserRecord = {
   emailNormalized: string | null;
   city: string | null;
   bio: string | null;
+  defaultLatitude:number|null;
+  defaultLongitude:number|null;
   lastCredentialResetAt: Date | null;
   passwordHash: string;
   preferredLanguage: LanguageCode;
@@ -67,6 +69,8 @@ export type UpdateAccountProfileInput = {
   emailNormalized: string | null;
   city: string | null;
   bio: string | null;
+  defaultLatitude:number|null;
+  defaultLongitude:number|null;
 };
 
 export interface AuthRepository {
@@ -129,6 +133,8 @@ export function toUserDto(user: AuthUserRecord): UserDto {
     email: user.emailNormalized,
     city: user.city,
     bio: user.bio,
+    defaultLatitude:user.defaultLatitude,
+    defaultLongitude:user.defaultLongitude,
     preferredLanguage: user.preferredLanguage,
     roles: user.roles,
     status: user.status === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",

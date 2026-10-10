@@ -76,6 +76,14 @@ export const accountProfileUpdateRequestSchema = z.object({
   email: z.string().trim().email().max(320).optional().or(z.literal("")),
   city: z.string().trim().max(80).optional().or(z.literal("")),
   bio: z.string().trim().max(280).optional().or(z.literal("")),
+  defaultLatitude:z.number().finite().min(-90).max(90).nullable().optional(),
+  defaultLongitude:z.number().finite().min(-180).max(180).nullable().optional(),
+}).superRefine((value,ctx)=>{
+  if((value.defaultLatitude===undefined)!==(value.defaultLongitude===undefined)||
+     (value.defaultLatitude===null)!==(value.defaultLongitude===null)){
+    ctx.addIssue({code:"custom",path:["defaultLatitude"],
+      message:"Default location latitude and longitude must be provided together or both cleared."});
+  }
 });
 export type AccountProfileUpdateRequest = z.infer<typeof accountProfileUpdateRequestSchema>;
 
@@ -140,6 +148,8 @@ export const userDtoSchema = z.object({
   email: z.string().nullable(),
   city: z.string().nullable(),
   bio: z.string().nullable(),
+  defaultLatitude:z.number().min(-90).max(90).nullable(),
+  defaultLongitude:z.number().min(-180).max(180).nullable(),
   preferredLanguage: languageCodeSchema,
   roles: z.array(userRoleSchema),
   status: z.enum(["ACTIVE", "SUSPENDED"]),
