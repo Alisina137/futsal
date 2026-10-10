@@ -111,7 +111,7 @@ export class RefereePhase2Service{
   }
   async get(userId:string,matchId:string){
     const {match,competition}=await this.access(userId,matchId,false);
-    const [row,roster]=await Promise.all([
+    const [rows,roster]=await Promise.all([
       this.db.select().from(refereeMatchReports).where(eq(refereeMatchReports.matchId,matchId)).limit(1),
       this.db.select({teamId:teamMemberships.teamId,userId:teamMemberships.userId,
         name:users.displayName,shirtNumber:teamMemberships.shirtNumber})
@@ -119,6 +119,7 @@ export class RefereePhase2Service{
         .where(and(inArray(teamMemberships.teamId,[match.homeTeamId,match.awayTeamId].filter((v):v is string=>!!v)),
           eq(teamMemberships.status,"ACTIVE"))),
     ]);
+    const row=rows[0];
     // No report is created merely by viewing a match.
     return {report:row&&row.refereeUserId===userId?this.format(row):null,
       match:{id:match.id,competitionId:match.competitionId,homeTeamId:match.homeTeamId,

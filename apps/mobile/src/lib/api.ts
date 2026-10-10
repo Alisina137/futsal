@@ -1114,6 +1114,7 @@ export type RefereeMatch={
   matchStatus:string;homeScore:number|null;awayScore:number|null;
   responseStatus:"PENDING"|"ACCEPTED"|"DECLINED"|"WITHDRAW_REQUESTED";
   responseReason:string|null;respondedAt:string|null;authorized:boolean;
+  reportStatus:string|null;reportStartedAt:string|null;reportFinishedAt:string|null;
 };
 export type RefereeOverview={
   person:{id:string;name:string;city:string|null;image:string|null;status:string};

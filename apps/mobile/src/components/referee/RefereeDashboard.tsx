@@ -13,6 +13,7 @@ import {Card} from "../ui/Card";
 import {DataLoadingState} from "../ui/DataLoadingState";
 import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
+import {RefereeMatchCenter} from "./RefereeMatchCenter";
 
 type Main="overview"|"assignments"|"center"|"stats"|"settings";
 const tabs:{id:Main;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -52,6 +53,7 @@ export function RefereeDashboard(){
   const [busy,setBusy]=useState<string|null>(null),[loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
   const [reason,setReason]=useState<Record<string,string>>({});
+  const [activeCenterMatch,setActiveCenterMatch]=useState<RefereeMatch|null>(null);
   const [exceptionDate,setExceptionDate]=useState("");
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
   const [calendarAnchor,setCalendarAnchor]=useState(new Date());
@@ -92,8 +94,11 @@ export function RefereeDashboard(){
   const pending=assignments.filter(a=>a.responseStatus==="PENDING"&&a.authorized&&a.matchStatus==="SCHEDULED"&&
     !!a.startsAt&&Date.parse(a.startsAt)>Date.now());
   const accepted=assignments.filter(a=>a.responseStatus==="ACCEPTED");
-  const upcoming=accepted.filter(a=>a.matchStatus==="SCHEDULED");
-  const active=accepted.filter(a=>a.matchStatus==="IN_PROGRESS");
+  const upcoming=accepted.filter(a=>a.matchStatus==="SCHEDULED"&&!a.reportStartedAt);
+  const active=accepted.filter(a=>!!a.reportStartedAt&&!a.reportFinishedAt&&
+    (a.matchStatus==="SCHEDULED"||a.matchStatus==="IN_PROGRESS"));
+  const reports=accepted.filter(a=>!!a.reportFinishedAt||!!a.reportStatus&&
+    ["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"].includes(a.reportStatus));
   const finished=accepted.filter(a=>["COMPLETED","CORRECTED"].includes(a.matchStatus));
   const future=upcoming.filter(a=>!!a.startsAt&&Date.parse(a.startsAt)>Date.now());
   const selectedSub=sub[main]??"";
@@ -149,6 +154,10 @@ export function RefereeDashboard(){
         })}/>
         {m.latitude!==null&&m.longitude!==null?<Button label={tr("location")} variant="secondary"
           onPress={()=>void map(m.latitude,m.longitude)}/>:null}
+        {m.responseStatus==="ACCEPTED"&&m.authorized&&
+          (["SCHEDULED","IN_PROGRESS"].includes(m.matchStatus)||!!m.reportStatus)?
+          <Button label={t("rf2.openMatch")} variant="secondary"
+            onPress={()=>{setActiveCenterMatch(m);choose("center");setSub(x=>({...x,center:"live"}));}}/>:null}
       </View>
       {!m.authorized?<AppText variant="caption" style={{color:colors.danger}}>{tr("venueRevoked")}</AppText>:null}
       {m.responseStatus==="PENDING"&&m.authorized&&m.matchStatus==="SCHEDULED"?<>
@@ -245,17 +254,15 @@ export function RefereeDashboard(){
         {calendarItems.length?calendarItems.map(card):
           <Card><AppText muted>{tr("calendar.empty")}</AppText></Card>}
       </>:null}
-      {main==="center"&&selectedSub==="upcoming"?
+      {main==="center"&&activeCenterMatch?<RefereeMatchCenter
+        key={activeCenterMatch.id} match={activeCenterMatch}
+        onClose={()=>{setActiveCenterMatch(null);setRefresh(v=>v+1);}}/>:null}
+      {main==="center"&&!activeCenterMatch&&selectedSub==="upcoming"?
         (future.length?future.map(card):<Card><AppText muted>{tr("noUpcoming")}</AppText></Card>):null}
-      {main==="center"&&selectedSub==="live"?
-        <Card><AppText variant="bodyLarge" weight="bold">{tr("center.live")}</AppText>
-          <AppText muted>{tr("phase2Hint")}</AppText>
-          {active.map(card)}
-        </Card>:null}
-      {main==="center"&&selectedSub==="reports"?<Card>
-        <AppText variant="bodyLarge" weight="bold">{tr("center.reports")}</AppText>
-        <AppText muted>{tr("phase2Hint")}</AppText>
-      </Card>:null}
+      {main==="center"&&!activeCenterMatch&&selectedSub==="live"?
+        (active.length?active.map(card):<Card><AppText muted>{t("rf2.noLiveMatches")}</AppText></Card>):null}
+      {main==="center"&&!activeCenterMatch&&selectedSub==="reports"?
+        (reports.length?reports.map(card):<Card><AppText muted>{t("rf2.noReports")}</AppText></Card>):null}
       {main==="stats"&&selectedSub==="overview"?<View style={styles.stats}>
         <RefStat value={data.stats.total} label={tr("stat.total")}/>
         <RefStat value={data.stats.accepted} label={tr("stat.accepted")}/>

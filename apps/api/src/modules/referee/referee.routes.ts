@@ -3,7 +3,7 @@ import {rateLimit} from "express-rate-limit";
 import {z} from "zod";
 import {and,eq,gt,inArray,lt,or,sql} from "drizzle-orm";
 import type {Database} from "@leaguekick/database";
-import {competitionMatches,competitions,refereeMatchResponses,refereeProfiles,
+import {competitionMatches,competitions,refereeMatchResponses,refereeMatchReports,refereeProfiles,
   teamMemberships,teams,users,venueReferees,venues} from "@leaguekick/database";
 import {errors} from "../../lib/errors.js";
 import {requireAuth} from "../../middleware/auth.js";
@@ -83,9 +83,17 @@ export class RefereeService{
       .where(and(eq(refereeMatchResponses.refereeUserId,userId),
         inArray(refereeMatchResponses.matchId,responseIds))):[];
     const byId=new Map(responses.map(r=>[r.matchId,r]));
+    const reports=responseIds.length?await this.db.select({
+      matchId:refereeMatchReports.matchId,refereeUserId:refereeMatchReports.refereeUserId,
+      status:refereeMatchReports.status,startedAt:refereeMatchReports.startedAt,
+      finishedAt:refereeMatchReports.finishedAt,
+    }).from(refereeMatchReports).where(and(eq(refereeMatchReports.refereeUserId,userId),
+      inArray(refereeMatchReports.matchId,responseIds))):[];
+    const reportsById=new Map(reports.map(r=>[r.matchId,r]));
     const allowedVenues=new Set(allowed.map(v=>v.id));
     return records.map(({match,competitionName,format,duration,venueName,venueAddress,latitude,longitude})=>{
       const reply=byId.get(match.id);
+      const report=reportsById.get(match.id);
       const authorized=allowedVenues.has(match.venueId??"");
       return {
         id:match.id,competitionId:match.competitionId,competitionName,format,
@@ -99,6 +107,9 @@ export class RefereeService{
         responseStatus:reply?.status??"PENDING",
         responseReason:reply?.reason??null,
         respondedAt:reply?.respondedAt?.toISOString()??null,
+        reportStatus:report?.status??null,
+        reportStartedAt:report?.startedAt?.toISOString()??null,
+        reportFinishedAt:report?.finishedAt?.toISOString()??null,
         authorized,
       };
     }).sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??""));
