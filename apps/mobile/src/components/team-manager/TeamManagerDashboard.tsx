@@ -132,7 +132,7 @@ export function TeamManagerDashboard(){
     }).catch(e=>{if(active){setOverview(null);setError(e instanceof ApiRequestError?e.message:t("tm1.loadError"));}})
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
-  },[token,selectedId,refresh,t]));
+  },[token,selectedId,refresh,t]);
 
   useEffect(()=>{
     if(!showVenues)return;
