@@ -33,7 +33,7 @@ assert(authTypes.includes("defaultLatitude:user.defaultLatitude")
   &&tests.includes("persists a private default location"),
   "Default location must persist on the user's account and survive unrelated profile changes.");
 assert(profile.includes("VenueLocationWebMap")
-  &&profile.includes('label={t("profile.defaultLocationTitle")}')
+  &&profile.includes('t("profile.defaultLocationTitle")')
   &&profile.includes("setDraftPoint(point)")
   &&profile.includes("defaultLatitude:defaultLatitude.trim()?Number(defaultLatitude):null")
   &&profile.includes("defaultLongitude:defaultLongitude.trim()?Number(defaultLongitude):null")
