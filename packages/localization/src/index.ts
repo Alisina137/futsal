@@ -9,6 +9,13 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "rf1.calendar.day": "Day",
+  "rf1.calendar.week": "Week",
+  "rf1.calendar.month": "Month",
+  "rf1.calendar.prev": "Previous",
+  "rf1.calendar.next": "Next",
+  "rf1.calendar.today": "Today",
+  "rf1.calendar.empty": "No appointments in this period.",
   "rf1.dashboardMode": "Dashboard role",
   "rf1.dashboardModeHint": "Choose which role your single Dashboard menu item opens.",
   "rf1.dashboardSelect": "Select and open",
@@ -2366,6 +2373,13 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "rf1.calendar.day": "روز",
+  "rf1.calendar.week": "هفته",
+  "rf1.calendar.month": "ماه",
+  "rf1.calendar.prev": "قبلی",
+  "rf1.calendar.next": "بعدی",
+  "rf1.calendar.today": "امروز",
+  "rf1.calendar.empty": "در این بازه زمانی داوری وجود ندارد.",
   "rf1.dashboardMode": "نقش داشبورد",
   "rf1.dashboardModeHint": "انتخاب کنید گزینهٔ یگانهٔ داشبورد در منو کدام نقش را باز کند.",
   "rf1.dashboardSelect": "انتخاب و باز کردن",
@@ -4721,6 +4735,13 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "rf1.calendar.day": "ورځ",
+  "rf1.calendar.week": "اونۍ",
+  "rf1.calendar.month": "میاشت",
+  "rf1.calendar.prev": "مخکینی",
+  "rf1.calendar.next": "بل",
+  "rf1.calendar.today": "نن",
+  "rf1.calendar.empty": "په دې وخت کې لوبه نه لرئ.",
   "rf1.dashboardMode": "د ډشبورډ رول",
   "rf1.dashboardModeHint": "وټاکئ چې په مېنو کې یوازینی ډشبورډ کوم رول پرانیزي.",
   "rf1.dashboardSelect": "ټاکل او پرانیستل",
