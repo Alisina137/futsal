@@ -17,6 +17,11 @@ check(page.includes('testID="competition-profile-tabs"')
   &&page.includes('testID={`competition-tab-${value}`}')
   &&page.includes("height:64,minHeight:64,maxHeight:64")&&page.includes("flexGrow:0,flexShrink:0"),
   "Compact five-tab scrolling navigation must have stable 64px height and accessible selection.");
+check(page.includes("tabPositions.current.set(value,{x,width})")
+  &&page.includes("tabScrollRef.current?.scrollTo({x,animated})")
+  &&page.includes("focusSelectedTab(activeTab")
+  &&page.includes("focusSelectedTab(next,true)"),
+  "Active competition profile navigation should scroll to its selected tab, including deep links and RTL.");
 check(sections.includes('"HOME","MATCHES","STANDINGS","STATS","TEAMS"')
   &&!sections.includes('"HOME","RESULTS","MATCHES"')
   &&!sections.includes('activeTab==="RESULTS"')
@@ -50,6 +55,8 @@ check(page.includes("competitionApi.register")&&page.includes('focusRegistration
   "Registration deep links must go to Teams and retain authentic follow and manager validation.");
 check(page.includes('pathname:"/competitions/[competitionId]/about"')
   &&about.includes('competitionApi.get(competitionId)')
+  &&about.includes("data.rewards.filter(")
+  &&about.includes("formatCompetitionDateTime(")
   &&about.includes("data.registrationClosesAt")
   &&about.includes("data.matchDurationMinutes")
   &&about.includes("data.registrationFeeAfn")
