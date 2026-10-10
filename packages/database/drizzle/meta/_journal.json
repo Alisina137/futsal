@@ -176,6 +176,13 @@
       "when": 1791631800000,
       "tag": "0024_offline_competition_teams",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791635400000,
+      "tag": "0025_team_manager_workspace",
+      "breakpoints": true
     }
   ]
 }

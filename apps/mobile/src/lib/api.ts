@@ -603,6 +603,41 @@ export const notificationApi = {
 };
 
 
+export type TeamManagerWorkspace={
+  viewer:{manager:boolean;member:boolean};
+  competitions:Array<{id:string;name:string;venueName:string;format:string;competitionStatus:string;registrationStatus:string;registrationClosesAt:string|null;startsAt:string|null;endsAt:string|null}>;
+  matches:Array<{id:string;competitionId:string;competitionName:string;opponentName:string;homeTeamId:string|null;awayTeamId:string|null;startsAt:string|null;status:string;homeScore:number|null;awayScore:number|null;roundNumber:number;stage:string}>;
+  activities:Array<{id:string;teamId:string;kind:string;title:string;description:string|null;place:string|null;startsAt:string;endsAt:string}>;
+  responses:Array<{activityId:string;userId:string;status:string}>;
+  guests:Array<{id:string;teamId:string;name:string;position:string;shirtNumber:number|null;createdAt:string}>;
+  posts:Array<{id:string;body:string;imageUrl:string|null;publishedAt:string;createdByUserId:string}>;
+  lineups:Array<{matchId:string;teamId:string;startingUserIds:string[];substituteUserIds:string[];updatedAt:string}>;
+  friendlies:Array<{id:string;fromTeamId:string;toTeamId:string;opponentName:string;proposedAt:string;place:string|null;status:string;createdAt:string}>;
+};
+export const teamManagerApi={
+  workspace:(token:string,teamId:string)=>request<TeamManagerWorkspace>(`/api/v1/teams/${teamId}/workspace`,{},token),
+  createActivity:(token:string,teamId:string,input:{kind:"TRAINING"|"MEETING"|"FRIENDLY"|"OTHER";title:string;description?:string;place?:string;startsAt:string;endsAt:string})=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/workspace/activities`,{method:"POST",body:JSON.stringify(input)},token),
+  deleteActivity:(token:string,teamId:string,id:string)=>
+    request<{deleted:boolean}>(`/api/v1/teams/${teamId}/workspace/activities/${id}`,{method:"DELETE"},token),
+  rsvp:(token:string,teamId:string,id:string,status:"AVAILABLE"|"UNAVAILABLE"|"UNSURE")=>
+    request<{status:string}>(`/api/v1/teams/${teamId}/workspace/activities/${id}/rsvp`,{method:"POST",body:JSON.stringify({status})},token),
+  addGuest:(token:string,teamId:string,input:{name:string;position:string;shirtNumber:number|null})=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/workspace/guests`,{method:"POST",body:JSON.stringify(input)},token),
+  deleteGuest:(token:string,teamId:string,id:string)=>
+    request<{deleted:boolean}>(`/api/v1/teams/${teamId}/workspace/guests/${id}`,{method:"DELETE"},token),
+  saveLineup:(token:string,teamId:string,matchId:string,input:{startingUserIds:string[];substituteUserIds:string[]})=>
+    request<{saved:boolean}>(`/api/v1/teams/${teamId}/workspace/lineups/${matchId}`,{method:"PUT",body:JSON.stringify(input)},token),
+  createPost:(token:string,teamId:string,input:{body:string;imageUrl?:string})=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/workspace/posts`,{method:"POST",body:JSON.stringify(input)},token),
+  deletePost:(token:string,teamId:string,id:string)=>
+    request<{deleted:boolean}>(`/api/v1/teams/${teamId}/workspace/posts/${id}`,{method:"DELETE"},token),
+  challenge:(token:string,teamId:string,input:{toTeamId:string;proposedAt:string;place?:string})=>
+    request<{id:string}>(`/api/v1/teams/${teamId}/workspace/challenges`,{method:"POST",body:JSON.stringify(input)},token),
+  respondChallenge:(token:string,teamId:string,id:string,accept:boolean)=>
+    request<{accepted:boolean}>(`/api/v1/teams/${teamId}/workspace/challenges/${id}/respond`,{method:"POST",body:JSON.stringify({accept})},token),
+};
+
 export const teamApi = {
   myProfile: (accessToken: string) =>
     request<{ player: OwnPlayerProfileDto }>("/api/v1/players/me", {}, accessToken),
@@ -614,6 +649,10 @@ export const teamApi = {
     request<{ teams: TeamDirectoryItemDto[] }>("/api/v1/teams", {}, accessToken),
   mine: (accessToken: string) =>
     request<{ teams: TeamListItemDto[] }>("/api/v1/teams/mine", {}, accessToken),
+  joinRequests: (accessToken:string,teamId:string) =>
+    request<{requests:TeamJoinRequestDto[]}>(`/api/v1/teams/${teamId}/join-requests`,{},accessToken),
+  respondJoinRequest: (accessToken:string,teamId:string,requestId:string,accept:boolean) =>
+    request<{request:TeamJoinRequestDto}>(`/api/v1/teams/${teamId}/join-requests/${requestId}/respond`,{method:"POST",body:JSON.stringify({accept})},accessToken),
   joinRequest: (accessToken: string, teamId: string) =>
     request<{ request: TeamJoinRequestDto | null }>(`/api/v1/teams/${teamId}/join-request`, {}, accessToken),
   requestJoin: (accessToken: string, teamId: string) =>

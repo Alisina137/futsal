@@ -8,6 +8,7 @@ import { Card } from "../../src/components/ui/Card";
 import { Screen } from "../../src/components/ui/Screen";
 import { useAuth } from "../../src/providers/AuthProvider";
 import { useLocale } from "../../src/providers/LocaleProvider";
+import { TeamManagerDashboard } from "../../src/components/team-manager/TeamManagerDashboard";
 
 type DashboardRole = "PLATFORM_ADMIN" | "VENUE_OWNER" | "TEAM_MANAGER" | "REFEREE" | "PLAYER";
 
@@ -30,6 +31,8 @@ export default function DashboardScreen() {
   if (role === "VENUE_OWNER") {
     return <Redirect href="/owner/competitions" />;
   }
+
+  if (role === "TEAM_MANAGER") return <TeamManagerDashboard />;
 
   if (!role) {
     return <Screen showHeader>
