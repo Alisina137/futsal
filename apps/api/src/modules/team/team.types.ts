@@ -68,6 +68,7 @@ export interface TeamRepository {
   getTeam(teamId: string, includeRoster: boolean): Promise<TeamDto | null>;
   listDirectoryTeams(userId: string): Promise<TeamDirectoryItemDto[]>;
   listUserTeams(userId: string): Promise<TeamListItemDto[]>;
+  allowsJoinRequests(teamId:string):Promise<boolean>;
   getJoinRequest(teamId: string, requesterUserId: string): Promise<TeamJoinRequestDto | null>;
   createJoinRequest(teamId: string, requesterUserId: string, now: Date): Promise<TeamJoinRequestDto>;
   listJoinRequestsForTeam(teamId: string): Promise<TeamJoinRequestDto[]>;

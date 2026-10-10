@@ -129,6 +129,7 @@ export class TeamService {
     const pending = await this.repository.getJoinRequest(teamId, userId);
     if (pending) return pending;
 
+    if(!(await this.repository.allowsJoinRequests(teamId)))throw errors.forbidden("TEAM_REQUESTS_DISABLED","This team is not accepting join requests.");
     await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
     return this.repository.createJoinRequest(teamId, userId, this.now());
   }

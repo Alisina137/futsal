@@ -30,8 +30,8 @@ export default function CreateTeamScreen(){
     if(!session||name.trim().length<2||city.trim().length<2)return;
     setBusy(true);setError(null);
     try{
-      const {team}=await teamApi.create(session.accessToken,{name:name.trim(),city:city.trim(),logoUrl,privacy});
-      router.replace({pathname:"/teams/[teamId]",params:{teamId:team.id}});
+      await teamApi.create(session.accessToken,{name:name.trim(),city:city.trim(),logoUrl,privacy});
+      router.replace("/dashboard");
     }catch(cause){
       setError(cause instanceof ApiRequestError?cause.message:t("teams.createError"));
     }finally{setBusy(false);}

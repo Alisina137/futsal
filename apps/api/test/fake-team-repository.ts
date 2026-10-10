@@ -25,6 +25,7 @@ export class FakeTeamRepository implements TeamRepository {
   memberships = new Map<string, TeamMembershipRecord>();
   invitations = new Map<string, TeamInvitationDto>();
   joinRequests = new Map<string, TeamJoinRequestDto>();
+  joinRequestsAllowed = new Map<string,boolean>();
 
   seedUser(input: {
     id: string;
@@ -236,6 +237,8 @@ export class FakeTeamRepository implements TeamRepository {
     }
     return result.sort((a,b)=>a.name.localeCompare(b.name));
   }
+
+  async allowsJoinRequests(teamId:string){return this.joinRequestsAllowed.get(teamId)??true;}
 
   async getJoinRequest(teamId:string,requesterUserId:string){
     return [...this.joinRequests.values()].find((request)=>

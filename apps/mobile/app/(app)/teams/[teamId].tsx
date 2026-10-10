@@ -4,7 +4,7 @@ import type { SocialFollowStateDto, TeamDto, TeamJoinRequestStatus } from "@leag
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
-import { marketingApi, teamApi } from "../../../src/lib/api";
+import { marketingApi, teamApi, teamManagerApi, type TeamManagerProfileDetails } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
@@ -18,6 +18,7 @@ export default function TeamDetailScreen(){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const [team,setTeam]=useState<TeamDto|null>(null);
+  const [profileDetails,setProfileDetails]=useState<Omit<TeamManagerProfileDetails,"allowJoinRequests">|null>(null);
   const [member,setMember]=useState(false);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -44,6 +45,7 @@ export default function TeamDetailScreen(){
         }catch{}
       }
       setTeam(next);
+      void teamManagerApi.publicDetails(teamId).then(v=>setProfileDetails(v.profile)).catch(()=>setProfileDetails(null));
     }catch{
       setError(t("teams.publicTeamLoadError"));
     }finally{setLoading(false);}
@@ -114,6 +116,15 @@ export default function TeamDetailScreen(){
         </View>:null}
       </View>
 
+      {profileDetails&&(profileDetails.description||profileDetails.province||profileDetails.district||profileDetails.foundedOn||profileDetails.contactPhone)?
+        <Card>
+          <AppText variant="bodyLarge" weight="bold">{t("tm1.teamIdentity")}</AppText>
+          {profileDetails.description?<AppText>{profileDetails.description}</AppText>:null}
+          {profileDetails.province?<AppText variant="caption" muted>{t("tm1.province")}: {profileDetails.province}</AppText>:null}
+          {profileDetails.district?<AppText variant="caption" muted>{t("tm1.district")}: {profileDetails.district}</AppText>:null}
+          {profileDetails.foundedOn?<AppText variant="caption" muted>{t("tm1.foundedOn")}: {profileDetails.foundedOn}</AppText>:null}
+          {profileDetails.contactPhone?<AppText variant="caption" muted>{t("tm1.contactPhone")}: {profileDetails.contactPhone}</AppText>:null}
+        </Card>:null}
       <View style={styles.statGrid}>
         <ProfileStat
           icon="people-outline"

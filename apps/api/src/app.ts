@@ -21,7 +21,7 @@ import { createNotificationRouter } from "./modules/notifications/notification.r
 import type { NotificationService } from "./modules/notifications/notification.service.js";
 import { createAuthenticatedTeamRouter, createPublicTeamRouter } from "./modules/team/team.routes.js";
 import type { TeamService } from "./modules/team/team.service.js";
-import { createTeamWorkspaceRouter, type TeamWorkspaceService } from "./modules/team/team-workspace.routes.js";
+import { createTeamManagerPhase1Router, type TeamManagerPhase1Service } from "./modules/team/team-manager-phase1.routes.js";
 import { createCompetitionRouter, createOwnerCompetitionRouter } from "./modules/competition/competition.routes.js";
 import type { CompetitionService } from "./modules/competition/competition.service.js";
 import { createAdminRouter, createOwnerCommercialRouter } from "./modules/commercial/commercial.routes.js";
@@ -39,7 +39,7 @@ export type AppDependencies = {
   marketingService?: MarketingService;
   notificationService?: NotificationService;
   teamService?: TeamService;
-  teamWorkspaceService?: TeamWorkspaceService;
+  teamManagerPhase1?: TeamManagerPhase1Service;
   competitionService?: CompetitionService;
   commercialService?: CommercialService;
   timetableService?: TimetableService;
@@ -166,7 +166,7 @@ export function createApp(deps: AppDependencies) {
     app.use("/api/v1", createAuthenticatedTeamRouter(deps.teamService, deps.tokenService));
     app.use("/api/v1", createPublicTeamRouter(deps.teamService));
   }
-  if (deps.teamWorkspaceService) app.use("/api/v1", createTeamWorkspaceRouter(deps.teamWorkspaceService,deps.tokenService));
+  if (deps.teamManagerPhase1) app.use("/api/v1",createTeamManagerPhase1Router(deps.teamManagerPhase1,deps.tokenService));
   if (deps.competitionService) {
     app.use("/api/v1", createCompetitionRouter(deps.competitionService, deps.tokenService));
     app.use("/api/v1/owner", createOwnerCompetitionRouter(deps.competitionService, deps.tokenService));

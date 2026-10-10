@@ -998,49 +998,26 @@ export type CompetitionMatchRow = typeof competitionMatches.$inferSelect;
 export type PlayerMatchStatRow = typeof playerMatchStats.$inferSelect;
 
 
-/** Private team-management workspace. Guest players never become platform accounts. */
-export const teamGuestPlayers = pgTable("team_guest_players", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  name: varchar("name", { length: 100 }).notNull(),
-  position: playerPositionEnum("position").notNull().default("UNSPECIFIED"),
-  shirtNumber: integer("shirt_number"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, table => [index("team_guest_players_team_idx").on(table.teamId)]);
+/** Phase 1: extended team identity and membership preferences. */
+export const teamManagerProfiles = pgTable("team_manager_profiles",{
+  teamId:uuid("team_id").primaryKey().references(()=>teams.id,{onDelete:"cascade"}),
+  province:varchar("province",{length:80}),
+  district:varchar("district",{length:80}),
+  description:text("description"),
+  foundedOn:varchar("founded_on",{length:10}),
+  primaryColor:varchar("primary_color",{length:7}),
+  secondaryColor:varchar("secondary_color",{length:7}),
+  contactPhone:varchar("contact_phone",{length:24}),
+  homeVenueId:uuid("home_venue_id").references(()=>venues.id,{onDelete:"set null"}),
+  allowJoinRequests:boolean("allow_join_requests").notNull().default(true),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+});
 
-export const teamActivities = pgTable("team_activities", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  kind: varchar("kind", { length: 20 }).notNull(),
-  title: varchar("title", { length: 120 }).notNull(),
-  description: text("description"),
-  place: varchar("place", { length: 160 }),
-  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
-  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, table => [index("team_activities_team_date_idx").on(table.teamId,table.startsAt)]);
-
-export const teamActivityResponses = pgTable("team_activity_responses", {
-  activityId: uuid("activity_id").notNull().references(() => teamActivities.id, { onDelete: "cascade" }),
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  status: varchar("status", { length: 12 }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-}, table => [primaryKey({ columns: [table.activityId,table.userId] })]);
-
-export const teamMatchLineups = pgTable("team_match_lineups", {
-  matchId: uuid("match_id").notNull().references(() => competitionMatches.id, { onDelete: "cascade" }),
-  teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  startingUserIds: jsonb("starting_user_ids").$type<string[]>().notNull().default([]),
-  substituteUserIds: jsonb("substitute_user_ids").$type<string[]>().notNull().default([]),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-}, table => [primaryKey({ columns: [table.matchId,table.teamId] })]);
-
-export const teamFriendlyChallenges = pgTable("team_friendly_challenges", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  fromTeamId: uuid("from_team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  toTeamId: uuid("to_team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  proposedAt: timestamp("proposed_at", { withTimezone: true }).notNull(),
-  place: varchar("place", { length: 160 }),
-  status: varchar("status", { length: 12 }).notNull().default("PENDING"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, table => [index("team_friendly_from_idx").on(table.fromTeamId),index("team_friendly_to_idx").on(table.toTeamId)]);
+export const teamGuestPlayers = pgTable("team_guest_players",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  teamId:uuid("team_id").notNull().references(()=>teams.id,{onDelete:"cascade"}),
+  name:varchar("name",{length:100}).notNull(),
+  position:playerPositionEnum("position").notNull().default("UNSPECIFIED"),
+  shirtNumber:integer("shirt_number"),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[index("team_guest_players_team_idx").on(table.teamId)]);

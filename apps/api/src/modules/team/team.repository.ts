@@ -13,6 +13,7 @@ import type { Database } from "@leaguekick/database";
 import {
   playerProfiles,
   teamInvitations,
+  teamManagerProfiles,
   teamJoinRequests,
   teamMemberships,
   roleSubscriptions,
@@ -362,6 +363,12 @@ export class DrizzleTeamRepository implements TeamRepository {
       });
     }
     return result;
+  }
+
+  async allowsJoinRequests(teamId:string):Promise<boolean>{
+    const [row]=await this.db.select({allow:teamManagerProfiles.allowJoinRequests}).from(teamManagerProfiles)
+      .where(eq(teamManagerProfiles.teamId,teamId)).limit(1);
+    return row?.allow??true;
   }
 
   async getJoinRequest(teamId: string, requesterUserId: string): Promise<TeamJoinRequestDto | null> {
