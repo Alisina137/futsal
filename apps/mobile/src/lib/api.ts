@@ -1094,3 +1094,41 @@ export const competitionApi = {
       accessToken,
     ),
 };
+
+export type RefereeAvailabilitySlot={day:number;start:string;end:string};
+export type RefereeAvailabilityException={date:string;available:boolean};
+export type RefereeProfile={
+  level:string|null;experienceYears:number;biography:string|null;
+  weeklyAvailability:RefereeAvailabilitySlot[];exceptions:RefereeAvailabilityException[];
+};
+export type RefereeVenue={
+  id:string;name:string;city:string;province:string;address:string;
+  latitude:number|null;longitude:number|null;
+};
+export type RefereeMatch={
+  id:string;competitionId:string;competitionName:string;format:string;
+  homeTeamId:string|null;awayTeamId:string|null;homeTeamName:string;awayTeamName:string;
+  venueId:string|null;venueName:string;venueAddress:string;
+  latitude:number|null;longitude:number|null;
+  startsAt:string|null;endsAt:string|null;durationMinutes:number;
+  matchStatus:string;homeScore:number|null;awayScore:number|null;
+  responseStatus:"PENDING"|"ACCEPTED"|"DECLINED"|"WITHDRAW_REQUESTED";
+  responseReason:string|null;respondedAt:string|null;authorized:boolean;
+};
+export type RefereeOverview={
+  person:{id:string;name:string;city:string|null;image:string|null;status:string};
+  venues:RefereeVenue[];profile:RefereeProfile;assignments:RefereeMatch[];
+  stats:{total:number;upcoming:number;pending:number;completed:number;accepted:number;declined:number};
+  nextMatch:RefereeMatch|null;
+};
+export const refereeApi={
+  overview:(token:string)=>request<RefereeOverview>("/api/v1/referee/overview",{},token),
+  updateProfile:(token:string,input:RefereeProfile)=>
+    request<{profile:RefereeProfile}>("/api/v1/referee/profile",{method:"PUT",body:JSON.stringify(input)},token),
+  respond:(token:string,matchId:string,action:"ACCEPTED"|"DECLINED"|"WITHDRAW_REQUESTED",reason?:string)=>
+    request<{status:string}>(`/api/v1/referee/assignments/${matchId}/respond`,
+      {method:"POST",body:JSON.stringify({action,...(reason?{reason}:{})})},token),
+  organizerAssignments:(token:string,competitionId:string)=>
+    request<{assignments:Array<{matchId:string;refereeUserId:string|null;status:string|null;reason:string|null}>}>(
+      `/api/v1/owner/referee-assignments/${competitionId}`,{},token),
+};
