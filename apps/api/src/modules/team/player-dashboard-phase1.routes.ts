@@ -1,10 +1,10 @@
 import {Router,type Request,type Response,type NextFunction} from "express";
 import {rateLimit} from "express-rate-limit";
 import {z} from "zod";
-import {and,asc,desc,eq,inArray,or,sql} from "drizzle-orm";
+import {and,asc,desc,eq,inArray,isNotNull,isNull,or,sql} from "drizzle-orm";
 import type {Database} from "@leaguekick/database";
 import {competitionMatches,playerMatchStats,teamActivities,teamActivityResponses,
-  playerDashboardPreferences,teamJoinRequests,teamMemberships,teams} from "@leaguekick/database";
+  playerDashboardPreferences,teamJoinRequests,teamManagerProfiles,teamMemberships,teams} from "@leaguekick/database";
 import {errors} from "../../lib/errors.js";
 import {requireAuth} from "../../middleware/auth.js";
 import type {TokenService} from "../auth/token.service.js";
@@ -108,7 +108,19 @@ export class PlayerDashboardPhase1Service{
       this.outgoingRequests(userId),this.teamsService.listMyInvitations(userId)]);
     const ids=myTeams.map(x=>x.id);
     const chosen=selectedTeamId(ids,prefs.defaultTeamId);
-    if(!ids.length)return {profile,teams:myTeams,selectedTeamId:chosen,
+    // Recheck active membership at read time. A pending invitation, former
+    // membership or public profile must never grant access to group links.
+    const groupRows=ids.length?await this.db.select({
+      teamId:teamMemberships.teamId,whatsappGroupUrl:teamManagerProfiles.whatsappGroupUrl,
+    }).from(teamMemberships)
+      .innerJoin(teams,eq(teams.id,teamMemberships.teamId))
+      .innerJoin(teamManagerProfiles,eq(teamManagerProfiles.teamId,teamMemberships.teamId))
+      .where(and(eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE"),
+        eq(teams.status,"ACTIVE"),inArray(teamMemberships.teamId,ids),
+        or(isNull(teams.offlineVenueId),isNotNull(teams.claimedAt)))):[];
+    const whatsappGroups:Record<string,string>=Object.fromEntries(groupRows
+      .filter(row=>!!row.whatsappGroupUrl).map(row=>[row.teamId,row.whatsappGroupUrl!]));
+    if(!ids.length)return {profile,teams:myTeams,selectedTeamId:chosen,whatsappGroups,
       preferences:prefs,requests:requests.requests,invitations:invites.invitations,
       stats:{matches:0,goals:0,assists:0,awards:0},nextMatch:null,activities:[],recentMatches:[]};
     const [fixtures,performances,activities]=await Promise.all([
@@ -150,7 +162,7 @@ export class PlayerDashboardPhase1Service{
     const nextMatch=next?{id:next.id,competitionId:next.competitionId,startsAt:date(next.startsAt),
       homeTeamName:names.get(next.homeTeamId??"")??"",awayTeamName:names.get(next.awayTeamId??"")??"",
       teamId:ids.find(id=>id===next.homeTeamId||id===next.awayTeamId)??null}:null;
-    return {profile,teams:myTeams,selectedTeamId:chosen,preferences:prefs,
+    return {profile,teams:myTeams,selectedTeamId:chosen,whatsappGroups,preferences:prefs,
       requests:requests.requests,invitations:invites.invitations,
       stats:aggregates,nextMatch,
       activities:activities.map(x=>({...x,startsAt:x.startsAt.toISOString(),endsAt:x.endsAt.toISOString()})),

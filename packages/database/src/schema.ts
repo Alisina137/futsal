@@ -1010,6 +1010,7 @@ export const teamManagerProfiles = pgTable("team_manager_profiles",{
   contactPhone:varchar("contact_phone",{length:24}),
   homeVenueId:uuid("home_venue_id").references(()=>venues.id,{onDelete:"set null"}),
   allowJoinRequests:boolean("allow_join_requests").notNull().default(true),
+  whatsappGroupUrl:varchar("whatsapp_group_url",{length:400}),
   updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
 });
 

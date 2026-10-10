@@ -12,6 +12,23 @@ import type { TokenService } from "../auth/token.service.js";
 
 const id=z.string().uuid();
 const optionalText=(max:number)=>z.string().trim().max(max).nullable();
+// WhatsApp groups are created within WhatsApp. Only their invitation URL is stored here.
+export const whatsappGroupUrlSchema=z.string().trim().max(400).nullable().optional().transform((value,context)=>{
+  if(!value)return null;
+  let parsed:URL;
+  try{parsed=new URL(value);}catch{
+    context.addIssue({code:z.ZodIssueCode.custom,message:"Enter a valid WhatsApp group invite link."});
+    return z.NEVER;
+  }
+  if(parsed.protocol!=="https:"||parsed.hostname!=="chat.whatsapp.com"||
+    parsed.port!==""||parsed.username!==""||parsed.password!==""||parsed.hash!==""||
+    !/^\/[A-Za-z0-9]{16,64}\/?$/.test(parsed.pathname)){
+    context.addIssue({code:z.ZodIssueCode.custom,message:"Only chat.whatsapp.com group invite links are allowed."});
+    return z.NEVER;
+  }
+  // WhatsApp may add tracking query parameters; do not store or forward them.
+  return "https://chat.whatsapp.com/"+parsed.pathname.split("/")[1];
+});
 const profileInput=z.object({
   province:optionalText(80),
   district:optionalText(80),
@@ -24,6 +41,7 @@ const profileInput=z.object({
   contactPhone:optionalText(24),
   homeVenueId:id.nullable(),
   allowJoinRequests:z.boolean(),
+  whatsappGroupUrl:whatsappGroupUrlSchema,
 });
 const guestInput=z.object({
   name:z.string().trim().min(2).max(100),
@@ -61,6 +79,7 @@ export class TeamManagerPhase1Service {
       primaryColor:record?.primaryColor??null,secondaryColor:record?.secondaryColor??null,
       contactPhone:record?.contactPhone??null,homeVenueId:record?.homeVenueId??null,
       allowJoinRequests:record?.allowJoinRequests??true,
+      whatsappGroupUrl:record?.whatsappGroupUrl??null,
     };
   }
   async publicDetails(teamId:string){
@@ -70,7 +89,8 @@ export class TeamManagerPhase1Service {
     if(!team||team.status!=="ACTIVE"||team.privacy!=="PUBLIC"||(team.offlineVenueId&&!team.claimedAt))
       throw errors.badRequest("TEAM_NOT_FOUND","This team profile is not public.");
     const details=await this.details(teamId);
-    const {allowJoinRequests:_,...publicFields}=details;
+    // Never expose WhatsApp group invite links through public team profiles.
+    const {allowJoinRequests:_,whatsappGroupUrl:_invite,...publicFields}=details;
     return {profile:publicFields};
   }
   async overview(userId:string,teamId:string){
