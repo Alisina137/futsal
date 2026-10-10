@@ -3,9 +3,9 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { OwnerVenueSettingsDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { VenueGoogleMap } from "../../../src/components/owner/VenueGoogleMap";
 import { VenueLocationWebMap } from "../../../src/components/owner/VenueLocationWebMap";
 import { ApiRequestError, ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -19,7 +19,6 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 
 type Section="GENERAL"|"BOOKING"|"COURT"|"ACCESS";
 const sections:Section[]=["GENERAL","BOOKING","COURT","ACCESS"];
-const DEFAULT_MAP_REGION={latitude:34.5553,longitude:69.2075,latitudeDelta:.08,longitudeDelta:.08};
 type MapPoint={latitude:number;longitude:number};
 
 export default function VenueSettingsScreen(){
@@ -481,11 +480,11 @@ export default function VenueSettingsScreen(){
             style={[styles.mapProviderButton,mapProvider==="OSM"&&styles.mapProviderSelected]}>
             <AppText variant="caption" weight="bold" style={mapProvider==="OSM"?styles.mapProviderTextSelected:undefined}>{t("venueSettings.mapAlternative")}</AppText>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityState={{selected:mapProvider==="GOOGLE"}}
+          {Platform.OS!=="web"?<Pressable accessibilityRole="button" accessibilityState={{selected:mapProvider==="GOOGLE"}}
             onPress={()=>setMapProvider("GOOGLE")}
             style={[styles.mapProviderButton,mapProvider==="GOOGLE"&&styles.mapProviderSelected]}>
             <AppText variant="caption" weight="bold" style={mapProvider==="GOOGLE"?styles.mapProviderTextSelected:undefined}>{t("venueSettings.mapGoogle")}</AppText>
-          </Pressable>
+          </Pressable>:null}
         </View>
         <View style={styles.mapViewport}>
           {mapProvider==="OSM"
@@ -495,24 +494,12 @@ export default function VenueSettingsScreen(){
               onReady={()=>{setMapWebReady(true);setMapWebUnavailable(false);}}
               onFailed={()=>{setMapWebUnavailable(true);setMapWebReady(false);}}
             />
-            :<MapView
-              provider={PROVIDER_GOOGLE}
-              style={styles.fullMap}
-              initialRegion={draftMapPoint?{...draftMapPoint,latitudeDelta:.012,longitudeDelta:.012}:DEFAULT_MAP_REGION}
-              mapType="standard"
-              onPress={(event)=>acceptDraftPoint(event.nativeEvent.coordinate)}
-              showsCompass
-              showsUserLocation={false}
-              toolbarEnabled={false}
-            >
-              {draftMapPoint?<Marker
-                coordinate={draftMapPoint}
-                draggable
-                title={data.name}
-                description={t("venueSettings.mapMarkerHint")}
-                onDragEnd={(event)=>acceptDraftPoint(event.nativeEvent.coordinate)}
-              />:null}
-            </MapView>}
+            :<VenueGoogleMap
+              point={draftMapPoint}
+              venueName={data.name}
+              markerHint={t("venueSettings.mapMarkerHint")}
+              onPick={acceptDraftPoint}
+            />}
           {mapProvider==="OSM"&&!mapWebReady&&!mapWebUnavailable
             ?<View pointerEvents="none" style={styles.mapBusyNotice}>
               <AppText variant="caption" muted>{t("venueSettings.mapLoading")}</AppText>
