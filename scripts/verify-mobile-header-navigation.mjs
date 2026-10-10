@@ -22,7 +22,7 @@ assert(header.includes('href:"/dashboard"') && header.includes('label:t("dashboa
 assert(header.includes('...(hasDashboard?['), "Shared Dashboard item must remain in the menu.");
 assert(header.includes('const hasDashboard=true;'), "Every non-admin account must have Dashboard in the hamburger.");
 assert((header.match(/key:"dashboard"/g)??[]).length===1 &&
-  (header.match(/href:"\\/dashboard"/g)??[]).length===1,
+  (header.split('href:"/dashboard"').length-1)===1,
   "The hamburger must contain exactly one Dashboard destination.");
 assert(!header.includes('key:"playerDashboard"')&&!header.includes('href:"/dashboard/player"'),
   "Player Dashboard must not be an additional hamburger option.");
