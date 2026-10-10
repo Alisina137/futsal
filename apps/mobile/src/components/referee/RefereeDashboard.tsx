@@ -53,6 +53,8 @@ export function RefereeDashboard(){
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
   const [reason,setReason]=useState<Record<string,string>>({});
   const [exceptionDate,setExceptionDate]=useState("");
+  const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
+  const [calendarAnchor,setCalendarAnchor]=useState(new Date());
   const [refresh,setRefresh]=useState(0);
   const navRef=useRef<ScrollView|null>(null),navViewport=useRef(0),navWidth=useRef(0);
   const cells=useRef<Partial<Record<Main,{x:number;width:number}>>>({});
@@ -94,6 +96,34 @@ export function RefereeDashboard(){
   const finished=accepted.filter(a=>["COMPLETED","CORRECTED"].includes(a.matchStatus));
   const future=upcoming.filter(a=>!!a.startsAt&&Date.parse(a.startsAt)>Date.now());
   const selectedSub=sub[main]??"";
+  const kabulDay=(value:Date)=>{
+    const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",
+      year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(value);
+    const data=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+    return `${data.year}-${data.month}-${data.day}`;
+  };
+  const calendarKey=kabulDay(calendarAnchor);
+  const getWeek=(key:string)=>{
+    const date=new Date(key+"T00:00:00Z");
+    const weekday=(date.getUTCDay()+6)%7;
+    date.setUTCDate(date.getUTCDate()-weekday);
+    return date.toISOString().slice(0,10);
+  };
+  const shiftCalendar=(direction:number)=>{
+    setCalendarAnchor(current=>{
+      const result=new Date(current.getTime());
+      if(calendarView==="month")result.setUTCMonth(result.getUTCMonth()+direction);
+      else result.setUTCDate(result.getUTCDate()+(calendarView==="week"?7:1)*direction);
+      return result;
+    });
+  };
+  const calendarItems=assignments.filter(m=>{
+    if(!m.startsAt)return false;
+    const day=kabulDay(new Date(m.startsAt));
+    if(calendarView==="day")return day===calendarKey;
+    if(calendarView==="week")return getWeek(day)===getWeek(calendarKey);
+    return day.slice(0,7)===calendarKey.slice(0,7);
+  });
   const changeProfile=(patch:Partial<RefereeProfile>)=>setDraft(old=>old?{...old,...patch}:old);
   const editSlot=(day:number,field:"start"|"end",value:string)=>{
     if(!draft)return;
@@ -197,9 +227,22 @@ export function RefereeDashboard(){
       {main==="assignments"&&selectedSub==="confirmed"?
         (accepted.length?accepted.map(card):<Card><AppText muted>{tr("emptyConfirmed")}</AppText></Card>):null}
       {main==="assignments"&&selectedSub==="calendar"?<>
-        <Card><AppText variant="bodyLarge" weight="bold">{tr("calendarHint")}</AppText></Card>
-        {assignments.filter(m=>m.startsAt).sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??""))
-          .map(card)}
+        <Card>
+          <AppText variant="bodyLarge" weight="bold">{tr("calendarHint")}</AppText>
+          <View style={styles.actions}>
+            {(["day","week","month"] as const).map(mode=><Button key={mode}
+              label={tr("calendar."+mode)} variant={calendarView===mode?"primary":"secondary"}
+              onPress={()=>setCalendarView(mode)}/>)}
+          </View>
+          <View style={styles.actions}>
+            <Button variant="secondary" label={tr("calendar.prev")} onPress={()=>shiftCalendar(-1)}/>
+            <AppText weight="semibold">{fmt(calendarAnchor.toISOString())}</AppText>
+            <Button variant="secondary" label={tr("calendar.next")} onPress={()=>shiftCalendar(1)}/>
+            <Button variant="secondary" label={tr("calendar.today")} onPress={()=>setCalendarAnchor(new Date())}/>
+          </View>
+        </Card>
+        {calendarItems.length?calendarItems.map(card):
+          <Card><AppText muted>{tr("calendar.empty")}</AppText></Card>}
       </>:null}
       {main==="center"&&selectedSub==="upcoming"?
         (future.length?future.map(card):<Card><AppText muted>{tr("noUpcoming")}</AppText></Card>):null}
