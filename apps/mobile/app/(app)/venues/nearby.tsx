@@ -2,11 +2,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { NearbyVenueDto } from "@leaguekick/contracts";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PermissionsAndroid, Platform, Pressable, StyleSheet, View } from "react-native";
-import MapView from "react-native-maps";
 import { venueApi } from "../../../src/lib/api";
 import { NearbyVenuesMap } from "../../../src/components/venues/NearbyVenuesMap";
+import { NearbyDeviceLocation } from "../../../src/components/venues/NearbyDeviceLocation";
+import { useAuth } from "../../../src/providers/AuthProvider";
 import { VenueResultCard } from "../../../src/components/venues/VenueResultCard";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -20,6 +21,16 @@ type LocationState="asking"|"locating"|"ready"|"denied"|"timeout";
 
 export default function NearbyVenuesScreen(){
   const {t,isRTL}=useLocale();
+  const {session}=useAuth();
+  const settled=useRef(false);
+  const defaultPoint=useMemo(()=>{
+    const latitude=session?.user.defaultLatitude,longitude=session?.user.defaultLongitude;
+    if(typeof latitude!=="number"||typeof longitude!=="number"||
+      !Number.isFinite(latitude)||!Number.isFinite(longitude)||
+      Math.abs(latitude)>90||Math.abs(longitude)>180)return null;
+    return {latitude,longitude};
+  },[session?.user.defaultLatitude,session?.user.defaultLongitude]);
+  const [locationSource,setLocationSource]=useState<"device"|"default"|null>(null);
   const [retry,setRetry]=useState(0);
   const [locationState,setLocationState]=useState<LocationState>("asking");
   const [location,setLocation]=useState<Point|null>(null);
@@ -29,21 +40,30 @@ export default function NearbyVenuesScreen(){
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const [mapFailed,setMapFailed]=useState(false);
 
-  // Request a foreground location only after the user opens Venues Nearby.
-  // react-native-maps is already installed; its location callback works in
-  // Expo Go even on devices where native Google map tiles are unavailable.
+  // The 10-second deadline includes permission wait AND device GPS fix.
+  // A saved preference is only used after live position fails, never silently
+  // mistaken for actual device location. Late callbacks cannot replace results.
   useEffect(()=>{
     let active=true;
-    setLocation(null);setVenues([]);setSelectedId(null);setMapFailed(false);setError(null);
-    setLocationState("asking");
+    settled.current=false;
+    setLocation(null);setLocationSource(null);setVenues([]);
+    setSelectedId(null);setMapFailed(false);setError(null);setLocationState("asking");
+    const fallback=(reason:"denied"|"timeout")=>{
+      if(!active||settled.current)return;
+      settled.current=true;
+      if(defaultPoint){
+        setLocationSource("default");
+        setLocation(defaultPoint);
+        setLocationState("ready");
+      }else setLocationState(reason);
+    };
+    const timer=setTimeout(()=>fallback("timeout"),10_000);
     void (async()=>{
       try{
         if(Platform.OS==="android"){
           const fine=PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION;
           const coarse=PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION;
-          const hasFine=await PermissionsAndroid.check(fine);
-          const hasCoarse=await PermissionsAndroid.check(coarse);
-          let granted=hasFine||hasCoarse;
+          let granted=await PermissionsAndroid.check(fine)||await PermissionsAndroid.check(coarse);
           if(!granted){
             const answer=await PermissionsAndroid.request(fine,{
               title:t("booking.nearbyPermissionTitle"),
@@ -53,24 +73,18 @@ export default function NearbyVenuesScreen(){
             });
             granted=answer===PermissionsAndroid.RESULTS.GRANTED
               ||await PermissionsAndroid.check(coarse);
-            if(!granted){
+            if(!granted&&!settled.current){
               const approximate=await PermissionsAndroid.request(coarse);
               granted=approximate===PermissionsAndroid.RESULTS.GRANTED;
             }
           }
-          if(!granted){if(active)setLocationState("denied");return;}
+          if(!granted){fallback("denied");return;}
         }
-        if(active)setLocationState("locating");
-      }catch{if(active)setLocationState("denied");}
+        if(active&&!settled.current)setLocationState("locating");
+      }catch{fallback("denied");}
     })();
-    return ()=>{active=false;};
-  },[retry,t]);
-
-  useEffect(()=>{
-    if(locationState!=="locating")return;
-    const timer=setTimeout(()=>setLocationState(current=>current==="locating"?"timeout":current),18000);
-    return ()=>clearTimeout(timer);
-  },[locationState]);
+    return ()=>{active=false;clearTimeout(timer);settled.current=true;};
+  },[retry,t,defaultPoint]);
 
   useEffect(()=>{
     if(!location)return;
@@ -85,10 +99,18 @@ export default function NearbyVenuesScreen(){
   },[location,t]);
 
   function onDeviceLocation(point:Point){
-    if(locationState!=="locating")return;
+    if(settled.current)return;
     if(!Number.isFinite(point.latitude)||!Number.isFinite(point.longitude)
       ||Math.abs(point.latitude)>90||Math.abs(point.longitude)>180)return;
-    setLocation(point);setLocationState("ready");
+    settled.current=true;
+    setLocationSource("device");setLocation(point);setLocationState("ready");
+  }
+  function onDeviceError(){
+    if(settled.current)return;
+    settled.current=true;
+    if(defaultPoint){
+      setLocationSource("default");setLocation(defaultPoint);setLocationState("ready");
+    }else setLocationState("denied");
   }
 
   const selected=venues.find(venue=>venue.id===selectedId);
@@ -118,20 +140,25 @@ export default function NearbyVenuesScreen(){
         <AppText muted>{t("booking.nearbyLocating")}</AppText>
       </Card>:null}
 
-    {locationState==="locating"?<View pointerEvents="none" style={styles.locationProbe}>
-      <MapView style={styles.nativeMap}
-        showsUserLocation
-        showsMyLocationButton={false}
-        onUserLocationChange={event=>{
-          const point=event.nativeEvent.coordinate;
-          if(point)onDeviceLocation({latitude:point.latitude,longitude:point.longitude});
-        }}/>
-    </View>:null}
+    {locationState==="locating"?<NearbyDeviceLocation
+      onLocation={onDeviceLocation} onError={onDeviceError}/>:null}
+    {locationSource==="default"&&location?<Card testID="nearby-default-fallback" style={styles.notice}>
+      <Ionicons name="location-outline" size={29} color={colors.primary}/>
+      <AppText weight="semibold">{t("booking.nearbyDefaultUsed")}</AppText>
+      <AppText variant="caption" muted style={{textAlign:"center"}}>
+        {t("booking.nearbyDefaultExplanation")}
+      </AppText>
+      <Button label={t("booking.tryLiveLocation")} variant="secondary" onPress={locationRetry}/>
+      <Button label={t("booking.editDefaultLocation")} variant="secondary"
+        onPress={()=>router.push("/profile/account")}/>
+    </Card>:null}
 
     {locationState==="denied"||locationState==="timeout"?<Card style={styles.notice}>
       <Ionicons name="location-outline" size={29} color={colors.primary}/>
       <AppText>{t(locationState==="denied"?"booking.nearbyPermissionDenied":"booking.nearbyTimeout")}</AppText>
       <Button label={t("common.retry")} onPress={locationRetry}/>
+      {!defaultPoint?<Button label={t("booking.setDefaultLocation")} variant="secondary"
+        onPress={()=>router.push("/profile/account")}/>:null}
     </Card>:null}
 
     {location&&loading?<DataLoadingState variant="list" minHeight={300}/>:null}
@@ -181,8 +208,6 @@ const styles=StyleSheet.create({
   headerCopy:{flex:1,gap:3},
   backButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
-  locationProbe:{width:2,height:2,overflow:"hidden",alignSelf:"flex-start"},
-  nativeMap:{width:2,height:2},
   notice:{padding:spacing.lg,gap:spacing.md,alignItems:"center"},
   mapFrame:{position:"relative",borderRadius:radius.lg,overflow:"hidden",backgroundColor:colors.surfaceMuted},
   selectedOverlay:{position:"absolute",bottom:10,left:10,right:10,elevation:4},
