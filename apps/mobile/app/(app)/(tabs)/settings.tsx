@@ -3,6 +3,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { PaidRole } from "@leaguekick/contracts";
 import { router } from "expo-router";
+import {setDashboardRole,type DashboardRole} from "../../../src/lib/dashboard-role";
 import { useMemo, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { LanguagePicker } from "../../../src/components/LanguagePicker";
@@ -107,6 +108,21 @@ export default function ProfileScreen(){
       />
     </Card>
 
+    <SectionHeader icon="grid-outline" title={t("rf1.dashboardMode")} subtitle={t("rf1.dashboardModeHint")} rtl={isRTL}/>
+    <Card style={styles.sectionCard}>
+      <View style={{gap:spacing.sm}}>
+        {([{role:"PLAYER",icon:"football-outline"},
+          ...(user?.roles.includes("REFEREE")?[{role:"REFEREE",icon:"flag-outline"}]:[]),
+          ...(user?.roles.includes("TEAM_MANAGER")?[{role:"TEAM_MANAGER",icon:"people-outline"}]:[]),
+          ...(user?.roles.includes("VENUE_OWNER")?[{role:"VENUE_OWNER",icon:"business-outline"}]:[]),
+        ] as Array<{role:DashboardRole;icon:IconName}>).map(choice=>
+          <ActionRow key={choice.role} icon={choice.icon}
+            title={t(("rf1.dashboardRole."+choice.role) as never)}
+            subtitle={t("rf1.dashboardSelect")} rtl={isRTL}
+            onPress={()=>{if(user)void setDashboardRole(user.id,choice.role).then(()=>router.push("/dashboard"));}}/>
+        )}
+      </View>
+    </Card>
     <SectionHeader icon="options-outline" title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
       <View style={{gap:spacing.md}}>

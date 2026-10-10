@@ -9,6 +9,14 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "rf1.dashboardMode": "Dashboard role",
+  "rf1.dashboardModeHint": "Choose which role your single Dashboard menu item opens.",
+  "rf1.dashboardSelect": "Select and open",
+  "rf1.dashboardRole.PLAYER": "Player dashboard",
+  "rf1.dashboardRole.REFEREE": "Referee dashboard",
+  "rf1.dashboardRole.TEAM_MANAGER": "Team Manager dashboard",
+  "rf1.dashboardRole.VENUE_OWNER": "Venue Owner dashboard",
+  "rf1.loadingDashboard": "Preparing your dashboard…",
   "rf1.organizer.status": "Appointment response",
   "rf1.nav.overview": "Overview",
   "rf1.nav.assignments": "Assignments",
@@ -2358,6 +2366,14 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "rf1.dashboardMode": "نقش داشبورد",
+  "rf1.dashboardModeHint": "انتخاب کنید گزینهٔ یگانهٔ داشبورد در منو کدام نقش را باز کند.",
+  "rf1.dashboardSelect": "انتخاب و باز کردن",
+  "rf1.dashboardRole.PLAYER": "داشبورد بازیکن",
+  "rf1.dashboardRole.REFEREE": "داشبورد داور",
+  "rf1.dashboardRole.TEAM_MANAGER": "داشبورد مدیر تیم",
+  "rf1.dashboardRole.VENUE_OWNER": "داشبورد مالک سالن",
+  "rf1.loadingDashboard": "داشبورد آماده می‌شود…",
   "rf1.organizer.status": "پاسخ داور به دعوت",
   "rf1.nav.overview": "نمای کلی",
   "rf1.nav.assignments": "داوری‌های محول‌شده",
@@ -4705,6 +4721,14 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "rf1.dashboardMode": "د ډشبورډ رول",
+  "rf1.dashboardModeHint": "وټاکئ چې په مېنو کې یوازینی ډشبورډ کوم رول پرانیزي.",
+  "rf1.dashboardSelect": "ټاکل او پرانیستل",
+  "rf1.dashboardRole.PLAYER": "د لوبغاړي ډشبورډ",
+  "rf1.dashboardRole.REFEREE": "د ریفري ډشبورډ",
+  "rf1.dashboardRole.TEAM_MANAGER": "د ټیم مدیر ډشبورډ",
+  "rf1.dashboardRole.VENUE_OWNER": "د میدان مالک ډشبورډ",
+  "rf1.loadingDashboard": "ستاسو ډشبورډ چمتو کېږي…",
   "rf1.organizer.status": "د ریفري د بلنې ځواب",
   "rf1.nav.overview": "عمومي کتنه",
   "rf1.nav.assignments": "ټاکل شوې لوبې",
