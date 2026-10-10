@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { SocialFeedPostDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, View } from "react-native";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -11,6 +11,7 @@ import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { marketingApi, resolveMediaImageUrl } from "../../../src/lib/api";
 import { formatPostTimeAgo } from "../../../src/lib/date-time";
+import { OptimisticSocialLikes } from "../../../src/lib/optimistic-social-likes";
 import { usePostTimeNow } from "../../../src/hooks/usePostTimeNow";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -32,14 +33,37 @@ function SocialHome(){
   const [loadedOnce,setLoadedOnce]=useState(false);
   const [refreshing,setRefreshing]=useState(false);
   const [error,setError]=useState<string|null>(null);
+  const [likeErrors,setLikeErrors]=useState<Record<string,boolean>>({});
+  const token=session?.accessToken??"";
+  const currentTokenRef=useRef(token);
+  currentTokenRef.current=token;
+  const likes=useMemo(()=>new OptimisticSocialLikes(
+    async(id,nextLiked)=>{
+      const {post}=nextLiked
+        ?await marketingApi.likeSocialPost(token,id)
+        :await marketingApi.unlikeSocialPost(token,id);
+      return {likedByMe:post.likedByMe,likeCount:post.likeCount};
+    },
+    (id,snapshot)=>{
+      if(currentTokenRef.current!==token)return;
+      setItems(current=>current.map(item=>item.id===id?{...item,...snapshot}:item));
+    },
+    id=>{
+      if(currentTokenRef.current!==token)return;
+      setLikeErrors(current=>({...current,[id]:true}));
+    },
+  ),[token]);
 
   const load=useCallback(async(refresh=false)=>{
     if(!session)return;
     if(refresh)setRefreshing(true);
     else if(!loadedOnce)setLoading(true);
     setError(null);
+    const startedAtVersion=likes.version;
     try{
-      setItems((await marketingApi.socialFeed(session.accessToken)).items);
+      const fresh=await marketingApi.socialFeed(session.accessToken);
+      if(currentTokenRef.current!==session.accessToken)return;
+      setItems(likes.mergeFeed(fresh.items,startedAtVersion));
     }catch{
       setError(t("social.feedLoadError"));
     }finally{
@@ -47,12 +71,18 @@ function SocialHome(){
       setLoading(false);
       setRefreshing(false);
     }
-  },[loadedOnce,session,t]);
+  },[loadedOnce,session,t,likes]);
 
   useFocusEffect(useCallback(()=>{void load();},[load]));
 
-  function updatePost(next:SocialFeedPostDto){
-    setItems((current)=>current.map(item=>item.id===next.id?next:item));
+  function togglePostLike(post:SocialFeedPostDto){
+    if(!token)return;
+    setLikeErrors(current=>{
+      if(!current[post.id])return current;
+      const next={...current};delete next[post.id];return next;
+    });
+    // Optimistically update BOTH button and count before any network request resolves.
+    likes.toggle(post);
   }
 
   function removePost(id:string){setItems(current=>current.filter(item=>item.id!==id));}
@@ -156,7 +186,8 @@ function SocialHome(){
       language={language}
       postNow={postNow}
       t={t}
-      onUpdate={updatePost}
+      onLike={()=>togglePostLike(post)}
+      likeError={Boolean(likeErrors[post.id])}
       onHide={()=>setHiddenIds(ids=>[...ids,post.id])}
       onDelete={()=>removePost(post.id)}
     />):null}
@@ -181,7 +212,7 @@ function DiscoverMoment({icon,label,onPress}:{icon:keyof typeof Ionicons.glyphMa
 }
 
 function SocialPostCard({
-  post,token,userId,isRTL,language,postNow,t,onUpdate,onHide,onDelete,
+  post,token,userId,isRTL,language,postNow,t,onLike,likeError,onHide,onDelete,
 }:{
   post:SocialFeedPostDto;
   token:string;
@@ -190,11 +221,11 @@ function SocialPostCard({
   language:Parameters<typeof formatPostTimeAgo>[1];
   postNow:number;
   t:T;
-  onUpdate:(post:SocialFeedPostDto)=>void;
+  onLike:()=>void;
+  likeError:boolean;
   onHide:()=>void;
   onDelete:()=>void;
 }){
-  const [likeBusy,setLikeBusy]=useState(false);
   const [menuOpen,setMenuOpen]=useState(false);
   const [deleting,setDeleting]=useState(false);
   const [expanded,setExpanded]=useState(false);
@@ -216,16 +247,10 @@ function SocialPostCard({
     }
   }
 
-  async function toggleLike(){
-    if(!token||likeBusy)return;
-    setLikeBusy(true);setError(null);
-    try{
-      const response=post.likedByMe
-        ?await marketingApi.unlikeSocialPost(token,post.id)
-        :await marketingApi.likeSocialPost(token,post.id);
-      onUpdate(response.post);
-    }catch{setError(t("social.likeError"));}
-    finally{setLikeBusy(false);}
+  function toggleLike(){
+    if(!token)return;
+    setError(null);
+    onLike();
   }
 
   function openComments(){
@@ -300,7 +325,7 @@ function SocialPostCard({
     </Pressable>:null}
 
     <View style={[styles.countRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <Pressable accessibilityRole="button" onPress={()=>void toggleLike()} style={styles.likesGroup} disabled={likeBusy}>
+      <Pressable accessibilityRole="button" onPress={toggleLike} style={styles.likesGroup}>
         <View style={styles.likeBubble}><Ionicons name="thumbs-up" size={11} color="#FFFFFF"/></View>
         <AppText variant="caption" muted>{t("social.likes",{count:post.likeCount})}</AppText>
       </Pressable>
@@ -312,11 +337,12 @@ function SocialPostCard({
 
     <View style={[styles.socialActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <SocialAction icon={post.likedByMe?"thumbs-up":"thumbs-up-outline"}
-        label={t("social.like")} active={post.likedByMe} busy={likeBusy} onPress={()=>void toggleLike()}/>
+        label={t("social.like")} active={post.likedByMe} onPress={toggleLike}/>
       <SocialAction icon="chatbubble-outline" label={t("social.comment")} onPress={openComments}/>
       <SocialAction icon="share-social-outline" label={t("social.share")} onPress={()=>void sharePost()}/>
     </View>
-    {error?<AppText variant="caption" style={styles.postError}>{error}</AppText>:null}
+    {likeError?<AppText variant="caption" accessibilityRole="alert" style={styles.postError}>{t("social.likeError")}</AppText>:null}
+    {error?<AppText variant="caption" accessibilityRole="alert" style={styles.postError}>{error}</AppText>:null}
     {imageOpen&&image?<Modal visible transparent animationType="fade" statusBarTranslucent
       onRequestClose={()=>setImageOpen(false)}>
       <View style={styles.photoModal}>
@@ -330,13 +356,13 @@ function SocialPostCard({
   </View>;
 }
 
-function SocialAction({icon,label,active=false,busy=false,onPress}:{
-  icon:keyof typeof Ionicons.glyphMap;label:string;active?:boolean;busy?:boolean;onPress:()=>void;
+function SocialAction({icon,label,active=false,onPress}:{
+  icon:keyof typeof Ionicons.glyphMap;label:string;active?:boolean;onPress:()=>void;
 }){
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={busy}
-    accessibilityState={{selected:active,disabled:busy}}
+  return <Pressable accessibilityRole="button" accessibilityLabel={label}
+    accessibilityState={{selected:active}}
     onPress={onPress}
-    style={({pressed})=>[styles.socialAction,pressed&&styles.pressed,busy&&styles.disabled]}>
+    style={({pressed})=>[styles.socialAction,pressed&&styles.pressed]}>
     <Ionicons name={icon} size={19} color={active?colors.primary:colors.textMuted}/>
     <AppText variant="caption" weight="semibold" style={active?{color:colors.primary}:undefined}>{label}</AppText>
   </Pressable>;
