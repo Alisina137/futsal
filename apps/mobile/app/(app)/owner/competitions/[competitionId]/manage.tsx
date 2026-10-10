@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { competitionApi, ownerApi, teamApi } from "../../../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../../../src/lib/date-time";
+import { CompetitionRewardsManager } from "../../../../../src/components/competition/CompetitionRewardsManager";
 import { AppText } from "../../../../../src/components/ui/AppText";
 import { Button } from "../../../../../src/components/ui/Button";
 import { Card } from "../../../../../src/components/ui/Card";
@@ -28,7 +29,7 @@ import { useAuth } from "../../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../../src/providers/LocaleProvider";
 
 type EditMode="SCHEDULE"|"RESULT"|null;
-type ControlTab="OVERVIEW"|"TEAMS"|"FIXTURES"|"STANDINGS"|"REFEREES"|"STATISTICS"|"MEDIA"|"SETTINGS";
+type ControlTab="OVERVIEW"|"TEAMS"|"FIXTURES"|"STANDINGS"|"REFEREES"|"STATISTICS"|"REWARDS"|"MEDIA"|"SETTINGS";
 
 const tabs:Array<{key:ControlTab;icon:keyof typeof Ionicons.glyphMap}>=[
   {key:"OVERVIEW",icon:"grid-outline"},
@@ -37,6 +38,7 @@ const tabs:Array<{key:ControlTab;icon:keyof typeof Ionicons.glyphMap}>=[
   {key:"STANDINGS",icon:"podium-outline"},
   {key:"REFEREES",icon:"flag-outline"},
   {key:"STATISTICS",icon:"stats-chart-outline"},
+  {key:"REWARDS",icon:"gift-outline"},
   {key:"MEDIA",icon:"newspaper-outline"},
   {key:"SETTINGS",icon:"settings-outline"},
 ];
@@ -828,6 +830,10 @@ export default function ManageCompetitionScreen(){
           </AppText>
         </Card>)}
       </>:null}
+
+      {activeTab==="REWARDS"&&session?<CompetitionRewardsManager
+        competition={competition} token={session.accessToken}
+        onSaved={next=>setCompetition(next)}/>:null}
 
       {activeTab==="MEDIA"?<>
         <Card style={{gap:spacing.md}}>
