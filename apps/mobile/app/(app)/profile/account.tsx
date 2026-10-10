@@ -52,8 +52,8 @@ export default function AccountProfileScreen(){
     setEmail(user.email??"");
     setCity(user.city??"");
     setBio(user.bio??"");
-    setDefaultLatitude(user.defaultLatitude===null?"":String(user.defaultLatitude));
-    setDefaultLongitude(user.defaultLongitude===null?"":String(user.defaultLongitude));
+    setDefaultLatitude(user.defaultLatitude==null?"":String(user.defaultLatitude));
+    setDefaultLongitude(user.defaultLongitude==null?"":String(user.defaultLongitude));
   },[user?.id]);
 
   const previewImage=resolveMediaImageUrl(user?.profileImageUrl);
