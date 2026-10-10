@@ -19,7 +19,7 @@ const completed=(match:CompetitionMatchDto)=>
   match.status==="COMPLETED"||match.status==="CORRECTED";
 
 function TeamPanel({id,name,logo,highlight,offline}:{
-  id:string|null;name:string|null;logo:string|null|undefined;highlight:boolean;offline?:boolean;
+  id:string|null;name:string|null;logo:string|null|undefined;highlight:boolean;offline?:boolean|undefined;
 }){
   const {t}=useLocale();
   const resolved=resolveMediaImageUrl(logo);
