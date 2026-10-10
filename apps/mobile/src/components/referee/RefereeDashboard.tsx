@@ -89,7 +89,8 @@ export function RefereeDashboard(){
     catch{setError(tr("mapError"));}
   }
   const assignments=data?.assignments??[];
-  const pending=assignments.filter(a=>a.responseStatus==="PENDING"&&a.authorized&&a.matchStatus==="SCHEDULED");
+  const pending=assignments.filter(a=>a.responseStatus==="PENDING"&&a.authorized&&a.matchStatus==="SCHEDULED"&&
+    !!a.startsAt&&Date.parse(a.startsAt)>Date.now());
   const accepted=assignments.filter(a=>a.responseStatus==="ACCEPTED");
   const upcoming=accepted.filter(a=>a.matchStatus==="SCHEDULED");
   const active=accepted.filter(a=>a.matchStatus==="IN_PROGRESS");
