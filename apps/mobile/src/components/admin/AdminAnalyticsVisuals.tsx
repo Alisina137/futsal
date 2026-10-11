@@ -41,7 +41,7 @@ export function AdminMetricChart({data,field,interval,title,color="#1D4ED8",curr
     maximumFractionDigits:0,
   }),[language]);
   const formatted=(v:number)=>formatter.format(v)+(currency?" AFN":"");
-  return <Card style={{padding:spacing.lg,gap:spacing.md,flexGrow:1,flexBasis:370,minWidth:0}}>
+  return <Card style={{padding:spacing.lg,gap:spacing.md,flexGrow:1,flexBasis:280,flexShrink:1,minWidth:0}}>
     <AppText variant="bodyLarge" weight="bold">{title}</AppText>
     <AppText variant="caption" muted>{t("admin2.graphNote" as never)}</AppText>
     <ScrollView horizontal showsHorizontalScrollIndicator={true}
