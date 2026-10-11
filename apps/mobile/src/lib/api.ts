@@ -914,14 +914,23 @@ export const adminApi = {
       `/api/v1/admin/analytics?days=${days}`,signal?{signal}:{},accessToken),
   dashboard: (accessToken: string) =>
     request<AdminDashboardResponse>("/api/v1/admin/dashboard", {}, accessToken),
-  usersPage:(accessToken:string,q="",page=1,pageSize=25,signal?:AbortSignal,sort:"newest"|"oldest"="newest")=>
+  usersPage:(accessToken:string,q="",page=1,pageSize=25,signal?:AbortSignal,sort:"newest"|"oldest"="newest",filters:import("@leaguekick/contracts").AdminUserDirectoryFilter={})=>
     request<{users:AdminUserDto[];total:number;page:number;pageSize:number;hasMore:boolean}>(
-      `/api/v1/admin/users/page?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}&sort=${sort}`,signal?{signal}:{},accessToken),
+      `/api/v1/admin/users/page?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}&sort=${sort}${filters.status?"&status="+filters.status:""}${filters.role?"&role="+filters.role:""}${filters.city?"&city="+encodeURIComponent(filters.city):""}`,signal?{signal}:{},accessToken),
   venuesPage:(accessToken:string,q="",page=1,pageSize=25,signal?:AbortSignal,sort:"newest"|"oldest"="newest")=>
     request<{venues:AdminVenueDto[];total:number;page:number;pageSize:number;hasMore:boolean}>(
       `/api/v1/admin/venues/page?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}&sort=${sort}`,signal?{signal}:{},accessToken),
   users: (accessToken: string, q = "") =>
     request<{ users: AdminUserDto[] }>(`/api/v1/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, accessToken),
+  userDetail:(accessToken:string,userId:string,signal?:AbortSignal)=>
+    request<{detail:import("@leaguekick/contracts").AdminUserDetailDto}>(
+      "/api/v1/admin/users/"+encodeURIComponent(userId),signal?{signal}:{},accessToken),
+  revokeUserSessions:(accessToken:string,userId:string,reason:string)=>
+    request<{revoked:boolean}>("/api/v1/admin/users/"+encodeURIComponent(userId)+"/revoke-sessions",
+      {method:"POST",body:JSON.stringify({reason})},accessToken),
+  userNote:(accessToken:string,userId:string,reason:string,note:string)=>
+    request<{created:boolean}>("/api/v1/admin/users/"+encodeURIComponent(userId)+"/notes",
+      {method:"POST",body:JSON.stringify({reason,note})},accessToken),
   setUserStatus: (accessToken: string, userId: string, input: AdminUserStatusRequest) =>
     request<{ updated: boolean }>(`/api/v1/admin/users/${userId}/status`, { method: "PATCH", body: JSON.stringify(input) }, accessToken),
   roleSubscriptions: (accessToken: string) =>

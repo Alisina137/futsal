@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error instanceof ApiRequestError && error.code === "INVALID_ACCESS_TOKEN") {
         return refreshSession();
       }
-      if (error instanceof ApiRequestError && error.code === "ACCOUNT_UNAVAILABLE") {
+      if (error instanceof ApiRequestError && (error.code === "ACCOUNT_UNAVAILABLE" || error.code === "SESSION_REVOKED")) {
         await clearSession();
         return "signed_out";
       }

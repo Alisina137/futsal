@@ -6,6 +6,7 @@ import type {
   AdminAnalyticsDays,
   AdminRoleSubscriptionDto,
   AdminUserDto,
+  AdminUserDirectoryFilter,
   AdminVenueDto,
   PlatformSettingsDto,
   SubscriptionPaymentDto,
@@ -17,7 +18,8 @@ import { AdminSidebar } from "../../../src/components/admin/AdminSidebar";
 import { AdminConfirmModal } from "../../../src/components/admin/AdminConfirmModal";
 import { DashboardSection } from "../../../src/components/admin/AdminDashboardSection";
 import {AdminAnalyticsSection} from "../../../src/components/admin/AdminAnalyticsSection";
-import { UsersSection, VenuesSection } from "../../../src/components/admin/AdminDirectorySections";
+import { VenuesSection } from "../../../src/components/admin/AdminDirectorySections";
+import { AdminUsersPhase3Section } from "../../../src/components/admin/AdminUsersPhase3Section";
 import { SubscriptionsSection } from "../../../src/components/admin/AdminBillingSection";
 import { ConfigurationSection, SupportSection, ModerationSection, AuditSection } from "../../../src/components/admin/AdminOperationsSections";
 
@@ -70,6 +72,10 @@ export default function AdminScreen() {
   const [page,setPage]=useState(1);
   const [sort,setSort]=useState<"newest"|"oldest">("newest");
   const [userTotal,setUserTotal]=useState(0);
+  const [statusFilter,setStatusFilter]=useState<AdminUserDirectoryFilter["status"]|"ALL">("ALL");
+  const [roleFilter,setRoleFilter]=useState<AdminUserDirectoryFilter["role"]|"ALL">("ALL");
+  const [cityFilter,setCityFilter]=useState("");
+  const [selectedUserId,setSelectedUserId]=useState<string|null>(null);
   const [venueTotal,setVenueTotal]=useState(0);
   const loadSequence=useRef(0);
   const abortController=useRef<AbortController|null>(null);
@@ -122,7 +128,7 @@ export default function AdminScreen() {
       await loadPart("analytics",()=>adminApi.analytics(token,analyticsDays,controller.signal),setAnalytics);
     }
     else if(section==="users")await loadPart("users",
-      ()=>adminApi.usersPage(token,query,page,25,controller.signal,sort),data=>{
+      ()=>adminApi.usersPage(token,query,page,25,controller.signal,sort,{status:statusFilter==="ALL"?undefined:statusFilter,role:roleFilter==="ALL"?undefined:roleFilter,city:cityFilter||undefined}),data=>{
         setUsers(data.users);setUserTotal(data.total);
       });
     else if(section==="venues")await Promise.all([
@@ -146,7 +152,7 @@ export default function AdminScreen() {
       setLoadIssues(failures);
       setLoading(false);
     }
-  },[isAdmin,token,section,query,page,sort,analyticsDays]);
+  },[isAdmin,token,section,query,page,sort,analyticsDays,statusFilter,roleFilter,cityFilter]);
 
   useEffect(()=>{
     void load();
@@ -163,6 +169,7 @@ export default function AdminScreen() {
   }
   function selectSection(next:SectionKey){
     setSection(next);setPage(1);setQuery("");setQueryDraft("");setSort("newest");
+    setStatusFilter("ALL");setRoleFilter("ALL");setCityFilter("");setSelectedUserId(null);
     setMessage(null);
   }
 
@@ -256,7 +263,11 @@ export default function AdminScreen() {
         {loading?<DataLoadingState variant={section==="dashboard"?"dashboard":"list"} minHeight={360}/>:<>
           {section === "dashboard" ? <DashboardSection data={analytics} days={analyticsDays} onDays={setAnalyticsDays} setSection={selectSection} /> : null}
           {section === "analytics" ? <AdminAnalyticsSection data={analytics} days={analyticsDays} onDays={setAnalyticsDays}/> : null}
-          {section === "users" ? <UsersSection users={users} query={queryDraft} setQuery={setQueryDraft} page={page} total={userTotal} onPage={setPage} sort={sort} onSort={updateSort} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={async()=>submitSearch()} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "users" ? <AdminUsersPhase3Section users={users} query={queryDraft} setQuery={setQueryDraft} page={page} total={userTotal} onPage={setPage} sort={sort} onSort={updateSort} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={submitSearch} action={action} token={token!} t={t} isRTL={isRTL}
+            statusFilter={statusFilter} onStatusFilter={value=>{setStatusFilter(value);setPage(1);setSelectedUserId(null);}}
+            roleFilter={roleFilter} onRoleFilter={value=>{setRoleFilter(value);setPage(1);setSelectedUserId(null);}}
+            cityFilter={cityFilter} onCityFilter={value=>{setCityFilter(value);setPage(1);setSelectedUserId(null);}}
+            selectedUserId={selectedUserId} onSelectedUserId={setSelectedUserId}/> : null}
           {section === "manualTeams" ? <ManualTeamsAdminSection /> : null}
           {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={queryDraft} setQuery={setQueryDraft} page={page} total={venueTotal} onPage={setPage} sort={sort} onSort={updateSort} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
