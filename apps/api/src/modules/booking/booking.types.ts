@@ -26,6 +26,7 @@ export type BookingVenueRecord = {
   city: string;
   address: string;
   publicPhone: string;
+  whatsappPhone?: string | null;
   pageProfileImageUrl?: string | null;
   pageCoverImageUrl?: string | null;
   pageBio?: string | null;
@@ -125,6 +126,7 @@ export function toPublicVenueDto(venue: BookingVenueRecord): PublicVenueDto {
     city: venue.city,
     address: venue.address,
     publicPhone: venue.publicPhone,
+    whatsappPhone: venue.whatsappPhone ?? null,
     pageProfileImageUrl: venue.pageProfileImageUrl ?? null,
     pageCoverImageUrl: venue.pageCoverImageUrl ?? null,
     pageBio: venue.pageBio ?? null,
