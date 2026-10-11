@@ -17,7 +17,7 @@ const api = read("apps/mobile/src/lib/api.ts");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const comments = read("apps/mobile/app/(app)/posts/[postId]/comments.tsx");
 const venue = read("apps/mobile/app/(app)/venues/[venueId].tsx");
-const team = read("apps/mobile/app/(app)/teams/[teamId].tsx");
+const team = read("apps/mobile/src/components/social/TeamDetailExperience.tsx");
 const localization = read("packages/localization/src/index.ts");
 
 assert(schema.includes("socialPostCommentLikes") && schema.includes('editedAt: timestamp("edited_at"'), "comment likes/edited schema missing");
@@ -44,7 +44,7 @@ assert(venue.includes("styles.header") && venue.includes("styles.cover") &&
   venue.includes("<VenueAboutContent") && venue.includes("<VenueReserveContent") &&
   venueSections.includes("venue.cancellationPolicy") && venueSections.includes("venueApi.availability"),
   "public Venue profile must retain cover, identity, about and live reservations in its new tabs.");
-assert(team.includes("styles.hero") && team.includes("publicProfile.followers") && team.includes("styles.statGrid"), "public Team profile styling missing");
+assert(team.includes("styles.profileCard") && team.includes("styles.cover") && team.includes("styles.summary") && team.includes("publicProfile.followers"), "public Team profile styling missing");
 
 assert((localization.match(/"social\.commentsPageTitle"/g) ?? []).length === 3, "comments page title missing in one or more languages");
 assert((localization.match(/"social\.commentEditError"/g) ?? []).length === 3, "comment edit copy missing in one or more languages");
