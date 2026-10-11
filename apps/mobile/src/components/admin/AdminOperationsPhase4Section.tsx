@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,spacing,radius} from "@leaguekick/design-tokens";
 import type {AdminCaseDto,AdminOperationDetail,AdminOperationItem,AdminOperationKind} from "@leaguekick/contracts";
-import {useCallback,useEffect,useState} from "react";
+import {useEffect,useState} from "react";
 import {Pressable,ScrollView,View} from "react-native";
 import {adminApi,ApiRequestError} from "../../lib/api";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -142,29 +142,7 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
  const [loading,setLoading]=useState(false);
  const [error,setError]=useState<string|null>(null);
  const [nonce,setNonce]=useState(0);
- const load=useCallback(async()=>{
-   const controller=new AbortController();
-   setLoading(true);setError(null);
-   try{
-     if(kind==="CASE"){
-       const result=await adminApi.adminCases(token,{page,pageSize:25,
-         state:status==="ALL"?undefined:status,targetType:caseType==="ALL"?undefined:caseType},controller.signal);
-       if(!controller.signal.aborted){setCases(result.items);setTotal(result.total);}
-     }else{
-       const result=await adminApi.operationsPage(token,kind,{page,pageSize:25,sort,
-         q:query||undefined,status:status==="ALL"?undefined:status,
-         verification:kind==="VENUE"&&verification!=="ALL"?verification as "PENDING"|"VERIFIED"|"REJECTED":undefined,
-         venueId:venueId||undefined,from:from||undefined,to:to||undefined},controller.signal);
-       if(!controller.signal.aborted){setItems(result.items);setTotal(result.total);}
-       if(kind==="VENUE"){
-         const dupe=await adminApi.operationDuplicates(token,controller.signal);
-         if(!controller.signal.aborted)setDuplicates(dupe.groups);
-       }
-     }
-   }catch(e){if(!controller.signal.aborted)setError(e instanceof ApiRequestError?e.message:l.loadFailed);}
-   finally{if(!controller.signal.aborted)setLoading(false);}
-   return ()=>controller.abort();
- },[kind,token,page,sort,query,status,caseType,verification,venueId,from,to,refreshVersion,nonce]);
+
  useEffect(()=>{
    // Abort stale queries after filter or section change.
    let active=true;
@@ -207,6 +185,7 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
        setError(e instanceof ApiRequestError?e.message:l.loadFailed);});
    return()=>{active=false;controller.abort();};
  },[kind,token,selected,refreshVersion,nonce]);
+ useEffect(()=>{setSelectedCase(null);},[refreshVersion]);
  const writeAllowed=reason.trim().length>=3&&!busy;
  const confirm=(task:()=>Promise<unknown>,target:string)=>
    void action(task,t("phase7.admin.updated"),true,target);
