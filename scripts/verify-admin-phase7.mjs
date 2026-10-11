@@ -40,7 +40,7 @@ for(const s of ["AdminGovernancePhase7Section","AdminConfigurationPhase7Section"
  "mode=\"readiness\"","mode=\"audit\""])
  assert.ok(root.includes(s),"Admin phase7 section not mounted: "+s);
 assert.ok(nav.includes('"readiness"'),"Readiness navigation absent");
-for(const s of ['describe("Admin Phase 7 governance and hardening"','SETTINGS',
+for(const s of ['describe("Admin Phase 7 governance and hardening"','expectedUpdatedAt',
  '"/api/v1/admin/audit/page"','"/api/v1/admin/diagnostics"'])
  assert.ok(tests.includes(s),"Governance API tests missing: "+s);
 console.log("Admin Phase 7 verified: optimistic atomic configuration, paginated redacted audit, CSV safeguards, release diagnostics, localized console and contract tests.");
