@@ -34,7 +34,7 @@ for(const fragment of [
  'borderLeftWidth:frame.width','borderBottomWidth:frame.height',
  'borderBottomColor:ink','borderLeftColor:"transparent"',
  'position:"absolute",top:0,left:0','overflow:"hidden"',
- 'position:"absolute",top:3,right:2',
+ 'position:"absolute",top:2,right:2',
  'onLayout={onTileLayout}','pointerEvents="none"',
  'forceLtr','numberOfLines={1}',
 ]){
