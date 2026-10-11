@@ -32,8 +32,8 @@ assert.ok(side.includes("mobileOpen")&&side.includes("collapsed")&&
   "Responsive mobile/desktop admin navigation must remain usable.");
 assert.ok(styles.includes("maxWidth: 1500"),"Admin responsive workspace width must remain bounded.");
 for(const marker of [
-  'adminApi.usersPage(token,query,page,25,controller.signal)',
-  'adminApi.venuesPage(token,query,page,25,controller.signal)',
+  'adminApi.usersPage(token,query,page,25,controller.signal,sort)',
+  'adminApi.venuesPage(token,query,page,25,controller.signal,sort)',
   'const serial=++loadSequence.current',
   'abortController.current?.abort()',
   'if(serial===loadSequence.current)apply(data)',
@@ -44,6 +44,8 @@ for(const marker of [
   'section==="configuration"',
   'section==="audit"',
   'setQueryDraft',
+  'function updateSort(',
+  'futsal.admin.section',
   'function submitSearch()',
   'onPage={setPage}',
 ])assert.ok(root.includes(marker),"Missing independent, paged admin data load: "+marker);
@@ -73,11 +75,12 @@ assert.ok(root.includes('<AdminConfirmModal')&&
   confirm.includes('visible={visible}')&&
   confirm.includes('reason.trim()'),
   "Admin writes need confirmation dialog with target, reason, error and busy state.");
-assert.ok(dirs.includes('AdminPagination')&&dirs.includes('AdminStatusBadge'));
+assert.ok(dirs.includes('AdminPagination')&&dirs.includes('AdminStatusBadge')&&
+  dirs.includes('phase7.admin.sortNewest')&&dirs.includes('phase7.admin.sortOldest'));
 assert.ok(bills.includes('activateRoleSubscription')&&ops.includes('closePromotion'));
 assert.ok(pagination.includes('onPage(page+1)')&&pagination.includes('onPage(page-1)'));
 for(const label of ["nav.overview","nav.management","nav.commercial","nav.platform",
-  "pageCount","confirm","confirmBody","normalUser","noUsers","noVenues"])
+  "pageCount","confirm","confirmBody","normalUser","noUsers","noVenues","sortNewest","sortOldest"])
   assert.equal(i18n.split('"phase7.admin.'+label+'"').length-1,3,
     "All admin foundation labels need English, Dari, Pashto: "+label);
 console.log("Admin Phase 1 verified: modular pages, responsive RTL sidebar, cursor-safe paged and cancellable live data, revocable admin auth, session-scoped credentials, confirmed writes, reusable UI and locales.");
