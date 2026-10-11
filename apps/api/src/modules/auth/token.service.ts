@@ -10,6 +10,7 @@ export type AccessAccountStatus = "ACTIVE" | "SUSPENDED" | "DELETED" | null;
 export class TokenService {
   private readonly key: Uint8Array;
   private accessValidator: ((userId: string) => Promise<AccessAccountStatus>) | null = null;
+  private currentAdminRoles:((userId:string)=>Promise<UserRole[]>)|null=null;
 
   constructor(
     secret: string,
@@ -57,11 +58,23 @@ export class TokenService {
       }
     }
 
+    if(roles.includes("PLATFORM_ADMIN")&&this.currentAdminRoles){
+      const liveRoles=await this.currentAdminRoles(userId);
+      if(!liveRoles.includes("PLATFORM_ADMIN"))
+        throw errors.forbidden("ADMIN_ACCESS_REVOKED",
+          "Administrator privileges have been revoked. Sign in again.");
+      roles=liveRoles;
+    }
+
     return { userId, roles };
   }
 
   setAccessValidator(validator: (userId: string) => Promise<AccessAccountStatus>) {
     this.accessValidator = validator;
+  }
+
+  setAdminRoleValidator(validator:(userId:string)=>Promise<UserRole[]>){
+    this.currentAdminRoles=validator;
   }
 
   createRefreshToken() {
