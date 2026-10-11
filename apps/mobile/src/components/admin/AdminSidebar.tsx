@@ -7,7 +7,7 @@ import {styles} from "./AdminStyles";
 import {adminNavItems,type SectionKey} from "./admin-navigation";
 
 const groups=[
-  {id:"overview",label:"Overview",icon:"grid-outline",sections:["dashboard"]},
+  {id:"overview",label:"Overview",icon:"grid-outline",sections:["dashboard","analytics"]},
   {id:"management",label:"Management",icon:"layers-outline",sections:["users","venues","manualTeams"]},
   {id:"commercial",label:"Revenue",icon:"wallet-outline",sections:["subscriptions"]},
   {id:"platform",label:"Platform",icon:"settings-outline",sections:["configuration","support","moderation","audit"]},
