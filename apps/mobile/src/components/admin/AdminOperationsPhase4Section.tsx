@@ -86,10 +86,21 @@ function Choice({label,selected,onPress}:{label:string;selected:boolean;onPress:
    </AppText>
  </Pressable>;
 }
+function localDate(value:unknown,language:"en"|"fa-AF"|"ps-AF"){
+ const raw=String(value??"");
+ if(!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/.test(raw))return raw||"—";
+ const d=new Date(raw);
+ if(Number.isNaN(d.getTime()))return raw;
+ return new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
+   timeZone:"Asia/Kabul",year:"numeric",month:"short",day:"2-digit",
+   hour:"2-digit",minute:"2-digit",
+ }).format(d);
+}
 function Info({name,value}:{name:string;value:unknown}){
+ const {language}=useLocale();
  return <View style={{flexGrow:1,flexBasis:210,minWidth:0,gap:spacing.xs}}>
   <AppText muted variant="caption">{name}</AppText>
-  <AppText selectable weight="medium">{value==null||value===""?"—":String(value)}</AppText>
+  <AppText selectable weight="medium">{localDate(value,language)}</AppText>
  </View>;
 }
 function Issue({title}:{title:string}){
@@ -286,7 +297,7 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
        <AppText variant="bodyLarge" weight="bold">{l.cases}</AppText>
        {relatedCases.length?relatedCases.map(c=><View key={c.id} style={styles.dataRow}>
          <Info name={c.state} value={c.note}/>
-         <AppText variant="caption" muted>{c.openedAt.slice(0,10)}</AppText>
+         <AppText variant="caption" muted>{localDate(c.openedAt,language)}</AppText>
        </View>):<AppText muted>{l.noCases}</AppText>}
        {relatedCases.some(c=>c.state!=="RESOLVED")?
          <Issue title="A case is already open for this record. Resolve it in Investigations before opening another."/>:<>
@@ -356,7 +367,7 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
        <View style={{flex:1,minWidth:200,gap:spacing.xs}}>
          <AppText weight="semibold">{c.targetType} · {c.targetId.slice(0,8)}</AppText>
          <AppText variant="caption" muted>{c.reason}</AppText>
-         <AppText variant="caption" muted>{c.openedAt.slice(0,16).replace("T"," ")}</AppText>
+         <AppText variant="caption" muted>{localDate(c.openedAt,language)}</AppText>
        </View>
        <AdminStatusBadge label={c.state} tone={c.state==="RESOLVED"?"success":"warning"}/>
        <Button label={l.open} variant="secondary" onPress={()=>{setSelectedCase(c);setNote(c.note);
@@ -371,7 +382,7 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
              <AppText weight="semibold">{item.title}</AppText>
              <AppText variant="caption" muted>{item.subtitle}</AppText>
              <AppText variant="caption" muted>{item.venueName??item.ownerName??item.location??""}</AppText>
-             {item.startsAt?<AppText variant="caption" muted>{item.startsAt.slice(0,16).replace("T"," ")}</AppText>:null}
+             {item.startsAt?<AppText variant="caption" muted>{localDate(item.startsAt,language)}</AppText>:null}
            </View>
          </View>
          <View style={{flexDirection:"row",gap:spacing.sm,alignItems:"center",flexWrap:"wrap"}}>

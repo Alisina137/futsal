@@ -355,10 +355,10 @@ export class DrizzleAdminOperationsRepository {
   }
 
   async duplicates(){
-    // Normalize all three address fields, not just names; no destructive auto-merge.
-    const norm=(field:typeof venues.name|typeof venues.city|typeof venues.address)=>
-      sql<string>`lower(regexp_replace(btrim(${field}), '\\s+', ' ', 'g'))`;
-    const key=sql<string>`${norm(venues.name)} || '|' || ${norm(venues.city)} || '|' || ${norm(venues.address)}`;
+    // Include province and normalize whitespace; never auto-merge presumed duplicates.
+    const norm=(field:typeof venues.name|typeof venues.city|typeof venues.address|typeof venues.province)=>
+      sql<string>`lower(regexp_replace(btrim(${field}), '[[:space:]]+', ' ', 'g'))`;
+    const key=sql<string>`${norm(venues.name)} || '|' || ${norm(venues.city)} || '|' || ${norm(venues.province)} || '|' || ${norm(venues.address)}`;
     const groups=await this.db.select({key,count:sql<number>`count(*)::int`})
       .from(venues).groupBy(key).having(sql`count(*) > 1`).limit(40);
     const results=[];
