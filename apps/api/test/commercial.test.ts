@@ -111,7 +111,7 @@ class FakeCommercialRepository implements CommercialRepository {
       period:{from:"2026-09-12",to:"2026-10-11",days,timezone:"Asia/Kabul"},
       totals:{users:55,activeAccounts:50,venues:12,activeVenues:10,
         verifiedVenues:9,payingVenues:6,payingTeamManagers:4,
-        activeExtraTeamSlots:2,teams:8,activeCompetitions:3},
+        activeExtraTeamSlots:2,trialStartedVenues:10,trialConvertedVenues:4,teams:8,activeCompetitions:3},
       metrics:{newUsers:5,newVenues:2,newTeams:1,newCompetitions:1,
         confirmedBookings:7,onlineConfirmedBookings:4,
         bookingGmvAfn:7500,recordedVenuePaymentsAfn:1000,recordedVenuePaymentsCount:1},
