@@ -1,7 +1,7 @@
 import type {Database} from "@leaguekick/database";
 import {and,asc,desc,eq,isNull,lt,sql} from "drizzle-orm";
 import {
-  auditLogs,communityReports,notificationDeliveries,notificationPreferences,notifications,
+  auditLogs,communityReports,notificationDeliveries,notifications,
   platformAnnouncements,platformAnnouncementRecipients,
   socialPostComments,socialPosts,supportTicketEvents,supportTickets,
   userRoles,users,venuePosts,venuePromotions,venues,
