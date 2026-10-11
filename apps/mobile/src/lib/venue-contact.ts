@@ -20,7 +20,7 @@ export function callVenueUrl(phone:string):string|null{
 export function reservationMessage(input:{
   venue:Pick<PublicVenueDto,"name"|"timezone">;
   language:LanguageCode;
-  slot?:Pick<VenueTimelineSlotDto,"startsAt"|"endsAt"|"priceAfn">;
+  slot?:Pick<VenueTimelineSlotDto,"startsAt"|"endsAt"|"priceAfn">|undefined;
   alreadyBooked?:boolean;
 }):string{
   const {venue,language,slot,alreadyBooked}=input;
