@@ -60,6 +60,8 @@ const auth = new AuthService(authRepository, tokens, {
   ...(env.PASSWORD_RESET_SMS_WEBHOOK_URL ? { deliverPasswordResetCode } : {}),
 });
 tokens.setAccessValidator(async (userId) => (await authRepository.getUserById(userId))?.status ?? null);
+// Reject a revoked PLATFORM_ADMIN on the next request, not when the old JWT expires.
+tokens.setAdminRoleValidator(async(userId)=>(await authRepository.getUserById(userId))?.roles??[]);
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
 const notificationRepository = new DrizzleNotificationRepository(db);
 const notificationService = new NotificationService(notificationRepository);
