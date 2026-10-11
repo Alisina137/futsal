@@ -110,7 +110,7 @@ export default function TeamDetailExperience(){
     competitions:"active",stats:"overview",about:"overview",
   });
   const [highlights,setHighlights]=useState<TeamPublicHighlights|null>(null);
-  const [publicBusy,setPublicBusy]=useState(false),[publicError,setPublicError]=useState(false);
+  const [publicBusy,setPublicBusy]=useState(false);
   const [retryCounter,setRetryCounter]=useState(0);
   const [photo,setPhoto]=useState<string|null>(null);
   const screenScroll=useRef<ScrollView>(null),navScroll=useRef<ScrollView>(null);
@@ -158,10 +158,10 @@ export default function TeamDetailExperience(){
   useEffect(()=>{
     if(!team||team.id!==id||highlights||tab==="squad"||tab==="about")return;
     let live=true;
-    setPublicBusy(true);setPublicError(false);
+    setPublicBusy(true);
     void teamPublicApi.highlights(id).then(result=>{
-      if(live){setHighlights(result);setPublicError(false);}
-    }).catch(()=>{if(live)setPublicError(true);})
+      if(live){setHighlights(result);}
+    }).catch(()=>{/* Error state shown through missing highlights. */})
       .finally(()=>{if(live)setPublicBusy(false);});
     return()=>{live=false;};
   },[id,team?.id,tab,highlights,retryCounter]);
