@@ -179,6 +179,26 @@ export const passwordResetChallenges = pgTable(
   ],
 );
 
+
+/** Phase 4: investigation workflow never mutates underlying business history. */
+export const adminCases=pgTable("admin_cases",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  targetType:varchar("target_type",{length:24}).notNull(),
+  targetId:uuid("target_id").notNull(),
+  state:varchar("state",{length:24}).notNull().default("OPEN"),
+  reason:varchar("reason",{length:500}).notNull(),
+  note:text("note").notNull(),
+  openedByUserId:uuid("opened_by_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  openedAt:timestamp("opened_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+  closedAt:timestamp("closed_at",{withTimezone:true}),
+},table=>[
+  index("admin_cases_target_idx").on(table.targetType,table.targetId),
+  index("admin_cases_state_updated_idx").on(table.state,table.updatedAt),
+  uniqueIndex("admin_cases_one_open_per_target_uq")
+    .on(table.targetType,table.targetId).where(sql`${table.state} <> 'RESOLVED'`),
+]);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {

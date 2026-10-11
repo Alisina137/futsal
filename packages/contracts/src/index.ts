@@ -575,6 +575,72 @@ export const adminUserDtoSchema = z.object({
 export type AdminUserDto = z.infer<typeof adminUserDtoSchema>;
 
 
+
+/** Phase 4 operations review is read-only for source-of-truth bookings,
+ * competitions, rosters and referee assignments. Investigations are separate. */
+export const adminOperationKindSchema=z.enum(["VENUE","TEAM","COMPETITION","REFEREE","RESERVATION"]);
+export type AdminOperationKind=z.infer<typeof adminOperationKindSchema>;
+export const adminOperationFiltersSchema=z.object({
+  q:z.string().trim().max(100).optional(),
+  status:z.string().regex(/^[A-Z_]{2,40}$/).optional(),
+  verification:z.enum(["PENDING","VERIFIED","REJECTED"]).optional(),
+  venueId:z.string().uuid().optional(),
+  from:dateOnlySchema.optional(),
+  to:dateOnlySchema.optional(),
+  page:z.coerce.number().int().min(1).max(100000).default(1),
+  pageSize:z.coerce.number().int().min(10).max(100).default(25),
+  sort:z.enum(["newest","oldest"]).default("newest"),
+}).refine(v=>!v.from||!v.to||v.from<=v.to,{message:"From must not exceed To"});
+export type AdminOperationFilters=z.infer<typeof adminOperationFiltersSchema>;
+export const adminOperationItemSchema=z.object({
+  id:z.string().uuid(),kind:adminOperationKindSchema,title:z.string(),subtitle:z.string(),
+  status:z.string(),secondaryStatus:z.string().nullable(),ownerName:z.string().nullable(),
+  venueName:z.string().nullable(),location:z.string().nullable(),
+  startsAt:isoDateTimeSchema.nullable(),createdAt:isoDateTimeSchema,
+  warningCount:z.number().int().min(0),
+});
+export type AdminOperationItem=z.infer<typeof adminOperationItemSchema>;
+export const adminOperationDetailSchema=z.object({
+  item:adminOperationItemSchema,
+  facts:z.array(z.object({label:z.string(),value:z.string()})),
+  groups:z.array(z.object({
+    title:z.string(),rows:z.array(z.object({
+      id:z.string(),primary:z.string(),secondary:z.string(),status:z.string().nullable(),
+    })),
+  })),
+  warnings:z.array(z.string()),
+});
+export type AdminOperationDetail=z.infer<typeof adminOperationDetailSchema>;
+export const adminOperationPageSchema=z.object({
+  items:z.array(adminOperationItemSchema),total:z.number().int().min(0),
+  page:z.number().int().min(1),pageSize:z.number().int().min(10),hasMore:z.boolean(),
+});
+export const adminVenueDuplicateGroupSchema=z.object({
+  key:z.string(),items:z.array(adminOperationItemSchema),count:z.number().int().min(2),
+});
+export const adminCaseTargetSchema=z.enum(["VENUE","TEAM","COMPETITION","REFEREE","RESERVATION"]);
+export const adminCaseStateSchema=z.enum(["OPEN","UNDER_REVIEW","RESOLVED"]);
+export const adminCaseDtoSchema=z.object({
+  id:z.string().uuid(),targetType:adminCaseTargetSchema,targetId:z.string().uuid(),
+  state:adminCaseStateSchema,reason:z.string(),note:z.string(),
+  openedByUserId:z.string().uuid(),openedAt:isoDateTimeSchema,
+  updatedAt:isoDateTimeSchema,closedAt:isoDateTimeSchema.nullable(),
+});
+export type AdminCaseDto=z.infer<typeof adminCaseDtoSchema>;
+export const adminCaseCreateSchema=z.object({
+  targetType:adminCaseTargetSchema,targetId:z.string().uuid(),
+  reason:z.string().trim().min(3).max(500),note:z.string().trim().min(3).max(2000),
+});
+export const adminCaseUpdateSchema=z.object({
+  state:adminCaseStateSchema,reason:z.string().trim().min(3).max(500),
+  note:z.string().trim().min(3).max(2000),
+});
+export const adminCaseFilterSchema=z.object({
+  state:adminCaseStateSchema.optional(),targetType:adminCaseTargetSchema.optional(),
+  page:z.coerce.number().int().min(1).max(100000).default(1),
+  pageSize:z.coerce.number().int().min(10).max(100).default(25),
+});
+
 export const adminUserDirectoryFilterSchema = z.object({
   status: z.enum(["ACTIVE", "SUSPENDED", "DELETED"]).optional(),
   role: userRoleSchema.or(z.literal("NORMAL_USER")).optional(),
