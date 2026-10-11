@@ -21,6 +21,23 @@ class FakeCommercialRepository implements CommercialRepository {
   lastOperations:{kind:string;filters:unknown}|null=null;
   openedCase=false;caseUpdated=false;
   billingFilters:unknown=null;voidPaidReceiptCalled=false;
+  auditFilters:import("@leaguekick/contracts").AdminAuditFilter|null=null;
+  configChange:import("@leaguekick/contracts").PlatformSettingsUpdateRequest|null=null;
+  async auditPage(filter:import("@leaguekick/contracts").AdminAuditFilter){
+    this.auditFilters=filter;
+    return {items:[],total:61,page:filter.page,pageSize:filter.pageSize,
+      hasMore:filter.page*filter.pageSize<61};
+  }
+  async auditCsv(filter:import("@leaguekick/contracts").AdminAuditFilter){
+    this.auditFilters=filter;
+    if(!filter.from||!filter.to)throw new Error("Dates required");
+    return '"id","action"\r\n"test","VENUE_SUSPENDED"\r\n';
+  }
+  async diagnostics(){
+    return {generatedAt:"2026-10-11T12:00:00.000Z",releaseGate:"MANUAL_APPROVAL_REQUIRED" as const,
+      checks:[{key:"backup_restore",state:"UNKNOWN" as const,detail:"External operator evidence required"}],
+      counts:{unresolvedReports:2,openSupportTickets:3,scheduledAnnouncements:1,failedPushDeliveries:4}};
+  }
   revokedSessions=false;
   userNote:string|null=null;
   lastPage:{target:"users"|"venues";query:string|undefined;page:number;size:number;sort:string}|null=null;
@@ -249,8 +266,11 @@ class FakeCommercialRepository implements CommercialRepository {
   async activateSubscription() { this.activated = true; }
   async extendTrial() {}
   async voidPayment() {}
-  async updateSettings(_actor: string, input: Omit<CommercialSettingsRecord, "updatedAt">, now: Date) {
-    return { ...input, updatedAt: now };
+  async updateSettings(_actor: string, input: import("@leaguekick/contracts").PlatformSettingsUpdateRequest, now: Date) {
+    this.configChange=input;
+    return {monthlyPriceAfn:input.monthlyPriceAfn,annualPriceAfn:input.annualPriceAfn,
+      trialDurationHours:input.trialDurationHours,featureFlags:input.featureFlags,
+      notificationTemplates:input.notificationTemplates,updatedAt:now};
   }
   async listAuditLogs() { return []; }
   async addSupportNote() {}
@@ -579,5 +599,67 @@ describe("Admin Phase 5 financial oversight",()=>{
       .post("/api/v1/admin/venues/"+id+"/subscription/activate").set(h)
       .send({months:1,amountAfn:0,provider:"MANUAL",providerReference:"abc"});
     expect(invalidAmount.status).toBe(400);
+  });
+});
+
+describe("Admin Phase 7 governance and hardening",()=>{
+  it("gates private audit paging, CSV and release diagnostics by PLATFORM_ADMIN",async()=>{
+    const {app,tokens}=setup();
+    const player=await tokens.createAccessToken("player",[]);
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const routes=["/api/v1/admin/audit/page","/api/v1/admin/audit/export",
+      "/api/v1/admin/diagnostics"];
+    for(const route of routes){
+      expect((await request(app).get(route).set({Authorization:"Bearer "+player.token})).status).toBe(403);
+    }
+    expect((await request(app).get(routes[0]!)
+      .set({Authorization:"Bearer "+admin.token})).status).toBe(200);
+    const health=await request(app).get(routes[2]!)
+      .set({Authorization:"Bearer "+admin.token});
+    expect(health.status).toBe(200);
+    expect(health.body.releaseGate).toBe("MANUAL_APPROVAL_REQUIRED");
+  });
+  it("validates bounded audit filtering, export type and pagination",async()=>{
+    const {app,tokens,repository}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const h={Authorization:"Bearer "+admin.token};
+    const page=await request(app).get("/api/v1/admin/audit/page")
+      .query({page:2,pageSize:25,actorId:"44444444-4444-4444-8444-444444444444",
+        from:"2026-10-01",to:"2026-10-11",action:"ACTIVATED"}).set(h);
+    expect(page.status).toBe(200);
+    expect(page.body).toMatchObject({page:2,pageSize:25,total:61,hasMore:true});
+    expect(repository.auditFilters).toMatchObject({page:2,action:"ACTIVATED"});
+    for(const query of [{pageSize:101},{page:0},{from:"2026-10-12",to:"2026-10-11"},
+      {actorId:"not-a-uuid"}]){
+      expect((await request(app).get("/api/v1/admin/audit/page").query(query).set(h)).status).toBe(400);
+    }
+    const exported=await request(app).get("/api/v1/admin/audit/export")
+      .query({from:"2026-10-01",to:"2026-10-11"}).set(h);
+    expect(exported.status).toBe(200);
+    expect(exported.headers["content-type"]).toContain("text/csv");
+    expect(exported.headers["cache-control"]).toBe("no-store");
+    expect(exported.text).toContain("VENUE_SUSPENDED");
+  });
+  it("demands a reviewed version and meaningful reason for configuration changes",async()=>{
+    const {app,tokens,repository}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const h={Authorization:"Bearer "+admin.token};
+    const values={monthlyPriceAfn:1300,annualPriceAfn:12000,trialDurationHours:72,
+      featureFlags:{},notificationTemplates:{}};
+    const endpoint="/api/v1/admin/settings";
+    expect((await request(app).put(endpoint).set(h).send(values)).status).toBe(400);
+    expect((await request(app).put(endpoint).set(h).send({...values,
+      reason:"x",expectedUpdatedAt:"2026-10-05T00:00:00.000Z"})).status).toBe(400);
+    expect((await request(app).put(endpoint).set(h).send({...values,
+      reason:"Reviewed pricing for new venues",expectedUpdatedAt:"invalid"})).status).toBe(400);
+    expect((await request(app).put(endpoint).set(h).send({...values,
+      reason:"Reviewed pricing for new venues",expectedUpdatedAt:"2026-10-05T00:00:00.000Z",
+      featureFlags:{'invalid key':true}})).status).toBe(400);
+    const ok=await request(app).put(endpoint).set(h).send({...values,
+      reason:"Reviewed pricing for new venues",expectedUpdatedAt:"2026-10-05T00:00:00.000Z"});
+    expect(ok.status).toBe(200);
+    expect(ok.body.settings.monthlyPriceAfn).toBe(1300);
+    expect(repository.configChange).toMatchObject({reason:"Reviewed pricing for new venues",
+      expectedUpdatedAt:"2026-10-05T00:00:00.000Z"});
   });
 });
