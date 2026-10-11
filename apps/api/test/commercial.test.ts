@@ -142,7 +142,7 @@ class FakeCommercialRepository implements CommercialRepository {
   }
   async countUsers(){return 73;}
   async countUsersFiltered(_query:string|undefined,filters:import("@leaguekick/contracts").AdminUserDirectoryFilter){
-    this.lastFilters=filters;return 1;
+    this.lastFilters=filters;return filters.status||filters.role||filters.city ? 1 : 73;
   }
   async listUsersFiltered(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest",
     filters:import("@leaguekick/contracts").AdminUserDirectoryFilter){
