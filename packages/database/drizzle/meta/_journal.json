@@ -253,6 +253,13 @@
       "when": 1791725200000,
       "tag": "0035_admin_financial_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791730500000,
+      "tag": "0036_admin_trust_support",
+      "breakpoints": true
     }
   ]
 }

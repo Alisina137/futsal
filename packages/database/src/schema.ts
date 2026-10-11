@@ -42,7 +42,7 @@ export const venuePostTypeEnum = pgEnum("venue_post_type", ["GENERAL", "ANNOUNCE
 export const venuePostVisibilityEnum = pgEnum("venue_post_visibility", ["PUBLIC", "FOLLOWERS", "PRIVATE"]);
 export const venuePostScheduledActionEnum = pgEnum("venue_post_scheduled_action", ["PUBLISH", "UNPUBLISH", "MAKE_PUBLIC", "MAKE_FOLLOWERS", "MAKE_PRIVATE", "DELETE"]);
 export const socialEntityTypeEnum = pgEnum("social_entity_type", ["VENUE", "TEAM", "COMPETITION", "USER"]);
-export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT", "ADMIN_ANNOUNCEMENT"]);
 export const notificationChannelEnum = pgEnum("notification_channel", ["IN_APP", "PUSH"]);
 export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", ["PENDING", "SENT", "SKIPPED", "FAILED"]);
 export const devicePlatformEnum = pgEnum("device_platform", ["ANDROID", "IOS"]);
@@ -199,7 +199,75 @@ export const adminCases=pgTable("admin_cases",{
     .on(table.targetType,table.targetId).where(sql`${table.state} <> 'RESOLVED'`),
 ]);
 
-export const auditLogs = pgTable(
+/** Admin Phase 6: reports and support keep their full internal history. */
+export const communityReports=pgTable("community_reports",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  reporterUserId:uuid("reporter_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  targetType:varchar("target_type",{length:24}).notNull(),
+  targetId:uuid("target_id").notNull(),
+  category:varchar("category",{length:32}).notNull(),
+  description:varchar("description",{length:1500}).notNull(),
+  status:varchar("status",{length:24}).notNull().default("OPEN"),
+  resolutionNote:varchar("resolution_note",{length:1500}),
+  reviewedByUserId:uuid("reviewed_by_user_id").references(()=>users.id,{onDelete:"set null"}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  index("community_reports_status_created_idx").on(table.status,table.createdAt),
+  index("community_reports_target_idx").on(table.targetType,table.targetId),
+  uniqueIndex("community_reports_one_open_per_user_target_uq")
+    .on(table.reporterUserId,table.targetType,table.targetId)
+    .where(sql`${table.status} IN ('OPEN','REVIEWING')`),
+]);
+export const supportTickets=pgTable("support_tickets",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  requesterUserId:uuid("requester_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  category:varchar("category",{length:32}).notNull(),
+  priority:varchar("priority",{length:16}).notNull().default("NORMAL"),
+  status:varchar("status",{length:24}).notNull().default("OPEN"),
+  assignedToUserId:uuid("assigned_to_user_id").references(()=>users.id,{onDelete:"set null"}),
+  subject:varchar("subject",{length:160}).notNull(),
+  description:varchar("description",{length:2000}).notNull(),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+  closedAt:timestamp("closed_at",{withTimezone:true}),
+},table=>[
+  index("support_tickets_status_updated_idx").on(table.status,table.updatedAt),
+  index("support_tickets_requester_idx").on(table.requesterUserId,table.createdAt),
+]);
+export const supportTicketEvents=pgTable("support_ticket_events",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  ticketId:uuid("ticket_id").notNull().references(()=>supportTickets.id,{onDelete:"cascade"}),
+  actorUserId:uuid("actor_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  action:varchar("action",{length:32}).notNull(),
+  note:varchar("note",{length:2000}).notNull(),
+  previousStatus:varchar("previous_status",{length:24}),
+  nextStatus:varchar("next_status",{length:24}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[index("support_ticket_events_ticket_idx").on(table.ticketId,table.createdAt)]);
+export const platformAnnouncements=pgTable("platform_announcements",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  createdByUserId:uuid("created_by_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  title:varchar("title",{length:160}).notNull(),
+  body:varchar("body",{length:500}).notNull(),
+  audience:varchar("audience",{length:24}).notNull(),
+  audienceValue:varchar("audience_value",{length:120}),
+  status:varchar("status",{length:24}).notNull().default("SCHEDULED"),
+  scheduledAt:timestamp("scheduled_at",{withTimezone:true}).notNull(),
+  startedAt:timestamp("started_at",{withTimezone:true}),
+  completedAt:timestamp("completed_at",{withTimezone:true}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[index("platform_announcements_due_idx").on(table.status,table.scheduledAt)]);
+export const platformAnnouncementRecipients=pgTable("platform_announcement_recipients",{
+  announcementId:uuid("announcement_id").notNull().references(()=>platformAnnouncements.id,{onDelete:"cascade"}),
+  userId:uuid("user_id").notNull().references(()=>users.id,{onDelete:"cascade"}),
+  deliveredAt:timestamp("delivered_at",{withTimezone:true}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  primaryKey({columns:[table.announcementId,table.userId]}),
+  index("platform_announcement_recipients_pending_idx").on(table.announcementId,table.deliveredAt),
+]);
+
   "audit_logs",
   {
     id: uuid("id").defaultRandom().primaryKey(),
@@ -691,6 +759,7 @@ export const socialPostComments = pgTable(
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     editedAt: timestamp("edited_at", { withTimezone: true }),
+    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
   },
   (table) => [
     index("social_post_comments_post_created_idx").on(table.postId, table.createdAt),

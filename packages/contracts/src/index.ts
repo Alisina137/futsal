@@ -582,6 +582,60 @@ export const adminBillingSummarySchema=z.object({
 });
 export type AdminBillingSummary=z.infer<typeof adminBillingSummarySchema>;
 
+// Phase 6: moderation, safety reports, support, announcements and notification health.
+export const adminModerationKindSchema=z.enum(["POST","COMMENT","PROMOTION"]);
+export const adminReportTargetSchema=z.enum(["USER","VENUE","POST","COMMENT","PROMOTION"]);
+export const adminReportCategorySchema=z.enum(["INAPPROPRIATE_CONTENT","HARASSMENT","SPAM","FRAUD","FAKE_VENUE","OTHER"]);
+export const adminReportCreateSchema=z.object({
+  targetType:adminReportTargetSchema,targetId:z.string().uuid(),
+  category:adminReportCategorySchema,description:z.string().trim().min(10).max(1500),
+}).strict();
+export const adminReportStatusSchema=z.enum(["OPEN","REVIEWING","RESOLVED","DISMISSED"]);
+export const adminReportReviewSchema=z.object({
+  status:adminReportStatusSchema.exclude(["OPEN"]),
+  note:z.string().trim().min(3).max(1500),
+}).strict();
+export const supportTicketStatusSchema=z.enum(["OPEN","IN_PROGRESS","WAITING_FOR_USER","RESOLVED","CLOSED"]);
+export const supportTicketCreateSchema=z.object({
+  category:z.enum(["TECHNICAL","BOOKINGS","PAYMENTS","ACCOUNT","SAFETY","OTHER"]),
+  subject:z.string().trim().min(5).max(160),
+  description:z.string().trim().min(10).max(2000),
+}).strict();
+export const supportTicketUpdateSchema=z.object({
+  status:supportTicketStatusSchema,
+  priority:z.enum(["LOW","NORMAL","HIGH","URGENT"]),
+  assignedToUserId:z.string().uuid().nullable(),
+  note:z.string().trim().min(3).max(2000),
+}).strict();
+export const supportTicketMessageSchema=z.object({
+  note:z.string().trim().min(3).max(2000),
+}).strict();
+export const adminAnnouncementCreateSchema=z.object({
+  title:z.string().trim().min(3).max(160),
+  body:z.string().trim().min(5).max(500),
+  audience:z.enum(["ALL","USER","ROLE","CITY"]),
+  audienceValue:z.string().trim().max(120).nullable(),
+  scheduledAt:isoDateTimeSchema,
+}).strict().superRefine((v,ctx)=>{
+  if(v.audience==="ALL"&&v.audienceValue)ctx.addIssue({code:"custom",message:"ALL cannot take an audience value"});
+  if(v.audience!=="ALL"&&!v.audienceValue)ctx.addIssue({code:"custom",message:"Audience target required"});
+});
+export const adminPhase6PageSchema=z.object({
+  page:z.coerce.number().int().min(1).max(100000).default(1),
+  pageSize:z.coerce.number().int().min(10).max(100).default(25),
+  status:z.string().trim().max(40).optional(),
+  kind:z.string().trim().max(40).optional(),
+  q:z.string().trim().max(100).optional(),
+});
+export const adminModerationActionSchema=z.object({
+  action:z.enum(["HIDE","CLOSE","WARN"]),
+  reason:z.string().trim().min(3).max(500),
+}).strict();
+export const adminDeliveryRetrySchema=z.object({
+  reason:z.string().trim().min(3).max(500),
+}).strict();
+export type AdminPhase6Page=z.infer<typeof adminPhase6PageSchema>;
+
 export const platformSettingsUpdateRequestSchema = z.object({
   monthlyPriceAfn: z.number().int().min(0).max(100_000_000),
   annualPriceAfn: z.number().int().min(0).max(1_000_000_000),
@@ -1967,7 +2021,7 @@ export const competitionListItemDtoSchema = competitionDtoSchema.omit({
 });
 export type CompetitionListItemDto = z.infer<typeof competitionListItemDtoSchema>;
 
-export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT"]);
+export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT", "ADMIN_ANNOUNCEMENT"]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
 export const notificationDtoSchema = z.object({
