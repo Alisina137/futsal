@@ -32,7 +32,7 @@ for(const fragment of [
  'textAlign:"left"','textAlign:"right"',
  'alignSelf:"flex-start"','alignSelf:"flex-end"',
  'borderLeftWidth:frame.width','borderBottomWidth:frame.height',
- 'borderBottomColor:ink+"32"','borderLeftColor:"transparent"',
+ 'borderBottomColor:ink','borderLeftColor:"transparent"',
  'position:"absolute",top:0,left:0','overflow:"hidden"',
  'position:"absolute",top:3,right:2',
  'onLayout={onTileLayout}','pointerEvents="none"',
@@ -54,6 +54,12 @@ assert.ok(ownerGrid.includes("SlotCornerMarker"));
 assert.ok(ownerGrid.includes("slotPalette[event.type]"));
 assert.ok(ownerCheck.includes("weekSlotGrid")&&publicCheck.includes("statusColors"));
 assert.ok(!tile.includes("AFN"),"Compact tiles show AF; full booking details retain AFN.");
+assert.ok(tile.includes('time:{fontSize:12,lineHeight:17')&&
+  tile.includes('price:{fontSize:12,lineHeight:17,color:"#FFFFFF"')&&
+  tile.includes('<AppText variant="caption" weight="bold" forceLtr'),
+  "Slot start and price must have the same font size and weight.");
+assert.ok(tile.includes('borderBottomColor:ink,')&&tile.includes('borderLeftColor:"transparent"'),
+  "Slot time side stays pale with dark text; lower diagonal side must use solid status color with white price.");
 assert.ok(!tile.includes("styles.rule")&&!tile.includes('rule:{height:1'),
   "Divider must be diagonal like the reference, not a horizontal line.");
 assert.ok(tile.includes("previous.width===w&&previous.height===h"),
