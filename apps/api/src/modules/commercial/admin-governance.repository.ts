@@ -5,7 +5,7 @@ import type {AdminAuditFilter,AdminAuditLogDto,AdminDiagnostics} from "@leagueki
 import {errors} from "../../lib/errors.js";
 
 const localStart=(date:string)=>new Date(date+"T00:00:00+04:30");
-function restrictMetadata(value:Record<string,unknown>):Record<string,unknown>{
+export function restrictMetadata(value:Record<string,unknown>):Record<string,unknown>{
   // Audit actors can inspect IDs, state changes and named changed fields.
   // Free-form notes, credentials, phone numbers, URLs and payment reference
   // bodies are deliberately excluded, including from CSV exports.
@@ -24,7 +24,7 @@ function auditDto(row:typeof auditLogs.$inferSelect):AdminAuditLogDto{
     targetType:row.targetType,targetId:row.targetId,
     metadata:restrictMetadata(row.metadata),createdAt:row.createdAt.toISOString()};
 }
-function escaped(value:unknown){
+export function escaped(value:unknown){
   const str=String(value??"").replace(/[\r\n]+/g," ");
   // Prevent spreadsheet-formula execution on exported audit data.
   const safe=/^[\s]*[=+\-@]/.test(str)?"'"+str:str;
