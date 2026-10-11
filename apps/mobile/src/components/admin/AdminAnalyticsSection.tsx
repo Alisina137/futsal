@@ -10,7 +10,8 @@ import {Card} from "../ui/Card";
 import {AdminMetricChart,AdminPeriodPicker} from "./AdminAnalyticsVisuals";
 import {safeRatio,type AnalyticsInterval} from "./admin-analytics-display";
 
-const intervalNames=["day","week","month"] as const;
+const fullIntervals=["day","week","month"] as const;
+const longIntervals=["week","month"] as const;
 function Breakdown({title,description,entries}:{
   title:string;description:string;entries:{name:string;value:number}[];
 }){
@@ -81,7 +82,7 @@ export function AdminAnalyticsSection({data,days,onDays}:{
     <View style={{gap:spacing.sm}}>
       <AppText variant="bodyLarge" weight="bold">{t("admin2.trendsTitle" as never)}</AppText>
       <View style={{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap",gap:spacing.sm}}>
-        {intervalNames.map(mode=><Pressable key={mode} onPress={()=>setInterval(mode)}
+        {(days===365?longIntervals:fullIntervals).map(mode=><Pressable key={mode} onPress={()=>setInterval(mode)}
           accessibilityRole="button" accessibilityState={{selected:interval===mode}}
           style={{backgroundColor:interval===mode?colors.primary:colors.surface,borderRadius:radius.pill,
             borderWidth:1,borderColor:interval===mode?colors.primary:colors.border,
