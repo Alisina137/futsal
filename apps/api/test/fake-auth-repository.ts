@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { normalizeAfghanistanPhone, type AdminRoleSubscriptionDto, type PaidRole, type RoleSubscriptionOfferDto } from "@leaguekick/contracts";
-import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord } from "../src/modules/auth/auth.types.js";
+import { type AdminRoleSubscriptionDto, type PaidRole, type RoleSubscriptionOfferDto } from "@leaguekick/contracts";
+import type { AuthRepository, AuthUserRecord, CreateUserInput, EmailVerificationChallengeRecord, PasswordResetChallengeRecord, SessionRecord } from "../src/modules/auth/auth.types.js";
 import { errors } from "../src/lib/errors.js";
 
 export class FakeAuthRepository implements AuthRepository {
   users = new Map<string, AuthUserRecord>();
   sessions = new Map<string, SessionRecord>();
   passwordResets = new Map<string, PasswordResetChallengeRecord>();
+  emailChallenges = new Map<string, EmailVerificationChallengeRecord>();
   profileImages = new Map<string,{publicToken:string;mimeType:string;byteSize:number;dataBase64:string}>();
   roleSubscriptions = new Map<string, {
     userId: string;
@@ -19,21 +20,16 @@ export class FakeAuthRepository implements AuthRepository {
   }>();
 
   async findUserByIdentifier(identifier: string) {
-    const raw = identifier.trim();
-    let phone: string | null = null;
-    try {
-      phone = normalizeAfghanistanPhone(raw);
-    } catch {
-      phone = null;
-    }
-    const username = raw.toLowerCase();
-    return [...this.users.values()].find((user) => (phone ? user.phoneE164 === phone : user.usernameNormalized === username)) ?? null;
+    const raw=identifier.trim().toLowerCase();
+    return [...this.users.values()].find(user=>raw.includes("@")
+      ?user.emailNormalized===raw&&Boolean(user.emailVerifiedAt)
+      :user.usernameNormalized===raw)??null;
   }
 
   async getUserById(userId: string) { return this.users.get(userId) ?? null; }
 
   async createUser(input: CreateUserInput) {
-    if ([...this.users.values()].some((user) => user.phoneE164 === input.phoneE164)) {
+    if (input.phoneE164 && [...this.users.values()].some((user) => user.phoneE164 === input.phoneE164)) {
       throw errors.conflict("PHONE_ALREADY_EXISTS", "That phone number is already registered.");
     }
     if ([...this.users.values()].some((user) => user.usernameNormalized === input.usernameNormalized)) {
@@ -41,7 +37,7 @@ export class FakeAuthRepository implements AuthRepository {
     }
     const user: AuthUserRecord = {
       id: randomUUID(), displayName: input.displayName, username: input.username, usernameNormalized: input.usernameNormalized,
-      phoneE164: input.phoneE164, profileImageUrl: null, age: null, emailNormalized: null, city: null, bio: null, defaultLatitude:null, defaultLongitude:null,
+      phoneE164: input.phoneE164??"", profileImageUrl: null, age: null, emailNormalized: null, emailVerifiedAt:null, city: null, bio: null, defaultLatitude:null, defaultLongitude:null,
       lastCredentialResetAt: null, passwordHash: input.passwordHash, preferredLanguage: input.preferredLanguage, status: "ACTIVE", roles: [],
     };
     this.users.set(user.id, user);
@@ -138,10 +134,9 @@ export class FakeAuthRepository implements AuthRepository {
   async updateAccountProfile(userId: string, input: import("../src/modules/auth/auth.types.js").UpdateAccountProfileInput) {
     const user = this.users.get(userId);
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
-    if (input.emailNormalized && [...this.users.values()].some((item) => item.id !== userId && item.emailNormalized === input.emailNormalized)) {
-      throw errors.conflict("EMAIL_ALREADY_EXISTS", "That email address is already in use.");
-    }
-    const next = { ...user, ...input };
+    if (input.phoneE164 && [...this.users.values()].some(item=>item.id!==userId&&item.phoneE164===input.phoneE164))
+      throw errors.conflict("PHONE_ALREADY_EXISTS","That phone number is already registered.");
+    const next = { ...user, ...input, phoneE164:input.phoneE164??"" };
     this.users.set(userId, next);
     return next;
   }
@@ -161,16 +156,44 @@ export class FakeAuthRepository implements AuthRepository {
     return {mimeType:image.mimeType,byteSize:image.byteSize,dataBase64:image.dataBase64};
   }
 
+  async getLastEmailVerificationRequestAt(userId:string) {
+    const rows=[...this.emailChallenges.values()].filter(item=>item.userId===userId);
+    return rows.length?rows.sort((a,b)=>b.createdAt.getTime()-a.createdAt.getTime())[0]!.createdAt:null;
+  }
+  async createEmailVerificationChallenge(input:{userId:string;emailNormalized:string;codeHash:string;expiresAt:Date}) {
+    const row:EmailVerificationChallengeRecord={id:randomUUID(),...input,attempts:0,consumedAt:null,createdAt:new Date()};
+    this.emailChallenges.set(row.id,row);
+    return row;
+  }
+  async getEmailVerificationChallenge(id:string) {return this.emailChallenges.get(id)??null;}
+  async incrementEmailVerificationAttempts(id:string) {
+    const row=this.emailChallenges.get(id);
+    if(row&&!row.consumedAt)this.emailChallenges.set(id,{...row,attempts:row.attempts+1});
+  }
+  async completeEmailVerification(input:{id:string;userId:string;emailNormalized:string;now:Date}) {
+    const row=this.emailChallenges.get(input.id),user=this.users.get(input.userId);
+    if(!row||!user||row.userId!==input.userId||row.emailNormalized!==input.emailNormalized||
+      row.consumedAt||row.expiresAt<=input.now||row.attempts>=5)
+      throw errors.badRequest("INVALID_EMAIL_CODE","This verification code is invalid or expired.");
+    if([...this.users.values()].some(u=>u.id!==user.id&&u.emailNormalized===input.emailNormalized))
+      throw errors.conflict("EMAIL_ALREADY_EXISTS","That email is already registered.");
+    const updated={...user,emailNormalized:input.emailNormalized,emailVerifiedAt:input.now};
+    this.users.set(user.id,updated);
+    for(const [id,c] of this.emailChallenges)if(c.userId===user.id)this.emailChallenges.set(id,{...c,consumedAt:input.now});
+    return updated;
+  }
+
   async createPasswordResetChallenge(input: {
     userId: string | null;
-    phoneE164: string;
+    emailNormalized: string;
     codeHash: string;
     expiresAt: Date;
   }) {
     const row: PasswordResetChallengeRecord = {
       id: randomUUID(),
       userId: input.userId,
-      phoneE164: input.phoneE164,
+      emailNormalized: input.emailNormalized,
+      phoneE164:"",
       codeHash: input.codeHash,
       expiresAt: input.expiresAt,
       attempts: 0,
