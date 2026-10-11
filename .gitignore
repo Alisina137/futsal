@@ -15,3 +15,7 @@ apps/mobile/dist/
 apps/api/dist/
 packages/*/dist/
 artifacts/backups/
+
+# Private, generated QA credentials. Never commit or publish these files.
+test-accounts-private.csv
+**/test-accounts-private.csv
