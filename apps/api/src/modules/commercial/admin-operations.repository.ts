@@ -349,13 +349,18 @@ export class DrizzleAdminOperationsRepository {
       .from(venues).groupBy(key).having(sql`count(*) > 1`).limit(40);
     const results=[];
     for(const group of groups){
-      const ids=await this.db.select({id:venues.id}).from(venues)
+      const entries=await this.db.select({id:venues.id,name:venues.name,city:venues.city,
+        province:venues.province,status:venues.status,verified:venues.verificationStatus,
+        owner:users.displayName,created:venues.createdAt})
+        .from(venues).innerJoin(users,eq(venues.ownerUserId,users.id))
         .where(sql`${key}=${group.key}`).limit(15);
-      const items=[];
-      for(const row of ids){
-        const detail=await this.listDetailSeed("VENUE",row.id);
-        if(detail)items.push(detail.item);
-      }
+      const items=entries.map(row=>({
+        id:row.id,kind:"VENUE" as const,title:row.name,
+        subtitle:row.city+" · "+row.province,status:row.status,
+        secondaryStatus:row.verified,ownerName:row.owner,venueName:row.name,
+        location:row.city+", "+row.province,startsAt:null,
+        createdAt:row.created.toISOString(),warningCount:row.verified==="PENDING"?1:0,
+      }));
       if(items.length>1)results.push({key:group.key,count:group.count,items});
     }
     return results;

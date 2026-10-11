@@ -578,52 +578,47 @@ export class DrizzleCommercialRepository implements CommercialRepository {
     reason: string,
     now: Date,
   ) {
-    const [venue] = await this.db.select().from(venues).where(eq(venues.id, venueId)).limit(1);
-    if (!venue) throw errors.badRequest("VENUE_NOT_FOUND", "Venue not found.");
-
-    if (action === "VERIFY") {
-      await this.db.update(venues).set({
-        verificationStatus: "VERIFIED",
-        verifiedAt: now,
-        verifiedByUserId: actorUserId,
-        updatedAt: now,
-      }).where(eq(venues.id, venueId));
-    } else if (action === "REJECT") {
-      await this.db.update(venues).set({
-        verificationStatus: "REJECTED",
-        verifiedAt: null,
-        verifiedByUserId: actorUserId,
-        updatedAt: now,
-      }).where(eq(venues.id, venueId));
-    } else if (action === "SUSPEND") {
-      await this.db.update(venues).set({ status: "SUSPENDED", updatedAt: now }).where(eq(venues.id, venueId));
-    } else {
-      const [subscription] = await this.db
-        .select()
-        .from(venueSubscriptions)
-        .where(eq(venueSubscriptions.venueId, venueId))
-        .limit(1);
-      const restoredStatus = hasPremiumWriteAccess(subscription ?? null, now)
-        ? "ACTIVE"
-        : venue.setupCompletedAt
-          ? "READY"
-          : "DRAFT";
-      await this.db.update(venues).set({ status: restoredStatus, updatedAt: now }).where(eq(venues.id, venueId));
-    }
-
-    const auditAction = {
-      VERIFY: "VENUE_VERIFIED",
-      REJECT: "VENUE_VERIFICATION_REJECTED",
-      SUSPEND: "VENUE_SUSPENDED",
-      RESTORE: "VENUE_RESTORED",
-    }[action];
-    await this.db.insert(auditLogs).values({
-      actorUserId,
-      action: auditAction,
-      targetType: "VENUE",
-      targetId: venueId,
-      metadata: { reason, previousStatus: venue.status, previousVerificationStatus: venue.verificationStatus },
-      createdAt: now,
+    // Keep venue status, verification and audit in one transaction; never
+    // commit an operation without its administrative reason.
+    await this.db.transaction(async (tx) => {
+      const [venue] = await tx.select().from(venues)
+        .where(eq(venues.id, venueId)).for("update").limit(1);
+      if (!venue) throw errors.badRequest("VENUE_NOT_FOUND", "Venue not found.");
+      if ((action === "VERIFY" && venue.verificationStatus === "VERIFIED") ||
+          (action === "REJECT" && venue.verificationStatus === "REJECTED") ||
+          (action === "SUSPEND" && venue.status === "SUSPENDED") ||
+          (action === "RESTORE" && venue.status !== "SUSPENDED")) {
+        throw errors.conflict("VENUE_ACTION_NO_CHANGE", "Venue already has the requested status.");
+      }
+      if (action === "VERIFY" || action === "REJECT") {
+        await tx.update(venues).set({
+          verificationStatus: action === "VERIFY" ? "VERIFIED" : "REJECTED",
+          verifiedAt: action === "VERIFY" ? now : null,
+          verifiedByUserId: actorUserId,
+          updatedAt: now,
+        }).where(eq(venues.id, venueId));
+      } else if (action === "SUSPEND") {
+        await tx.update(venues).set({ status: "SUSPENDED", updatedAt: now })
+          .where(eq(venues.id, venueId));
+      } else {
+        const [subscription] = await tx.select().from(venueSubscriptions)
+          .where(eq(venueSubscriptions.venueId, venueId)).limit(1);
+        const restoredStatus = hasPremiumWriteAccess(subscription ?? null, now)
+          ? "ACTIVE" : venue.setupCompletedAt ? "READY" : "DRAFT";
+        await tx.update(venues).set({ status: restoredStatus, updatedAt: now })
+          .where(eq(venues.id, venueId));
+      }
+      const auditAction = {
+        VERIFY: "VENUE_VERIFIED",
+        REJECT: "VENUE_VERIFICATION_REJECTED",
+        SUSPEND: "VENUE_SUSPENDED",
+        RESTORE: "VENUE_RESTORED",
+      }[action];
+      await tx.insert(auditLogs).values({
+        actorUserId, action: auditAction, targetType: "VENUE", targetId: venueId,
+        metadata: {reason,previousStatus:venue.status,
+          previousVerificationStatus:venue.verificationStatus}, createdAt: now,
+      });
     });
   }
 
