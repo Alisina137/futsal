@@ -138,7 +138,7 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
       <AppText variant="bodyLarge" weight="bold" style={styles.centerText}>{tr("emptyTitle")}</AppText>
       <AppText variant="caption" muted style={styles.centerText}>{tr("emptyBody")}</AppText>
       <Button label={tr("explore")} icon={<Ionicons name="search-outline" size={18} color="#FFFFFF"/>}
-        onPress={()=>router.push("/(app)/(tabs)/venues")}/>
+        onPress={()=>router.push("/venues")}/>
     </Card>:null}
     {!loading&&items.length>0&&visible.length===0?<Card style={styles.empty}>
       <Ionicons name="filter-outline" color={colors.textMuted} size={28}/>
@@ -187,9 +187,9 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
           <AppText variant="caption" style={{flex:1,color:palette.ink}}>{tr("pendingHint")}</AppText>
         </View>:null}
         <View style={[styles.actions,rtlRow]}>
-          <Button style={styles.actionButton} variant="secondary" label={tr("viewVenue")}
+          {!scopedVenueId?<Button style={styles.actionButton} variant="secondary" label={tr("viewVenue")}
             icon={<Ionicons name="location-outline" size={17} color={colors.primary}/>}
-            onPress={()=>openVenue(item)}/>
+            onPress={()=>openVenue(item)}/>:null}
           <Button style={styles.actionButton} variant="secondary"
             label={canCancel?tr("details"):tr("findSlots")}
             icon={<Ionicons name={canCancel?"receipt-outline":"calendar-outline"} size={17} color={colors.primary}/>}
