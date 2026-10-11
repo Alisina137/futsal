@@ -1070,6 +1070,42 @@ export const adminApi = {
     request<{ settings: PlatformSettingsDto }>("/api/v1/admin/settings", { method: "PUT", body: JSON.stringify(input) }, accessToken),
   audit: (accessToken: string) =>
     request<{ logs: AdminAuditLogDto[] }>("/api/v1/admin/audit", {}, accessToken),
+  auditPage:(accessToken:string,filters:import("@leaguekick/contracts").AdminAuditFilter,signal?:AbortSignal)=>{
+    const params=new URLSearchParams();
+    for(const [key,value] of Object.entries(filters)){
+      if(value!==undefined&&value!==null&&String(value).trim())params.set(key,String(value));
+    }
+    return request<{items:AdminAuditLogDto[];page:number;pageSize:number;total:number;hasMore:boolean}>(
+      "/api/v1/admin/audit/page?"+params.toString(),signal?{signal}:{},accessToken);
+  },
+  auditExport:async(accessToken:string,filters:import("@leaguekick/contracts").AdminAuditFilter)=>{
+    const params=new URLSearchParams();
+    for(const [key,value] of Object.entries(filters)){
+      if(value!==undefined&&value!==null&&String(value).trim())params.set(key,String(value));
+    }
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),REQUEST_TIMEOUT_MS);
+    try{
+      const response=await fetch(baseUrl+"/api/v1/admin/audit/export?"+params.toString(),{
+        signal:controller.signal,headers:{Authorization:"Bearer "+accessToken,Accept:"text/csv"},
+        cache:"no-store",
+      });
+      if(!response.ok){
+        const payload=await response.json().catch(()=>null) as ApiErrorBody|null;
+        throw new ApiRequestError(payload?.error?.code??"AUDIT_EXPORT_FAILED",
+          payload?.error?.message??"Audit export failed.",response.status,
+          payload?.error?.requestId??response.headers.get("X-Request-Id"));
+      }
+      return response.text();
+    }catch(e){
+      if(e instanceof ApiRequestError)throw e;
+      throw new ApiRequestError("AUDIT_EXPORT_FAILED","Could not export audit records.",null);
+    }finally{clearTimeout(timeout);}
+  },
+  diagnostics:(accessToken:string,signal?:AbortSignal)=>
+    request<import("@leaguekick/contracts").AdminDiagnostics>("/api/v1/admin/diagnostics",
+      signal?{signal}:{},accessToken),
+
   supportNote: (accessToken: string, targetType: "USER" | "VENUE", targetId: string, note: string) =>
     request<{ created: boolean }>("/api/v1/admin/support-notes", { method: "POST", body: JSON.stringify({ targetType, targetId, note }) }, accessToken),
   voidPayment: (accessToken: string, paymentId: string, reason: string) =>
