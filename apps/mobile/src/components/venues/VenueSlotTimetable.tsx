@@ -173,6 +173,7 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
     if(!selected||!connected||!selected.fresh||!["AVAILABLE","PROMOTION"].includes(selected.slot.status)
       ||selected.date<today||selected.date>limit)return;
     const slot=selected.slot;
+    setSelected(null);setCancelConfirm(false);
     // Navigate only; the booking confirmation API independently revalidates price/occupancy.
     router.push({pathname:"/booking/confirm",params:{
       venueId:venue.id,areaId:slot.areaId,venueName:venue.name,
