@@ -23,9 +23,15 @@ function SearchPanel({ query, setQuery, reason, setReason, loading, reload, t }:
   </Card>;
 }
 
-export function UsersSection({ users, query, setQuery, reason, setReason, loading, busy, reload, action, token, t, isRTL, page, total, onPage }: any) {
+export function UsersSection({ users, query, setQuery, reason, setReason, loading, busy, reload, action, token, t, isRTL, page, total, onPage, sort, onSort }: any) {
   return <>
     <SearchPanel query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} reload={reload} t={t}/>
+    <View style={{flexDirection:"row",gap:spacing.sm,flexWrap:"wrap"}}>
+      <Button label={t("phase7.admin.sortNewest" as never)} variant="secondary"
+        disabled={sort==="newest"} onPress={()=>onSort("newest")}/>
+      <Button label={t("phase7.admin.sortOldest" as never)} variant="secondary"
+        disabled={sort==="oldest"} onPress={()=>onSort("oldest")}/>
+    </View>
     <Card style={styles.panel}>
       <View style={styles.tableHeader}>
         <AppText variant="bodyLarge" weight="bold">{t("phase7.admin.users")}</AppText>
@@ -51,9 +57,15 @@ export function UsersSection({ users, query, setQuery, reason, setReason, loadin
   </>;
 }
 
-export function VenuesSection({ venues, duplicates, query, setQuery, reason, setReason, loading, busy, reload, action, token, t, isRTL, page, total, onPage }: any) {
+export function VenuesSection({ venues, duplicates, query, setQuery, reason, setReason, loading, busy, reload, action, token, t, isRTL, page, total, onPage, sort, onSort }: any) {
   return <>
     <SearchPanel query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} reload={reload} t={t}/>
+    <View style={{flexDirection:"row",gap:spacing.sm,flexWrap:"wrap"}}>
+      <Button label={t("phase7.admin.sortNewest" as never)} variant="secondary"
+        disabled={sort==="newest"} onPress={()=>onSort("newest")}/>
+      <Button label={t("phase7.admin.sortOldest" as never)} variant="secondary"
+        disabled={sort==="oldest"} onPress={()=>onSort("oldest")}/>
+    </View>
     <Card style={styles.panel}>
       <View style={styles.tableHeader}>
         <View>
