@@ -158,8 +158,8 @@ export interface CommercialRepository {
     recordedPaymentsAfn: number;
     bookingGmvAfn: number;
   }>;
-  listUsers(query?: string,page?:number,pageSize?:number): Promise<AdminUserDto[]>;
-  listVenues(query?: string,page?:number,pageSize?:number): Promise<AdminVenueDto[]>;
+  listUsers(query?: string,page?:number,pageSize?:number,sort?:"newest"|"oldest"): Promise<AdminUserDto[]>;
+  listVenues(query?: string,page?:number,pageSize?:number,sort?:"newest"|"oldest"): Promise<AdminVenueDto[]>;
   countUsers?(query?:string):Promise<number>;
   countVenues?(query?:string):Promise<number>;
   setUserStatus(actorUserId: string, userId: string, status: "ACTIVE" | "SUSPENDED", reason: string, now: Date): Promise<void>;
