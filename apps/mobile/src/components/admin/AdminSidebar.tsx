@@ -41,7 +41,7 @@ export function AdminSidebar({
         <Ionicons name={mobileOpen?"close":"menu"} color="#FFFFFF" size={25}/>
       </Pressable>:null}
     </View>
-    {desktop||mobileOpen?<ScrollView style={styles.adminNavScroll} contentContainerStyle={styles.adminNavGroups}
+    {desktop||mobileOpen?<ScrollView style={desktop?styles.adminNavScroll:{maxHeight:440,flexGrow:0}} contentContainerStyle={styles.adminNavGroups}
       keyboardShouldPersistTaps="handled">
       {groups.map(group=>{
         const open=!collapsed.includes(group.id);
@@ -71,7 +71,7 @@ export function AdminSidebar({
         </View>;
       })}
     </ScrollView>:null}
-    {desktop?<View style={styles.sidebarFooter}>
+    {desktop||mobileOpen?<View style={styles.sidebarFooter}>
       <View style={[styles.adminIdentity,{flexDirection:rowDirection}]}>
         <View style={styles.avatar}><Ionicons name="person" size={18} color={colors.primary}/></View>
         <View style={{flex:1}}>
