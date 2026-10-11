@@ -625,6 +625,7 @@ export type BookingSource = z.infer<typeof bookingSourceSchema>;
 
 export const publicVenueDtoSchema = z.object({
   id: z.string().uuid(),
+  whatsappPhone: z.string().nullable().optional(),
   name: z.string(),
   province: z.string(),
   city: z.string(),
