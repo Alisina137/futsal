@@ -1,5 +1,15 @@
 # PROJECT STATE
 
+## Verified-email identity rollout (October 11, 2026)
+- Authentication redesign: username + optional phone + strong password on signup; no account role is assigned. Registration UI returns to Sign In. Password login uses username or **verified** email only; phone is contact data and no longer a login/recovery identifier.
+- Profile now offers authenticated email linking/change with current-password verification, 6-digit one-time codes, 10-minute expiry, 5 attempts, 60-second resend delay, and normalized uniqueness. A newly linked email unlocks role requests/assignments; unverified legacy profile emails do **not** count as verified.
+- Server enforces email-verification requirements on paid role request/activation, referee appointments, first Player Profile creation and Team join approvals/invitations; preexisting entitlements and member associations are preserved by migration.
+- Password recovery is email based with username or verified email identifier, generic pre-verification responses, cooldown and session revocation. Accounts without verified email cannot self-recover a forgotten password.
+- Canonical additive migration `0037_verified_email_auth.sql`: optional phone, nullable legacy password-reset phone, verified email timestamp, email-verification challenge ledger; preserves existing users, roles and subscription data. Run `pnpm db:migrate` before deploying the new API.
+- Email transport is a server-side HTTPS JSON webhook set through `EMAIL_AUTH_WEBHOOK_URL` (optional bearer token via `EMAIL_AUTH_WEBHOOK_TOKEN`); production must configure the provider, switch `PASSWORD_RESET_DEV_MODE=false`, and use a secure reset signing secret. Local-only debug codes require explicit dev mode.
+- Migration intentionally does not trust or auto-verify previously stored profile emails. Existing role entitlements remain accessible; new role grants are gated. Full manual QA with real email webhook and persistent database, mobile RTL and release build is still required.
+
+
 ## Admin panel rollout (October 11, 2026)
 - Phases 1 and 2 are implemented on main (modular console; bounded privacy-aware analytics).
 - Phase 3 implements server-side user filters, six-tab account details, role provenance/conflict review, audited private notes and session revocation, and atomic account suspensions. Do not auto-edit role conflicts. Run migration 0033 before starting the updated API.
