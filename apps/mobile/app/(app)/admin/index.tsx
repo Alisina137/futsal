@@ -21,6 +21,7 @@ import { DashboardSection } from "../../../src/components/admin/AdminDashboardSe
 import {AdminAnalyticsSection} from "../../../src/components/admin/AdminAnalyticsSection";
 import { VenuesSection } from "../../../src/components/admin/AdminDirectorySections";
 import { AdminOperationsPhase4Section } from "../../../src/components/admin/AdminOperationsPhase4Section";
+import {AdminTrustPhase6Section} from "../../../src/components/admin/AdminTrustPhase6Section";
 import { AdminUsersPhase3Section } from "../../../src/components/admin/AdminUsersPhase3Section";
 import { SubscriptionsSection } from "../../../src/components/admin/AdminBillingSection";
 import { AdminBillingPhase5Section } from "../../../src/components/admin/AdminBillingPhase5Section";
@@ -136,7 +137,9 @@ export default function AdminScreen() {
         setUsers(data.users);setUserTotal(data.total);
       });
     else if(section==="venues"||section==="teams"||section==="competitions"||
-      section==="referees"||section==="reservations"||section==="cases"){
+      section==="referees"||section==="reservations"||section==="cases"||
+      section==="moderation"||section==="reports"||section==="support"||
+      section==="announcements"||section==="deliveries"){
       // Phase 4 child screens own cancellable, filter-scoped loads; do not double-fetch.
     }
     else if(section==="subscriptions")await Promise.all([
@@ -196,7 +199,8 @@ export default function AdminScreen() {
       setPending(null);
       setMessage(pending.success);
       setOperationRefresh(current=>current+1);
-      if(pending.refresh&&!["venues","teams","competitions","referees","reservations","cases"].includes(section))
+      if(pending.refresh&&!["venues","teams","competitions","referees","reservations","cases",
+        "moderation","reports","support","announcements","deliveries"].includes(section))
         await load();
     }catch(e){
       setConfirmError(e instanceof ApiRequestError?e.message:t("phase7.admin.actionError"));
@@ -298,8 +302,10 @@ export default function AdminScreen() {
           {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" && token ? <TeamSlotsAdminSection token={token}/> : null}
           {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}
-          {section === "support" ? <SupportSection targetType={supportTargetType} setTargetType={setSupportTargetType} targetId={supportTargetId} setTargetId={setSupportTargetId} note={supportNote} setNote={setSupportNote} busy={busy} action={action} token={token!} t={t} /> : null}
-          {section === "moderation" ? <ModerationSection postId={postId} setPostId={setPostId} promotionId={promotionId} setPromotionId={setPromotionId} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} /> : null}
+          {(["moderation","reports","support","announcements","deliveries"] as const)
+            .filter(mode=>section===mode).map(mode=><AdminTrustPhase6Section key={mode}
+              mode={mode} token={token!} reason={reason} setReason={setReason}
+              busy={busy} action={action} refreshVersion={operationRefresh}/>)}
           {section === "audit" ? <AuditSection audit={audit} t={t} /> : null}
         </>}
       </ScrollView>
