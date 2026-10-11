@@ -30,14 +30,15 @@ export default function DashboardScreen(){
   },[userId]);
   if(!ready)return <Screen showHeader><View><AppText muted>{t("rf1.loadingDashboard")}</AppText></View></Screen>;
   if(roles.includes("PLATFORM_ADMIN"))return <Redirect href="/admin"/>;
+  // Referee access is exclusive: a previously saved PLAYER preference must
+  // never re-enable the Player dashboard after a venue appoints a referee.
+  if(roles.includes("REFEREE"))return <RefereeDashboard/>;
   // The hamburger still has exactly one Dashboard item; selection is stored per account.
   if(preferred==="PLAYER")return <PlayerDashboard/>;
-  if(preferred==="REFEREE"&&roles.includes("REFEREE"))return <RefereeDashboard/>;
   if(preferred==="VENUE_OWNER"&&roles.includes("VENUE_OWNER"))return <Redirect href="/owner/competitions"/>;
   if(preferred==="TEAM_MANAGER"&&roles.includes("TEAM_MANAGER"))return <TeamManagerDashboard/>;
   if(roles.includes("VENUE_OWNER"))return <Redirect href="/owner/competitions"/>;
   if(roles.includes("TEAM_MANAGER"))return <TeamManagerDashboard/>;
-  // Normal accounts have the free player dashboard even without an explicit PLAYER role.
-  if(!roles.includes("REFEREE")||roles.includes("PLAYER"))return <PlayerDashboard/>;
-  return <RefereeDashboard/>;
+  // Normal accounts have the free player dashboard without a paid role.
+  return <PlayerDashboard/>;
 }
