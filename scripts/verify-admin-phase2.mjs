@@ -52,6 +52,9 @@ for(const marker of [
  'pendingExtraTeamSlots',
  'pendingBookings',
  'expiringPaidVenues7d',
+ 'trialStartedVenues',
+ 'trialConvertedVenues',
+ 'trialCohorts',
  'userRoles.role',
  'groupBy(userDate)',
  'topProvinces',
@@ -91,7 +94,7 @@ for(const marker of [
 for(const key of ["analyticsTitle","dashboardTitle","income","gmv",
  "attention","roleBreakdown","provinceBreakdown","definitionsTitle",
  "revenueScope","gmvScope","period","interval.day","interval.week",
- "interval.month","attentionScope","paidVenueShare","role.REFEREE"]){
+ "interval.month","attentionScope","trialConversion","paidVenueShare","role.REFEREE"]){
  assert.equal(locale.split('"admin2.'+key+'"').length-1,3,
   "Admin phase2 label missing in English, Dari or Pashto: "+key);
 }
