@@ -1,35 +1,57 @@
-import { colors, spacing } from "@leaguekick/design-tokens";
-import type { BookingDto } from "@leaguekick/contracts";
-import { useCallback, useEffect, useState } from "react";
-import { bookingApi } from "../../../src/lib/api";
-import { AppText } from "../../../src/components/ui/AppText";
-import { Button } from "../../../src/components/ui/Button";
-import { Card } from "../../../src/components/ui/Card";
-import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
-import { Screen } from "../../../src/components/ui/Screen";
-import { useAuth } from "../../../src/providers/AuthProvider";
-import { useLocale } from "../../../src/providers/LocaleProvider";
+import type {BookingDto} from "@leaguekick/contracts";
+import {useFocusEffect} from "expo-router";
+import {useCallback,useRef,useState} from "react";
+import {ReservationsPanel} from "../../../src/components/bookings/ReservationsPanel";
+import {Screen} from "../../../src/components/ui/Screen";
+import {bookingApi} from "../../../src/lib/api";
+import {useAuth} from "../../../src/providers/AuthProvider";
+import {useLocale} from "../../../src/providers/LocaleProvider";
+import {useNetwork} from "../../../src/providers/NetworkProvider";
 
 export default function MyBookingsScreen(){
-  const {session}=useAuth(); const {t}=useLocale();
-  const [items,setItems]=useState<BookingDto[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
-  const load=useCallback(async()=>{if(!session)return;setLoading(true);setError(null);try{setItems((await bookingApi.mine(session.accessToken)).bookings);}catch{setError(t("booking.loadBookingsError"));}finally{setLoading(false);}},[session,t]);
-  useEffect(()=>{void load();},[load]);
-
-  async function cancel(id:string){if(!session)return;try{await bookingApi.cancel(session.accessToken,id);await load();}catch{setError(t("booking.cancelError"));}}
-
-  if(loading)return <Screen showHeader><DataLoadingState variant="list" minHeight={460}/></Screen>;
-
-  return <Screen showHeader>
-    <AppText variant="title" weight="bold">{t("booking.myBookings")}</AppText>
-    <Button label={t("common.retry")} onPress={()=>void load()} loading={loading} variant="secondary"/>
-    {error?<AppText style={{color:colors.danger}}>{error}</AppText>:null}
-    {!loading&&items.length===0?<Card><AppText>{t("booking.noBookings")}</AppText></Card>:null}
-    {items.map((item)=><Card key={item.id}>
-      <AppText variant="bodyLarge" weight="bold">{item.venueName}</AppText>
-      <AppText forceLtr>{item.startsAt}</AppText>
-      <AppText weight="semibold">{item.priceAfn} AFN · {t(`booking.status.${item.status}` as never)}</AppText>
-      {item.status!=="CANCELLED"&&Date.parse(item.startsAt)>Date.now()?<Button label={t("booking.cancel")} onPress={()=>void cancel(item.id)} variant="secondary"/>:null}
-    </Card>)}
+  const {session}=useAuth();
+  const {t}=useLocale();
+  const {reconnectVersion}=useNetwork();
+  const userId=session?.user.id??null,token=session?.accessToken;
+  const [items,setItems]=useState<BookingDto[]>([]);
+  const [loadedUser,setLoadedUser]=useState<string|null>(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState<string|null>(null);
+  const requestId=useRef(0);
+  const safeItems=loadedUser===userId?items:[];
+  const load=useCallback(async()=>{
+    const attempt=++requestId.current;
+    if(!token||!userId){
+      setItems([]);setLoadedUser(null);setLoading(false);setError(null);
+      return;
+    }
+    setLoading(true);setError(null);
+    try{
+      const response=await bookingApi.mine(token);
+      if(attempt!==requestId.current)return;
+      // The API is actor-scoped. Also refuse to render a record attributed
+      // to a different account if a cached/old response ever leaks through.
+      setItems(response.bookings.filter(item=>item.playerUserId===userId));
+      setLoadedUser(userId);
+    }catch{
+      if(attempt===requestId.current)setError(t("booking.loadBookingsError"));
+    }finally{
+      if(attempt===requestId.current)setLoading(false);
+    }
+  },[token,userId,t]);
+  useFocusEffect(useCallback(()=>{
+    void load();
+    return()=>{requestId.current++;};
+  },[load,reconnectVersion]));
+  async function cancel(id:string){
+    if(!token||!userId)throw Error("Session unavailable");
+    const result=await bookingApi.cancel(token,id);
+    setItems(previous=>previous.map(item=>item.id===id?result.booking:item));
+    void load();
+  }
+  return <Screen showHeader publicNav
+    refreshing={loading&&safeItems.length>0} onRefresh={()=>void load()}>
+    <ReservationsPanel items={safeItems} loading={loading} error={error}
+      onRefresh={()=>void load()} onCancel={cancel}/>
   </Screen>;
 }
