@@ -6,7 +6,7 @@ import type {
   VenueCalendarEventType,
 } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
 import {
@@ -114,6 +114,7 @@ export default function OwnerScheduleScreen(){
   const todayDate=useMemo(()=>todayKabul(),[]);
   const [busy,setBusy]=useState<string|null>(null);
   const [selectedSlot,setSelectedSlot]=useState<{event:VenueCalendarEvent;date:string}|null>(null);
+  const onSelectSlot=useCallback((event:VenueCalendarEvent,date:string)=>setSelectedSlot({event,date}),[]);
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
 
@@ -184,6 +185,11 @@ export default function OwnerScheduleScreen(){
   useEffect(()=>{
     void loadCalendar().catch(()=>setError(t("schedule.calendarError")));
   },[loadCalendar,t]);
+
+  const onTodayRowLayout=useCallback((y:number)=>{
+    todayWeekRowY.current=y;
+    if(calendar?.from)focusTodayWeekRow(calendar.from);
+  },[calendar?.from,focusTodayWeekRow]);
 
   async function refresh(){
     setError(null);
@@ -291,22 +297,19 @@ export default function OwnerScheduleScreen(){
               onSelect={openCalendarDay}
             />
             :renderedView==="WEEK"
-              ?<WeekView
+              ?<MemoWeekView
                 days={calendar.days}
                 language={language}
                 t={t}
                 todayDate={todayDate}
-                onTodayRowLayout={(y)=>{
-                  todayWeekRowY.current=y;
-                  focusTodayWeekRow(calendar.from);
-                }}
-                onSelectSlot={(event,date)=>setSelectedSlot({event,date})}
+                onTodayRowLayout={onTodayRowLayout}
+                onSelectSlot={onSelectSlot}
               />
-              :<DaySlotView
+              :<MemoDaySlotView
                 day={selectedDay}
                 language={language}
                 t={t}
-                onSelectSlot={(event,date)=>setSelectedSlot({event,date})}
+                onSelectSlot={onSelectSlot}
               />
           :<DataLoadingState variant="calendar" minHeight={330}/>} 
     </View>
@@ -518,6 +521,9 @@ function SlotColorGuide({t}:{t:ReturnType<typeof useLocale>["t"]}){
   </Card>;
 }
 
+// Keep heavy rows mounted when opening/closing the slot management modal.
+const MemoWeekView=memo(WeekView);
+
 function SlotManager({
   event,date,language,t,busy,onClose,onOpenDay,onConfirmBooking,onCancelBooking,onUnblock,
 }:{
@@ -665,6 +671,8 @@ function DaySlotView({
     </View>:null}
   </View>;
 }
+
+const MemoDaySlotView=memo(DaySlotView);
 
 function EventCard({
   event,language,t,busy,onNavigate,onConfirmBooking,onCancelBooking,onUnblock,
