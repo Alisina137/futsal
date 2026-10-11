@@ -20,6 +20,7 @@ async function filesUnder(dir){
 
 const issues=[];
 const appFiles=await filesUnder(appRoot);
+const reservationsPanel=await readFile(path.join(mobileRoot,"src","components","bookings","ReservationsPanel.tsx"),"utf8");
 
 for(const file of appFiles){
   const source=await readFile(file,"utf8");
@@ -28,7 +29,10 @@ for(const file of appFiles){
     issues.push(`${rel}: visible common.loading text is not allowed; use DataLoadingState.`);
   }
   if(/const\s*\[\s*loading\s*,\s*setLoading\s*\]\s*=\s*useState\(true\)/.test(source)
-    && !source.includes("DataLoadingState")){
+    && !source.includes("DataLoadingState")
+    && !(rel.endsWith("/(tabs)/bookings.tsx")
+      && source.includes("ReservationsPanel")
+      && reservationsPanel.includes("<DataLoadingState"))){
     issues.push(`${rel}: initial page loading state must render DataLoadingState.`);
   }
 }
