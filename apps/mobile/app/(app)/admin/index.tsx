@@ -65,6 +65,7 @@ export default function AdminScreen() {
   const [query, setQuery] = useState("");
   const [queryDraft,setQueryDraft]=useState("");
   const [page,setPage]=useState(1);
+  const [sort,setSort]=useState<"newest"|"oldest">("newest");
   const [userTotal,setUserTotal]=useState(0);
   const [venueTotal,setVenueTotal]=useState(0);
   const loadSequence=useRef(0);
@@ -115,11 +116,11 @@ export default function AdminScreen() {
     // audits, settings, billing or dashboard metrics.
     if(section==="dashboard")await loadPart("dashboard",()=>adminApi.dashboard(token),setDashboard);
     else if(section==="users")await loadPart("users",
-      ()=>adminApi.usersPage(token,query,page,25,controller.signal),data=>{
+      ()=>adminApi.usersPage(token,query,page,25,controller.signal,sort),data=>{
         setUsers(data.users);setUserTotal(data.total);
       });
     else if(section==="venues")await Promise.all([
-      loadPart("venues",()=>adminApi.venuesPage(token,query,page,25,controller.signal),data=>{
+      loadPart("venues",()=>adminApi.venuesPage(token,query,page,25,controller.signal,sort),data=>{
         setVenues(data.venues);setVenueTotal(data.total);
       }),
       loadPart("duplicates",()=>adminApi.duplicateVenues(token),data=>setDuplicates(data.groups)),
@@ -139,7 +140,7 @@ export default function AdminScreen() {
       setLoadIssues(failures);
       setLoading(false);
     }
-  },[isAdmin,token,section,query,page]);
+  },[isAdmin,token,section,query,page,sort]);
 
   useEffect(()=>{
     void load();
@@ -151,8 +152,11 @@ export default function AdminScreen() {
     setPage(1);
     if(next===query&&page===1)void load();else setQuery(next);
   }
+  function updateSort(next:"newest"|"oldest"){
+    setPage(1);setSort(next);
+  }
   function selectSection(next:SectionKey){
-    setSection(next);setPage(1);setQuery("");setQueryDraft("");
+    setSection(next);setPage(1);setQuery("");setQueryDraft("");setSort("newest");
     setMessage(null);
   }
 
@@ -245,9 +249,9 @@ export default function AdminScreen() {
 
         {loading?<DataLoadingState variant={section==="dashboard"?"dashboard":"list"} minHeight={360}/>:<>
           {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={selectSection} t={t} /> : null}
-          {section === "users" ? <UsersSection users={users} query={queryDraft} setQuery={setQueryDraft} page={page} total={userTotal} onPage={setPage} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={async()=>submitSearch()} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "users" ? <UsersSection users={users} query={queryDraft} setQuery={setQueryDraft} page={page} total={userTotal} onPage={setPage} sort={sort} onSort={updateSort} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={async()=>submitSearch()} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "manualTeams" ? <ManualTeamsAdminSection /> : null}
-          {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={queryDraft} setQuery={setQueryDraft} page={page} total={venueTotal} onPage={setPage} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={queryDraft} setQuery={setQueryDraft} page={page} total={venueTotal} onPage={setPage} sort={sort} onSort={updateSort} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" && token ? <TeamSlotsAdminSection token={token}/> : null}
           {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}
