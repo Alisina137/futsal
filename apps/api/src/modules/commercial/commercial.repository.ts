@@ -844,8 +844,9 @@ export class DrizzleCommercialRepository implements CommercialRepository {
   }
 
   async listAuditLogs() {
-    const rows = await this.db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(100);
-    return rows.map(auditDto);
+    // Legacy endpoint must be no less privacy-preserving than the paged UI.
+    return (await new DrizzleAdminGovernanceRepository(this.db)
+      .auditPage({page:1,pageSize:100})).items;
   }
 
   async addSupportNote(

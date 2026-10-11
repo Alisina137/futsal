@@ -19,6 +19,7 @@ import {
   platformSettingsUpdateRequestSchema,
 } from "@leaguekick/contracts";
 import { Router } from "express";
+import {rateLimit} from "express-rate-limit";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
@@ -71,6 +72,12 @@ export function createOwnerCommercialRouter(service: CommercialService, tokens: 
 export function createAdminRouter(service: CommercialService, tokens: TokenService) {
   const router = Router();
   router.use(requireAuth(tokens), requireRole("PLATFORM_ADMIN"));
+  router.use((_request,response,next)=>{
+    response.setHeader("Cache-Control","no-store");
+    next();
+  });
+  const exportLimiter=rateLimit({windowMs:60_000,limit:5,
+    standardHeaders:"draft-8",legacyHeaders:false});
 
   // A bounded period request returns aggregate counts only; role-gated at router level.
   router.get("/analytics",async(request,response,next)=>{
@@ -281,7 +288,7 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
     try{response.json(await service.auditPage(adminAuditFilterSchema.parse(request.query)));}
     catch(error){next(error);}
   });
-  router.get("/audit/export",async(request,response,next)=>{
+  router.get("/audit/export",exportLimiter,async(request,response,next)=>{
     try{
       const csv=await service.auditCsv(adminAuditFilterSchema.parse(request.query));
       response.setHeader("Content-Type","text/csv; charset=utf-8");
