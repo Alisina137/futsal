@@ -1,10 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {PublicVenueDto,VenueAvailabilityResponse,VenueTimelineSlotDto} from "@leaguekick/contracts";
+import type {BookingDto,PublicVenueDto,VenueAvailabilityResponse,VenueTimelineSlotDto} from "@leaguekick/contracts";
 import {router} from "expo-router";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {Pressable,ScrollView,StyleSheet,View} from "react-native";
-import {venueApi} from "../../lib/api";
+import {Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {bookingApi,venueApi} from "../../lib/api";
+import {callVenueUrl,venueWhatsAppUrl} from "../../lib/venue-contact";
+import {useAuth} from "../../providers/AuthProvider";
 import {readAvailabilityCache,writeAvailabilityCache} from "../../lib/availability-cache";
 import {addDays,formatCalendarDate,isSameDisplayMonth,moveView,rangeForView,
   todayKabul,type TimetableCalendarView} from "../../lib/timetable-calendar";
@@ -48,6 +50,7 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
   venue:PublicVenueDto;startsAt?:string|undefined;promotionId?:string|undefined;
 }){
   const {language,isRTL,t}=useLocale(),tr=(key:string)=>t(("vd.grid."+key) as never);
+  const {session}=useAuth();
   const {isOnline,apiReachable,reconnectVersion}=useNetwork();
   const connected=isOnline&&apiReachable!==false;
   const today=todayKabul(),limit=addDays(today,venue.maximumAdvanceBookingDays);
@@ -58,7 +61,45 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
   const [reload,setReload]=useState(0);
   const [selected,setSelected]=useState<SelectedSlot|null>(null);
+  const [ownBookings,setOwnBookings]=useState<BookingDto[]>([]);
+  const [mineError,setMineError]=useState(false);
+  const [cancelConfirm,setCancelConfirm]=useState(false),[cancelBusy,setCancelBusy]=useState(false);
+  const [contactError,setContactError]=useState(false);
+  const callLink=callVenueUrl(venue.publicPhone);
+  const whatsappLink=venueWhatsAppUrl(venue,language);
   const sequence=useRef(0);
+  useEffect(()=>{
+    let live=true;
+    setOwnBookings([]);setMineError(false);
+    if(!session||!connected)return()=>{live=false;};
+    void bookingApi.mine(session.accessToken).then(result=>{
+      if(live)setOwnBookings(result.bookings.filter(item=>
+        item.venueId===venue.id&&item.playerUserId===session.user.id&&item.source==="ONLINE"
+        &&item.status!=="CANCELLED"));
+    }).catch(()=>{if(live)setMineError(true);});
+    return()=>{live=false;};
+  },[session?.accessToken,session?.user.id,venue.id,connected,reload,reconnectVersion]);
+  function ownBooking(slot:VenueTimelineSlotDto):BookingDto|undefined{
+    return ownBookings.find(item=>item.areaId===slot.areaId
+      &&Date.parse(item.startsAt)===Date.parse(slot.startsAt)
+      &&item.status!=="CANCELLED");
+  }
+  async function openContact(url:string){
+    setContactError(false);
+    try{await Linking.openURL(url);}catch{setContactError(true);}
+  }
+  async function cancelMine(){
+    if(!selected||!session||!connected||cancelBusy)return;
+    const own=ownBooking(selected.slot);
+    if(!own||Date.parse(own.startsAt)<=Date.now())return;
+    setCancelBusy(true);setError(null);
+    try{
+      await bookingApi.cancel(session.accessToken,own.id);
+      setOwnBookings(previous=>previous.filter(item=>item.id!==own.id));
+      setSelected(null);setCancelConfirm(false);setReload(value=>value+1);
+    }catch{setError(tr("cancelFailed"));}
+    finally{setCancelBusy(false);}
+  }
   const range=useMemo(()=>rangeForView(view,anchor,language),[view,anchor,language]);
   const visibleDays=useMemo(()=>{
     if(view==="MONTH")return [] as string[];
@@ -119,6 +160,13 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
     setAnchor(next);setSelected(null);
   }
   function tap(slot:VenueTimelineSlotDto,date:string){
+    const bookable=(slot.status==="AVAILABLE"||slot.status==="PROMOTION")
+      &&date>=today&&date<=limit;
+    const mine=ownBooking(slot);
+    // The public timetable does not reveal who reserved an unavailable slot.
+    // Only a separately authenticated owner-only booking read enables interaction.
+    if(!bookable&&!mine)return;
+    setContactError(false);setCancelConfirm(false);
     setSelected({date,slot,fresh:days[date]?.fresh===true});
   }
   function book(){
@@ -133,30 +181,57 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
     }});
   }
   function Slot({item,date}:{item:VenueTimelineSlotDto;date:string}){
-    const palette=statusColors[item.status];
+    const mine=ownBooking(item);
+    const ownFuture=!!mine&&Date.parse(mine.startsAt)>Date.now();
+    const palette=mine?{bg:"#DBEAFE",border:"#60A5FA",ink:"#1D4ED8"}:statusColors[item.status];
+    const disabled=!mine&&!((item.status==="AVAILABLE"||item.status==="PROMOTION")
+      &&date>=today&&date<=limit);
     const isTarget=(!!promotionId&&item.promotionId===promotionId)||
       (!!startsAt&&item.startsAt===startsAt);
     return <Pressable key={item.areaId+"-"+item.startsAt}
       testID={"venue-public-slot-"+date+"-"+clock(item.startsAt,venue.timezone)}
-      accessibilityRole="button" accessibilityLabel={
+      accessibilityRole="button" accessibilityState={{disabled}}
+      accessibilityLabel={
         clock(item.startsAt,venue.timezone)+", "+item.priceAfn+" AFN, "+
-        tr("status."+item.status)}
-      onPress={()=>tap(item,date)}
+        (mine?tr("yourBooking"):tr("status."+item.status))}
+      disabled={disabled} onPress={()=>tap(item,date)}
       style={({pressed})=>[styles.slot,{backgroundColor:palette.bg,borderColor:palette.border},
-        isTarget&&styles.target,pressed&&styles.pressed]}>
+        disabled&&styles.disabledSlot,isTarget&&styles.target,pressed&&!disabled&&styles.pressed]}>
       {item.status==="PROMOTION"?<View style={styles.corner}>
         <AppText variant="caption" weight="bold" style={{color:palette.ink}}>%</AppText>
       </View>:null}
-      {item.status==="UNAVAILABLE"?<Ionicons name="checkmark-circle" size={14}
+      {mine?<Ionicons name="person-circle" size={17} color={palette.ink}
+        style={styles.cornerIcon}/>:
+        item.status==="UNAVAILABLE"?<Ionicons name="lock-closed" size={14}
         color={palette.ink} style={styles.cornerIcon}/>:null}
       <AppText weight="bold" style={{color:palette.ink,textAlign:"center"}}>
         {displayClock(item.startsAt,venue.timezone,language)}
       </AppText>
       <AppText variant="caption" weight="semibold" forceLtr
         style={{color:palette.ink,textAlign:"center"}}>{item.priceAfn} AFN</AppText>
+      {mine?<AppText variant="caption" weight="semibold"
+        style={{color:palette.ink,textAlign:"center"}}>
+        {tr(ownFuture?"yourBooking":"yourPastBooking")}
+      </AppText>:null}
     </Pressable>;
   }
+  const selectedOwn=selected?ownBooking(selected.slot):undefined;
+  const selectedWhatsapp=selected?venueWhatsAppUrl(venue,language,selected.slot,!!selectedOwn):null;
   return <View style={{gap:spacing.md}}>
+    <Card style={{gap:spacing.sm}}>
+      <AppText variant="bodyLarge" weight="bold">{tr("contactTitle")}</AppText>
+      <View style={[styles.contactRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {callLink?<Button style={styles.contactButton} variant="secondary"
+          label={tr("callVenue")} icon={<Ionicons name="call-outline" size={18} color={colors.primary}/>}
+          onPress={()=>void openContact(callLink)}/>:null}
+        {whatsappLink?<Button style={styles.contactButton} variant="secondary"
+          label={tr("whatsapp")} icon={<Ionicons name="logo-whatsapp" size={18} color={colors.primary}/>}
+          onPress={()=>void openContact(whatsappLink)}/>:null}
+      </View>
+      {!whatsappLink?<AppText variant="caption" muted>{tr("whatsappUnavailable")}</AppText>:null}
+      <AppText variant="caption" muted>{tr("contactDisclaimer")}</AppText>
+      {contactError?<AppText style={{color:colors.danger}}>{tr("contactFailed")}</AppText>:null}
+    </Card>
     {!venue.onlineBookingEnabled?<Card style={{gap:spacing.sm}}>
       <AppText weight="bold">{t("vd.bookingPaused")}</AppText>
       <AppText muted>{t("vd.bookingPausedBody")}</AppText>
@@ -195,6 +270,10 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
         <AppText weight="bold">{tr("legendTitle")}</AppText>
         <AppText variant="caption" muted>{tr("legendExplanation")}</AppText>
         <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.swatch,{backgroundColor:"#DBEAFE",borderColor:"#60A5FA"}]}/>
+            <AppText variant="caption">{tr("yourBooking")}</AppText>
+          </View>
           {(["AVAILABLE","UNAVAILABLE","PROMOTION","NOTICE_REQUIRED","PAST"] as const).map(status=>
             <View key={status} style={styles.legendItem}>
               <View style={[styles.swatch,{backgroundColor:statusColors[status].bg,
@@ -203,6 +282,10 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
             </View>)}
         </View>
       </Card>
+      {mineError?<Card style={{gap:spacing.xs}}>
+        <AppText variant="caption" muted>{tr("myBookingLoadFailed")}</AppText>
+        <Button variant="secondary" label={tr("refresh")} onPress={()=>setReload(value=>value+1)}/>
+      </Card>:null}
       {view==="MONTH"?<Card style={{gap:spacing.md}}>
         <AppText variant="caption" muted>{tr("monthHint")}</AppText>
         <View style={styles.monthGrid}>{monthDays.map(date=><Pressable key={date}
@@ -265,27 +348,64 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
             </View>
           </ScrollView>
         </>:<Card><AppText muted>{tr("noScheduledSlots")}</AppText></Card>}
-        {selected?<Card style={{gap:spacing.md}}>
-          <AppText variant="bodyLarge" weight="bold">{tr("selectedSlot")}</AppText>
+
+      </>}
+    </>}
+    <Modal transparent visible={!!selected} animationType="fade"
+      onRequestClose={()=>{if(!cancelBusy){setSelected(null);setCancelConfirm(false);}}}>
+      <View style={styles.modalBackdrop}>
+        <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button"
+          accessibilityLabel={tr("close")} onPress={()=>{if(!cancelBusy){setSelected(null);setCancelConfirm(false);}}}/>
+        {selected?<View style={styles.modalPanel}>
+          <View style={[styles.modalHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <AppText variant="bodyLarge" weight="bold">{tr(selectedOwn?"yourBooking":"selectedSlot")}</AppText>
+            <Pressable accessibilityRole="button" accessibilityLabel={tr("close")}
+              disabled={cancelBusy} onPress={()=>{setSelected(null);setCancelConfirm(false);}}>
+              <Ionicons name="close-circle" size={29} color={colors.textMuted}/>
+            </Pressable>
+          </View>
           <AppText weight="semibold">{formatCalendarDate(selected.date,language,{
             weekday:"long",day:"numeric",month:"long"})}</AppText>
           <AppText variant="title" weight="bold" style={{color:colors.primary}}>
             {displayClock(selected.slot.startsAt,venue.timezone,language)+" – "+
               displayClock(selected.slot.endsAt,venue.timezone,language)}
           </AppText>
-          <AppText weight="bold">{selected.slot.priceAfn} AFN</AppText>
-          <AppText muted>{tr("status."+selected.slot.status)}</AppText>
-          {selected.slot.originalPriceAfn!==null?<AppText variant="caption" muted
+          <AppText weight="bold">{selectedOwn?selectedOwn.priceAfn:selected.slot.priceAfn} AFN</AppText>
+          <AppText muted>{selectedOwn
+            ?tr(selectedOwn.status==="PENDING"?"myPending":"myConfirmed")
+            :tr("status."+selected.slot.status)}</AppText>
+          {selected.slot.originalPriceAfn!==null&&!selectedOwn?<AppText variant="caption" muted
             style={{textDecorationLine:"line-through"}}>
             {selected.slot.originalPriceAfn} AFN
           </AppText>:null}
-          {selected.fresh&&connected&&["AVAILABLE","PROMOTION"].includes(selected.slot.status)?
+          {selectedOwn?<>
+            <AppText variant="caption" muted>{selectedOwn.cancellationPolicySnapshot}</AppText>
+            {Date.parse(selectedOwn.startsAt)>Date.now()?
+              cancelConfirm?<Card style={{gap:spacing.sm}}>
+                <AppText style={{color:colors.danger}}>{tr("cancelConfirm")}</AppText>
+                <Button label={tr("cancelReservation")} variant="danger"
+                  loading={cancelBusy} disabled={!connected} onPress={()=>void cancelMine()}/>
+                <Button label={tr("keepReservation")} variant="secondary"
+                  disabled={cancelBusy} onPress={()=>setCancelConfirm(false)}/>
+              </Card>:<Button label={tr("cancelReservation")} variant="secondary"
+                disabled={!connected} onPress={()=>setCancelConfirm(true)}/>:null}
+          </>:selected.fresh&&connected&&["AVAILABLE","PROMOTION"].includes(selected.slot.status)?
             <Button label={t("booking.bookNow")} onPress={book}/>:
             <AppText variant="caption" muted>{tr("notBookable")}</AppText>}
-          <Button label={tr("close")} variant="secondary" onPress={()=>setSelected(null)}/>
-        </Card>:null}
-      </>}
-    </>}
+          <View style={[styles.contactRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            {callLink?<Button style={styles.contactButton} variant="secondary"
+              label={tr("callVenue")} onPress={()=>void openContact(callLink)}/>:null}
+            {selectedWhatsapp?<Button style={styles.contactButton} variant="secondary"
+              label={tr("whatsapp")} onPress={()=>void openContact(selectedWhatsapp)}/>:null}
+          </View>
+          <AppText variant="caption" muted>{tr("contactDisclaimer")}</AppText>
+          {contactError?<AppText variant="caption" style={{color:colors.danger}}>
+            {tr("contactFailed")}</AppText>:null}
+          {error?<AppText variant="caption" style={{color:colors.danger}}>{error}</AppText>:null}
+          <Button label={tr("close")} variant="ghost" onPress={()=>{setSelected(null);setCancelConfirm(false);}}/>
+        </View>:null}
+      </View>
+    </Modal>
   </View>;
 }
 const styles=StyleSheet.create({
@@ -313,6 +433,14 @@ const styles=StyleSheet.create({
     alignItems:"center",gap:4,paddingHorizontal:spacing.xs,position:"relative"},
   target:{borderWidth:2,borderColor:colors.primary},
   pressed:{opacity:0.68},
+  disabledSlot:{opacity:0.72},
+  contactRow:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  contactButton:{flexGrow:1,minWidth:125},
+  modalBackdrop:{flex:1,backgroundColor:"rgba(9,22,47,0.72)",
+    alignItems:"center",justifyContent:"center",padding:spacing.md},
+  modalPanel:{width:"100%",maxWidth:480,maxHeight:"90%",backgroundColor:colors.surface,
+    borderRadius:radius.lg,padding:spacing.lg,gap:spacing.sm},
+  modalHeading:{justifyContent:"space-between",alignItems:"center"},
   corner:{position:"absolute",top:2,left:5},
   cornerIcon:{position:"absolute",top:2,left:5},
   dayGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
