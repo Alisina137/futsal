@@ -88,7 +88,7 @@ export const accountProfileUpdateRequestSchema = z.object({
 export type AccountProfileUpdateRequest = z.infer<typeof accountProfileUpdateRequestSchema>;
 
 export const loginRequestSchema = z.object({
-  identifier: z.string().trim().min(3).max(80),
+  identifier: z.string().trim().min(3).max(320),
   password: passwordSchema,
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
