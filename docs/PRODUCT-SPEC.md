@@ -17,27 +17,34 @@
 Futsal uses one account identity independently from product roles.
 
 - Every new signup begins as a **simple authenticated user** with no Player, Venue Owner, Team Manager, Referee, staff, competition-admin, or platform-admin role automatically assigned.
-- Signup requires, in this order: **username, phone number, password, confirm password**.
-- Username is required, unique, and limited to **3–12 characters** using letters, numbers, and underscore. Phone number is required and unique.
+- Signup requires, in this order: **username, optional phone number, password, confirm password**.
+- Username is required, unique, and limited to **3–12 characters** using letters, numbers, and underscore. Phone number is optional and unique when provided.
 - Full name is **not** collected during signup; the user may configure it later from the authenticated account profile.
+- Registration completes into the Sign In screen; no automatic mobile session is adopted.
+- Users can use ordinary discovery, booking and social features before email verification, but receive no new Player, Referee, Venue Owner, Team Manager, staff or other app roles until an email is verified; the server enforces the rule.
+- Profile shows a persistent, localized unverified-email warning, an Add & Verify Email action, and locked role choices until verification succeeds.
+- Email must be unique after normalization. Link/change requires current password, a 6-digit code valid for 10 minutes, at most 5 attempts, and a resend cooldown. Verification consumes the code. Changing a verified address revokes previous refresh sessions.
+- Existing role holders are not suspended or stripped of entitlements during rollout; their next new grant requires verification.
+- Previously stored profile emails are unverified by default and must not be used for login or recovery until claimed by email-code verification.
+- Users with no verified email are warned that forgotten passwords cannot be recovered by email.
 - No account type is chosen during signup.
-- Sign-in accepts either the account's **username or phone number**, together with its password.
-- Invalid sign-in credentials use one generic localized message equivalent to **“No user exists with these credentials.”** The response must not reveal whether the username/phone or password was the part that failed.
+- Sign-in accepts either the account's **username or verified email address**, together with its password.
+- Invalid sign-in credentials use one generic localized message equivalent to **“No user exists with these credentials.”** The response must not reveal whether the username/email or password was the part that failed.
 - Password and confirm-password inputs provide independent show/hide controls.
 - Every signup input has an input-specific placeholder/example so the expected value is obvious before typing.
 - Signup validates all submitted fields in one pass. Every invalid signup input receives a red border/label and an exact localized error directly below that input; focus moves to the first invalid field in visual/form order.
 - Multiple invalid signup inputs are shown simultaneously rather than stopping after the first error.
 - New passwords require at least 8 characters, at least one letter, at least one number, and at least one special character; the signup screen shows these requirements with live completion indicators.
-- **Forgot password** is phone-based but requires proof of phone ownership: phone → short-lived 6-digit verification code → short-lived reset token → editable username + new password + confirm password → confirmation dialog → credential update.
-- The phone-recovery request must not reveal whether the submitted number exists before verification.
-- A successful reset revokes all refresh sessions immediately. Already-issued access tokens remain bounded by the existing 15-minute access-token lifetime. The confirmation dialog shows username and phone, masks the new password by default, and allows user-controlled reveal.
-- After confirming a credential reset, the mobile app must clear any current local authentication session, return to the Login screen, and require a fresh sign-in using the updated username/phone and new password. Password reset must never auto-authenticate the user.
-- A successful phone/SMS credential reset starts a **72-hour (3-day) credential-reset cooldown**. The cooldown is enforced server-side and atomically at the database boundary. A user who verifies their phone again during the cooldown is told the exact Kabul date/time when credential reset becomes available again. A previously verified reset token cannot bypass the cooldown.
-- Production password reset requires an HTTPS SMS delivery provider; development may expose a reset code only under an explicit non-production development mode.
+- **Forgot password** requires verified email ownership: username or verified email → short-lived 6-digit verification code → short-lived reset token → editable username + new password + confirm password → confirmation dialog → credential update.
+- The recovery request must not reveal whether the submitted number exists before verification.
+- A successful reset revokes all refresh sessions immediately. Already-issued access tokens remain bounded by the existing 15-minute access-token lifetime. The confirmation dialog shows username and verified email, masks the new password by default, and allows user-controlled reveal.
+- After confirming a credential reset, the mobile app must clear any current local authentication session, return to the Login screen, and require a fresh sign-in using the updated username or verified email and new password. Password reset must never auto-authenticate the user.
+- A successful verified-email credential reset starts a **72-hour (3-day) credential-reset cooldown**. The cooldown is enforced server-side and atomically at the database boundary. A user who verifies their email again during the cooldown is told the exact Kabul date/time when credential reset becomes available again. A previously verified reset token cannot bypass the cooldown.
+- Production password reset requires an HTTPS email delivery provider; development may expose a reset code only under an explicit non-production development mode.
 - The signup form avoids role-model explanatory copy; it uses a concise sports-oriented signup title and keeps role education for the post-signup role flow.
-- **Profile is the single account/subscription surface:** username, phone, configured full name, active management roles, and the Venue Owner / Team Owner subscription choices live in Profile rather than Home.
-- Account Profile supports optional private personal details: profile image, age, email, city, and short bio. Full name also remains optional after signup. These fields are account data and are not automatically exposed through the public Player Profile.
-- Profile-image entry currently uses an HTTPS image URL with preview because production media storage/upload infrastructure is not yet configured; direct device upload must use the future media-storage pipeline rather than storing local device paths.
+- **Profile is the single account/subscription surface:** username, optional phone, verified email, configured full name, active management roles, and the Venue Owner / Team Owner subscription choices live in Profile rather than Home.
+- Account Profile supports optional private personal details: profile image, age, city, short bio and optional phone; email linking/changing always requires password and verification. Full name also remains optional after signup. These fields are account data and are not automatically exposed through the public Player Profile.
+- Profile-image entry currently uses an HTTPS image URL with preview because verified account identity security must remain separate from profile image storage; direct device upload must use the future media-storage pipeline rather than storing local device paths.
 - **Home is discovery-oriented:** it must retain direct access to venue discovery, Feed, and Competitions without showing account identity or role-selection controls. Venue owners may keep operational dashboard content while retaining these discovery entry points.
 - A normal authenticated account already has the free player experience and does not need to activate a global Player role.
 - Profile exposes only two self-service management subscriptions: **Venue Owner (1000 AFN/month)** and **Team Owner (300 AFN/month)**. Submitting a payment confirmation creates a pending request; only platform-admin payment confirmation activates the management role.
