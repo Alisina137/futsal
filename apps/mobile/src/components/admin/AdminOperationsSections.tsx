@@ -61,14 +61,14 @@ export function ModerationSection({ postId, setPostId, promotionId, setPromotion
       <TextField label={t("phase7.admin.postId")} value={postId} onChangeText={setPostId} forceLtr containerStyle={styles.flexField}/>
       <Button label={t("phase7.admin.unpublishPost")} onPress={() => void action(
         () => adminApi.unpublishPost(token, postId, reason),
-        t("phase7.admin.updated"),
+        t("phase7.admin.updated"),true,postId,
       )} disabled={busy || !postId || reason.trim().length < 3} variant="danger"/>
     </View>
     <View style={styles.formGrid}>
       <TextField label={t("phase7.admin.promotionId")} value={promotionId} onChangeText={setPromotionId} forceLtr containerStyle={styles.flexField}/>
       <Button label={t("phase7.admin.closePromotion")} onPress={() => void action(
         () => adminApi.closePromotion(token, promotionId, reason),
-        t("phase7.admin.updated"),
+        t("phase7.admin.updated"),true,promotionId,
       )} disabled={busy || !promotionId || reason.trim().length < 3} variant="danger"/>
     </View>
   </Card>;
