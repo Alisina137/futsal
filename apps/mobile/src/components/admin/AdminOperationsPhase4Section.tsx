@@ -16,7 +16,9 @@ import {styles} from "./AdminStyles";
 type Section=AdminOperationKind|"CASE";
 const stateChoices=["ALL","OPEN","UNDER_REVIEW","RESOLVED"] as const;
 const labels={
- en:{search:"Search",filter:"Apply filters",clear:"Clear filters",status:"Status",verification:"Verification",
+ en:{teams:"Teams",competitions:"Competitions",referees:"Referees",reservations:"Reservations",
+  resolvedImmutable:"Resolved investigations cannot be edited. Open a new case if needed.",
+  caseAlreadyOpen:"A case is already open. Resolve it under Investigations before creating another.",search:"Search",filter:"Apply filters",clear:"Clear filters",status:"Status",verification:"Verification",
   all:"All",pending:"Awaiting review",venueId:"Venue ID",from:"From (YYYY-MM-DD)",to:"To (YYYY-MM-DD)",
   total:"Total",open:"Inspect",back:"Back to directory",reason:"Reason for action (required)",
   note:"Investigation note",start:"Open investigation",review:"Mark under review",
@@ -33,7 +35,9 @@ const labels={
   once:"One venue owner account represents one venue with one active court.",
   dateInfo:"Date filters use Afghanistan local dates.",changeReason:"Use a specific reason of at least 3 characters.",
  },
- "fa-AF":{search:"جستجو",filter:"اعمال فیلتر",clear:"پاک کردن فیلتر",status:"وضعیت",verification:"تایید",
+ "fa-AF":{teams:"تیم‌ها",competitions:"رقابت‌ها",referees:"داوران",reservations:"رزروها",
+  resolvedImmutable:"بررسی نهایی دیگر قابل تغییر نیست؛ در صورت نیاز بررسی تازه ایجاد کنید.",
+  caseAlreadyOpen:"یک بررسی فعال وجود دارد. نخست آن را در بخش بررسی‌ها پایان دهید.",search:"جستجو",filter:"اعمال فیلتر",clear:"پاک کردن فیلتر",status:"وضعیت",verification:"تایید",
   all:"همه",pending:"منتظر بررسی",venueId:"شناسه سالن",from:"از تاریخ (YYYY-MM-DD)",to:"تا تاریخ (YYYY-MM-DD)",
   total:"مجموع",open:"بررسی",back:"بازگشت به فهرست",reason:"دلیل اقدام (ضروری)",
   note:"یادداشت بررسی",start:"آغاز بررسی",review:"در حال بررسی",resolve:"بستن بررسی",
@@ -50,7 +54,9 @@ const labels={
   once:"هر مالک تنها یک سالن و یک میدان فعال دارد.",
   dateInfo:"فیلتر تاریخ به وقت افغانستان است.",changeReason:"دلیلی مشخص با حداقل سه نویسه وارد کنید.",
  },
- "ps-AF":{search:"لټون",filter:"چاڼ پلي کړئ",clear:"چاڼ پاک کړئ",status:"حالت",verification:"تایید",
+ "ps-AF":{teams:"ټیمونه",competitions:"سیالۍ",referees:"ریفریان",reservations:"ریزرفونه",
+  resolvedImmutable:"بشپړه شوې څېړنه نه بدلېږي؛ نوې دوسیه پرانیزئ.",
+  caseAlreadyOpen:"پرانیستې څېړنه شته. لومړی یې د څېړنو په برخه کې بشپړه کړئ.",search:"لټون",filter:"چاڼ پلي کړئ",clear:"چاڼ پاک کړئ",status:"حالت",verification:"تایید",
   all:"ټول",pending:"د بیاکتنې په تمه",venueId:"د میدان پېژند",from:"له نېټې (YYYY-MM-DD)",to:"تر نېټې (YYYY-MM-DD)",
   total:"ټول",open:"وګورئ",back:"بېرته نوملړ ته",reason:"د اقدام لامل (اړین)",
   note:"د څېړنې یادښت",start:"څېړنه پرانیزئ",review:"تر څېړنې لاندې",
@@ -195,8 +201,9 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
    setFrom("");setTo("");setFromDraft("");setToDraft("");setStatus("ALL");
    setVerification("ALL");setCaseType("ALL");setPage(1);};
  const openItem=(id:string)=>{setSelected(id);setDetail(null);setRelatedCases([]);setNote("");};
- const heading=kind==="CASE"?l.cases:kind==="VENUE"?"Venues":kind==="TEAM"?"Teams":
-   kind==="COMPETITION"?"Competitions":kind==="REFEREE"?"Referees":"Reservations";
+ const heading=kind==="CASE"?l.cases:kind==="VENUE"?t("phase7.admin.venues"):
+   kind==="TEAM"?l.teams:kind==="COMPETITION"?l.competitions:
+   kind==="REFEREE"?l.referees:l.reservations;
  const dir= isRTL?"row-reverse" as const:"row" as const;
 
  if(kind==="CASE"&&selectedCase){
@@ -210,7 +217,7 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
        <Info name={l.reason} value={c.reason}/>
        <Info name="Opened" value={c.openedAt}/>
        <Info name="Updated" value={c.updatedAt}/>
-       {c.state==="RESOLVED"?<Issue title="Resolved investigations are immutable. Open a new case if needed."/>:<>
+       {c.state==="RESOLVED"?<Issue title={l.resolvedImmutable}/>:<>
          <View style={{flexDirection:dir,gap:spacing.sm,flexWrap:"wrap"}}>
            {(["UNDER_REVIEW","RESOLVED"] as const).map(s=><Choice key={s}
              label={s} selected={caseState===s} onPress={()=>setCaseState(s)}/>)}
@@ -279,7 +286,7 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
          <AppText variant="caption" muted>{localDate(c.openedAt,language)}</AppText>
        </View>):<AppText muted>{l.noCases}</AppText>}
        {relatedCases.some(c=>c.state!=="RESOLVED")?
-         <Issue title="A case is already open for this record. Resolve it in Investigations before opening another."/>:<>
+         <Issue title={l.caseAlreadyOpen}/>:<>
          <TextField label={l.reason} value={reason} onChangeText={setReason}/>
          <TextField label={l.note} value={note} onChangeText={setNote} multiline/>
          <Button label={l.start} disabled={!writeAllowed||note.trim().length<3}
