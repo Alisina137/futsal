@@ -11,9 +11,9 @@ Status: source implemented on GitHub main; production MFA and in-browser visual 
 - English/Dari/Pashto translation of navigation labels.
 
 ## Task 1.3 — Live data, pagination, performance
-- Admin users and venues now use server-side page 1-based, bounded page size 10–100, default 25, database total counts, stable newest-first order, and next/previous controls. Legacy endpoint compatibility preserved. Search applies on explicit submit; changing pages or tab does not reload unrelated admin datasets.
+- Admin users and venues now use server-side page 1-based, bounded page size 10–100, default 25, database total counts, stable newest/oldest server-side sorting, and next/previous controls. Legacy endpoint compatibility preserved. Search applies on explicit submit; changing pages or tab does not reload unrelated admin datasets.
 - Only the selected tab fetches its API dependencies; read-only manual-team and team-slot components retain their own data loading. Admin requests bypass the device's offline cache and use a real AbortSignal wired to the underlying network call, with stale-response guards.
-- Server pagination query and page count are validated on API and gated by platform admin auth. This phase does not add arbitrary server sorting or advanced filters: those are in the corresponding domain phases.
+- Server pagination query and page count are validated on API and gated by platform admin auth. Complex role, subscription, province and status filters remain in the domain-specific phases.
 
 ## Task 1.4 — Authentication hardening
 - Web **admin-mode** sessions use browser sessionStorage (not persistent localStorage); stale legacy localStorage admin credentials are cleared. Other web and mobile clients retain existing storage behavior.
