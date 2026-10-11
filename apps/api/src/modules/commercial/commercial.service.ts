@@ -497,18 +497,18 @@ export class CommercialService {
   }
 
   listUsers(query?: string) {return this.repository.listUsers(query);}
-  async listUsersPage(query:string|undefined,page:number,pageSize:number){
+  async listUsersPage(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest"="newest"){
     const [users,total]=await Promise.all([
-      this.repository.listUsers(query,page,pageSize),
+      this.repository.listUsers(query,page,pageSize,sort),
       this.repository.countUsers?.(query)??Promise.resolve(0),
     ]);
     return {users,total,page,pageSize,hasMore:page*pageSize<total};
   }
 
   listVenues(query?: string) {return this.repository.listVenues(query);}
-  async listVenuesPage(query:string|undefined,page:number,pageSize:number){
+  async listVenuesPage(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest"="newest"){
     const [venues,total]=await Promise.all([
-      this.repository.listVenues(query,page,pageSize),
+      this.repository.listVenues(query,page,pageSize,sort),
       this.repository.countVenues?.(query)??Promise.resolve(0),
     ]);
     return {venues,total,page,pageSize,hasMore:page*pageSize<total};
