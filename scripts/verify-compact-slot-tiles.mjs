@@ -46,8 +46,14 @@ assert.equal(ownerGrid.split("<SlotTileContent").length-1,2,
   "Owner Week and Day must use the same compact slot face.");
 assert.equal(offerGrid.split("<SlotTileContent").length-1,1,
   "Promotion time slots must use the same compact slot face.");
-assert.ok(publicGrid.includes('disabled={disabled||processing} onPress={press}', 'requestAnimationFrame(()=>onTap(item,date))',
-  'const Slot=memo(function Slot', 'slotsAtTime.get(date+"|"+time)'));
+for(const required of [
+  'disabled={disabled||processing} onPress={press}',
+  'requestAnimationFrame(()=>onTap(item,date))',
+  'const Slot=memo(function Slot',
+  'slotsAtTime.get(date+"|"+time)',
+]){
+  assert.ok(publicGrid.includes(required),"Missing responsive slot interaction: "+required);
+}
 assert.ok(publicGrid.includes('setSelected({date,slot'));
 assert.ok(publicGrid.includes('statusColors'));
 assert.ok(ownerGrid.includes("onSelectSlot(event,day.date)"));
