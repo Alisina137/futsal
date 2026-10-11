@@ -200,6 +200,7 @@ export class BookingService {
       this.repository.listActivePromotionPrices(venue.id, dayBoundsValue.startsAt, dayBoundsValue.endsAt, now),
     ]);
     const slots: VenueAvailabilityResponse["slots"] = [];
+    const timeline: NonNullable<VenueAvailabilityResponse["timeline"]> = [];
 
     for (const area of venue.areas.filter((item) => item.active)) {
       const fallback = venue.openingHours.find((item) => item.dayOfWeek === weekdayForDate(date));
@@ -229,22 +230,35 @@ export class BookingService {
         for (let cursor = open.getTime(); cursor + durationMs <= close.getTime(); cursor += stepMs) {
           const startsAt = new Date(cursor);
           const endsAt = new Date(cursor + durationMs);
-          if (startsAt.getTime() <= now.getTime()) continue;
-          if (startsAt.getTime() < earliestOnlineStart) continue;
-          if (startsAt.getTime() > latestOnlineStart) continue;
-          if (occupancies.some((item) => item.areaId === area.id && intervalsOverlap(startsAt, endsAt, item.startsAt, item.endsAt))) continue;
-          const promotion = promotionPrices.find((item) =>
+          const occupied=occupancies.some((item) => item.areaId === area.id &&
+            intervalsOverlap(startsAt, endsAt, item.startsAt, item.endsAt));
+          const past=startsAt.getTime() <= now.getTime();
+          const notice=startsAt.getTime() < earliestOnlineStart ||
+            startsAt.getTime() > latestOnlineStart;
+          const promotion = !occupied && !past && !notice ? promotionPrices.find((item) =>
             item.areaId === area.id &&
             item.startsAt.getTime() === startsAt.getTime() &&
             item.endsAt.getTime() === endsAt.getTime()
-          );
+          ):undefined;
+          const price=promotion?.discountedPriceAfn ?? period.priceAfn ?? area.basePriceAfn;
+          const status = past ? "PAST" as const :
+            occupied ? "UNAVAILABLE" as const :
+            notice ? "NOTICE_REQUIRED" as const :
+            promotion ? "PROMOTION" as const : "AVAILABLE" as const;
+          timeline.push({
+            venueId:venue.id,areaId:area.id,startsAt:startsAt.toISOString(),
+            endsAt:endsAt.toISOString(),priceAfn:price,
+            originalPriceAfn:promotion ? (period.priceAfn ?? area.basePriceAfn):null,
+            promotionId:promotion?.id ?? null,status,
+          });
+          if(status!=="AVAILABLE" && status!=="PROMOTION")continue;
           slots.push({
             venueId: venue.id,
             areaId: area.id,
             areaName: area.name,
             startsAt: startsAt.toISOString(),
             endsAt: endsAt.toISOString(),
-            priceAfn: promotion?.discountedPriceAfn ?? period.priceAfn ?? area.basePriceAfn,
+            priceAfn: price,
             originalPriceAfn: promotion ? (period.priceAfn ?? area.basePriceAfn) : null,
             promotionId: promotion?.id ?? null,
             currency: "AFN",
@@ -255,7 +269,8 @@ export class BookingService {
     }
 
     slots.sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.areaName.localeCompare(b.areaName));
-    return { venue: toPublicVenueDto(venue), date, generatedAt: now.toISOString(), live: true, slots };
+    timeline.sort((a,b)=>a.startsAt.localeCompare(b.startsAt));
+    return { venue: toPublicVenueDto(venue), date, generatedAt: now.toISOString(), live: true, slots, timeline };
   }
 
   async createOnlineBooking(playerUserId: string, input: OnlineBookingRequest): Promise<BookingDto> {

@@ -680,12 +680,27 @@ export const availabilitySlotDtoSchema = z.object({
 });
 export type AvailabilitySlotDto = z.infer<typeof availabilitySlotDtoSchema>;
 
+/** Public status only: never expose player names, phone numbers, block reasons or booking sources. */
+export const venueTimelineSlotDtoSchema = z.object({
+  venueId: z.string().uuid(),
+  areaId: z.string().uuid(),
+  startsAt: isoDateTimeSchema,
+  endsAt: isoDateTimeSchema,
+  priceAfn: z.number().int().min(0),
+  originalPriceAfn: z.number().int().min(0).nullable(),
+  promotionId: z.string().uuid().nullable(),
+  status: z.enum(["AVAILABLE","PROMOTION","UNAVAILABLE","PAST","NOTICE_REQUIRED"]),
+});
+export type VenueTimelineSlotDto=z.infer<typeof venueTimelineSlotDtoSchema>;
+
 export const venueAvailabilityResponseSchema = z.object({
   venue: publicVenueDtoSchema,
   date: dateOnlySchema,
   generatedAt: isoDateTimeSchema,
   live: z.literal(true),
   slots: z.array(availabilitySlotDtoSchema),
+  // Optional for compatibility with already cached availability responses.
+  timeline: z.array(venueTimelineSlotDtoSchema).optional(),
 });
 export type VenueAvailabilityResponse = z.infer<typeof venueAvailabilityResponseSchema>;
 
