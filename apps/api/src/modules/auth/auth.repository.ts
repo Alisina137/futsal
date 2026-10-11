@@ -1,10 +1,10 @@
 import type { AdminRoleSubscriptionDto, PaidRole, RoleSubscriptionOfferDto, UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { accountProfileImages, auditLogs, paidEntitlementPayments, subscriptionPayments, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueReferees, venueSubscriptions, venues } from "@leaguekick/database";
-import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { accountProfileImages, auditLogs, paidEntitlementPayments, subscriptionPayments, passwordResetChallenges, emailVerificationChallenges, roleSubscriptions, sessions, userRoles, users, venueReferees, venueSubscriptions, venues } from "@leaguekick/database";
+import { and, desc, eq, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
-import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
+import type { AuthRepository, AuthUserRecord, CreateUserInput, EmailVerificationChallengeRecord, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
 
 function uniqueConstraint(error: unknown, depth = 0): string | null {
   if (depth > 4 || typeof error !== "object" || error === null) return null;
@@ -52,6 +52,7 @@ export class DrizzleAuthRepository implements AuthRepository {
       profileImageUrl: row.profileImageUrl,
       age: row.age,
       emailNormalized: row.emailNormalized,
+      emailVerifiedAt: row.emailVerifiedAt,
       city: row.city,
       bio: row.bio,
       defaultLatitude:row.defaultLatitude,
@@ -65,18 +66,12 @@ export class DrizzleAuthRepository implements AuthRepository {
   }
 
   async findUserByIdentifier(identifier: string): Promise<AuthUserRecord | null> {
-    const raw = identifier.trim();
-    let normalizedPhone: string | null = null;
-
-    try {
-      normalizedPhone = normalizeAfghanistanPhone(raw);
-    } catch {
-      normalizedPhone = null;
-    }
-
-    const [row] = normalizedPhone
-      ? await this.db.select().from(users).where(eq(users.phoneE164, normalizedPhone)).limit(1)
-      : await this.db.select().from(users).where(eq(users.usernameNormalized, raw.toLowerCase())).limit(1);
+    const raw = identifier.trim().toLowerCase();
+    const [row] = await this.db.select().from(users).where(
+      raw.includes("@")
+        ? and(eq(users.emailNormalized, raw), isNotNull(users.emailVerifiedAt))
+        : eq(users.usernameNormalized, raw),
+    ).limit(1);
 
     return row ? this.hydrate(row) : null;
   }
@@ -113,6 +108,7 @@ export class DrizzleAuthRepository implements AuthRepository {
           profileImageUrl: row.profileImageUrl,
           age: row.age,
           emailNormalized: row.emailNormalized,
+          emailVerifiedAt: row.emailVerifiedAt,
           city: row.city,
           bio: row.bio,
           defaultLatitude:row.defaultLatitude,
@@ -384,7 +380,7 @@ export class DrizzleAuthRepository implements AuthRepository {
           displayName: input.displayName,
           profileImageUrl: input.profileImageUrl,
           age: input.age,
-          emailNormalized: input.emailNormalized,
+          phoneE164: input.phoneE164,
           city: input.city,
           bio: input.bio,
           defaultLatitude:input.defaultLatitude,
@@ -397,8 +393,8 @@ export class DrizzleAuthRepository implements AuthRepository {
       return this.hydrate(row);
     } catch (error) {
       const constraint = uniqueConstraint(error);
-      if (constraint === "users_email_normalized_uq") {
-        throw errors.conflict("EMAIL_ALREADY_EXISTS", "That email address is already in use.");
+      if (constraint === "users_phone_e164_uq") {
+        throw errors.conflict("PHONE_ALREADY_EXISTS", "That phone number is already registered.");
       }
       throw error;
     }
@@ -432,7 +428,7 @@ export class DrizzleAuthRepository implements AuthRepository {
 
   async createPasswordResetChallenge(input: {
     userId: string | null;
-    phoneE164: string;
+    emailNormalized: string;
     codeHash: string;
     expiresAt: Date;
   }): Promise<PasswordResetChallengeRecord> {
