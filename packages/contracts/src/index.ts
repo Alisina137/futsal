@@ -634,6 +634,8 @@ export const adminAnalyticsResponseSchema = z.object({
     payingVenues:z.number().int().min(0),
     payingTeamManagers:z.number().int().min(0),
     activeExtraTeamSlots:z.number().int().min(0),
+    trialStartedVenues:z.number().int().min(0),
+    trialConvertedVenues:z.number().int().min(0),
     teams:z.number().int().min(0),
     activeCompetitions:z.number().int().min(0),
   }),
