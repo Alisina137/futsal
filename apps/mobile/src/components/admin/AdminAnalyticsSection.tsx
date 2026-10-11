@@ -18,7 +18,7 @@ function Breakdown({title,description,entries}:{
   const {language,t,isRTL}=useLocale();
   const fmt=new Intl.NumberFormat(language==="en"?"en-US":language);
   const max=Math.max(1,...entries.map(item=>item.value));
-  return <Card style={{gap:spacing.md,padding:spacing.lg,flexGrow:1,flexBasis:350,minWidth:0}}>
+  return <Card style={{gap:spacing.md,padding:spacing.lg,flexGrow:1,flexBasis:280,flexShrink:1,minWidth:0}}>
     <AppText variant="bodyLarge" weight="bold">{title}</AppText>
     <AppText variant="caption" muted>{description}</AppText>
     {entries.length===0?<AppText variant="caption" muted>{t("admin2.empty" as never)}</AppText>:null}
