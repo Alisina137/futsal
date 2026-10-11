@@ -17,6 +17,7 @@ const pageQuerySchema=z.object({
   q:z.string().trim().max(100).optional(),
   page:z.coerce.number().int().min(1).max(100000).default(1),
   pageSize:z.coerce.number().int().min(10).max(100).default(25),
+  sort:z.enum(["newest","oldest"]).default("newest"),
 });
 const reasonSchema = z.object({ reason: z.string().trim().min(3).max(500) });
 
@@ -78,7 +79,7 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
   router.get("/users/page",async(request,response,next)=>{
     try{
       const p=pageQuerySchema.parse(request.query);
-      response.json(await service.listUsersPage(p.q,p.page,p.pageSize));
+      response.json(await service.listUsersPage(p.q,p.page,p.pageSize,p.sort));
     }catch(error){next(error);}
   });
 
@@ -104,7 +105,7 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
   router.get("/venues/page",async(request,response,next)=>{
     try{
       const p=pageQuerySchema.parse(request.query);
-      response.json(await service.listVenuesPage(p.q,p.page,p.pageSize));
+      response.json(await service.listVenuesPage(p.q,p.page,p.pageSize,p.sort));
     }catch(error){next(error);}
   });
 
