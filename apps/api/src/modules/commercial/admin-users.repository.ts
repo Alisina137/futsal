@@ -59,7 +59,7 @@ export class DrizzleAdminUsersRepository {
       const activePaid=new Set(paid.filter(s=>s.status==="ACTIVE"&&!!s.activeUntil&&s.activeUntil.getTime()>Date.now()).map(s=>s.role));
       const roles=stored.map(s=>s.role).filter(r=>(r!=="TEAM_MANAGER"&&r!=="VENUE_OWNER")||activePaid.has(r));
       if(refs.length&&!roles.includes("REFEREE"))roles.push("REFEREE");
-      return {id:row.id,displayName:row.displayName,username:row.username,phone:row.phoneE164,
+      return {id:row.id,displayName:row.displayName,username:row.username,phone:row.phoneE164??"",
         status:row.status,roles,createdAt:row.createdAt.toISOString()};
     }));
   }
