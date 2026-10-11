@@ -200,7 +200,7 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
       style={({pressed})=>[styles.slot,{backgroundColor:palette.bg,borderColor:palette.border},
         disabled&&styles.disabledSlot,isTarget&&styles.target,pressed&&!disabled&&styles.pressed]}>
       <SlotTileContent startsAt={item.startsAt} timeZone={venue.timezone}
-        priceAfn={item.priceAfn} ink={palette.ink}
+        priceAfn={mine?mine.priceAfn:item.priceAfn} ink={palette.ink}
         marker={mine?<Ionicons name="person-circle" size={15} color={palette.ink}/>:
           item.status==="UNAVAILABLE"?<Ionicons name="lock-closed" size={13} color={palette.ink}/>:
           item.status==="PROMOTION"?
