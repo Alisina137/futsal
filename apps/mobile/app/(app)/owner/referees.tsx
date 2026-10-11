@@ -47,7 +47,9 @@ export default function VenueRefereesScreen() {
       setIdentifier("");
       setMessage(t("roles.refereeGranted"));
     } catch (error) {
-      setMessage(error instanceof ApiRequestError ? error.message : t("roles.refereeLoadError"));
+      setMessage(error instanceof ApiRequestError && error.code==="REFEREE_NORMAL_USER_REQUIRED"
+        ?t("roles.refereeNormalOnlyError")
+        :error instanceof ApiRequestError?error.message:t("roles.refereeLoadError"));
     } finally {
       setBusy(null);
     }
