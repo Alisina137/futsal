@@ -898,6 +898,68 @@ export const teamApi = {
 
 
 
+export type AdminTrustRecord={id:string;kind?:"POST"|"COMMENT"|"PROMOTION";body?:string;
+  imageUrl?:string|null;status:string;author?:string;authorUserId?:string;
+  targetType?:string;targetId?:string;category?:string;description?:string;
+  resolutionNote?:string|null;subject?:string;priority?:string;requesterUserId?:string;
+  assignedToUserId?:string|null;title?:string;audience?:string;audienceValue?:string|null;
+  scheduledAt?:string;totalRecipients?:number;deliveredRecipients?:number;
+  createdAt:string;updatedAt?:string;note?:string};
+export type AdminTrustPage={items:AdminTrustRecord[];total:number;page:number;pageSize:number;hasMore:boolean};
+export type AdminSupportEvent={id:string;actorUserId:string;action:string;note:string;
+  previousStatus:string|null;nextStatus:string|null;createdAt:string};
+export type AdminTrustDelivery={notificationId:string;channel:string;status:string;attempts:number;
+  lastAttemptAt:string|null;error:string|null;userId:string;title:string;createdAt:string};
+export const trustApi={
+  report:(token:string,input:{targetType:string;targetId:string;category:string;description:string})=>
+    request<{id:string;status:string}>("/api/v1/trust/reports",{method:"POST",body:JSON.stringify(input)},token),
+  myTickets:(token:string)=>request<AdminTrustPage>("/api/v1/trust/tickets",{},token),
+  createTicket:(token:string,input:{category:string;subject:string;description:string})=>
+    request<AdminTrustRecord>("/api/v1/trust/tickets",{method:"POST",body:JSON.stringify(input)},token),
+  myTicket:(token:string,id:string)=>request<{ticket:AdminTrustRecord;events:AdminSupportEvent[]}>(
+    "/api/v1/trust/tickets/"+encodeURIComponent(id),{},token),
+  reply:(token:string,id:string,note:string)=>request<{updated:boolean}>(
+    "/api/v1/trust/tickets/"+encodeURIComponent(id)+"/replies",{method:"POST",body:JSON.stringify({note})},token),
+};
+export const adminTrustApi={
+  page:(token:string,section:"moderation"|"reports"|"support"|"announcements"|"deliveries",
+    filters:{page:number;pageSize:number;status?:string;kind?:string;q?:string},signal?:AbortSignal)=>{
+    const params=new URLSearchParams();
+    for(const [k,v] of Object.entries(filters))if(v!==undefined)params.set(k,String(v));
+    const path=section==="moderation"?"moderation/inventory":section==="support"?"support/tickets":
+      section==="deliveries"?"delivery-health":section;
+    return request<AdminTrustPage&{summary?:Array<{channel:string;status:string;total:number}>}>(
+      "/api/v1/admin/"+path+"?"+params.toString(),signal?{signal}:{},token);
+  },
+  moderate:(token:string,kind:string,id:string,action:string,reason:string)=>
+    request<{updated:boolean}>("/api/v1/admin/moderation/"+encodeURIComponent(kind)+"/"+encodeURIComponent(id),
+      {method:"POST",body:JSON.stringify({action,reason})},token),
+  reviewReport:(token:string,id:string,status:string,note:string)=>
+    request<{item:AdminTrustRecord}>("/api/v1/admin/reports/"+encodeURIComponent(id),
+      {method:"PATCH",body:JSON.stringify({status,note})},token),
+  ticket:(token:string,id:string)=>request<{ticket:AdminTrustRecord;events:AdminSupportEvent[]}>(
+    "/api/v1/admin/support/tickets/"+encodeURIComponent(id),{},token),
+  updateTicket:(token:string,id:string,input:{status:string;priority:string;
+    assignedToUserId:string|null;note:string})=>
+    request<{item:AdminTrustRecord}>("/api/v1/admin/support/tickets/"+encodeURIComponent(id),
+      {method:"PATCH",body:JSON.stringify(input)},token),
+  ticketReply:(token:string,id:string,note:string)=>request<{updated:boolean}>(
+    "/api/v1/admin/support/tickets/"+encodeURIComponent(id)+"/replies",
+    {method:"POST",body:JSON.stringify({note})},token),
+  createAnnouncement:(token:string,input:{title:string;body:string;audience:string;
+    audienceValue:string|null;scheduledAt:string})=>
+    request<{item:AdminTrustRecord}>("/api/v1/admin/announcements",
+      {method:"POST",body:JSON.stringify(input)},token),
+  cancelAnnouncement:(token:string,id:string,reason:string)=>
+    request<{cancelled:boolean}>("/api/v1/admin/announcements/"+encodeURIComponent(id)+"/cancel",
+      {method:"POST",body:JSON.stringify({reason})},token),
+  processDue:(token:string)=>request<{processed:boolean}>("/api/v1/admin/announcements/process-due",
+    {method:"POST"},token),
+  requeue:(token:string,id:string,reason:string)=>request<{queued:boolean}>(
+    "/api/v1/admin/delivery-health/"+encodeURIComponent(id)+"/requeue",
+    {method:"POST",body:JSON.stringify({reason})},token),
+};
+
 export const adminApi = {
   billingReceipts:(token:string,filters:import("@leaguekick/contracts").AdminBillingFilters,
     signal?:AbortSignal)=>{
