@@ -17,7 +17,8 @@ export type SectionKey =
   | "reports"
   | "announcements"
   | "deliveries"
-  | "audit";
+  | "audit"
+  | "readiness";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -40,5 +41,6 @@ export const adminNavItems: Array<{ key: SectionKey; icon: IconName; labelKey: s
   { key: "announcements", icon: "megaphone-outline", labelKey: "admin6.announcements" },
   { key: "deliveries", icon: "send-outline", labelKey: "admin6.deliveries" },
   { key: "audit", icon: "document-text-outline", labelKey: "phase7.admin.audit" },
+  { key: "readiness", icon: "pulse-outline", labelKey: "admin7.readiness" },
 ];
 

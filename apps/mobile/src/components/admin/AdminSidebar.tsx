@@ -12,7 +12,7 @@ const groups=[
   {id:"overview",label:"Overview",icon:"grid-outline",sections:["dashboard","analytics"]},
   {id:"management",label:"Management",icon:"layers-outline",sections:["users","venues","manualTeams","teams","competitions","referees","reservations"]},
   {id:"commercial",label:"Revenue",icon:"wallet-outline",sections:["subscriptions"]},
-  {id:"platform",label:"Platform",icon:"settings-outline",sections:["cases","moderation","reports","support","announcements","deliveries","configuration","audit"]},
+  {id:"platform",label:"Platform",icon:"settings-outline",sections:["cases","moderation","reports","support","announcements","deliveries","configuration","audit","readiness"]},
 ] as const;
 
 export function AdminSidebar({

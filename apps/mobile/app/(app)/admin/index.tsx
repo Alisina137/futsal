@@ -25,6 +25,8 @@ import {AdminTrustPhase6Section} from "../../../src/components/admin/AdminTrustP
 import { AdminUsersPhase3Section } from "../../../src/components/admin/AdminUsersPhase3Section";
 import { SubscriptionsSection } from "../../../src/components/admin/AdminBillingSection";
 import { AdminBillingPhase5Section } from "../../../src/components/admin/AdminBillingPhase5Section";
+import {AdminConfigurationPhase7Section} from "../../../src/components/admin/AdminConfigurationPhase7Section";
+import {AdminGovernancePhase7Section} from "../../../src/components/admin/AdminGovernancePhase7Section";
 import { ConfigurationSection, SupportSection, ModerationSection, AuditSection } from "../../../src/components/admin/AdminOperationsSections";
 
 import { ManualTeamsAdminSection } from "../../../src/components/admin/ManualTeamsAdminSection";
@@ -146,13 +148,9 @@ export default function AdminScreen() {
       loadPart("subscriptions",()=>adminApi.roleSubscriptions(token),data=>setRoleSubscriptions(data.subscriptions)),
       loadPart("venues",()=>adminApi.venues(token),data=>setVenues(data.venues)),
     ]);
-    else if(section==="configuration")await loadPart("settings",()=>adminApi.settings(token),data=>{
-      setSettings(data.settings);
-      setMonthly(String(data.settings.monthlyPriceAfn));
-      setAnnual(String(data.settings.annualPriceAfn));
-      setConfigTrialHours(String(data.settings.trialDurationHours));
-    });
-    else if(section==="audit")await loadPart("audit",()=>adminApi.audit(token),data=>setAudit(data.logs));
+    else if(section==="configuration"||section==="audit"||section==="readiness"){
+      // Phase 7 child views independently own stale-safe, paginated reads.
+    }
     if(serial===loadSequence.current){
       setLoadIssues(failures);
       setLoading(false);
@@ -301,12 +299,15 @@ export default function AdminScreen() {
             refreshVersion={operationRefresh}/> : null}
           {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" && token ? <TeamSlotsAdminSection token={token}/> : null}
-          {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}
+          {section === "configuration" ? <AdminConfigurationPhase7Section token={token!}
+            reason={reason} setReason={setReason} busy={busy} action={action}
+            refreshVersion={operationRefresh}/> : null}
           {(["moderation","reports","support","announcements","deliveries"] as const)
             .filter(mode=>section===mode).map(mode=><AdminTrustPhase6Section key={mode}
               mode={mode} token={token!} reason={reason} setReason={setReason}
               busy={busy} action={action} refreshVersion={operationRefresh}/>)}
-          {section === "audit" ? <AuditSection audit={audit} t={t} /> : null}
+          {section === "audit" ? <AdminGovernancePhase7Section key="audit" mode="audit" token={token!}/> : null}
+          {section === "readiness" ? <AdminGovernancePhase7Section key="readiness" mode="readiness" token={token!}/> : null}
         </>}
       </ScrollView>
       <AdminConfirmModal visible={pending!==null} target={pending?.target??""}
