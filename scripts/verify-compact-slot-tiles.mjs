@@ -28,11 +28,14 @@ assert.equal(formatSlotTilePrice(undefined),"—");
 for(const fragment of [
  'formatSlotStartTime(startsAt,timeZone)',
  'formatSlotTilePrice(priceAfn)',
- 'styles.header','styles.rule','styles.price','styles.marker',
+ 'styles.header','styles.diagonal','styles.price','styles.marker',
  'textAlign:"left"','textAlign:"right"',
  'alignSelf:"flex-start"','alignSelf:"flex-end"',
- 'backgroundColor:ink',
+ 'borderLeftWidth:frame.width','borderBottomWidth:frame.height',
+ 'borderBottomColor:ink+"32"','borderLeftColor:"transparent"',
+ 'position:"absolute",top:0,left:0','overflow:"hidden"',
  'position:"absolute",top:3,right:2',
+ 'onLayout={onTileLayout}','pointerEvents="none"',
  'forceLtr','numberOfLines={1}',
 ]){
   assert.ok(tile.includes(fragment),"Missing shared slot face invariant: "+fragment);
@@ -51,4 +54,8 @@ assert.ok(ownerGrid.includes("SlotCornerMarker"));
 assert.ok(ownerGrid.includes("slotPalette[event.type]"));
 assert.ok(ownerCheck.includes("weekSlotGrid")&&publicCheck.includes("statusColors"));
 assert.ok(!tile.includes("AFN"),"Compact tiles show AF; full booking details retain AFN.");
-console.log("Compact slot tiles verified: 6:00 AM / 1:30 PM / noon, 500 AF, physical corner anchors, divider, owner/customer/offers reuse, and booking guards.");
+assert.ok(!tile.includes("styles.rule")&&!tile.includes('rule:{height:1'),
+  "Divider must be diagonal like the reference, not a horizontal line.");
+assert.ok(tile.includes("previous.width===w&&previous.height===h"),
+  "Responsive slot divider must not trigger an infinite onLayout redraw loop.");
+console.log("Compact slot tiles verified: 12-hour start and AF price on opposite corners, responsive diagonal two-tone separator, owner/customer/offers reuse, and booking guards.");
