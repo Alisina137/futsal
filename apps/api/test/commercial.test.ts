@@ -4,6 +4,8 @@ import { createApp } from "../src/app.js";
 import { AuthService } from "../src/modules/auth/auth.service.js";
 import { TokenService } from "../src/modules/auth/token.service.js";
 import { CommercialService } from "../src/modules/commercial/commercial.service.js";
+import type {AdminAnalyticsDays,AdminAnalyticsResponse} from "@leaguekick/contracts";
+import {adminAnalyticsResponseSchema} from "@leaguekick/contracts";
 import type {
   CommercialRepository,
   CommercialSettingsRecord,
@@ -104,6 +106,25 @@ class FakeCommercialRepository implements CommercialRepository {
       competitionMatches: [],
     };
   }
+  async adminAnalytics(now:Date,days:AdminAnalyticsDays):Promise<Omit<AdminAnalyticsResponse,"generatedAt">>{
+    return {
+      period:{from:"2026-09-12",to:"2026-10-11",days,timezone:"Asia/Kabul"},
+      totals:{users:55,activeAccounts:50,venues:12,activeVenues:10,
+        verifiedVenues:9,payingVenues:6,payingTeamManagers:4,
+        activeExtraTeamSlots:2,teams:8,activeCompetitions:3},
+      metrics:{newUsers:5,newVenues:2,newTeams:1,newCompetitions:1,
+        confirmedBookings:7,onlineConfirmedBookings:4,
+        bookingGmvAfn:7500,recordedVenuePaymentsAfn:1000,recordedVenuePaymentsCount:1},
+      daily:[{date:"2026-10-11",newUsers:5,newVenues:2,newTeams:1,newCompetitions:1,
+        confirmedBookings:7,bookingGmvAfn:7500,recordedVenuePaymentsAfn:1000}],
+      roleGrants:[{role:"VENUE_OWNER",count:6}],
+      topProvinces:[{province:"Kabul",venues:12}],
+      attention:{pendingVenueVerifications:2,pendingRoleSubscriptions:2,
+        pendingExtraTeamSlots:1,pendingBookings:1,expiringPaidVenues7d:1},
+      revenueScope:"RECORDED_VENUE_PAYMENTS_ONLY",
+      gmvScope:"CONFIRMED_BOOKING_VALUE_NOT_CASH",
+    };
+  }
   async adminDashboard() {
     return {
       activeUsers: 1,
@@ -199,6 +220,36 @@ describe("Admin Phase 1 paged directories",()=>{
     const blocked=await request(app).get("/api/v1/admin/users/page")
       .set("Authorization",`Bearer ${ordinary.token}`);
     expect(blocked.status).toBe(403);
+  });
+});
+
+describe("Admin Phase 2 aggregated analytics",()=>{
+  it("serves period-limited typed metrics to platform admins only",async()=>{
+    const {app,tokens}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const response=await request(app).get("/api/v1/admin/analytics?days=90")
+      .set("Authorization",`Bearer ${admin.token}`);
+    expect(response.status).toBe(200);
+    const parsed=adminAnalyticsResponseSchema.parse(response.body);
+    expect(parsed.period.days).toBe(90);
+    expect(parsed.metrics.recordedVenuePaymentsAfn).toBe(1000);
+    expect(parsed.revenueScope).toBe("RECORDED_VENUE_PAYMENTS_ONLY");
+    expect(parsed.gmvScope).toBe("CONFIRMED_BOOKING_VALUE_NOT_CASH");
+    expect(parsed.attention.pendingRoleSubscriptions).toBe(2);
+    expect(parsed.roleGrants[0]?.role).toBe("VENUE_OWNER");
+  });
+  it("rejects invalid horizon and non-admin requests",async()=>{
+    const {app,tokens}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const user=await tokens.createAccessToken("ordinary",[]);
+    for(const days of ["0","31","366","all","-7"]){
+      const response=await request(app).get("/api/v1/admin/analytics?days="+days)
+        .set("Authorization",`Bearer ${admin.token}`);
+      expect(response.status).toBe(400);
+    }
+    const denied=await request(app).get("/api/v1/admin/analytics?days=7")
+      .set("Authorization",`Bearer ${user.token}`);
+    expect(denied.status).toBe(403);
   });
 });
 
