@@ -26,6 +26,7 @@ import {
 } from "@leaguekick/database";
 import {
   and,
+  asc,
   desc,
   eq,
   gte,
@@ -429,7 +430,7 @@ export class DrizzleCommercialRepository implements CommercialRepository {
     return rows.map((row) => row.role as UserRole);
   }
 
-  async listUsers(query?: string,page=1,pageSize=50): Promise<AdminUserDto[]> {
+  async listUsers(query?: string,page=1,pageSize=50,sort:"newest"|"oldest"="newest"): Promise<AdminUserDto[]> {
     const q = query?.trim();
     const rows = q
       ? await this.db
@@ -440,9 +441,9 @@ export class DrizzleCommercialRepository implements CommercialRepository {
             ilike(users.phoneE164, `%${q}%`),
             ilike(users.username, `%${q}%`),
           ))
-          .orderBy(desc(users.createdAt))
+          .orderBy(sort==="oldest"?asc(users.createdAt):desc(users.createdAt))
           .limit(pageSize).offset((page-1)*pageSize)
-      : await this.db.select().from(users).orderBy(desc(users.createdAt)).limit(pageSize).offset((page-1)*pageSize);
+      : await this.db.select().from(users).orderBy(sort==="oldest"?asc(users.createdAt):desc(users.createdAt)).limit(pageSize).offset((page-1)*pageSize);
 
     return Promise.all(rows.map(async (row) => ({
       id: row.id,
@@ -455,7 +456,7 @@ export class DrizzleCommercialRepository implements CommercialRepository {
     })));
   }
 
-  async listVenues(query?: string,page=1,pageSize=50): Promise<AdminVenueDto[]> {
+  async listVenues(query?: string,page=1,pageSize=50,sort:"newest"|"oldest"="newest"): Promise<AdminVenueDto[]> {
     const q = query?.trim();
     const rows = q
       ? await this.db
@@ -466,9 +467,9 @@ export class DrizzleCommercialRepository implements CommercialRepository {
             ilike(venues.city, `%${q}%`),
             ilike(venues.address, `%${q}%`),
           ))
-          .orderBy(desc(venues.createdAt))
+          .orderBy(sort==="oldest"?asc(venues.createdAt):desc(venues.createdAt))
           .limit(pageSize).offset((page-1)*pageSize)
-      : await this.db.select().from(venues).orderBy(desc(venues.createdAt)).limit(pageSize).offset((page-1)*pageSize);
+      : await this.db.select().from(venues).orderBy(sort==="oldest"?asc(venues.createdAt):desc(venues.createdAt)).limit(pageSize).offset((page-1)*pageSize);
 
     return Promise.all(rows.map(async (row) => {
       const [subscription] = await this.db
