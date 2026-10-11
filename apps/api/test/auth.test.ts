@@ -12,8 +12,8 @@ function setup() {
   const auth = new AuthService(repository, tokens, {
     passwordResetSecret: "test-password-reset-secret-that-is-longer-than-thirty-two-characters",
     exposePasswordResetCode: true,
-    deliverPasswordResetCode: async (phone, code) => {
-      deliveredCodes.set(phone, code);
+    deliverEmailCode: async (email, code) => {
+      deliveredCodes.set(email, code);
     },
   });
   return {
@@ -30,6 +30,19 @@ const baseRegistration = {
   confirmPassword: "strong-pass-1!",
   preferredLanguage: "fa-AF",
 };
+
+async function linkEmail(app:ReturnType<typeof setup>["app"],token:string,email="ahmad@example.com") {
+  const response=await request(app).post("/api/v1/auth/email-verification/request")
+    .set("Authorization",`Bearer ${token}`)
+    .send({email,password:baseRegistration.password});
+  expect(response.status).toBe(200);
+  const completed=await request(app).post("/api/v1/auth/email-verification/confirm")
+    .set("Authorization",`Bearer ${token}`)
+    .send({requestId:response.body.requestId,code:response.body.debugCode});
+  expect(completed.status).toBe(200);
+  expect(completed.body.user.emailVerified).toBe(true);
+  return completed;
+}
 
 describe("Authentication identity and role model", () => {
   it("allows normal accounts to upload an avatar and only serves the current token",async()=>{
@@ -94,7 +107,6 @@ describe("Authentication identity and role model", () => {
         displayName: "Ahmad Rahimi",
         profileImageUrl: "https://example.com/ahmad.jpg",
         age: 26,
-        email: "Ahmad@example.com",
         city: "Kabul",
         bio: "Futsal fan and weekend player.",
       });
@@ -105,7 +117,7 @@ describe("Authentication identity and role model", () => {
     expect(updated.body.user.phone).toBe("+93791234567");
     expect(updated.body.user.profileImageUrl).toBe("https://example.com/ahmad.jpg");
     expect(updated.body.user.age).toBe(26);
-    expect(updated.body.user.email).toBe("ahmad@example.com");
+    expect(updated.body.user.email).toBe(null);
     expect(updated.body.user.city).toBe("Kabul");
     expect(updated.body.user.bio).toBe("Futsal fan and weekend player.");
 
@@ -115,7 +127,7 @@ describe("Authentication identity and role model", () => {
     });
     expect(login.status).toBe(200);
     expect(login.body.user.displayName).toBe("Ahmad Rahimi");
-    expect(login.body.user.email).toBe("ahmad@example.com");
+    expect(login.body.user.emailVerified).toBe(false);
     expect(login.body.user.age).toBe(26);
   });
 
@@ -166,30 +178,52 @@ describe("Authentication identity and role model", () => {
     expect(clear.body.user.defaultLongitude).toBeNull();
   });
 
-  it("keeps optional account profile email unique", async () => {
-    const { app } = setup();
-    const first = await request(app).post("/api/v1/auth/register").send(baseRegistration);
-    const second = await request(app).post("/api/v1/auth/register").send({
-      ...baseRegistration,
-      username: "zahra2",
-      phone: "0791234568",
+  it("requires verified email for privileged roles and prevents profile bypass",async()=>{
+    const {app}=setup();
+    const first=await request(app).post("/api/v1/auth/register").send(baseRegistration);
+    const second=await request(app).post("/api/v1/auth/register").send({
+      ...baseRegistration,username:"zahra2",phone:"0791234568",
     });
-
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
+    const blocked=await request(app)
+      .post("/api/v1/auth/role-subscriptions/TEAM_MANAGER/request")
+      .set("Authorization",`Bearer ${first.body.accessToken}`).send({});
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.error.code).toBe("EMAIL_VERIFICATION_REQUIRED");
 
-    const firstProfile = await request(app)
-      .patch("/api/v1/users/me")
-      .set("Authorization", `Bearer ${first.body.accessToken}`)
-      .send({ displayName: "", email: "shared@example.com" });
-    expect(firstProfile.status).toBe(200);
+    const bypass=await request(app).patch("/api/v1/users/me")
+      .set("Authorization",`Bearer ${first.body.accessToken}`)
+      .send({email:"not-verified@example.com"});
+    expect(bypass.status).toBe(200);
+    expect(bypass.body.user.email).toBe(null);
 
-    const duplicate = await request(app)
-      .patch("/api/v1/users/me")
-      .set("Authorization", `Bearer ${second.body.accessToken}`)
-      .send({ displayName: "", email: "SHARED@example.com" });
-    expect(duplicate.status).toBe(409);
-    expect(duplicate.body.error.code).toBe("EMAIL_ALREADY_EXISTS");
+    const start=await request(app).post("/api/v1/auth/email-verification/request")
+      .set("Authorization",`Bearer ${first.body.accessToken}`)
+      .send({email:"SHARED@example.com",password:baseRegistration.password});
+    expect(start.status).toBe(200);
+    const wrong=await request(app).post("/api/v1/auth/email-verification/confirm")
+      .set("Authorization",`Bearer ${first.body.accessToken}`)
+      .send({requestId:start.body.requestId,code:"999999"});
+    expect(wrong.status).toBe(400);
+    const verify=await request(app).post("/api/v1/auth/email-verification/confirm")
+      .set("Authorization",`Bearer ${first.body.accessToken}`)
+      .send({requestId:start.body.requestId,code:start.body.debugCode});
+    expect(verify.status).toBe(200);
+    expect(verify.body.user.email).toBe("shared@example.com");
+    const replay=await request(app).post("/api/v1/auth/email-verification/confirm")
+      .set("Authorization",`Bearer ${first.body.accessToken}`)
+      .send({requestId:start.body.requestId,code:start.body.debugCode});
+    expect(replay.status).toBe(400);
+
+    const collision=await request(app).post("/api/v1/auth/email-verification/request")
+      .set("Authorization",`Bearer ${second.body.accessToken}`)
+      .send({email:"SHARED@example.com",password:baseRegistration.password});
+    const collisionConfirm=await request(app).post("/api/v1/auth/email-verification/confirm")
+      .set("Authorization",`Bearer ${second.body.accessToken}`)
+      .send({requestId:collision.body.requestId,code:collision.body.debugCode});
+    expect(collisionConfirm.status).toBe(409);
+    expect(collisionConfirm.body.error.code).toBe("EMAIL_ALREADY_EXISTS");
   });
 
   it("requires matching password confirmation at registration", async () => {
@@ -203,29 +237,33 @@ describe("Authentication identity and role model", () => {
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("logs in with either username or Afghanistan phone number", async () => {
-    const { app } = setup();
-    await request(app).post("/api/v1/auth/register").send(baseRegistration);
-
-    const byUsername = await request(app).post("/api/v1/auth/login").send({
-      identifier: "AHMAD7",
-      password: baseRegistration.password,
-    });
-    expect(byUsername.status).toBe(200);
-    expect(byUsername.body.user.username).toBe("ahmad7");
-
-    const byPhone = await request(app).post("/api/v1/auth/login").send({
-      identifier: "0791234567",
-      password: baseRegistration.password,
-    });
-    expect(byPhone.status).toBe(200);
-    expect(byPhone.body.user.id).toBe(byUsername.body.user.id);
+  it("accepts username or verified email but rejects phone login",async()=>{
+    const {app}=setup();
+    const first=await request(app).post("/api/v1/auth/register").send({...baseRegistration,phone:""});
+    expect(first.status).toBe(201);
+    expect(first.body.user.phone).toBe("");
+    const before=await request(app).post("/api/v1/auth/login")
+      .send({identifier:"ahmad@example.com",password:baseRegistration.password});
+    expect(before.status).toBe(401);
+    await linkEmail(app,first.body.accessToken);
+    const username=await request(app).post("/api/v1/auth/login")
+      .send({identifier:"AHMAD7",password:baseRegistration.password});
+    expect(username.status).toBe(200);
+    const email=await request(app).post("/api/v1/auth/login")
+      .send({identifier:"AHMAD@EXAMPLE.COM",password:baseRegistration.password});
+    expect(email.status).toBe(200);
+    expect(email.body.user.id).toBe(username.body.user.id);
+    expect(email.body.user.emailVerified).toBe(true);
+    const phone=await request(app).post("/api/v1/auth/login")
+      .send({identifier:"0791234567",password:baseRegistration.password});
+    expect(phone.status).toBe(401);
   });
 
   it("keeps management roles payment-gated and admin-activated", async () => {
     const { app, repository } = setup();
     const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);
     const accessToken = registration.body.accessToken;
+    await linkEmail(app,accessToken);
 
     const offers = await request(app)
       .get("/api/v1/auth/role-subscriptions")
@@ -330,14 +368,15 @@ describe("Authentication identity and role model", () => {
     expect(duplicateUsername.body.error.code).toBe("USERNAME_ALREADY_EXISTS");
   });
 
-  it("resets credentials only after phone verification and revokes previous sessions", async () => {
+  it("resets credentials only after verified email and revokes previous sessions", async () => {
     const { app } = setup();
     const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);
     expect(registration.status).toBe(201);
+    await linkEmail(app,registration.body.accessToken);
 
     const resetRequest = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ phone: baseRegistration.phone });
+      .send({ identifier: "ahmad7" });
     expect(resetRequest.status).toBe(200);
     expect(resetRequest.body.requestId).toBeTypeOf("string");
     expect(resetRequest.body.debugCode).toMatch(/^\d{6}$/);
@@ -353,12 +392,12 @@ describe("Authentication identity and role model", () => {
       .send({ requestId: resetRequest.body.requestId, code: resetRequest.body.debugCode });
     expect(verified.status).toBe(200);
     expect(verified.body.username).toBe("ahmad7");
-    expect(verified.body.phone).toBe("+93791234567");
+    expect(verified.body.email).toBe("ahmad@example.com");
     expect(verified.body.resetToken).toBeTypeOf("string");
 
     const parallelRequest = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ phone: baseRegistration.phone });
+      .send({ identifier: "ahmad7" });
     expect(parallelRequest.status).toBe(200);
 
     const parallelVerified = await request(app)
@@ -414,10 +453,11 @@ describe("Authentication identity and role model", () => {
     const { app } = setup();
     const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);
     expect(registration.status).toBe(201);
+    await linkEmail(app,registration.body.accessToken);
 
     const firstRequest = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ phone: baseRegistration.phone });
+      .send({ identifier: "ahmad7" });
     const firstVerified = await request(app)
       .post("/api/v1/auth/password-reset/verify")
       .send({ requestId: firstRequest.body.requestId, code: firstRequest.body.debugCode });
@@ -436,7 +476,7 @@ describe("Authentication identity and role model", () => {
 
     const secondRequest = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ phone: baseRegistration.phone });
+      .send({ identifier: "ahmad7" });
     expect(secondRequest.status).toBe(200);
 
     const secondVerify = await request(app)
@@ -451,11 +491,11 @@ describe("Authentication identity and role model", () => {
     expect(availableAtMs).toBeLessThanOrEqual(Date.now() + 72 * 60 * 60 * 1000 + 5_000);
   });
 
-  it("does not reveal account existence before phone verification", async () => {
+  it("does not reveal account existence without verified email", async () => {
     const { app } = setup();
     const response = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ phone: "0799999999" });
+      .send({ identifier: "unknown@example.com" });
 
     expect(response.status).toBe(200);
     expect(response.body.requestId).toBeTypeOf("string");
