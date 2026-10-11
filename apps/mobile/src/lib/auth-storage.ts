@@ -13,7 +13,16 @@ type BrowserStorage = {
 function browserStorage(): BrowserStorage | null {
   if (Platform.OS !== "web") return null;
   try {
-    return (globalThis as unknown as { localStorage?: BrowserStorage }).localStorage ?? null;
+    const stores=globalThis as unknown as {
+      localStorage?:BrowserStorage;sessionStorage?:BrowserStorage;
+    };
+    if(process.env.EXPO_PUBLIC_ADMIN_MODE==="true"){
+      // Admin credentials never persist beyond the current browser session.
+      // Erase older localStorage credentials left by previous admin builds.
+      stores.localStorage?.removeItem(SESSION_KEY);
+      return stores.sessionStorage??null;
+    }
+    return stores.localStorage??null;
   } catch {
     return null;
   }
