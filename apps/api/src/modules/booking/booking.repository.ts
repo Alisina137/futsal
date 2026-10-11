@@ -96,6 +96,7 @@ export class DrizzleBookingRepository implements BookingRepository {
       city: row.city,
       address: row.address,
       publicPhone: row.publicPhone,
+      whatsappPhone: row.whatsappPhone,
       pageProfileImageUrl: row.pageProfileImageUrl,
       pageCoverImageUrl: row.pageCoverImageUrl,
       pageBio: row.pageBio,
