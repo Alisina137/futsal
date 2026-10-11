@@ -40,7 +40,7 @@ export function SlotTileContent({startsAt,timeZone,priceAfn,ink,marker}:Props){
       <AppText weight="bold" forceLtr numberOfLines={1}
         style={[styles.time,{color:ink}]}>{time}</AppText>
     </View>
-    <AppText variant="caption" weight="semibold" forceLtr numberOfLines={1}
+    <AppText variant="caption" weight="bold" forceLtr numberOfLines={1}
       style={styles.price}>{formatSlotTilePrice(priceAfn)}</AppText>
     {marker?<View pointerEvents="none" style={styles.marker}>{marker}</View>:null}
   </View>;
@@ -54,7 +54,7 @@ const styles=StyleSheet.create({
   header:{minHeight:17,alignSelf:"stretch",justifyContent:"flex-start",
     flexDirection:"row",paddingRight:19},
   time:{fontSize:12,lineHeight:17,textAlign:"left",alignSelf:"flex-start",writingDirection:"ltr"},
-  price:{fontSize:11,lineHeight:15,color:"#FFFFFF",textAlign:"right",alignSelf:"flex-end",writingDirection:"ltr"},
+  price:{fontSize:12,lineHeight:17,color:"#FFFFFF",textAlign:"right",alignSelf:"flex-end",writingDirection:"ltr"},
   marker:{position:"absolute",top:2,right:2,minWidth:18,minHeight:18,
     backgroundColor:"rgba(255,255,255,0.95)",borderRadius:9,
     alignItems:"center",justifyContent:"center"},
