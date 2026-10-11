@@ -458,4 +458,45 @@ describe("Phase 3 availability and booking API", () => {
     expect(bookingRepository.bookings.get(booked.body.booking.id)?.status).toBe("CONFIRMED");
   });
 
+  it("publishes one privacy-safe status per configured slot while keeping booked times non-bookable",async()=>{
+    const {app,bookingRepository,authRepository}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0709001101");
+    const {venue}=bookingRepository.seedVenue(owner.body.user.id);
+    const player=await register(app,authRepository,"PLAYER","0709001102");
+    const url=`/api/v1/venues/${venue.id}/availability?date=2026-10-05`;
+    const before=await request(app).get(url);
+    expect(before.status).toBe(200);
+    expect(before.body.timeline.length).toBeGreaterThan(1);
+    const slot=before.body.slots[0];
+    expect(before.body.timeline.find((item:{startsAt:string})=>item.startsAt===slot.startsAt).status)
+      .toBe("AVAILABLE");
+    const booked=await request(app).post("/api/v1/bookings")
+      .set("Authorization",`Bearer ${player.body.accessToken}`)
+      .send({areaId:slot.areaId,startsAt:slot.startsAt,idempotencyKey:"public-grid-booking"});
+    expect(booked.status).toBe(201);
+    const after=await request(app).get(url);
+    const occupied=after.body.timeline.find((item:{startsAt:string})=>item.startsAt===slot.startsAt);
+    expect(occupied.status).toBe("UNAVAILABLE");
+    expect(after.body.slots.some((item:{startsAt:string})=>item.startsAt===slot.startsAt)).toBe(false);
+    // The public timetable intentionally never reveals booking source, customer or phone.
+    expect(occupied).not.toHaveProperty("customerName");
+    expect(occupied).not.toHaveProperty("customerPhone");
+    expect(occupied).not.toHaveProperty("bookingId");
+    expect(occupied).not.toHaveProperty("reason");
+    expect(occupied).not.toHaveProperty("bookingSource");
+    expect(occupied.priceAfn).toBe(1800);
+  });
+
+  it("shows configured but outside-notice slots in the public grid without making them bookable",async()=>{
+    const {app,bookingRepository,authRepository}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0709001103");
+    const {venue}=bookingRepository.seedVenue(owner.body.user.id);
+    venue.minimumBookingNoticeMinutes=48*60;
+    const response=await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    expect(response.status).toBe(200);
+    expect(response.body.slots).toHaveLength(0);
+    expect(response.body.timeline.length).toBeGreaterThan(0);
+    expect(response.body.timeline.every((slot:{status:string})=>slot.status==="NOTICE_REQUIRED")).toBe(true);
+  });
+
 });
