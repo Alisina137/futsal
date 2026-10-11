@@ -13,6 +13,7 @@ const app = read("apps/api/src/app.ts");
 const server = read("apps/api/src/server.ts");
 const entitlement = read("apps/api/src/modules/billing/entitlement.ts");
 const repo = read("apps/api/src/modules/commercial/commercial.repository.ts");
+const usersRepo = read("apps/api/src/modules/commercial/admin-users.repository.ts");
 const service = read("apps/api/src/modules/commercial/commercial.service.ts");
 const routes = read("apps/api/src/modules/commercial/commercial.routes.ts");
 const ownerService = read("apps/api/src/modules/owner/owner.service.ts");
@@ -55,7 +56,7 @@ for (const marker of [
   "PAYMENT_VOIDED",
   "PLATFORM_SETTINGS_UPDATED",
   "SUPPORT_NOTE_ADDED",
-]) requireText(repo, marker, "Admin audit invariant missing");
+]) requireText(repo + usersRepo, marker, "Admin audit invariant missing");
 
 for (const marker of [
   "ownerBilling(",

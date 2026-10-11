@@ -1,5 +1,10 @@
 # PROJECT STATE
 
+## Admin panel rollout (October 11, 2026)
+- Phases 1 and 2 are implemented on main (modular console; bounded privacy-aware analytics).
+- Phase 3 implements server-side user filters, six-tab account details, role provenance/conflict review, audited private notes and session revocation, and atomic account suspensions. Do not auto-edit role conflicts. Run migration 0033 before starting the updated API.
+- Platform-admin role grant/revoke UI is postponed until a suitable MFA/step-up and dual-control policy exists; referee, player and paid management roles stay within their owner/team/subscription authority. Staging DB tests and manual browser QA remain deployment gates.
+
 ## Product objective
 Increase futsal venue utilization and revenue through reliable availability and mobile booking, with integrated venue operations, competitions, and a futsal-specific public presence.
 

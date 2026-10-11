@@ -32,7 +32,7 @@ assert.ok(side.includes("mobileOpen")&&side.includes("collapsed")&&
   "Responsive mobile/desktop admin navigation must remain usable.");
 assert.ok(styles.includes("maxWidth: 1500"),"Admin responsive workspace width must remain bounded.");
 for(const marker of [
-  'adminApi.usersPage(token,query,page,25,controller.signal,sort)',
+  'adminApi.usersPage(token,query,page,25,controller.signal,sort,',
   'adminApi.venuesPage(token,query,page,25,controller.signal,sort)',
   'const serial=++loadSequence.current',
   'abortController.current?.abort()',
