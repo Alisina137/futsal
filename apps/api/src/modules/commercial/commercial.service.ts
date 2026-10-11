@@ -502,10 +502,10 @@ export class CommercialService {
   }
 
   listUsers(query?: string) {return this.repository.listUsers(query);}
-  async listUsersPage(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest"="newest"){
+  async listUsersPage(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest"="newest",filters:import("@leaguekick/contracts").AdminUserDirectoryFilter={}){
     const [users,total]=await Promise.all([
-      this.repository.listUsers(query,page,pageSize,sort),
-      this.repository.countUsers?.(query)??Promise.resolve(0),
+      this.repository.listUsersFiltered?.(query,page,pageSize,sort,filters)??this.repository.listUsers(query,page,pageSize,sort),
+      this.repository.countUsersFiltered?.(query,filters)??this.repository.countUsers?.(query)??Promise.resolve(0),
     ]);
     return {users,total,page,pageSize,hasMore:page*pageSize<total};
   }
@@ -517,6 +517,22 @@ export class CommercialService {
       this.repository.countVenues?.(query)??Promise.resolve(0),
     ]);
     return {venues,total,page,pageSize,hasMore:page*pageSize<total};
+  }
+
+  async adminUserDetail(userId:string){
+    const detail=await this.repository.getUserDetail?.(userId);
+    if(!detail)throw errors.badRequest("USER_NOT_FOUND","User not found.");
+    return detail;
+  }
+
+  async revokeUserSessions(actorUserId:string,userId:string,reason:string){
+    if(!this.repository.revokeUserSessions)throw errors.badRequest("UNAVAILABLE","Account management is unavailable.");
+    await this.repository.revokeUserSessions(actorUserId,userId,reason,this.now());
+  }
+
+  async addUserNote(actorUserId:string,userId:string,note:string,reason:string){
+    if(!this.repository.noteUser)throw errors.badRequest("UNAVAILABLE","Account management is unavailable.");
+    await this.repository.noteUser(actorUserId,userId,note,reason,this.now());
   }
 
   async venuePayments(venueId: string) {

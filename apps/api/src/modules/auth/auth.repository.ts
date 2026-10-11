@@ -81,6 +81,12 @@ export class DrizzleAuthRepository implements AuthRepository {
     return row ? this.hydrate(row) : null;
   }
 
+  async getSessionsRevokedAt(userId: string): Promise<Date | null> {
+    const [row] = await this.db.select({ revokedAt: users.sessionsRevokedAt })
+      .from(users).where(eq(users.id, userId)).limit(1);
+    return row?.revokedAt ?? null;
+  }
+
   async getUserById(userId: string): Promise<AuthUserRecord | null> {
     const [row] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
     return row ? this.hydrate(row) : null;

@@ -574,6 +574,49 @@ export const adminUserDtoSchema = z.object({
 });
 export type AdminUserDto = z.infer<typeof adminUserDtoSchema>;
 
+
+export const adminUserDirectoryFilterSchema = z.object({
+  status: z.enum(["ACTIVE", "SUSPENDED", "DELETED"]).optional(),
+  role: userRoleSchema.or(z.literal("NORMAL_USER")).optional(),
+  city: z.string().trim().min(1).max(80).optional(),
+});
+export type AdminUserDirectoryFilter = z.infer<typeof adminUserDirectoryFilterSchema>;
+
+export const adminUserDetailDtoSchema = z.object({
+  user: adminUserDtoSchema.extend({ city: z.string().nullable(), updatedAt: isoDateTimeSchema }),
+  effectiveRoles: z.array(userRoleSchema),
+  roleProvenance: z.array(z.object({
+    role: userRoleSchema, source: z.enum(["EXPLICIT", "VENUE_ASSIGNMENT", "PAID_SUBSCRIPTION"]),
+    detail: z.string().nullable(), assignedAt: isoDateTimeSchema.nullable(),
+  })),
+  conflicts: z.array(z.string()),
+  subscriptions: z.array(z.object({
+    kind: z.string(), role: z.string(), status: z.string(),
+    activeUntil: isoDateTimeSchema.nullable(),
+  })),
+  teams: z.array(z.object({
+    id: z.string().uuid(), name: z.string(), relationship: z.string(), status: z.string(),
+  })),
+  reservations: z.array(z.object({
+    id: z.string().uuid(), venueName: z.string(), startsAt: isoDateTimeSchema,
+    source: z.string(), status: z.string(), priceAfn: z.number().int(),
+  })),
+  activity: z.array(z.object({
+    id: z.string().uuid(), action: z.string(), actorUserId: z.string().uuid().nullable(),
+    createdAt: isoDateTimeSchema, metadata: z.record(z.string(), z.unknown()),
+  })),
+  sessions: z.object({ active: z.number().int(), total: z.number().int() }),
+});
+export type AdminUserDetailDto = z.infer<typeof adminUserDetailDtoSchema>;
+
+export const adminUserNoteRequestSchema = z.object({
+  note: z.string().trim().min(3).max(1000),
+  reason: z.string().trim().min(3).max(500),
+});
+export const adminUserSessionRevokeRequestSchema = z.object({
+  reason: z.string().trim().min(3).max(500),
+});
+
 export const adminVenueDtoSchema = z.object({
   id: z.string().uuid(),
   ownerUserId: z.string().uuid(),

@@ -4,6 +4,9 @@ import {
   adminSupportNoteRequestSchema,
   adminTrialExtensionRequestSchema,
   adminUserStatusRequestSchema,
+  adminUserDirectoryFilterSchema,
+  adminUserNoteRequestSchema,
+  adminUserSessionRevokeRequestSchema,
   adminVenueActionRequestSchema,
   dateOnlySchema,
   platformSettingsUpdateRequestSchema,
@@ -20,6 +23,8 @@ const pageQuerySchema=z.object({
   pageSize:z.coerce.number().int().min(10).max(100).default(25),
   sort:z.enum(["newest","oldest"]).default("newest"),
 });
+const userPageQuerySchema=pageQuerySchema.merge(adminUserDirectoryFilterSchema);
+const userIdSchema=z.string().uuid();
 const reasonSchema = z.object({ reason: z.string().trim().min(3).max(500) });
 
 export function createOwnerCommercialRouter(service: CommercialService, tokens: TokenService) {
@@ -87,15 +92,39 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
 
   router.get("/users/page",async(request,response,next)=>{
     try{
-      const p=pageQuerySchema.parse(request.query);
-      response.json(await service.listUsersPage(p.q,p.page,p.pageSize,p.sort));
+      const p=userPageQuerySchema.parse(request.query);
+      response.json(await service.listUsersPage(p.q,p.page,p.pageSize,p.sort,{status:p.status,role:p.role,city:p.city}));
+    }catch(error){next(error);}
+  });
+
+  router.get("/users/:userId",async(request,response,next)=>{
+    try{
+      response.json({detail:await service.adminUserDetail(userIdSchema.parse(request.params.userId))});
+    }catch(error){next(error);}
+  });
+
+  router.post("/users/:userId/revoke-sessions",async(request,response,next)=>{
+    try{
+      const userId=userIdSchema.parse(request.params.userId);
+      const {reason}=adminUserSessionRevokeRequestSchema.parse(request.body);
+      await service.revokeUserSessions(request.auth!.userId,userId,reason);
+      response.json({revoked:true});
+    }catch(error){next(error);}
+  });
+
+  router.post("/users/:userId/notes",async(request,response,next)=>{
+    try{
+      const userId=userIdSchema.parse(request.params.userId);
+      const {note,reason}=adminUserNoteRequestSchema.parse(request.body);
+      await service.addUserNote(request.auth!.userId,userId,note,reason);
+      response.status(201).json({created:true});
     }catch(error){next(error);}
   });
 
   router.patch("/users/:userId/status", async (request, response, next) => {
     try {
       const input = adminUserStatusRequestSchema.parse(request.body);
-      await service.setUserStatus(request.auth!.userId, request.params.userId!, input);
+      await service.setUserStatus(request.auth!.userId, userIdSchema.parse(request.params.userId), input);
       response.json({ updated: true });
     } catch (error) {
       next(error);

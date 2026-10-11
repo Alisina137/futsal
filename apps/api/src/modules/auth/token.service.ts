@@ -11,6 +11,7 @@ export class TokenService {
   private readonly key: Uint8Array;
   private accessValidator: ((userId: string) => Promise<AccessAccountStatus>) | null = null;
   private currentAdminRoles:((userId:string)=>Promise<UserRole[]>)|null=null;
+  private sessionsRevokedAt:((userId:string)=>Promise<Date|null>)|null=null;
 
   constructor(
     secret: string,
@@ -22,7 +23,7 @@ export class TokenService {
 
   async createAccessToken(userId: string, roles: UserRole[]) {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    const token = await new SignJWT({ roles })
+    const token = await new SignJWT({ roles, authTimeMs: Date.now() })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(userId)
       .setIssuer(this.issuer)
@@ -36,6 +37,7 @@ export class TokenService {
   async verifyAccessToken(token: string): Promise<AccessClaims> {
     let userId: string;
     let roles: UserRole[];
+    let payloadAuthTimeMs: number | null = null;
 
     try {
       const { payload } = await jwtVerify(token, this.key, { issuer: this.issuer, audience: this.audience });
@@ -44,6 +46,7 @@ export class TokenService {
       if (!parsedRoles.success) throw new Error("invalid roles");
       userId = payload.sub;
       roles = parsedRoles.data;
+      payloadAuthTimeMs = typeof payload.authTimeMs === "number" ? payload.authTimeMs : typeof payload.iat === "number" ? payload.iat * 1000 : null;
     } catch {
       throw errors.unauthorized("INVALID_ACCESS_TOKEN", "The access token is invalid or expired.");
     }
@@ -56,6 +59,13 @@ export class TokenService {
       if (status !== "ACTIVE") {
         throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
       }
+    }
+
+    if (this.sessionsRevokedAt) {
+      const watermark = await this.sessionsRevokedAt(userId);
+      const issuedAt = typeof payloadAuthTimeMs === "number" ? payloadAuthTimeMs : 0;
+      if (watermark && issuedAt <= watermark.getTime())
+        throw errors.unauthorized("SESSION_REVOKED", "Your sessions have been revoked. Sign in again.");
     }
 
     if(roles.includes("PLATFORM_ADMIN")&&this.currentAdminRoles){
@@ -75,6 +85,10 @@ export class TokenService {
 
   setAdminRoleValidator(validator:(userId:string)=>Promise<UserRole[]>){
     this.currentAdminRoles=validator;
+  }
+
+  setSessionRevocationValidator(validator:(userId:string)=>Promise<Date|null>){
+    this.sessionsRevokedAt=validator;
   }
 
   createRefreshToken() {

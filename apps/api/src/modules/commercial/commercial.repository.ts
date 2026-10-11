@@ -46,6 +46,7 @@ import type {
 } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
 import {DrizzleAdminAnalyticsRepository} from "./admin-analytics.repository.js";
+import { DrizzleAdminUsersRepository } from "./admin-users.repository.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 import type {
   CommercialRepository,
@@ -461,6 +462,22 @@ export class DrizzleCommercialRepository implements CommercialRepository {
     })));
   }
 
+  listUsersFiltered(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest",filters:import("@leaguekick/contracts").AdminUserDirectoryFilter){
+    return new DrizzleAdminUsersRepository(this.db).listUsers(query,page,pageSize,sort,filters);
+  }
+  countUsersFiltered(query:string|undefined,filters:import("@leaguekick/contracts").AdminUserDirectoryFilter){
+    return new DrizzleAdminUsersRepository(this.db).countUsers(query,filters);
+  }
+  getUserDetail(userId:string){
+    return new DrizzleAdminUsersRepository(this.db).detail(userId);
+  }
+  revokeUserSessions(actorUserId:string,userId:string,reason:string,now:Date){
+    return new DrizzleAdminUsersRepository(this.db).revokeSessions(actorUserId,userId,reason,now);
+  }
+  noteUser(actorUserId:string,userId:string,note:string,reason:string,now:Date){
+    return new DrizzleAdminUsersRepository(this.db).addNote(actorUserId,userId,note,reason,now);
+  }
+
   async listVenues(query?: string,page=1,pageSize=50,sort:"newest"|"oldest"="newest"): Promise<AdminVenueDto[]> {
     const q = query?.trim();
     const rows = q
@@ -525,31 +542,8 @@ export class DrizzleCommercialRepository implements CommercialRepository {
     return row?.total??0;
   }
 
-  async setUserStatus(
-    actorUserId: string,
-    userId: string,
-    status: "ACTIVE" | "SUSPENDED",
-    reason: string,
-    now: Date,
-  ) {
-    if (actorUserId === userId && status === "SUSPENDED") {
-      throw errors.badRequest("ADMIN_SELF_SUSPEND", "You cannot suspend your own admin account.");
-    }
-    const [updated] = await this.db
-      .update(users)
-      .set({ status, updatedAt: now })
-      .where(eq(users.id, userId))
-      .returning({ id: users.id });
-    if (!updated) throw errors.badRequest("USER_NOT_FOUND", "User not found.");
-
-    await this.db.insert(auditLogs).values({
-      actorUserId,
-      action: status === "SUSPENDED" ? "USER_SUSPENDED" : "USER_RESTORED",
-      targetType: "USER",
-      targetId: userId,
-      metadata: { reason },
-      createdAt: now,
-    });
+  setUserStatus(actorUserId:string,userId:string,status:"ACTIVE"|"SUSPENDED",reason:string,now:Date){
+    return new DrizzleAdminUsersRepository(this.db).setStatus(actorUserId,userId,status,reason,now);
   }
 
   async applyVenueAction(

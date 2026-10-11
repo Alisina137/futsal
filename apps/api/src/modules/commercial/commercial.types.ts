@@ -3,6 +3,8 @@ import type {
   AdminAnalyticsDays,
   AdminAnalyticsResponse,
   AdminUserDto,
+  AdminUserDirectoryFilter,
+  AdminUserDetailDto,
   AdminVenueDto,
   SubscriptionPaymentDto,
   UserRole,
@@ -163,6 +165,11 @@ export interface CommercialRepository {
   }>;
   listUsers(query?: string,page?:number,pageSize?:number,sort?:"newest"|"oldest"): Promise<AdminUserDto[]>;
   listVenues(query?: string,page?:number,pageSize?:number,sort?:"newest"|"oldest"): Promise<AdminVenueDto[]>;
+  listUsersFiltered?(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest",filters:AdminUserDirectoryFilter):Promise<AdminUserDto[]>;
+  countUsersFiltered?(query:string|undefined,filters:AdminUserDirectoryFilter):Promise<number>;
+  getUserDetail?(userId:string):Promise<AdminUserDetailDto|null>;
+  revokeUserSessions?(actorUserId:string,userId:string,reason:string,now:Date):Promise<void>;
+  noteUser?(actorUserId:string,userId:string,note:string,reason:string,now:Date):Promise<void>;
   countUsers?(query?:string):Promise<number>;
   countVenues?(query?:string):Promise<number>;
   setUserStatus(actorUserId: string, userId: string, status: "ACTIVE" | "SUSPENDED", reason: string, now: Date): Promise<void>;
