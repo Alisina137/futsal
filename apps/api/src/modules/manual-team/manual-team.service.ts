@@ -143,6 +143,7 @@ export class ManualTeamService {
         eq(users.status, "ACTIVE"),
       )).limit(1);
       if (!user) throw errors.badRequest("TEAM_CLAIM_USER_MISMATCH", "Username and phone must match one active account.");
+      if (!user.emailVerifiedAt) throw errors.forbidden("EMAIL_VERIFICATION_REQUIRED", "Verify an email before claiming a paid team.");
       const [subscription] = await tx.select().from(roleSubscriptions).where(and(
         eq(roleSubscriptions.userId, user.id), eq(roleSubscriptions.role, "TEAM_MANAGER"),
         eq(roleSubscriptions.status, "ACTIVE"), gt(roleSubscriptions.activeUntil, this.now()),
