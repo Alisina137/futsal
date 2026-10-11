@@ -917,7 +917,7 @@ export const adminApi = {
   operationCases:(token:string,kind:import("@leaguekick/contracts").AdminOperationKind,id:string,signal?:AbortSignal)=>
     request<{items:import("@leaguekick/contracts").AdminCaseDto[]}>(
       "/api/v1/admin/operations/"+kind+"/"+encodeURIComponent(id)+"/cases",signal?{signal}:{},token),
-  adminCases:(token:string,filters:{page:number;pageSize:number;state?:string;targetType?:string},signal?:AbortSignal)=>
+  adminCases:(token:string,filters:{page:number;pageSize:number;state?:string|undefined;targetType?:string|undefined},signal?:AbortSignal)=>
     request<{items:import("@leaguekick/contracts").AdminCaseDto[];total:number;page:number;pageSize:number;hasMore:boolean}>(
       "/api/v1/admin/cases?"+new URLSearchParams(Object.entries(filters)
         .filter(([,value])=>value!==undefined).map(([key,value])=>[key,String(value)])).toString(),
