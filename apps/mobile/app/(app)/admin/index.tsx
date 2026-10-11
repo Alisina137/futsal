@@ -14,11 +14,13 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { styles } from "../../../src/components/admin/AdminStyles";
 import { adminNavItems, type SectionKey } from "../../../src/components/admin/admin-navigation";
+import { adminPhase4Label } from "../../../src/components/admin/admin-phase4-labels";
 import { AdminSidebar } from "../../../src/components/admin/AdminSidebar";
 import { AdminConfirmModal } from "../../../src/components/admin/AdminConfirmModal";
 import { DashboardSection } from "../../../src/components/admin/AdminDashboardSection";
 import {AdminAnalyticsSection} from "../../../src/components/admin/AdminAnalyticsSection";
 import { VenuesSection } from "../../../src/components/admin/AdminDirectorySections";
+import { AdminOperationsPhase4Section } from "../../../src/components/admin/AdminOperationsPhase4Section";
 import { AdminUsersPhase3Section } from "../../../src/components/admin/AdminUsersPhase3Section";
 import { SubscriptionsSection } from "../../../src/components/admin/AdminBillingSection";
 import { ConfigurationSection, SupportSection, ModerationSection, AuditSection } from "../../../src/components/admin/AdminOperationsSections";
@@ -37,7 +39,7 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 
 export default function AdminScreen() {
   const { session, signOut } = useAuth();
-  const { t, isRTL } = useLocale();
+  const { t, isRTL, language } = useLocale();
   const { width } = useWindowDimensions();
   const desktop = width >= 980;
   const token = session?.accessToken;
@@ -95,6 +97,7 @@ export default function AdminScreen() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [operationRefresh,setOperationRefresh]=useState(0);
   const [loadIssues, setLoadIssues] = useState<string[]>([]);
   const [pending,setPending]=useState<{
     task:()=>Promise<unknown>;success:string;refresh:boolean;target:string;reason:string;
@@ -193,6 +196,7 @@ export default function AdminScreen() {
       await pending.task();
       setPending(null);
       setMessage(pending.success);
+      setOperationRefresh(current=>current+1);
       if(pending.refresh)await load();
     }catch(e){
       setConfirmError(e instanceof ApiRequestError?e.message:t("phase7.admin.actionError"));
@@ -211,7 +215,8 @@ export default function AdminScreen() {
     </View>;
   }
 
-  const sectionTitle = t((adminNavItems.find((item) => item.key === section)?.labelKey ?? "phase7.admin.dashboard") as never);
+  const sectionTitle = adminPhase4Label(section,language) ??
+    t((adminNavItems.find((item) => item.key === section)?.labelKey ?? "phase7.admin.dashboard") as never);
 
   return <View style={[styles.adminRoot, { flexDirection: desktop ? (isRTL ? "row-reverse" : "row") : "column" }]}>
     <AdminSidebar
@@ -269,7 +274,24 @@ export default function AdminScreen() {
             cityFilter={cityFilter} onCityFilter={value=>{setCityFilter(value);setPage(1);setSelectedUserId(null);}}
             selectedUserId={selectedUserId} onSelectedUserId={setSelectedUserId}/> : null}
           {section === "manualTeams" ? <ManualTeamsAdminSection /> : null}
-          {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={queryDraft} setQuery={setQueryDraft} page={page} total={venueTotal} onPage={setPage} sort={sort} onSort={updateSort} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "venues" ? <AdminOperationsPhase4Section key="VENUE" kind="VENUE" token={token!}
+            reason={reason} setReason={setReason} busy={busy} action={action}
+            refreshVersion={operationRefresh}/> : null}
+          {section === "teams" ? <AdminOperationsPhase4Section key="TEAM" kind="TEAM" token={token!}
+            reason={reason} setReason={setReason} busy={busy} action={action}
+            refreshVersion={operationRefresh}/> : null}
+          {section === "competitions" ? <AdminOperationsPhase4Section key="COMPETITION" kind="COMPETITION" token={token!}
+            reason={reason} setReason={setReason} busy={busy} action={action}
+            refreshVersion={operationRefresh}/> : null}
+          {section === "referees" ? <AdminOperationsPhase4Section key="REFEREE" kind="REFEREE" token={token!}
+            reason={reason} setReason={setReason} busy={busy} action={action}
+            refreshVersion={operationRefresh}/> : null}
+          {section === "reservations" ? <AdminOperationsPhase4Section key="RESERVATION" kind="RESERVATION" token={token!}
+            reason={reason} setReason={setReason} busy={busy} action={action}
+            refreshVersion={operationRefresh}/> : null}
+          {section === "cases" ? <AdminOperationsPhase4Section key="CASE" kind="CASE" token={token!}
+            reason={reason} setReason={setReason} busy={busy} action={action}
+            refreshVersion={operationRefresh}/> : null}
           {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" && token ? <TeamSlotsAdminSection token={token}/> : null}
           {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}

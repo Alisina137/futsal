@@ -899,6 +899,37 @@ export const teamApi = {
 
 
 export const adminApi = {
+  operationsPage:(token:string,kind:import("@leaguekick/contracts").AdminOperationKind,
+    filters:Partial<import("@leaguekick/contracts").AdminOperationFilters>,signal?:AbortSignal)=>{
+    const params=new URLSearchParams();
+    for(const [key,value] of Object.entries(filters)){
+      if(value!==undefined&&value!==null&&String(value).trim()!=="")params.set(key,String(value));
+    }
+    return request<{items:import("@leaguekick/contracts").AdminOperationItem[];total:number;page:number;pageSize:number;hasMore:boolean}>(
+      "/api/v1/admin/operations/"+kind+"?"+params.toString(),signal?{signal}:{},token);
+  },
+  operationDetail:(token:string,kind:import("@leaguekick/contracts").AdminOperationKind,
+    id:string,signal?:AbortSignal)=>request<{detail:import("@leaguekick/contracts").AdminOperationDetail}>(
+    "/api/v1/admin/operations/"+kind+"/"+encodeURIComponent(id),signal?{signal}:{},token),
+  operationDuplicates:(token:string,signal?:AbortSignal)=>
+    request<{groups:Array<{key:string;count:number;items:import("@leaguekick/contracts").AdminOperationItem[]}>}>(
+      "/api/v1/admin/operations/venues/duplicates",signal?{signal}:{},token),
+  operationCases:(token:string,kind:import("@leaguekick/contracts").AdminOperationKind,id:string,signal?:AbortSignal)=>
+    request<{items:import("@leaguekick/contracts").AdminCaseDto[]}>(
+      "/api/v1/admin/operations/"+kind+"/"+encodeURIComponent(id)+"/cases",signal?{signal}:{},token),
+  adminCases:(token:string,filters:{page:number;pageSize:number;state?:string;targetType?:string},signal?:AbortSignal)=>
+    request<{items:import("@leaguekick/contracts").AdminCaseDto[];total:number;page:number;pageSize:number;hasMore:boolean}>(
+      "/api/v1/admin/cases?"+new URLSearchParams(Object.entries(filters)
+        .filter(([,value])=>value!==undefined).map(([key,value])=>[key,String(value)])).toString(),
+      signal?{signal}:{},token),
+  openAdminCase:(token:string,input:{targetType:import("@leaguekick/contracts").AdminOperationKind;
+    targetId:string;reason:string;note:string})=>
+    request<{item:import("@leaguekick/contracts").AdminCaseDto}>("/api/v1/admin/cases",
+      {method:"POST",body:JSON.stringify(input)},token),
+  updateAdminCase:(token:string,id:string,input:{state:"OPEN"|"UNDER_REVIEW"|"RESOLVED";reason:string;note:string})=>
+    request<{item:import("@leaguekick/contracts").AdminCaseDto}>(
+      "/api/v1/admin/cases/"+encodeURIComponent(id),
+      {method:"PATCH",body:JSON.stringify(input)},token),
   teamSlots:(token:string)=>request<{slots:TeamExtraSlot[]}>("/api/v1/admin/team-slots",{},token),
   activateTeamSlot:(token:string,id:string,months:number,paymentReference:string)=>
     request<{slot:TeamExtraSlot}>(`/api/v1/admin/team-slots/${id}/activate`,

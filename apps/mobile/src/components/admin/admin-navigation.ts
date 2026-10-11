@@ -5,6 +5,11 @@ export type SectionKey =
   | "users"
   | "venues"
   | "manualTeams"
+  | "teams"
+  | "competitions"
+  | "referees"
+  | "reservations"
+  | "cases"
   | "subscriptions"
   | "configuration"
   | "support"
@@ -19,6 +24,11 @@ export const adminNavItems: Array<{ key: SectionKey; icon: IconName; labelKey: s
   { key: "users", icon: "people-outline", labelKey: "phase7.admin.users" },
   { key: "venues", icon: "business-outline", labelKey: "phase7.admin.venues" },
   { key: "manualTeams", icon: "people-circle-outline", labelKey: "manualTeams.adminTitle" },
+  { key: "teams", icon: "shirt-outline", labelKey: "admin4.teams" },
+  { key: "competitions", icon: "trophy-outline", labelKey: "admin4.competitions" },
+  { key: "referees", icon: "flag-outline", labelKey: "admin4.referees" },
+  { key: "reservations", icon: "calendar-outline", labelKey: "admin4.reservations" },
+  { key: "cases", icon: "alert-circle-outline", labelKey: "admin4.cases" },
   { key: "subscriptions", icon: "card-outline", labelKey: "phase7.admin.payments" },
   { key: "configuration", icon: "options-outline", labelKey: "phase7.admin.configuration" },
   { key: "support", icon: "help-buoy-outline", labelKey: "phase7.admin.support" },

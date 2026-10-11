@@ -5,12 +5,14 @@ import {Pressable,ScrollView,View} from "react-native";
 import {AppText} from "../ui/AppText";
 import {styles} from "./AdminStyles";
 import {adminNavItems,type SectionKey} from "./admin-navigation";
+import {adminPhase4Label} from "./admin-phase4-labels";
+import {useLocale} from "../../providers/LocaleProvider";
 
 const groups=[
   {id:"overview",label:"Overview",icon:"grid-outline",sections:["dashboard","analytics"]},
-  {id:"management",label:"Management",icon:"layers-outline",sections:["users","venues","manualTeams"]},
+  {id:"management",label:"Management",icon:"layers-outline",sections:["users","venues","manualTeams","teams","competitions","referees","reservations"]},
   {id:"commercial",label:"Revenue",icon:"wallet-outline",sections:["subscriptions"]},
-  {id:"platform",label:"Platform",icon:"settings-outline",sections:["configuration","support","moderation","audit"]},
+  {id:"platform",label:"Platform",icon:"settings-outline",sections:["cases","configuration","support","moderation","audit"]},
 ] as const;
 
 export function AdminSidebar({
@@ -21,6 +23,7 @@ export function AdminSidebar({
   displayName:string;username:string;onSignOut:()=>void;
   t:(key:any,params?:Record<string,string|number>)=>string;
 }){
+  const {language}=useLocale();
   const [mobileOpen,setMobileOpen]=useState(false);
   const [collapsed,setCollapsed]=useState<string[]>([]);
   function toggle(id:string){
@@ -64,7 +67,7 @@ export function AdminSidebar({
                 pressed&&styles.navItemPressed]}>
               <Ionicons name={item.icon} size={20} color={active?"#FFFFFF":"#AFC5E8"}/>
               <AppText weight={active?"bold":"medium"}
-                style={{color:active?"#FFFFFF":"#DCE8FA",flex:1}}>{t(item.labelKey as never)}</AppText>
+                style={{color:active?"#FFFFFF":"#DCE8FA",flex:1}}>{adminPhase4Label(item.key,language)??t(item.labelKey as never)}</AppText>
               {active?<View style={styles.adminActiveDot}/>:null}
             </Pressable>;
           }):null}
