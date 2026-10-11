@@ -2,6 +2,8 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import {
   loginRequestSchema,
+  emailVerificationRequestSchema,
+  emailVerificationConfirmSchema,
   logoutRequestSchema,
   passwordResetCompleteSchema,
   passwordResetRequestSchema,
@@ -48,6 +50,20 @@ export function createAuthRouter(auth: AuthService, tokens: TokenService) {
       const input = loginRequestSchema.parse(request.body);
       response.json(await auth.login(input, request.get("user-agent") ?? undefined));
     } catch (error) { next(error); }
+  });
+
+  router.post("/email-verification/request", requireAuth(tokens), resetLimiter, async (request,response,next)=>{
+    try {
+      const input=emailVerificationRequestSchema.parse(request.body);
+      response.json(await auth.requestEmailVerification(request.auth!.userId,input));
+    } catch(error){next(error);}
+  });
+
+  router.post("/email-verification/confirm", requireAuth(tokens), resetLimiter, async (request,response,next)=>{
+    try {
+      const input=emailVerificationConfirmSchema.parse(request.body);
+      response.json(await auth.confirmEmailVerification(request.auth!.userId,input));
+    } catch(error){next(error);}
   });
 
   router.post("/password-reset/request", resetLimiter, async (request, response, next) => {
