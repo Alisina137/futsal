@@ -521,8 +521,8 @@ export class CommercialService {
     return detail;
   }
   async operationDuplicates(){return {groups:await this.repository.operationDuplicates?.()??[]};}
-  async adminCases(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED";
-    targetType?:import("@leaguekick/contracts").AdminOperationKind;page:number;pageSize:number}){
+  async adminCases(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED"|undefined;
+    targetType?:import("@leaguekick/contracts").AdminOperationKind|undefined;page:number;pageSize:number}){
     if(!this.repository.adminCases)throw errors.badRequest("OPERATIONS_UNAVAILABLE","Review module is unavailable.");
     return this.repository.adminCases(filters);
   }

@@ -174,8 +174,8 @@ export interface CommercialRepository {
     items:AdminOperationItem[];total:number;page:number;pageSize:number;hasMore:boolean}>;
   operationDetail?(kind:AdminOperationKind,id:string):Promise<AdminOperationDetail|null>;
   operationDuplicates?():Promise<Array<{key:string;count:number;items:AdminOperationItem[]}>>;
-  adminCases?(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED";
-    targetType?:AdminOperationKind;page:number;pageSize:number}):Promise<{
+  adminCases?(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED"|undefined;
+    targetType?:AdminOperationKind|undefined;page:number;pageSize:number}):Promise<{
     items:AdminCaseDto[];total:number;page:number;pageSize:number;hasMore:boolean}>;
   targetAdminCases?(kind:AdminOperationKind,id:string):Promise<AdminCaseDto[]>;
   openAdminCase?(actor:string,kind:AdminOperationKind,id:string,reason:string,note:string,now:Date):Promise<AdminCaseDto>;

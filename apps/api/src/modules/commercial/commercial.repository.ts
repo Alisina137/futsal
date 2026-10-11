@@ -487,8 +487,8 @@ export class DrizzleCommercialRepository implements CommercialRepository {
     return new DrizzleAdminOperationsRepository(this.db).detail(kind,id);
   }
   operationDuplicates(){return new DrizzleAdminOperationsRepository(this.db).duplicates();}
-  adminCases(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED";
-    targetType?:import("@leaguekick/contracts").AdminOperationKind;page:number;pageSize:number}){
+  adminCases(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED"|undefined;
+    targetType?:import("@leaguekick/contracts").AdminOperationKind|undefined;page:number;pageSize:number}){
     return new DrizzleAdminOperationsRepository(this.db).cases(filters);
   }
   targetAdminCases(kind:import("@leaguekick/contracts").AdminOperationKind,id:string){

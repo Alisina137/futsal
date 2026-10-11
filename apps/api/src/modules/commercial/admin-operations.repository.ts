@@ -360,7 +360,7 @@ export class DrizzleAdminOperationsRepository {
     }
     return results;
   }
-  async cases(f:{state?:CaseState;targetType?:CaseType;page:number;pageSize:number}){
+  async cases(f:{state?:CaseState|undefined;targetType?:CaseType|undefined;page:number;pageSize:number}){
     const where=and(f.state?eq(adminCases.state,f.state):undefined,
       f.targetType?eq(adminCases.targetType,f.targetType):undefined);
     const [rows,total]=await Promise.all([
