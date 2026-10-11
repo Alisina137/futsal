@@ -45,6 +45,7 @@ import type {
   VenueOpeningHourInput,
 } from "@leaguekick/contracts";
 import { errors } from "../../lib/errors.js";
+import {DrizzleAdminAnalyticsRepository} from "./admin-analytics.repository.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 import type {
   CommercialRepository,
@@ -380,6 +381,10 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       competitionTeams: competitionTeamRows,
       competitionMatches: competitionMatchRows,
     };
+  }
+
+  adminAnalytics(now:Date,days:import("@leaguekick/contracts").AdminAnalyticsDays){
+    return new DrizzleAdminAnalyticsRepository(this.db).snapshot(now,days);
   }
 
   async adminDashboard(now: Date) {
