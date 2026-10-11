@@ -31,7 +31,7 @@ for(const fragment of [
   "marketingApi.venuePosts","post.socialPostId","post.ctaTargetId",
   "resolveMediaImageUrl(post.imageUrl)","setPhoto(","venueVideoLink",
   "competitionApi.list()","c.venueId===venue.id","router.push({pathname:",
-  "bookingApi.mine","b.venueId===venue.id","bookingApi.cancel",
+  "bookingApi.mine","x.venueId===venue.id","bookingApi.cancel",
   "venueApi.availability","writeAvailabilityCache","readAvailabilityCache",
   "slot.promotionId","slot.originalPriceAfn","onlineBookingEnabled",
   "bookings.filter","fresh&&isOnline","availabilityDate!==date",
