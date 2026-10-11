@@ -28,7 +28,7 @@ function Breakdown({title,description,entries}:{
       </View>
       <View style={{height:9,borderRadius:radius.pill,backgroundColor:"#E9EFF7",
         overflow:"hidden",flexDirection:isRTL?"row-reverse":"row"}}>
-        <View style={{width:(item.value/max*100)+"%",backgroundColor:colors.primary,
+        <View style={{width:`${item.value/max*100}%` as `${number}%`,backgroundColor:colors.primary,
           borderRadius:radius.pill}}/>
       </View>
     </View>)}
