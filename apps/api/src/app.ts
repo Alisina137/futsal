@@ -36,6 +36,8 @@ import {createRefereePhase2Router,createOwnerRefereePhase2Router,type RefereePha
 import {createRefereeCareerRouter,type RefereeCareerService} from "./modules/referee/referee-career.routes.js";
 import { createAdminRouter, createOwnerCommercialRouter } from "./modules/commercial/commercial.routes.js";
 import type { CommercialService } from "./modules/commercial/commercial.service.js";
+import {createAdminTrustRouter,createUserTrustRouter} from "./modules/trust/admin-trust.routes.js";
+import type {AdminTrustService} from "./modules/trust/admin-trust.service.js";
 import { createOwnerTimetableRouter } from "./modules/timetable/timetable.routes.js";
 import type { TimetableService } from "./modules/timetable/timetable.service.js";
 import { createOwnerManualTeamRouter, createAdminManualTeamRouter } from "./modules/manual-team/manual-team.routes.js";
@@ -61,6 +63,7 @@ export type AppDependencies = {
   refereePhase2?: RefereePhase2Service;
   refereeCareer?: RefereeCareerService;
   commercialService?: CommercialService;
+  adminTrustService?: AdminTrustService;
   timetableService?: TimetableService;
   manualTeamService?: ManualTeamService;
   trustProxyHops?: number;
@@ -216,6 +219,10 @@ export function createApp(deps: AppDependencies) {
     app.use("/api/v1/admin", createAdminRouter(deps.commercialService, deps.tokenService));
   }
 
+  if(deps.adminTrustService){
+    app.use("/api/v1/trust",createUserTrustRouter(deps.adminTrustService,deps.tokenService));
+    app.use("/api/v1/admin",createAdminTrustRouter(deps.adminTrustService,deps.tokenService));
+  }
   if (deps.manualTeamService) {
     app.use("/api/v1/owner", createOwnerManualTeamRouter(deps.manualTeamService, deps.tokenService));
     app.use("/api/v1/admin", createAdminManualTeamRouter(deps.manualTeamService, deps.tokenService));

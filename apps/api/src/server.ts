@@ -28,6 +28,7 @@ import {RefereePhase2Service} from "./modules/referee/referee-phase2.routes.js";
 import {RefereeCareerService} from "./modules/referee/referee-career.routes.js";
 import { DrizzleCommercialRepository } from "./modules/commercial/commercial.repository.js";
 import { CommercialService } from "./modules/commercial/commercial.service.js";
+import {AdminTrustService} from "./modules/trust/admin-trust.service.js";
 import { DrizzleTimetableRepository } from "./modules/timetable/timetable.repository.js";
 import { TimetableService } from "./modules/timetable/timetable.service.js";
 import { ManualTeamService } from "./modules/manual-team/manual-team.service.js";
@@ -87,6 +88,13 @@ const competitionRepository = new DrizzleCompetitionRepository(db);
 const competitionService = new CompetitionService(competitionRepository, undefined, notificationService);
 const commercialRepository = new DrizzleCommercialRepository(db);
 const commercialService = new CommercialService(commercialRepository);
+const trustService=new AdminTrustService(db);
+const trustTimer=setInterval(()=>{
+  void trustService.dispatchDue().catch(e=>console.error(JSON.stringify({
+    event:"admin_announcement_dispatch_error",message:e instanceof Error?e.message:String(e),
+  })));
+},60_000);
+trustTimer.unref();
 const owner = new OwnerOnboardingService(
   ownerRepository,
   undefined,
@@ -112,6 +120,7 @@ const app = createApp({
   refereePhase2:new RefereePhase2Service(db,competitionService,notificationService),
   refereeCareer:new RefereeCareerService(db),
   commercialService,
+  adminTrustService:trustService,
   timetableService: timetable,
   manualTeamService: new ManualTeamService(db),
   trustProxyHops: env.TRUST_PROXY_HOPS,
@@ -140,6 +149,7 @@ async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
   clearInterval(mediaLifecycleTimer);
+  clearInterval(trustTimer);
   console.log(JSON.stringify({ event: "api_shutdown_started", signal }));
 
   const forceTimer = setTimeout(() => {

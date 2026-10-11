@@ -741,7 +741,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     }).from(socialPostLikes).where(eq(socialPostLikes.postId, row.id));
     const commentRows = comments ?? await this.db.select({
       postId: socialPostComments.postId,
-    }).from(socialPostComments).where(eq(socialPostComments.postId, row.id));
+    }).from(socialPostComments).where(and(eq(socialPostComments.postId, row.id),isNull(socialPostComments.hiddenAt)));
 
     return {
       id: row.id,
@@ -842,7 +842,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
         .where(inArray(socialPostLikes.postId, ids)),
       this.db.select({ postId: socialPostComments.postId })
         .from(socialPostComments)
-        .where(inArray(socialPostComments.postId, ids)),
+        .where(and(inArray(socialPostComments.postId, ids),isNull(socialPostComments.hiddenAt))),
     ]);
 
     const result: SocialFeedPostDto[] = [];
@@ -890,6 +890,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       .innerJoin(socialPosts, eq(socialPostComments.postId, socialPosts.id))
       .where(and(
         eq(socialPostComments.id, commentId),
+        isNull(socialPostComments.hiddenAt),
         eq(users.status, "ACTIVE"),
         eq(socialPosts.status, "PUBLISHED"),
       ))
@@ -918,7 +919,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
     if (!post) return [];
 
     const rows = await this.db.select({ id: socialPostComments.id }).from(socialPostComments)
-      .where(eq(socialPostComments.postId, postId))
+      .where(and(eq(socialPostComments.postId, postId),isNull(socialPostComments.hiddenAt)))
       .orderBy(asc(socialPostComments.createdAt));
 
     const result: SocialPostCommentDto[] = [];
@@ -959,6 +960,7 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       eq(socialPostComments.id, commentId),
       eq(socialPostComments.postId, postId),
       eq(socialPostComments.userId, userId),
+      isNull(socialPostComments.hiddenAt),
     )).returning({ id: socialPostComments.id });
     if (!updated) return null;
     return this.hydrateSocialComment(userId, updated.id);
