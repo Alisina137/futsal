@@ -17,6 +17,9 @@ class FakeCommercialRepository implements CommercialRepository {
   requested = false;
   activated = false;
   userStatus: "ACTIVE" | "SUSPENDED" = "ACTIVE";
+  lastFilters:Record<string,unknown>={};
+  revokedSessions=false;
+  userNote:string|null=null;
   lastPage:{target:"users"|"venues";query:string|undefined;page:number;size:number;sort:string}|null=null;
   venue: CommercialVenueRecord = {
     id: "11111111-1111-4111-8111-111111111111",
@@ -138,6 +141,29 @@ class FakeCommercialRepository implements CommercialRepository {
     };
   }
   async countUsers(){return 73;}
+  async countUsersFiltered(_query:string|undefined,filters:import("@leaguekick/contracts").AdminUserDirectoryFilter){
+    this.lastFilters=filters;return 1;
+  }
+  async listUsersFiltered(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest",
+    filters:import("@leaguekick/contracts").AdminUserDirectoryFilter){
+    this.lastFilters=filters;return this.listUsers(query,page,pageSize,sort);
+  }
+  async getUserDetail(userId:string){
+    if(userId!=="11111111-1111-4111-8111-111111111111")return null;
+    return {
+      user:{id:userId,displayName:"Test",username:"test",phone:"+93700000000",
+        status:"ACTIVE" as const,roles:[],createdAt:"2026-10-01T00:00:00.000Z",
+        city:"Kabul",updatedAt:"2026-10-01T00:00:00.000Z"},
+      effectiveRoles:[],roleProvenance:[],conflicts:[],subscriptions:[],
+      teams:[],reservations:[],activity:[],sessions:{active:1,total:1},
+    };
+  }
+  async revokeUserSessions(_actor:string,_user:string,_reason:string){
+    this.revokedSessions=true;
+  }
+  async noteUser(_actor:string,_user:string,note:string,_reason:string){
+    this.userNote=note;
+  }
   async countVenues(){return 51;}
   async listUsers(query?:string,page=1,size=50,sort="newest"){
     this.lastPage={target:"users",query,page,size,sort};return [];
@@ -348,5 +374,46 @@ describe("Phase 7 commercial SaaS API", () => {
 
     expect(response.status).toBe(201);
     expect(repository.activated).toBe(true);
+  });
+});
+
+describe("Admin Phase 3 user directory and actions",()=>{
+  const id="11111111-1111-4111-8111-111111111111";
+  it("passes validated user filters to the repository",async()=>{
+    const {app,tokens,repository}=setup();
+    const signed=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const header={Authorization:"Bearer "+signed.token};
+    const ok=await request(app).get("/api/v1/admin/users/page")
+      .query({role:"REFEREE",status:"ACTIVE",city:"Kabul"}).set(header);
+    expect(ok.status).toBe(200);
+    expect(ok.body.total).toBe(1);
+    expect(repository.lastFilters).toMatchObject({role:"REFEREE",status:"ACTIVE",city:"Kabul"});
+    const bad=await request(app).get("/api/v1/admin/users/page").query({role:"INVALID"}).set(header);
+    expect(bad.status).toBe(400);
+  });
+  it("returns details only for authorized platform administrators",async()=>{
+    const {app,tokens}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const plain=await tokens.createAccessToken("plain",[]);
+    const details=await request(app).get("/api/v1/admin/users/"+id)
+      .set({Authorization:"Bearer "+admin.token});
+    expect(details.status).toBe(200);
+    expect(details.body.detail).toMatchObject({user:{id},conflicts:[],sessions:{active:1,total:1}});
+    const forbidden=await request(app).get("/api/v1/admin/users/"+id)
+      .set({Authorization:"Bearer "+plain.token});
+    expect(forbidden.status).toBe(403);
+  });
+  it("rejects missing reason and delegates private note/session actions",async()=>{
+    const {app,tokens,repository}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const header={Authorization:"Bearer "+admin.token};
+    expect((await request(app).post("/api/v1/admin/users/"+id+"/revoke-sessions")
+      .send({reason:"x"}).set(header)).status).toBe(400);
+    expect((await request(app).post("/api/v1/admin/users/"+id+"/revoke-sessions")
+      .send({reason:"security review"}).set(header)).status).toBe(200);
+    expect(repository.revokedSessions).toBe(true);
+    expect((await request(app).post("/api/v1/admin/users/"+id+"/notes")
+      .send({reason:"account review",note:"Contact by support"}).set(header)).status).toBe(201);
+    expect(repository.userNote).toBe("Contact by support");
   });
 });

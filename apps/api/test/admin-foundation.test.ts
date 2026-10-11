@@ -38,3 +38,18 @@ describe("Phase 1 administrator authorization",()=>{
     });
   });
 });
+
+describe("Phase 3 access revocation watermark",()=>{
+  it("rejects already-issued access tokens but permits nonrevoked accounts",async()=>{
+    const tokens=new TokenService("test-secret-that-is-longer-than-thirty-two-characters","test","test-mobile");
+    const issued=await tokens.createAccessToken("user-one",[]);
+    tokens.setSessionRevocationValidator(async()=>new Date(Date.now()+1000));
+    await expect(tokens.verifyAccessToken(issued.token)).rejects.toMatchObject({
+      code:"SESSION_REVOKED",
+    });
+    tokens.setSessionRevocationValidator(async()=>null);
+    await expect(tokens.verifyAccessToken(issued.token)).resolves.toMatchObject({
+      userId:"user-one",
+    });
+  });
+});
