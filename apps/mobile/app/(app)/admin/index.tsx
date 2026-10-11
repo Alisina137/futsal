@@ -38,7 +38,19 @@ export default function AdminScreen() {
   const desktop = width >= 980;
   const token = session?.accessToken;
   const isAdmin = session?.user.roles.includes("PLATFORM_ADMIN") ?? false;
-  const [section, setSection] = useState<SectionKey>("dashboard");
+  const [section,setSection]=useState<SectionKey>(()=>{
+    // Keep the selected workspace after a browser refresh, without persisting
+    // any credentials or account data.
+    try{
+      const saved=(globalThis as unknown as {sessionStorage?:{getItem:(key:string)=>string|null}})
+        .sessionStorage?.getItem("futsal.admin.section");
+      return adminNavItems.some(item=>item.key===saved)?saved as SectionKey:"dashboard";
+    }catch{return "dashboard";}
+  });
+  useEffect(()=>{
+    try{(globalThis as unknown as {sessionStorage?:{setItem:(k:string,v:string)=>void}})
+      .sessionStorage?.setItem("futsal.admin.section",section);}catch{/* restricted browser storage */}
+  },[section]);
 
   const [dashboard, setDashboard] = useState<AdminDashboardResponse | null>(null);
   const [users, setUsers] = useState<AdminUserDto[]>([]);
