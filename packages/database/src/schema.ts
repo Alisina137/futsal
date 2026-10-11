@@ -268,6 +268,7 @@ export const platformAnnouncementRecipients=pgTable("platform_announcement_recip
   index("platform_announcement_recipients_pending_idx").on(table.announcementId,table.deliveredAt),
 ]);
 
+export const auditLogs = pgTable(
   "audit_logs",
   {
     id: uuid("id").defaultRandom().primaryKey(),
