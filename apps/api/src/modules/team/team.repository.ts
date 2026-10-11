@@ -136,18 +136,21 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   async ensurePlayerProfile(userId: string, fallbackDisplayName: string, now: Date): Promise<OwnPlayerProfileDto> {
-    const [referee]=await this.db.select({id:venueReferees.venueId})
-      .from(venueReferees).where(eq(venueReferees.userId,userId)).limit(1);
-    if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
-      "Referees cannot activate a player profile. Remove their referee assignment first.");
-    await this.db.insert(playerProfiles).values({
-      userId,
-      publicDisplayName: fallbackDisplayName,
-      position: "UNSPECIFIED",
-      visibility: "PUBLIC",
-      createdAt: now,
-      updatedAt: now,
-    }).onConflictDoNothing();
+    await this.db.transaction(async tx=>{
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+      const [referee]=await tx.select({id:venueReferees.venueId})
+        .from(venueReferees).where(eq(venueReferees.userId,userId)).limit(1);
+      if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+        "Referees cannot activate a player profile. Remove their referee assignment first.");
+      await tx.insert(playerProfiles).values({
+        userId,
+        publicDisplayName: fallbackDisplayName,
+        position: "UNSPECIFIED",
+        visibility: "PUBLIC",
+        createdAt: now,
+        updatedAt: now,
+      }).onConflictDoNothing();
+    });
 
     const profile = await this.getOwnPlayerProfile(userId);
     if (!profile) throw new Error("Player profile could not be loaded.");
