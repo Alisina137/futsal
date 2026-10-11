@@ -181,7 +181,7 @@ export default function AccountProfileScreen(){
         keyboardType="phone-pad" autoComplete="tel" forceLtr
       />
       <Card style={{gap:spacing.sm}}>
-        <AppText weight="bold">{t("security.emailVerified")}</AppText>
+        <AppText weight="bold">{user?.emailVerified?t("security.emailVerified"):t("security.emailUnverified")}</AppText>
         <AppText forceLtr muted>{user?.email??t("security.emailUnverified")}</AppText>
         <Button variant="secondary" label={user?.emailVerified?t("security.emailChange"):t("security.emailAdd")}
           onPress={()=>router.push("/profile/email")}/>
