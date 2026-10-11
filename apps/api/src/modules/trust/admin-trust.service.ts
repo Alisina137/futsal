@@ -1,7 +1,7 @@
 import type {Database} from "@leaguekick/database";
 import {and,asc,desc,eq,isNull,lt,sql} from "drizzle-orm";
 import {
-  auditLogs,communityReports,notificationDeliveries,notifications,
+  auditLogs,communityReports,notificationDeliveries,notificationPreferences,notifications,
   platformAnnouncements,platformAnnouncementRecipients,
   socialPostComments,socialPosts,supportTicketEvents,supportTickets,
   userRoles,users,venuePosts,venuePromotions,venues,
@@ -70,10 +70,14 @@ export class AdminTrustService{
         if(!target||target.status!=="ACTIVE")
           throw errors.badRequest("USER_NOT_FOUND","Only active users can be warned.");
         // Account warnings are direct, deduplicated in-app notices, never role changes.
-        await tx.insert(notifications).values({
+        const [notice]=await tx.insert(notifications).values({
           userId:id,type:"ADMIN_ANNOUNCEMENT",title:"Account notice",body:reason,
           deepLink:"/support",dedupeKey:"admin-warning:"+actor+":"+id+":"+now.getTime(),
           data:{moderation:true,action:"WARN"},createdAt:now,
+        }).onConflictDoNothing().returning({id:notifications.id});
+        if(notice)await tx.insert(notificationDeliveries).values({
+          notificationId:notice.id,channel:"IN_APP",status:"SENT",
+          attempts:1,lastAttemptAt:now,
         }).onConflictDoNothing();
       }else if(kind==="POST"&&action==="HIDE"){
         const [post]=await tx.select().from(socialPosts)
@@ -197,7 +201,8 @@ export class AdminTrustService{
       if(!t||(!isAdmin&&t.requesterUserId!==actor))
         throw errors.badRequest("TICKET_NOT_FOUND","Support ticket not found.");
       if(t.status==="CLOSED")throw errors.conflict("TICKET_CLOSED","Closed tickets cannot be replied to.");
-      const next:TicketState=!isAdmin&&t.status==="WAITING_FOR_USER"?"IN_PROGRESS":t.status as TicketState;
+      const next:TicketState=!isAdmin&&["WAITING_FOR_USER","RESOLVED"].includes(t.status)
+        ?"IN_PROGRESS":t.status as TicketState;
       await tx.update(supportTickets).set({status:next,updatedAt:now}).where(eq(supportTickets.id,id));
       await tx.insert(supportTicketEvents).values({ticketId:id,actorUserId:actor,
         action:"REPLY",note,previousStatus:t.status,nextStatus:next,createdAt:now});
@@ -322,7 +327,9 @@ export class AdminTrustService{
             :sql`true`;
           await tx.execute(sql`INSERT INTO platform_announcement_recipients
             (announcement_id,user_id) SELECT ${a.id},u.id FROM users u
-            WHERE u.status='ACTIVE' AND ${audience}
+            LEFT JOIN notification_preferences np ON np.user_id=u.id
+            WHERE u.status='ACTIVE' AND (np.in_app_enabled IS NULL OR np.in_app_enabled=true)
+              AND ${audience}
             ON CONFLICT DO NOTHING`);
           await tx.update(platformAnnouncements).set({status:"SENDING",startedAt:now})
             .where(eq(platformAnnouncements.id,a.id));
