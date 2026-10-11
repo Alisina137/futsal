@@ -53,8 +53,8 @@ for(const marker of [
 ]){
  assert.ok(component.includes(marker),"My Reserves UX invariant missing: "+marker);
 }
-assert.ok(venue.includes('<ReservationsPanel items={bookings.filter(b=>b.venueId===venue.id)}'),
- "Venue-specific My Bookings must reuse the same dashboard without showing other venues.");
+assert.ok(venue.includes('bookingsActor===session.user.id?bookings.filter(b=>b.venueId===venue.id):[]'),
+ "Venue-specific My Bookings must reuse the same dashboard without showing other venues or sessions.");
 assert.ok(venue.includes('throw e;'),"Venue booking cancellation errors must propagate to confirmation dialog.");
 for(const key of ["subtitle","ALL","UPCOMING","PENDING","COMPLETED","CANCELLED",
  "emptyTitle","emptyBody","policy","cancelTitle","cancelWarning","confirmCancel",
