@@ -12,6 +12,7 @@ import type {
 import { useCallback, useEffect, useState } from "react";
 import { styles } from "../../../src/components/admin/AdminStyles";
 import { adminNavItems, type SectionKey } from "../../../src/components/admin/admin-navigation";
+import { AdminSidebar } from "../../../src/components/admin/AdminSidebar";
 import { DashboardSection } from "../../../src/components/admin/AdminDashboardSection";
 import { UsersSection, VenuesSection } from "../../../src/components/admin/AdminDirectorySections";
 import { SubscriptionsSection } from "../../../src/components/admin/AdminBillingSection";
@@ -157,6 +158,11 @@ export default function AdminScreen() {
     <View style={styles.workspace}>
       <View style={[styles.topbar, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={styles.topbarCopy}>
+          <View style={[styles.adminBreadcrumb,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <AppText variant="caption" muted>Futsal Admin</AppText>
+            <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={14} color={colors.textMuted}/>
+            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>{sectionTitle}</AppText>
+          </View>
           <AppText variant="title" weight="bold">{sectionTitle}</AppText>
           <AppText muted>{t("phase7.admin.subtitle")}</AppText>
         </View>
@@ -197,127 +203,5 @@ export default function AdminScreen() {
         </>}
       </ScrollView>
     </View>
-  </View>;
-}
-
-function AdminSidebar({
-  desktop, isRTL, section, onSelect, displayName, username, onSignOut, t,
-}: {
-  desktop: boolean;
-  isRTL: boolean;
-  section: SectionKey;
-  onSelect: (section: SectionKey) => void;
-  displayName: string;
-  username: string;
-  onSignOut: () => void;
-  t: (key: any, params?: Record<string, string | number>) => string;
-}) {
-  return <View style={[styles.sidebar, desktop ? styles.sidebarDesktop : styles.sidebarCompact]}>
-    <View style={[styles.brand, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-      <View style={styles.brandMark}><Ionicons name="football" size={24} color="#FFFFFF"/></View>
-      <View style={{ flex: 1 }}>
-        <AppText variant="bodyLarge" weight="bold" style={{ color: "#FFFFFF" }}>Futsal Admin</AppText>
-        <AppText variant="caption" style={{ color: "#AFC5E8" }}>{t("phase7.admin.subtitle")}</AppText>
-      </View>
-    </View>
-
-    <View style={[styles.nav, !desktop && styles.navCompact]}>
-      {adminNavItems.map((item) => {
-        const active = section === item.key;
-        return <Pressable
-          key={item.key}
-          accessibilityRole="button"
-          accessibilityState={{ selected: active }}
-          onPress={() => onSelect(item.key)}
-          style={({ pressed }) => [
-            styles.navItem,
-            !desktop && styles.navItemCompact,
-            { flexDirection: isRTL ? "row-reverse" : "row" },
-            active && styles.navItemActive,
-            pressed && styles.navItemPressed,
-          ]}
-        >
-          <Ionicons name={item.icon} size={20} color={active ? "#FFFFFF" : "#AFC5E8"}/>
-          <AppText weight={active ? "bold" : "medium"} style={{ color: active ? "#FFFFFF" : "#DCE8FA" }}>
-            {t(item.labelKey as never)}
-          </AppText>
-        </Pressable>;
-      })}
-    </View>
-
-    {desktop ? <View style={styles.sidebarFooter}>
-      <View style={styles.adminIdentity}>
-        <View style={styles.avatar}><Ionicons name="person" size={18} color={colors.primary}/></View>
-        <View style={{ flex: 1 }}>
-          <AppText weight="semibold" style={{ color: "#FFFFFF" }}>{displayName}</AppText>
-          {username ? <AppText variant="caption" style={{ color: "#AFC5E8" }} forceLtr>@{username}</AppText> : null}
-        </View>
-      </View>
-      <Pressable style={styles.sidebarSignOut} onPress={onSignOut}>
-        <Ionicons name="log-out-outline" size={19} color="#FCA5A5"/>
-        <AppText weight="semibold" style={{ color: "#FCA5A5" }}>{t("common.signOut")}</AppText>
-      </Pressable>
-    </View> : null}
-  </View>;
-}
-
-function AdminSidebar({
-  desktop, isRTL, section, onSelect, displayName, username, onSignOut, t,
-}: {
-  desktop: boolean;
-  isRTL: boolean;
-  section: SectionKey;
-  onSelect: (section: SectionKey) => void;
-  displayName: string;
-  username: string;
-  onSignOut: () => void;
-  t: (key: any, params?: Record<string, string | number>) => string;
-}) {
-  return <View style={[styles.sidebar, desktop ? styles.sidebarDesktop : styles.sidebarCompact]}>
-    <View style={[styles.brand, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-      <View style={styles.brandMark}><Ionicons name="football" size={24} color="#FFFFFF"/></View>
-      <View style={{ flex: 1 }}>
-        <AppText variant="bodyLarge" weight="bold" style={{ color: "#FFFFFF" }}>Futsal Admin</AppText>
-        <AppText variant="caption" style={{ color: "#AFC5E8" }}>{t("phase7.admin.subtitle")}</AppText>
-      </View>
-    </View>
-
-    <View style={[styles.nav, !desktop && styles.navCompact]}>
-      {adminNavItems.map((item) => {
-        const active = section === item.key;
-        return <Pressable
-          key={item.key}
-          accessibilityRole="button"
-          accessibilityState={{ selected: active }}
-          onPress={() => onSelect(item.key)}
-          style={({ pressed }) => [
-            styles.navItem,
-            !desktop && styles.navItemCompact,
-            { flexDirection: isRTL ? "row-reverse" : "row" },
-            active && styles.navItemActive,
-            pressed && styles.navItemPressed,
-          ]}
-        >
-          <Ionicons name={item.icon} size={20} color={active ? "#FFFFFF" : "#AFC5E8"}/>
-          <AppText weight={active ? "bold" : "medium"} style={{ color: active ? "#FFFFFF" : "#DCE8FA" }}>
-            {t(item.labelKey as never)}
-          </AppText>
-        </Pressable>;
-      })}
-    </View>
-
-    {desktop ? <View style={styles.sidebarFooter}>
-      <View style={styles.adminIdentity}>
-        <View style={styles.avatar}><Ionicons name="person" size={18} color={colors.primary}/></View>
-        <View style={{ flex: 1 }}>
-          <AppText weight="semibold" style={{ color: "#FFFFFF" }}>{displayName}</AppText>
-          {username ? <AppText variant="caption" style={{ color: "#AFC5E8" }} forceLtr>@{username}</AppText> : null}
-        </View>
-      </View>
-      <Pressable style={styles.sidebarSignOut} onPress={onSignOut}>
-        <Ionicons name="log-out-outline" size={19} color="#FCA5A5"/>
-        <AppText weight="semibold" style={{ color: "#FCA5A5" }}>{t("common.signOut")}</AppText>
-      </Pressable>
-    </View> : null}
   </View>;
 }
