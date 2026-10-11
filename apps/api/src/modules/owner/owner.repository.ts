@@ -361,9 +361,9 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
       // Prevent concurrent referee/other-role grants that follow this user lock.
       // Do not trust app-side role badges, which can be stale or derived.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
-      const [person]=await tx.select({id:users.id,status:users.status})
+      const [person]=await tx.select({id:users.id,status:users.status,emailVerifiedAt:users.emailVerifiedAt})
         .from(users).where(eq(users.id,input.userId)).limit(1);
-      if(person?.status!=="ACTIVE")return "INELIGIBLE";
+      if(person?.status!=="ACTIVE"||!person.emailVerifiedAt)return "INELIGIBLE";
 
       // Retrying the grant for this very venue is harmless/idempotent.
       const [existing]=await tx.select({venueId:venueReferees.venueId})
