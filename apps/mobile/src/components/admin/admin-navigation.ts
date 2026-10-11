@@ -1,6 +1,7 @@
 import type Ionicons from "@expo/vector-icons/Ionicons";
 export type SectionKey =
   | "dashboard"
+  | "analytics"
   | "users"
   | "venues"
   | "manualTeams"
@@ -14,6 +15,7 @@ type IconName = keyof typeof Ionicons.glyphMap;
 
 export const adminNavItems: Array<{ key: SectionKey; icon: IconName; labelKey: string }> = [
   { key: "dashboard", icon: "grid-outline", labelKey: "phase7.admin.dashboard" },
+  { key: "analytics", icon: "analytics-outline", labelKey: "admin2.analyticsTitle" },
   { key: "users", icon: "people-outline", labelKey: "phase7.admin.users" },
   { key: "venues", icon: "business-outline", labelKey: "phase7.admin.venues" },
   { key: "manualTeams", icon: "people-circle-outline", labelKey: "manualTeams.adminTitle" },
