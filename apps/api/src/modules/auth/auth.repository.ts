@@ -272,15 +272,16 @@ export class DrizzleAuthRepository implements AuthRepository {
     paymentReference: string | null;
     now: Date;
   }): Promise<AuthUserRecord> {
-    if(!input.paymentReference?.trim())throw errors.badRequest("PAYMENT_REFERENCE_REQUIRED",
-      "Enter a verified payment reference before activating a paid role.");
+    const paymentReference=input.paymentReference?.trim();
+    if(!paymentReference)throw errors.badRequest("PAYMENT_REFERENCE_REQUIRED",
+      "Enter a payment reference before activating a paid role.");
     await this.db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"billing:"+input.paymentReference}))`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"billing:"+paymentReference}))`);
       const [oldVenue]=await tx.select({id:subscriptionPayments.id}).from(subscriptionPayments)
-        .where(eq(subscriptionPayments.providerReference,input.paymentReference)).limit(1);
+        .where(eq(subscriptionPayments.providerReference,paymentReference)).limit(1);
       const [oldPaid]=await tx.select({id:paidEntitlementPayments.id}).from(paidEntitlementPayments)
-        .where(eq(paidEntitlementPayments.providerReference,input.paymentReference)).limit(1);
+        .where(eq(paidEntitlementPayments.providerReference,paymentReference)).limit(1);
       if(oldVenue||oldPaid)throw errors.conflict("PAYMENT_REFERENCE_EXISTS",
         "This payment reference was already recorded.");
       const [referee]=await tx.select({id:venueReferees.venueId})
@@ -307,7 +308,7 @@ export class DrizzleAuthRepository implements AuthRepository {
         activeUntil,
         activatedAt: input.now,
         activatedByUserId: input.actorUserId,
-        paymentReference: input.paymentReference,
+        paymentReference: paymentReference,
         updatedAt: input.now,
       }).onConflictDoUpdate({
         target: [roleSubscriptions.userId, roleSubscriptions.role],
@@ -317,7 +318,7 @@ export class DrizzleAuthRepository implements AuthRepository {
           activeUntil,
           activatedAt: input.now,
           activatedByUserId: input.actorUserId,
-          paymentReference: input.paymentReference,
+          paymentReference: paymentReference,
           updatedAt: input.now,
         },
       });
@@ -326,7 +327,7 @@ export class DrizzleAuthRepository implements AuthRepository {
         kind:"PAID_ROLE",targetId:input.userId,userId:input.userId,role:input.role,
         amountAfn:input.monthlyPriceAfn*input.months,months:input.months,
         periodStartsAt:base,periodEndsAt:activeUntil,provider:"MANUAL",
-        providerReference:input.paymentReference,recordedByUserId:input.actorUserId,createdAt:input.now,
+        providerReference:paymentReference,recordedByUserId:input.actorUserId,createdAt:input.now,
       });
       await tx.insert(userRoles).values({ userId: input.userId, role: input.role }).onConflictDoNothing();
 
