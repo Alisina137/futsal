@@ -149,10 +149,6 @@ export class DrizzleAdminOperationsRepository {
     })),total:totals[0]?.count??0},f);
   }
 
-  private async find(kind:AdminOperationKind,id:string):Promise<AdminOperationItem|null>{
-    void kind; void id;
-    return null;
-  }
 
   async detail(kind:AdminOperationKind,id:string):Promise<AdminOperationDetail|null>{
     const rows=await this.listDetailSeed(kind,id);
@@ -168,7 +164,7 @@ export class DrizzleAdminOperationsRepository {
         .leftJoin(venueSubscriptions,eq(venueSubscriptions.venueId,venues.id))
         .where(eq(venues.id,id)).limit(1);
       if(!v)return null;
-      const [courts,calendars,latestBookings,referees]=await Promise.all([
+      const [courts,calendars,periods,latestBookings,referees]=await Promise.all([
         this.db.select({name:venueAreas.name,active:venueAreas.active,base:venueAreas.basePriceAfn})
           .from(venueAreas).where(eq(venueAreas.venueId,id)).limit(12),
         this.db.select({id:venueTimetables.id,name:venueTimetables.name,
@@ -176,6 +172,13 @@ export class DrizzleAdminOperationsRepository {
           until:venueTimetables.effectiveUntil})
           .from(venueTimetables).where(eq(venueTimetables.venueId,id))
           .orderBy(desc(venueTimetables.createdAt)).limit(10),
+        this.db.select({id:venueTimetablePeriods.id,name:venueTimetables.name,
+          day:venueTimetablePeriods.dayOfWeek,start:venueTimetablePeriods.startsAt,
+          end:venueTimetablePeriods.endsAt,price:venueTimetablePeriods.priceAfn})
+          .from(venueTimetablePeriods)
+          .innerJoin(venueTimetables,eq(venueTimetablePeriods.timetableId,venueTimetables.id))
+          .where(and(eq(venueTimetables.venueId,id),eq(venueTimetables.status,"PUBLISHED")))
+          .orderBy(asc(venueTimetablePeriods.dayOfWeek),asc(venueTimetablePeriods.startsAt)).limit(70),
         this.db.select({id:bookings.id,startsAt:bookings.startsAt,status:bookings.status,
           source:bookings.source,price:bookings.priceAfn}).from(bookings)
           .where(eq(bookings.venueId,id)).orderBy(desc(bookings.startsAt)).limit(20),
@@ -199,6 +202,9 @@ export class DrizzleAdminOperationsRepository {
         groups:[
           {title:"Courts (one active court required)",rows:courts.map((c,i)=>record(String(i),c.name,"Base AFN "+c.base,c.active?"ACTIVE":"INACTIVE"))},
           {title:"Timetables",rows:calendars.map(t=>record(t.id,t.name,t.from+" – "+(t.until||"open"),t.status))},
+          {title:"Published weekly price slots (shown)",rows:periods.map(p=>
+            record(p.id,p.name+" · Day "+p.day,p.start.slice(0,5)+"–"+p.end.slice(0,5),
+              "AFN "+p.price))},
           {title:"Recent reservations",rows:latestBookings.map(b=>record(b.id,b.startsAt.toISOString(),"AFN "+b.price+" · "+b.source,b.status))},
           {title:"Assigned referees",rows:referees.map(r=>record(r.id,r.name,"",r.status))},
         ],warnings};
