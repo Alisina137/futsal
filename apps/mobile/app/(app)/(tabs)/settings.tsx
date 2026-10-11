@@ -67,6 +67,23 @@ export default function ProfileScreen(){
       <AppText muted>{t("profile.subtitle")}</AppText>
     </View>
 
+    {!user?.emailVerified?<Card style={[styles.sectionCard,{gap:spacing.sm,borderColor:colors.warning}]}>
+      <View style={[{alignItems:"center",gap:spacing.sm},direction]}>
+        <Ionicons name="shield-outline" size={26} color={colors.warning}/>
+        <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{t("security.emailTitle")}</AppText>
+      </View>
+      <AppText muted>{t("security.emailWarning")}</AppText>
+      <Button label={t("security.emailAdd")} onPress={()=>router.push("/profile/email")}
+        icon={<Ionicons name="mail-outline" size={19} color="#FFFFFF"/>}/>
+    </Card>:<Card style={[styles.sectionCard,{gap:spacing.xs}]}>
+      <AppText style={{color:colors.success}} weight="bold">
+        {t("security.emailVerified")}
+      </AppText>
+      <AppText forceLtr>{user.email}</AppText>
+      <Button variant="secondary" label={t("security.emailChange")}
+        onPress={()=>router.push("/profile/email")}/>
+    </Card>}
+
     <View style={styles.hero}>
       <View style={[styles.heroTop,direction]}>
         {user?.profileImageUrl
@@ -108,12 +125,12 @@ export default function ProfileScreen(){
 
     <SectionHeader icon="layers-outline" title={t("settings.roles")} subtitle={t("settings.rolesBody")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
-      <RoleSelector
+      {!user?.emailVerified?<AppText muted>{t("security.roleLocked")}</AppText>:<RoleSelector
         activeRoles={user?.roles??[]}
         rtl={isRTL}
         t={t}
         onSelect={selectRole}
-      />
+      />}
     </Card>
 
     <SectionHeader icon="grid-outline" title={t("rf1.dashboardMode")} subtitle={t("rf1.dashboardModeHint")} rtl={isRTL}/>
