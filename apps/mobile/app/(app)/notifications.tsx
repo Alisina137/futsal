@@ -27,6 +27,7 @@ const ICONS:Record<NotificationDto["type"],IconName>={
   SLOT_PROMOTION:"pricetag-outline",VENUE_POST:"megaphone-outline",
   TEAM_INVITATION:"people-outline",COMPETITION_UPDATE:"trophy-outline",
   TEAM_ACTIVITY:"calendar-outline",TEAM_CHALLENGE:"football-outline",TEAM_ANNOUNCEMENT:"megaphone-outline",
+  ADMIN_ANNOUNCEMENT:"shield-checkmark-outline",
 };
 function groupDay(value:string){
   const date=new Date(value);
@@ -42,6 +43,7 @@ function target(item:NotificationDto):()=>void{
   switch(item.type){
     case "BOOKING_CONFIRMED":case "BOOKING_CANCELLED":return ()=>router.push("/bookings");
     case "TEAM_INVITATION":return ()=>router.push("/teams/invitations");
+    case "ADMIN_ANNOUNCEMENT":return ()=>router.push("/support");
     case "TEAM_CHALLENGE":return ()=>router.push("/dashboard");
     case "TEAM_ANNOUNCEMENT":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/announcements",params:{teamId}});else router.push("/teams");};
     case "TEAM_ACTIVITY":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/activities",params:{teamId}});else router.push("/teams");};
