@@ -13,6 +13,8 @@ import {useLocale} from "../../providers/LocaleProvider";
 import {useNetwork} from "../../providers/NetworkProvider";
 import {NearbyVenuesMap} from "./NearbyVenuesMap";
 import {VenueSlotTimetable} from "./VenueSlotTimetable";
+import {SlotTileContent} from "../ui/SlotTileContent";
+import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -333,30 +335,27 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
       {!loading&&dateValid&&slots.length===0?<Empty icon="calendar-clear-outline"
         title={sub==="offers"?tr("noOffers"):tr("noSlots")}
         detail={sub==="offers"?tr("offersHint"):tr("tryOtherDate")}/>:null}
-      {!loading&&slots.map(slot=><Card key={slot.areaId+"-"+slot.startsAt}
-        style={[{gap:spacing.md},slot.promotionId===promotionId&&styles.highlight]}>
-        <View style={[styles.meta,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <View style={styles.slotIcon}><Ionicons name="time-outline" size={22} color={colors.primary}/></View>
-          <View style={{flex:1,gap:3}}>
-            <AppText weight="bold" forceLtr>
-              {timeLabel(slot.startsAt,venue.timezone)+" – "+timeLabel(slot.endsAt,venue.timezone)}
-            </AppText>
-            <AppText variant="caption" muted>{tr("availableNow")}</AppText>
-          </View>
-          <View style={{alignItems:"center",gap:2}}>
-            <AppText weight="bold" style={{color:colors.primary}}>{slot.priceAfn} AFN</AppText>
-            {slot.originalPriceAfn!==null?<AppText variant="caption" muted
-              style={{textDecorationLine:"line-through"}}>{slot.originalPriceAfn} AFN</AppText>:null}
-          </View>
-        </View>
-        {slot.promotionId&&slot.originalPriceAfn!==null&&slot.originalPriceAfn>slot.priceAfn?
-          <View style={styles.badge}><AppText variant="caption" weight="semibold"
-            style={{color:colors.primary}}>
-            {Math.round(100*(1-slot.priceAfn/slot.originalPriceAfn))+"% "+tr("off")}
-          </AppText></View>:null}
-        <Button label={fresh&&isOnline?t("booking.bookNow"):t("booking.liveRequired")}
-          disabled={!fresh||!isOnline} onPress={()=>openSlot(slot)}/>
-      </Card>)}
+      {!loading?<View style={styles.offerGrid}>
+        {slots.map(slot=><Pressable key={slot.areaId+"-"+slot.startsAt}
+          accessibilityRole="button"
+          accessibilityState={{disabled:!fresh||!isOnline}}
+          accessibilityLabel={formatSlotStartTime(slot.startsAt,venue.timezone)+
+            ", "+formatSlotTilePrice(slot.priceAfn)+
+            (slot.originalPriceAfn!==null&&slot.originalPriceAfn>slot.priceAfn?
+              ", "+Math.round(100*(1-slot.priceAfn/slot.originalPriceAfn))+"% "+tr("off"):"")}
+          disabled={!fresh||!isOnline}
+          onPress={()=>openSlot(slot)}
+          style={({pressed})=>[
+            styles.offerSlot,
+            !fresh||!isOnline?styles.offerDisabled:null,
+            slot.promotionId===promotionId?styles.highlight:null,
+            pressed&&styles.offerPressed,
+          ]}>
+          <SlotTileContent startsAt={slot.startsAt} timeZone={venue.timezone}
+            priceAfn={slot.priceAfn} ink="#7E22CE"
+            marker={<Ionicons name="pricetag-outline" size={15} color="#7E22CE"/>}/>
+        </Pressable>)}
+      </View>:null}
     </>}
   </>;
 }
@@ -505,6 +504,11 @@ const styles=StyleSheet.create({
   postPhoto:{width:"100%",height:230,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
   viewer:{flex:1,backgroundColor:"#061426",padding:spacing.lg,paddingTop:60},
   viewerImage:{width:"100%",flex:1},
+  offerGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xs},
+  offerSlot:{width:"48%",minHeight:54,backgroundColor:"#F3E8FF",borderColor:"#D8B4FE",
+    borderWidth:1,borderRadius:radius.md,paddingHorizontal:2,justifyContent:"center"},
+  offerDisabled:{opacity:.65},
+  offerPressed:{opacity:.75},
   slotIcon:{width:42,height:42,borderRadius:12,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
   highlight:{borderColor:colors.primary,borderWidth:2},
