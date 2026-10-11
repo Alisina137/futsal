@@ -69,9 +69,10 @@ export const users = pgTable(
     displayName: varchar("display_name", { length: 80 }).notNull(),
     username: varchar("username", { length: 30 }),
     usernameNormalized: varchar("username_normalized", { length: 30 }),
-    phoneE164: varchar("phone_e164", { length: 20 }).notNull(),
+    phoneE164: varchar("phone_e164", { length: 20 }),
     phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
     emailNormalized: varchar("email_normalized", { length: 320 }),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     profileImageUrl: text("profile_image_url"),
     age: integer("age"),
     city: varchar("city", { length: 80 }),
@@ -157,12 +158,31 @@ export const sessions = pgTable(
   ],
 );
 
+export const emailVerificationChallenges = pgTable(
+  "email_verification_challenges",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    emailNormalized: varchar("email_normalized", { length: 320 }).notNull(),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("email_verification_user_created_idx").on(table.userId, table.createdAt),
+    index("email_verification_expires_idx").on(table.expiresAt),
+  ],
+);
+
 export const passwordResetChallenges = pgTable(
   "password_reset_challenges",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-    phoneE164: varchar("phone_e164", { length: 20 }).notNull(),
+    phoneE164: varchar("phone_e164", { length: 20 }),
+    emailNormalized: varchar("email_normalized", { length: 320 }),
     codeHash: varchar("code_hash", { length: 64 }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     attempts: integer("attempts").notNull().default(0),
@@ -174,6 +194,7 @@ export const passwordResetChallenges = pgTable(
   },
   (table) => [
     index("password_reset_phone_created_idx").on(table.phoneE164, table.createdAt),
+    index("password_reset_email_created_idx").on(table.emailNormalized, table.createdAt),
     index("password_reset_expires_idx").on(table.expiresAt),
     index("password_reset_user_idx").on(table.userId),
   ],

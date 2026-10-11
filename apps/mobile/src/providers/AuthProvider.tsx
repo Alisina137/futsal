@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkAccount, session, status]);
 
   const signIn = useCallback(async (input: LoginRequest) => adopt(await authApi.login(input)), [adopt]);
-  const register = useCallback(async (input: RegisterRequest) => adopt(await authApi.register(input)), [adopt]);
+  const register = useCallback(async (input: RegisterRequest) => authApi.register(input), []);
 
   const updateProfile = useCallback(async (input: AccountProfileUpdateRequest) => {
     if (!session) throw new Error("Authentication is required.");

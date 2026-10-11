@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { useEffect, useState } from "react";
+import { router } from "expo-router";
 import { Image, Modal, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { VenueLocationWebMap } from "../../../src/components/owner/VenueLocationWebMap";
@@ -14,7 +15,7 @@ import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
-type Field="displayName"|"age"|"email"|"city"|"bio"|"defaultLocation";
+type Field="displayName"|"age"|"phone"|"city"|"bio"|"defaultLocation";
 type Point={latitude:number;longitude:number};
 const validPoint=(latitude:string,longitude:string):Point|null=>{
   if(!latitude.trim()||!longitude.trim())return null;
@@ -31,7 +32,7 @@ export default function AccountProfileScreen(){
 
   const [displayName,setDisplayName]=useState("");
   const [age,setAge]=useState("");
-  const [email,setEmail]=useState("");
+  const [phone,setPhone]=useState("");
   const [city,setCity]=useState("");
   const [bio,setBio]=useState("");
   const [defaultLatitude,setDefaultLatitude]=useState("");
@@ -49,7 +50,7 @@ export default function AccountProfileScreen(){
     if(!user) return;
     setDisplayName(user.displayName===user.username?"":user.displayName);
     setAge(user.age?String(user.age):"");
-    setEmail(user.email??"");
+    setPhone(user.phone??"");
     setCity(user.city??"");
     setBio(user.bio??"");
     setDefaultLatitude(user.defaultLatitude==null?"":String(user.defaultLatitude));
@@ -72,7 +73,7 @@ export default function AccountProfileScreen(){
   function validate(){
     const next:FieldErrors={};
     const name=displayName.trim();
-    const emailValue=email.trim();
+    const phoneValue=phone.trim();
     const cityValue=city.trim();
     const bioValue=bio.trim();
 
@@ -83,7 +84,7 @@ export default function AccountProfileScreen(){
       if(!Number.isInteger(numeric)||numeric<1||numeric>120) next.age=t("profile.ageInvalid");
     }
 
-    if(emailValue&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) next.email=t("profile.emailInvalid");
+    if(phoneValue&&!/^\+?[0-9\s()-]{9,20}$/.test(phoneValue)) next.phone=t("validation.phone");
     if(cityValue.length>80) next.city=t("profile.cityInvalid");
     if(bioValue.length>280) next.bio=t("profile.bioInvalid");
     if((defaultLatitude.trim()!=="")||(defaultLongitude.trim()!=="")){
@@ -105,7 +106,7 @@ export default function AccountProfileScreen(){
       await updateProfile({
         displayName:displayName.trim(),
         age:age.trim()?Number(age):null,
-        email:email.trim(),
+        phone:phone.trim(),
         city:city.trim(),
         bio:bio.trim(),
         defaultLatitude:defaultLatitude.trim()?Number(defaultLatitude):null,
@@ -113,8 +114,8 @@ export default function AccountProfileScreen(){
       });
       setMessage(t("profile.profileSaved"));
     }catch(cause){
-      if(cause instanceof ApiRequestError&&cause.code==="EMAIL_ALREADY_EXISTS"){
-        setFieldErrors({email:t("profile.emailTaken")});
+      if(cause instanceof ApiRequestError&&cause.code==="PHONE_ALREADY_EXISTS"){
+        setFieldErrors({phone:t("auth.phoneTaken")});
       }else{
         setFormError(t("auth.genericError"));
       }
@@ -174,18 +175,17 @@ export default function AccountProfileScreen(){
       />
 
       <TextField
-        label={t("profile.email")}
-        placeholder={t("profile.emailPlaceholder")}
-        hint={t("profile.optional")}
-        error={fieldErrors.email}
-        value={email}
-        onChangeText={(value)=>{setEmail(value);clearFieldError("email");}}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="email-address"
-        autoComplete="email"
-        forceLtr
+        label={t("auth.phone")} placeholder={t("auth.placeholderPhone")}
+        hint={t("profile.optional")} value={phone} error={fieldErrors.phone}
+        onChangeText={value=>{setPhone(value);clearFieldError("phone");}}
+        keyboardType="phone-pad" autoComplete="tel" forceLtr
       />
+      <Card style={{gap:spacing.sm}}>
+        <AppText weight="bold">{user?.emailVerified?t("security.emailVerified"):t("security.emailUnverified")}</AppText>
+        <AppText forceLtr muted>{user?.email??t("security.emailUnverified")}</AppText>
+        <Button variant="secondary" label={user?.emailVerified?t("security.emailChange"):t("security.emailAdd")}
+          onPress={()=>router.push("/profile/email")}/>
+      </Card>
 
       <TextField
         label={t("profile.city")}

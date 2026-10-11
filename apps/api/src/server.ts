@@ -37,28 +37,28 @@ const { db, pool } = createDatabase(env.DATABASE_URL);
 const authRepository = new DrizzleAuthRepository(db);
 const tokens = new TokenService(env.ACCESS_TOKEN_SECRET, env.ACCESS_TOKEN_ISSUER, env.ACCESS_TOKEN_AUDIENCE);
 
-async function deliverPasswordResetCode(phoneE164: string, code: string) {
-  if (!env.PASSWORD_RESET_SMS_WEBHOOK_URL) return;
-  const response = await fetch(env.PASSWORD_RESET_SMS_WEBHOOK_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(env.PASSWORD_RESET_SMS_WEBHOOK_TOKEN
-        ? { Authorization: `Bearer ${env.PASSWORD_RESET_SMS_WEBHOOK_TOKEN}` }
-        : {}),
+async function deliverEmailCode(email:string,code:string,purpose:"verify"|"reset") {
+  if(!env.EMAIL_AUTH_WEBHOOK_URL)throw new Error("Email delivery is not configured.");
+  const response=await fetch(env.EMAIL_AUTH_WEBHOOK_URL,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      ...(env.EMAIL_AUTH_WEBHOOK_TOKEN?{Authorization:`Bearer ${env.EMAIL_AUTH_WEBHOOK_TOKEN}`}:{}),
     },
-    body: JSON.stringify({
-      to: phoneE164,
-      message: `Futsal password reset code: ${code}. It expires in 10 minutes.`,
+    body:JSON.stringify({
+      to:email,
+      subject:purpose==="verify"?"Verify your Futsal email":"Reset your Futsal credentials",
+      message:`Your Futsal ${purpose==="verify"?"email verification":"password recovery"} code is ${code}. It expires in 10 minutes.`,
     }),
+    signal:AbortSignal.timeout(10_000),
   });
-  if (!response.ok) throw new Error("Password reset SMS delivery failed.");
+  if(!response.ok)throw new Error("Email delivery provider failed.");
 }
 
 const auth = new AuthService(authRepository, tokens, {
   passwordResetSecret: env.PASSWORD_RESET_SECRET,
   exposePasswordResetCode: env.NODE_ENV !== "production" && env.PASSWORD_RESET_DEV_MODE,
-  ...(env.PASSWORD_RESET_SMS_WEBHOOK_URL ? { deliverPasswordResetCode } : {}),
+  ...(env.EMAIL_AUTH_WEBHOOK_URL ? { deliverEmailCode } : {}),
 });
 tokens.setAccessValidator(async (userId) => (await authRepository.getUserById(userId))?.status ?? null);
 tokens.setSessionRevocationValidator((userId)=>authRepository.getSessionsRevokedAt(userId));

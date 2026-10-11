@@ -459,7 +459,7 @@ export class DrizzleCommercialRepository implements CommercialRepository {
       id: row.id,
       displayName: row.displayName,
       username: row.username,
-      phone: row.phoneE164,
+      phone: row.phoneE164??"",
       status: row.status,
       roles: await this.rolesFor(row.id),
       createdAt: row.createdAt.toISOString(),

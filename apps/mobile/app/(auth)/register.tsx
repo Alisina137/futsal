@@ -85,9 +85,7 @@ export default function RegisterScreen(){
       next.username=t("auth.usernameInvalid");
     }
 
-    if(!cleanPhone){
-      next.phone=t("auth.phoneRequired");
-    }else{
+    if(cleanPhone){
       try{
         normalizeAfghanistanPhone(cleanPhone);
       }catch{
@@ -134,7 +132,7 @@ export default function RegisterScreen(){
         confirmPassword,
         preferredLanguage:language,
       });
-      router.replace("/home");
+      router.replace("/login");
     }catch(cause){
       if(cause instanceof ApiRequestError&&cause.code==="USERNAME_ALREADY_EXISTS"){
         applyFieldErrors({username:t("auth.usernameTaken")});
@@ -190,7 +188,7 @@ export default function RegisterScreen(){
         ref={phoneRef}
         label={t("auth.phone")}
         placeholder={t("auth.placeholderPhone")}
-        hint={t("auth.phoneHint")}
+        hint={t("auth.phoneHint") + " (" + t("profile.optional") + ")"}
         error={fieldErrors.phone}
         value={phone}
         onChangeText={(value)=>{setPhone(value);clearFieldError("phone");}}

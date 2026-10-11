@@ -1,6 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
@@ -16,11 +15,11 @@ import { useLocale } from "../../src/providers/LocaleProvider";
 
 export default function ForgotPasswordScreen(){
   const {t,isRTL,language}=useLocale();
-  const phoneRef=useRef<TextInput>(null);
+  const identifierRef=useRef<TextInput>(null);
   const codeRef=useRef<TextInput>(null);
 
-  const [phone,setPhone]=useState("");
-  const [phoneError,setPhoneError]=useState<string|null>(null);
+  const [identifier,setIdentifier]=useState("");
+  const [identifierError,setIdentifierError]=useState<string|null>(null);
   const [requestId,setRequestId]=useState<string|null>(null);
   const [debugCode,setDebugCode]=useState<string|null>(null);
   const [code,setCode]=useState("");
@@ -42,33 +41,29 @@ export default function ForgotPasswordScreen(){
   }
 
   async function requestCode(){
-    const clean=phone.trim();
+    const clean=identifier.trim();
     if(!clean){
-      setPhoneError(t("auth.phoneRequired"));
-      requestAnimationFrame(()=>phoneRef.current?.focus());
+      setIdentifierError(t("auth.identifierInvalid"));
+      requestAnimationFrame(()=>identifierRef.current?.focus());
       return;
     }
-    try{
-      normalizeAfghanistanPhone(clean);
-    }catch{
-      setPhoneError(t("validation.phone"));
-      requestAnimationFrame(()=>phoneRef.current?.focus());
+    if(clean.length<3 || (clean.includes("@")&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean))){
+      setIdentifierError(t("auth.identifierInvalid"));
+      requestAnimationFrame(()=>identifierRef.current?.focus());
       return;
     }
 
     setBusy(true);
-    setPhoneError(null);
+    setIdentifierError(null);
     setFormError(null);
     try{
-      const result=await authApi.requestPasswordReset({phone:clean});
+      const result=await authApi.requestPasswordReset({identifier:clean});
       setRequestId(result.requestId);
       setDebugCode(result.debugCode??null);
       setCode("");
       requestAnimationFrame(()=>codeRef.current?.focus());
     }catch(cause){
-      if(cause instanceof ApiRequestError&&cause.code==="INVALID_PHONE"){
-        setPhoneError(t("validation.phone"));
-      }else if(cause instanceof ApiRequestError&&(
+      if(cause instanceof ApiRequestError&&(
         cause.code==="PASSWORD_RESET_DISABLED"||
         cause.code==="PASSWORD_RESET_DELIVERY_UNAVAILABLE"||
         cause.code==="PASSWORD_RESET_DELIVERY_FAILED"
@@ -127,14 +122,15 @@ export default function ForgotPasswordScreen(){
 
       {!requestId?<>
         <TextField
-          ref={phoneRef}
-          label={t("auth.phone")}
-          placeholder={t("auth.placeholderPhone")}
-          error={phoneError??undefined}
-          value={phone}
-          onChangeText={(value)=>{setPhone(value);setPhoneError(null);setFormError(null);}}
-          keyboardType="phone-pad"
-          autoComplete="tel"
+          ref={identifierRef}
+          label={t("auth.identifier")}
+          placeholder={t("auth.placeholderIdentifier")}
+          error={identifierError??undefined}
+          value={identifier}
+          onChangeText={(value)=>{setIdentifier(value);setIdentifierError(null);setFormError(null);}}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
           returnKeyType="done"
           onSubmitEditing={()=>void requestCode()}
           forceLtr
@@ -160,7 +156,7 @@ export default function ForgotPasswordScreen(){
           onChangeText={(value)=>{setCode(value.replace(/\D/g,"").slice(0,6));setCodeError(null);setFormError(null);}}
           keyboardType="number-pad"
           textContentType="oneTimeCode"
-          autoComplete="sms-otp"
+          autoComplete="one-time-code"
           maxLength={6}
           returnKeyType="done"
           onSubmitEditing={()=>void verifyCode()}
@@ -186,7 +182,7 @@ export default function ForgotPasswordScreen(){
           onPress={()=>{setRequestId(null);setDebugCode(null);setCode("");setCodeError(null);}}
           style={styles.secondaryLink}
         >
-          <AppText weight="semibold" style={{color:colors.primary}}>{t("auth.phone")}</AppText>
+          <AppText weight="semibold" style={{color:colors.primary}}>{t("auth.identifier")}</AppText>
         </Pressable>
       </>}
 

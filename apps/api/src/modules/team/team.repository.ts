@@ -142,6 +142,12 @@ export class DrizzleTeamRepository implements TeamRepository {
         .from(venueReferees).where(eq(venueReferees.userId,userId)).limit(1);
       if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
         "Referees cannot activate a player profile. Remove their referee assignment first.");
+      const [identity]=await tx.select({emailVerifiedAt:users.emailVerifiedAt}).from(users)
+        .where(eq(users.id,userId)).limit(1);
+      const [legacy]=await tx.select({id:playerProfiles.userId}).from(playerProfiles)
+        .where(eq(playerProfiles.userId,userId)).limit(1);
+      if(!identity?.emailVerifiedAt && !legacy)
+        throw errors.forbidden("EMAIL_VERIFICATION_REQUIRED","Verify your email before becoming a player.");
       await tx.insert(playerProfiles).values({
         userId,
         publicDisplayName: fallbackDisplayName,
@@ -485,6 +491,9 @@ export class DrizzleTeamRepository implements TeamRepository {
           .from(venueReferees).where(eq(venueReferees.userId,request.requesterUserId)).limit(1);
         if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
           "Referees cannot join teams as players. Remove their referee assignment first.");
+        const [candidate]=await tx.select({verified:users.emailVerifiedAt}).from(users)
+          .where(eq(users.id,request.requesterUserId)).limit(1);
+        if(!candidate?.verified)throw errors.forbidden("EMAIL_VERIFICATION_REQUIRED","Verify email before joining a team.");
         await tx.insert(teamMemberships).values({
           teamId,
           userId: request.requesterUserId,
@@ -591,6 +600,10 @@ export class DrizzleTeamRepository implements TeamRepository {
         eq(teamMemberships.status, "ACTIVE"),
       )).limit(1);
       if (!nextMembership) return false;
+      const [candidate] = await tx.select({emailVerifiedAt:users.emailVerifiedAt})
+        .from(users).where(eq(users.id,nextManagerUserId)).limit(1);
+      if(!candidate?.emailVerifiedAt)
+        throw errors.forbidden("EMAIL_VERIFICATION_REQUIRED","Verify an email before becoming a team manager.");
       // A transfer cannot turn an unpaid member into a manager of an extra team.
       // For now a target manager must have a paid role and no already-managed team.
       const [paid]=await tx.select({status:roleSubscriptions.status,activeUntil:roleSubscriptions.activeUntil})
@@ -825,6 +838,9 @@ export class DrizzleTeamRepository implements TeamRepository {
       if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
         "Referees cannot join teams as players. Remove their referee assignment first.");
 
+      const [candidate]=await tx.select({verified:users.emailVerifiedAt}).from(users)
+        .where(eq(users.id,invitedUserId)).limit(1);
+      if(!candidate?.verified)throw errors.forbidden("EMAIL_VERIFICATION_REQUIRED","Verify email before joining a team.");
       const [existing] = await tx.select().from(teamMemberships).where(and(
         eq(teamMemberships.teamId, invite.teamId),
         eq(teamMemberships.userId, invitedUserId),

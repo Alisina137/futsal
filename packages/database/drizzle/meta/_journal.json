@@ -260,6 +260,13 @@
       "when": 1791730500000,
       "tag": "0036_admin_trust_support",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791734100000,
+      "tag": "0037_verified_email_auth",
+      "breakpoints": true
     }
   ]
 }

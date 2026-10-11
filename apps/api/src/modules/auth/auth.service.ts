@@ -12,6 +12,9 @@ import type {
   AdminRoleSubscriptionActivationRequest,
   PaidRole,
   RegisterRequest,
+  EmailVerificationRequest,
+  EmailVerificationConfirm,
+  EmailVerificationRequestResponse,
   RoleSubscriptionOfferDto,
   RoleSubscriptionRequest,
 } from "@leaguekick/contracts";
@@ -28,7 +31,7 @@ type AuthServiceOptions = {
   passwordResetCodeTtlMs?: number;
   passwordResetTokenTtlMs?: number;
   passwordResetCooldownMs?: number;
-  deliverPasswordResetCode?: (phoneE164: string, code: string) => Promise<void>;
+  deliverEmailCode?: (email: string, code: string, purpose: "verify" | "reset") => Promise<void>;
   exposePasswordResetCode?: boolean;
 };
 
@@ -37,7 +40,7 @@ export class AuthService {
   private readonly resetCodeTtlMs: number;
   private readonly resetTokenTtlMs: number;
   private readonly resetCooldownMs: number;
-  private readonly deliverPasswordResetCode: ((phoneE164: string, code: string) => Promise<void>) | undefined;
+  private readonly deliverEmailCode: ((email: string, code: string, purpose: "verify" | "reset") => Promise<void>) | undefined;
   private readonly exposePasswordResetCode: boolean;
 
   constructor(
@@ -49,7 +52,7 @@ export class AuthService {
     this.resetCodeTtlMs = options.passwordResetCodeTtlMs ?? 10 * 60 * 1000;
     this.resetTokenTtlMs = options.passwordResetTokenTtlMs ?? 10 * 60 * 1000;
     this.resetCooldownMs = options.passwordResetCooldownMs ?? DEFAULT_CREDENTIAL_RESET_COOLDOWN_MS;
-    this.deliverPasswordResetCode = options.deliverPasswordResetCode;
+    this.deliverEmailCode = options.deliverEmailCode;
     this.exposePasswordResetCode = options.exposePasswordResetCode ?? false;
   }
 
@@ -67,6 +70,11 @@ export class AuthService {
   private ensureActive(user: AuthUserRecord) {
     if (user.status === "SUSPENDED") throw errors.forbidden("ACCOUNT_SUSPENDED", "This account is suspended.");
     if (user.status === "DELETED") throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+  }
+
+  private requireVerifiedEmail(user:AuthUserRecord) {
+    if(!user.emailNormalized||!user.emailVerifiedAt)
+      throw errors.forbidden("EMAIL_VERIFICATION_REQUIRED","Verify an email address in Profile before activating an app role.");
   }
 
   private ensurePasswordResetCooldown(user: AuthUserRecord) {
@@ -100,11 +108,10 @@ export class AuthService {
   }
 
   async register(input: RegisterRequest, deviceLabel?: string): Promise<AuthResponse> {
-    let phoneE164: string;
-    try {
-      phoneE164 = normalizeAfghanistanPhone(input.phone);
-    } catch {
-      throw errors.badRequest("INVALID_PHONE", "Enter a valid Afghanistan phone number.");
+    let phoneE164: string | null = null;
+    if(input.phone?.trim()) {
+      try { phoneE164 = normalizeAfghanistanPhone(input.phone); }
+      catch { throw errors.badRequest("INVALID_PHONE", "Enter a valid Afghanistan phone number."); }
     }
     const username = input.username.trim();
     const usernameNormalized = normalizeUsername(username);
@@ -139,6 +146,7 @@ export class AuthService {
     const user = await this.repository.getUserById(userId);
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
     this.ensureActive(user);
+    this.requireVerifiedEmail(user);
     return this.repository.requestRoleSubscription(
       userId,
       role,
@@ -165,6 +173,7 @@ export class AuthService {
     const target = await this.repository.getUserById(userId);
     if (!target) throw errors.badRequest("USER_NOT_FOUND", "User not found.");
     this.ensureActive(target);
+    this.requireVerifiedEmail(target);
 
     return toUserDto(await this.repository.activateRoleSubscription({
       actorUserId,
@@ -182,12 +191,19 @@ export class AuthService {
     if (!user) throw errors.unauthorized("ACCOUNT_UNAVAILABLE", "This account is unavailable.");
     this.ensureActive(user);
 
-    const emailNormalized = input.email?.trim().toLowerCase() || null;
+    let phoneE164 = user.phoneE164 || null;
+    if(input.phone !== undefined) {
+      phoneE164 = null;
+      if(input.phone.trim()) {
+        try { phoneE164 = normalizeAfghanistanPhone(input.phone); }
+        catch { throw errors.badRequest("INVALID_PHONE","Enter a valid Afghanistan phone number."); }
+      }
+    }
     return toUserDto(await this.repository.updateAccountProfile(userId, {
       displayName: input.displayName?.trim() || user.username || user.displayName,
       profileImageUrl: input.profileImageUrl===undefined?user.profileImageUrl:(input.profileImageUrl.trim() || null),
       age: input.age ?? null,
-      emailNormalized,
+      phoneE164,
       city: input.city?.trim() || null,
       bio: input.bio?.trim() || null,
       defaultLatitude:input.defaultLatitude===undefined?user.defaultLatitude:input.defaultLatitude,
@@ -226,37 +242,74 @@ export class AuthService {
     return image;
   }
 
+  async requestEmailVerification(userId:string,input:EmailVerificationRequest):Promise<EmailVerificationRequestResponse> {
+    if(!this.resetSecret)throw errors.forbidden("EMAIL_VERIFICATION_DISABLED","Email verification is not configured.");
+    const user=await this.repository.getUserById(userId);
+    if(!user)throw errors.unauthorized("ACCOUNT_UNAVAILABLE","This account is unavailable.");
+    this.ensureActive(user);
+    if(!(await argon2.verify(user.passwordHash,input.password)))
+      throw errors.unauthorized("INVALID_CREDENTIALS","The current password is incorrect.");
+    const emailNormalized=input.email.trim().toLowerCase();
+    if(user.emailVerifiedAt&&user.emailNormalized===emailNormalized)
+      throw errors.conflict("EMAIL_ALREADY_VERIFIED","This email is already verified for your account.");
+    const last=await this.repository.getLastEmailVerificationRequestAt(userId);
+    if(last&&Date.now()-last.getTime()<60_000)
+      throw errors.conflict("EMAIL_CODE_RATE_LIMIT","Wait at least 60 seconds before requesting a new code.");
+    if(!this.deliverEmailCode&&!this.exposePasswordResetCode)
+      throw errors.forbidden("EMAIL_DELIVERY_UNAVAILABLE","Email delivery is not configured.");
+    const code=String(randomInt(0,1_000_000)).padStart(6,"0");
+    const expiresAt=new Date(Date.now()+this.resetCodeTtlMs);
+    const challenge=await this.repository.createEmailVerificationChallenge({
+      userId,emailNormalized,codeHash:this.hashResetValue(code),expiresAt,
+    });
+    if(this.deliverEmailCode){
+      try { await this.deliverEmailCode(emailNormalized,code,"verify"); }
+      catch { throw errors.badRequest("EMAIL_DELIVERY_FAILED","Email verification could not be sent."); }
+    }
+    return {requestId:challenge.id,expiresAt:expiresAt.toISOString(),
+      ...(this.exposePasswordResetCode?{debugCode:code}:{})};
+  }
+
+  async confirmEmailVerification(userId:string,input:EmailVerificationConfirm) {
+    const challenge=await this.repository.getEmailVerificationChallenge(input.requestId);
+    const invalid=()=>errors.badRequest("INVALID_EMAIL_CODE","This verification code is invalid or expired.");
+    if(!challenge||challenge.userId!==userId||challenge.consumedAt||
+      challenge.expiresAt.getTime()<=Date.now()||challenge.attempts>=5)throw invalid();
+    if(!this.resetValueMatches(input.code,challenge.codeHash)){
+      await this.repository.incrementEmailVerificationAttempts(challenge.id);
+      throw invalid();
+    }
+    const user=await this.repository.getUserById(userId);
+    if(!user)throw errors.unauthorized("ACCOUNT_UNAVAILABLE","This account is unavailable.");
+    this.ensureActive(user);
+    const changed=Boolean(user.emailVerifiedAt&&user.emailNormalized!==challenge.emailNormalized);
+    const updated=await this.repository.completeEmailVerification({
+      id:challenge.id,userId,emailNormalized:challenge.emailNormalized,now:new Date(),
+    });
+    if(changed)await this.repository.revokeAllSessionsForUser(userId);
+    return {user:toUserDto(updated),reauthRequired:changed};
+  }
+
   async requestPasswordReset(input: PasswordResetRequest): Promise<PasswordResetRequestResponse> {
     if (!this.resetSecret) throw errors.forbidden("PASSWORD_RESET_DISABLED", "Password reset is not configured.");
 
-    let phoneE164: string;
-    try {
-      phoneE164 = normalizeAfghanistanPhone(input.phone);
-    } catch {
-      throw errors.badRequest("INVALID_PHONE", "Enter a valid Afghanistan phone number.");
-    }
-
-    const user = await this.repository.findUserByIdentifier(phoneE164);
-    const eligibleUser = user && user.status !== "DELETED" ? user : null;
-    const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-    const expiresAt = new Date(Date.now() + this.resetCodeTtlMs);
-    const challenge = await this.repository.createPasswordResetChallenge({
-      userId: eligibleUser?.id ?? null,
-      phoneE164,
-      codeHash: this.hashResetValue(code),
-      expiresAt,
+    const identifier=input.identifier.trim().toLowerCase();
+    const user=await this.repository.findUserByIdentifier(identifier);
+    const eligibleUser=user&&user.status!=="DELETED"&&user.emailNormalized&&user.emailVerifiedAt
+      ?user:null;
+    const code=String(randomInt(0,1_000_000)).padStart(6,"0");
+    const expiresAt=new Date(Date.now()+this.resetCodeTtlMs);
+    const challenge=await this.repository.createPasswordResetChallenge({
+      userId:eligibleUser?.id??null,
+      emailNormalized:eligibleUser?.emailNormalized??(identifier.includes("@")?identifier:""),
+      codeHash:this.hashResetValue(code),expiresAt,
     });
-
-    if (eligibleUser) {
-      if (!this.deliverPasswordResetCode && !this.exposePasswordResetCode) {
-        throw errors.forbidden("PASSWORD_RESET_DELIVERY_UNAVAILABLE", "Password reset delivery is not configured.");
-      }
-      if (this.deliverPasswordResetCode) {
-        try {
-          await this.deliverPasswordResetCode(phoneE164, code);
-        } catch {
-          throw errors.badRequest("PASSWORD_RESET_DELIVERY_FAILED", "The verification code could not be sent.");
-        }
+    if(eligibleUser){
+      if(!this.deliverEmailCode&&!this.exposePasswordResetCode)
+        throw errors.forbidden("PASSWORD_RESET_DELIVERY_UNAVAILABLE","Email delivery is not configured.");
+      if(this.deliverEmailCode){
+        try {await this.deliverEmailCode(eligibleUser.emailNormalized!,code,"reset");}
+        catch {throw errors.badRequest("PASSWORD_RESET_DELIVERY_FAILED","Recovery email could not be sent.");}
       }
     }
 
@@ -286,7 +339,7 @@ export class AuthService {
     }
 
     const user = await this.repository.getUserById(challenge.userId);
-    if (!user) throw invalid();
+    if (!user || !user.emailVerifiedAt || !user.emailNormalized || user.emailNormalized!==challenge.emailNormalized) throw invalid();
     this.ensureActive(user);
     this.ensurePasswordResetCooldown(user);
 
@@ -303,7 +356,7 @@ export class AuthService {
       resetToken,
       resetTokenExpiresAt: resetTokenExpiresAt.toISOString(),
       username: user.username ?? "",
-      phone: user.phoneE164,
+      email: user.emailNormalized,
     };
   }
 

@@ -339,7 +339,7 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
       username: users.username,
       phoneE164: users.phoneE164,
     }).from(users).where(and(eq(users.status, "ACTIVE"), condition)).limit(1);
-    return row ?? null;
+    return row ? {...row,phoneE164:row.phoneE164??""} : null;
   }
 
   async listVenueReferees(venueId: string) {
@@ -353,7 +353,7 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
     }).from(venueReferees)
       .innerJoin(users, eq(venueReferees.userId, users.id))
       .where(and(eq(venueReferees.venueId, venueId), eq(users.status, "ACTIVE")));
-    return rows.map((row) => ({ ...row, assignedAt: row.assignedAt.toISOString() }));
+    return rows.map((row) => ({ ...row, phone:row.phone??"", assignedAt: row.assignedAt.toISOString() }));
   }
 
   async grantVenueReferee(input: { venueId: string; userId: string; assignedByUserId: string; assignedAt: Date }): Promise<"GRANTED"|"ALREADY_ASSIGNED"|"INELIGIBLE"> {
@@ -361,9 +361,9 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
       // Prevent concurrent referee/other-role grants that follow this user lock.
       // Do not trust app-side role badges, which can be stale or derived.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
-      const [person]=await tx.select({id:users.id,status:users.status})
+      const [person]=await tx.select({id:users.id,status:users.status,emailVerifiedAt:users.emailVerifiedAt})
         .from(users).where(eq(users.id,input.userId)).limit(1);
-      if(person?.status!=="ACTIVE")return "INELIGIBLE";
+      if(person?.status!=="ACTIVE"||!person.emailVerifiedAt)return "INELIGIBLE";
 
       // Retrying the grant for this very venue is harmless/idempotent.
       const [existing]=await tx.select({venueId:venueReferees.venueId})

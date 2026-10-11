@@ -195,7 +195,7 @@ export default function ResetPasswordScreen(){
 
         <View style={styles.verifiedPhone}>
           <Ionicons name="checkmark-circle" size={21} color={colors.success}/>
-          <AppText forceLtr weight="semibold" style={{flex:1}}>{resetSession.phone}</AppText>
+          <AppText forceLtr weight="semibold" style={{flex:1}}>{resetSession.email}</AppText>
         </View>
 
         <TextField
@@ -290,7 +290,7 @@ export default function ResetPasswordScreen(){
           <View style={styles.summary}>
             <SummaryRow label={t("auth.confirmResetUsername")} value={username.trim()} isRTL={isRTL}/>
             <View style={styles.divider}/>
-            <SummaryRow label={t("auth.confirmResetPhone")} value={resetSession.phone} isRTL={isRTL} forceLtr/>
+            <SummaryRow label={t("auth.confirmResetEmail")} value={resetSession.email} isRTL={isRTL} forceLtr/>
             <View style={styles.divider}/>
             <View style={[styles.summaryRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <View style={{flex:1,gap:2}}>
