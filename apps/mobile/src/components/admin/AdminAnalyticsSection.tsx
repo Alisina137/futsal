@@ -51,6 +51,8 @@ export function AdminAnalyticsSection({data,days,onDays}:{
     {key:"newCompetitions",value:n(m.newCompetitions),sub:t("admin2.inPeriod" as never)},
     {key:"onlineShare",value:n(safeRatio(m.onlineConfirmedBookings,m.confirmedBookings))+"%",
       sub:n(m.onlineConfirmedBookings)+" / "+n(m.confirmedBookings)},
+    {key:"trialConversion",value:n(safeRatio(k.trialConvertedVenues,k.trialStartedVenues))+"%",
+      sub:n(k.trialConvertedVenues)+" / "+n(k.trialStartedVenues)},
     {key:"paidVenueShare",value:n(safeRatio(k.payingVenues,k.venues))+"%",
       sub:n(k.payingVenues)+" / "+n(k.venues)},
     {key:"activeExtraSlots",value:n(k.activeExtraTeamSlots),sub:t("admin2.currentTotal" as never)},
