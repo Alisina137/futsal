@@ -3,6 +3,7 @@ import type {ReactNode} from "react";
 import {StyleSheet,View,type LayoutChangeEvent} from "react-native";
 import {AppText} from "./AppText";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
+import {softenSlotColor} from "../../lib/slot-color";
 
 type Props={
   startsAt:string;
@@ -34,7 +35,7 @@ export function SlotTileContent({startsAt,timeZone,priceAfn,ink,marker}:Props){
       style={[styles.diagonal,{
         borderLeftWidth:frame.width,
         borderBottomWidth:frame.height,
-        borderBottomColor:ink,
+        borderBottomColor:softenSlotColor(ink),
       }]}/>:null}
     <View style={styles.header}>
       <AppText weight="bold" forceLtr numberOfLines={1}
@@ -46,9 +47,10 @@ export function SlotTileContent({startsAt,timeZone,priceAfn,ink,marker}:Props){
   </View>;
 }
 
+const radiusSlotInset=7;
 const styles=StyleSheet.create({
   tile:{width:"100%",minHeight:50,paddingHorizontal:4,paddingVertical:4,
-    justifyContent:"space-between",gap:3,overflow:"hidden"},
+    justifyContent:"space-between",gap:3,overflow:"hidden",borderRadius:radiusSlotInset},
   diagonal:{position:"absolute",top:0,left:0,width:0,height:0,
     borderLeftColor:"transparent",borderStyle:"solid"},
   header:{minHeight:17,alignSelf:"stretch",justifyContent:"flex-start",
