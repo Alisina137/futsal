@@ -13,6 +13,11 @@ import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
 import type { CommercialService } from "./commercial.service.js";
 
+const pageQuerySchema=z.object({
+  q:z.string().trim().max(100).optional(),
+  page:z.coerce.number().int().min(1).max(100000).default(1),
+  pageSize:z.coerce.number().int().min(10).max(100).default(25),
+});
 const reasonSchema = z.object({ reason: z.string().trim().min(3).max(500) });
 
 export function createOwnerCommercialRouter(service: CommercialService, tokens: TokenService) {
@@ -70,6 +75,13 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
     }
   });
 
+  router.get("/users/page",async(request,response,next)=>{
+    try{
+      const p=pageQuerySchema.parse(request.query);
+      response.json(await service.listUsersPage(p.q,p.page,p.pageSize));
+    }catch(error){next(error);}
+  });
+
   router.patch("/users/:userId/status", async (request, response, next) => {
     try {
       const input = adminUserStatusRequestSchema.parse(request.body);
@@ -87,6 +99,13 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
     } catch (error) {
       next(error);
     }
+  });
+
+  router.get("/venues/page",async(request,response,next)=>{
+    try{
+      const p=pageQuerySchema.parse(request.query);
+      response.json(await service.listVenuesPage(p.q,p.page,p.pageSize));
+    }catch(error){next(error);}
   });
 
   router.get("/venues/duplicates", async (_request, response, next) => {
