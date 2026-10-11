@@ -43,7 +43,8 @@ export type PaidRoleSubscriptionRecord = {
 export type PasswordResetChallengeRecord = {
   id: string;
   userId: string | null;
-  phoneE164: string;
+  phoneE164: string | null;
+  emailNormalized: string | null;
   codeHash: string;
   expiresAt: Date;
   attempts: number;
