@@ -31,7 +31,8 @@ for(const language of ["en","fa-AF","ps-AF"]){
 }
 for(const part of ['bookingApi.mine(session.accessToken)', 'item.playerUserId===session.user.id',
   'item.source==="ONLINE"','item.status!=="CANCELLED"','bookingApi.cancel(session.accessToken,own.id)',
-  'disabled={disabled} onPress={()=>tap(item,date)}','if(!bookable&&!mine)return',
+  'disabled={disabled||processing} onPress={press}', 'requestAnimationFrame(()=>onTap(item,date))',
+  'const Slot=memo(function Slot', 'slotsAtTime.get(date+"|"+time)','if(!bookable&&!mine)return',
   '<Modal transparent visible={!!selected}', 'setCancelConfirm(true)','cancelBusy',
   'venueWhatsAppUrl(venue,language,selected.slot,!!selectedOwn)',
   'selected.fresh&&connected','router.push({pathname:"/booking/confirm"',
