@@ -43,7 +43,7 @@ export function UsersSection({ users, query, setQuery, reason, setReason, loadin
         <AdminStatusBadge label={user.status} tone={user.status==="SUSPENDED"?"danger":"success"}/>
         <Button label={user.status === "SUSPENDED" ? t("phase7.admin.restore") : t("phase7.admin.suspend")} onPress={() => void action(
           () => adminApi.setUserStatus(token, user.id, { status: user.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED", reason }),
-          t("phase7.admin.updated"),
+          t("phase7.admin.updated"),true,user.displayName+" (@"+(user.username??user.id)+")",
         )} disabled={busy || reason.trim().length < 3} variant={user.status === "SUSPENDED" ? "secondary" : "danger"}/>
       </View>)}
       <AdminPagination page={page} total={total} pageSize={25} onPage={onPage} loading={loading}/>
@@ -78,9 +78,9 @@ export function VenuesSection({ venues, duplicates, query, setQuery, reason, set
             </View>
           </View>
           <View style={styles.rowActions}>
-            <Button label={t("phase7.admin.verify")} onPress={() => void action(() => adminApi.venueAction(token, venue.id, { action: "VERIFY", reason }), t("phase7.admin.updated"))} disabled={busy || reason.trim().length < 3} variant="secondary"/>
-            <Button label={t("phase7.admin.reject")} onPress={() => void action(() => adminApi.venueAction(token, venue.id, { action: "REJECT", reason }), t("phase7.admin.updated"))} disabled={busy || reason.trim().length < 3} variant="secondary"/>
-            <Button label={venue.status === "SUSPENDED" ? t("phase7.admin.restore") : t("phase7.admin.suspend")} onPress={() => void action(() => adminApi.venueAction(token, venue.id, { action: venue.status === "SUSPENDED" ? "RESTORE" : "SUSPEND", reason }), t("phase7.admin.updated"))} disabled={busy || reason.trim().length < 3} variant={venue.status === "SUSPENDED" ? "secondary" : "danger"}/>
+            <Button label={t("phase7.admin.verify")} onPress={() => void action(() => adminApi.venueAction(token, venue.id, { action: "VERIFY", reason }), t("phase7.admin.updated"),true,venue.name+" · "+venue.id)} disabled={busy || reason.trim().length < 3} variant="secondary"/>
+            <Button label={t("phase7.admin.reject")} onPress={() => void action(() => adminApi.venueAction(token, venue.id, { action: "REJECT", reason }), t("phase7.admin.updated"),true,venue.name+" · "+venue.id)} disabled={busy || reason.trim().length < 3} variant="secondary"/>
+            <Button label={venue.status === "SUSPENDED" ? t("phase7.admin.restore") : t("phase7.admin.suspend")} onPress={() => void action(() => adminApi.venueAction(token, venue.id, { action: venue.status === "SUSPENDED" ? "RESTORE" : "SUSPEND", reason }), t("phase7.admin.updated"),true,venue.name+" · "+venue.id)} disabled={busy || reason.trim().length < 3} variant={venue.status === "SUSPENDED" ? "secondary" : "danger"}/>
           </View>
         </View>
       </View>)}
