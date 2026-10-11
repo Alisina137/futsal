@@ -365,7 +365,7 @@ export type AdminRoleSubscriptionDto = z.infer<typeof adminRoleSubscriptionDtoSc
 
 export const adminRoleSubscriptionActivationRequestSchema = z.object({
   months: z.number().int().min(1).max(24).default(1),
-  paymentReference: z.string().trim().max(120).optional().or(z.literal("")),
+  paymentReference: z.string().trim().min(3).max(120),
 });
 export type AdminRoleSubscriptionActivationRequest = z.infer<typeof adminRoleSubscriptionActivationRequestSchema>;
 
@@ -524,7 +524,7 @@ export const adminSubscriptionActivationRequestSchema = z.object({
   months: z.number().int().min(1).max(24),
   amountAfn: z.number().int().min(0).max(100_000_000),
   provider: z.string().trim().min(1).max(40).default("MANUAL"),
-  providerReference: z.string().trim().max(120).optional().or(z.literal("")),
+  providerReference: z.string().trim().min(3).max(120),
   note: z.string().trim().max(500).optional().or(z.literal("")),
 });
 export type AdminSubscriptionActivationRequest = z.infer<typeof adminSubscriptionActivationRequestSchema>;

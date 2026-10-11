@@ -10,6 +10,7 @@ import {
   socialPostLikes,
   socialPosts,
   subscriptionPayments,
+  paidEntitlementPayments,
   userRoles,
   users,
   venueAreas,
@@ -634,6 +635,14 @@ export class DrizzleCommercialRepository implements CommercialRepository {
   }) {
     try {
       await this.db.transaction(async (tx) => {
+        if(input.providerReference){
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"billing:"+input.providerReference}))`);
+          const [oldPaid]=await tx.select({id:paidEntitlementPayments.id})
+            .from(paidEntitlementPayments)
+            .where(eq(paidEntitlementPayments.providerReference,input.providerReference)).limit(1);
+          if(oldPaid)throw errors.conflict("PAYMENT_REFERENCE_EXISTS",
+            "This payment reference was already recorded.");
+        }
         const [venue] = await tx.select().from(venues).where(eq(venues.id, input.venueId)).limit(1);
         if (!venue) throw errors.badRequest("VENUE_NOT_FOUND", "Venue not found.");
 
@@ -742,19 +751,22 @@ export class DrizzleCommercialRepository implements CommercialRepository {
   }
 
   async voidPayment(actorUserId: string, paymentId: string, reason: string, now: Date) {
-    const [updated] = await this.db.update(subscriptionPayments).set({
-      status: "VOIDED",
-      voidedAt: now,
-      voidedByUserId: actorUserId,
-    }).where(eq(subscriptionPayments.id, paymentId)).returning({ id: subscriptionPayments.id });
-    if (!updated) throw errors.badRequest("PAYMENT_NOT_FOUND", "Payment record not found.");
-    await this.db.insert(auditLogs).values({
-      actorUserId,
-      action: "PAYMENT_VOIDED",
-      targetType: "SUBSCRIPTION_PAYMENT",
-      targetId: paymentId,
-      metadata: { reason },
-      createdAt: now,
+    // Voiding corrects the financial ledger, never retroactively edits the
+    // historical entitlement or an existing confirmed reservation.
+    await this.db.transaction(async tx=>{
+      const [current]=await tx.select().from(subscriptionPayments)
+        .where(eq(subscriptionPayments.id,paymentId)).for("update").limit(1);
+      if(!current)throw errors.badRequest("PAYMENT_NOT_FOUND","Payment record not found.");
+      if(current.status!=="RECORDED")
+        throw errors.conflict("PAYMENT_ALREADY_VOIDED","Payment was already voided.");
+      await tx.update(subscriptionPayments).set({
+        status:"VOIDED",voidedAt:now,voidedByUserId:actorUserId,
+      }).where(eq(subscriptionPayments.id,paymentId));
+      await tx.insert(auditLogs).values({
+        actorUserId,action:"PAYMENT_VOIDED",targetType:"SUBSCRIPTION_PAYMENT",
+        targetId:paymentId,metadata:{reason,venueId:current.venueId,amountAfn:current.amountAfn},
+        createdAt:now,
+      });
     });
   }
 

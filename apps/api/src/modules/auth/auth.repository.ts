@@ -1,7 +1,7 @@
 import type { AdminRoleSubscriptionDto, PaidRole, RoleSubscriptionOfferDto, UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { accountProfileImages, auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueReferees, venueSubscriptions, venues } from "@leaguekick/database";
+import { accountProfileImages, auditLogs, paidEntitlementPayments, subscriptionPayments, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueReferees, venueSubscriptions, venues } from "@leaguekick/database";
 import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
@@ -272,8 +272,17 @@ export class DrizzleAuthRepository implements AuthRepository {
     paymentReference: string | null;
     now: Date;
   }): Promise<AuthUserRecord> {
+    if(!input.paymentReference?.trim())throw errors.badRequest("PAYMENT_REFERENCE_REQUIRED",
+      "Enter a verified payment reference before activating a paid role.");
     await this.db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"billing:"+input.paymentReference}))`);
+      const [oldVenue]=await tx.select({id:subscriptionPayments.id}).from(subscriptionPayments)
+        .where(eq(subscriptionPayments.providerReference,input.paymentReference)).limit(1);
+      const [oldPaid]=await tx.select({id:paidEntitlementPayments.id}).from(paidEntitlementPayments)
+        .where(eq(paidEntitlementPayments.providerReference,input.paymentReference)).limit(1);
+      if(oldVenue||oldPaid)throw errors.conflict("PAYMENT_REFERENCE_EXISTS",
+        "This payment reference was already recorded.");
       const [referee]=await tx.select({id:venueReferees.venueId})
         .from(venueReferees).where(eq(venueReferees.userId,input.userId)).limit(1);
       if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
@@ -313,6 +322,12 @@ export class DrizzleAuthRepository implements AuthRepository {
         },
       });
 
+      await tx.insert(paidEntitlementPayments).values({
+        kind:"PAID_ROLE",targetId:input.userId,userId:input.userId,role:input.role,
+        amountAfn:input.monthlyPriceAfn*input.months,months:input.months,
+        periodStartsAt:base,periodEndsAt:activeUntil,provider:"MANUAL",
+        providerReference:input.paymentReference,recordedByUserId:input.actorUserId,createdAt:input.now,
+      });
       await tx.insert(userRoles).values({ userId: input.userId, role: input.role }).onConflictDoNothing();
 
       if (input.role === "VENUE_OWNER") {

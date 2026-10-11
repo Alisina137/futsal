@@ -1,6 +1,6 @@
 import {and,asc,eq,isNull,or,sql} from "drizzle-orm";
 import type {Database} from "@leaguekick/database";
-import {roleSubscriptions,teamExtraSubscriptions,teams,users,auditLogs} from "@leaguekick/database";
+import {roleSubscriptions,teamExtraSubscriptions,teams,users,auditLogs,paidEntitlementPayments,subscriptionPayments} from "@leaguekick/database";
 import {errors} from "../../lib/errors.js";
 export const EXTRA_TEAM_PRICE_AFN=300;
 export const isPaid=(row:{status:string;activeUntil:Date|null}|undefined,now:Date)=>
@@ -103,7 +103,16 @@ export class TeamSlotsService{
       username:x.username,displayName:x.displayName}))};
   }
   async activate(adminUserId:string,slotId:string,months:number,paymentReference:string|null){
+    if(!paymentReference?.trim())throw errors.badRequest("PAYMENT_REFERENCE_REQUIRED",
+      "A verified payment reference is required.");
     return this.db.transaction(async tx=>{
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"billing:"+paymentReference}))`);
+      const [oldVenue]=await tx.select({id:subscriptionPayments.id}).from(subscriptionPayments)
+        .where(eq(subscriptionPayments.providerReference,paymentReference)).limit(1);
+      const [oldPaid]=await tx.select({id:paidEntitlementPayments.id}).from(paidEntitlementPayments)
+        .where(eq(paidEntitlementPayments.providerReference,paymentReference)).limit(1);
+      if(oldVenue||oldPaid)throw errors.conflict("PAYMENT_REFERENCE_EXISTS",
+        "This payment reference was already recorded.");
       const [actor]=await tx.select({id:users.id}).from(users).where(eq(users.id,adminUserId)).limit(1);
       if(!actor)throw errors.forbidden("ROLE_REQUIRED","Platform admin required.");
       const [slot]=await tx.select().from(teamExtraSubscriptions)
@@ -120,6 +129,12 @@ export class TeamSlotsService{
         activeUntil:until,activatedAt:now,activatedByUserId:adminUserId,
         paymentReference:paymentReference??slot.paymentReference,updatedAt:now})
         .where(eq(teamExtraSubscriptions.id,slot.id)).returning();
+      await tx.insert(paidEntitlementPayments).values({
+        kind:"EXTRA_TEAM",targetId:slot.id,userId:slot.userId,role:"TEAM_EXTRA",
+        amountAfn:slot.monthlyPriceAfn*months,months,
+        periodStartsAt:base,periodEndsAt:until,provider:"MANUAL",
+        providerReference:paymentReference,recordedByUserId:adminUserId,createdAt:now,
+      });
       await tx.insert(auditLogs).values({actorUserId:adminUserId,action:"TEAM_EXTRA_SUBSCRIPTION_ACTIVATED",
         targetType:"USER",targetId:slot.userId,
         metadata:{slotId:slot.id,teamId:slot.teamId,months,
