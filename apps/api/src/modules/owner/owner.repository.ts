@@ -339,7 +339,7 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
       username: users.username,
       phoneE164: users.phoneE164,
     }).from(users).where(and(eq(users.status, "ACTIVE"), condition)).limit(1);
-    return row ?? null;
+    return row ? {...row,phoneE164:row.phoneE164??""} : null;
   }
 
   async listVenueReferees(venueId: string) {
@@ -353,7 +353,7 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
     }).from(venueReferees)
       .innerJoin(users, eq(venueReferees.userId, users.id))
       .where(and(eq(venueReferees.venueId, venueId), eq(users.status, "ACTIVE")));
-    return rows.map((row) => ({ ...row, assignedAt: row.assignedAt.toISOString() }));
+    return rows.map((row) => ({ ...row, phone:row.phone??"", assignedAt: row.assignedAt.toISOString() }));
   }
 
   async grantVenueReferee(input: { venueId: string; userId: string; assignedByUserId: string; assignedAt: Date }): Promise<"GRANTED"|"ALREADY_ASSIGNED"|"INELIGIBLE"> {
