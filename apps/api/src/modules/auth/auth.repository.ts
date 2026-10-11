@@ -426,6 +426,68 @@ export class DrizzleAuthRepository implements AuthRepository {
     return row??null;
   }
 
+  async getLastEmailVerificationRequestAt(userId:string):Promise<Date|null> {
+    const [row]=await this.db.select({createdAt:emailVerificationChallenges.createdAt})
+      .from(emailVerificationChallenges).where(eq(emailVerificationChallenges.userId,userId))
+      .orderBy(desc(emailVerificationChallenges.createdAt)).limit(1);
+    return row?.createdAt??null;
+  }
+
+  async createEmailVerificationChallenge(input:{
+    userId:string;emailNormalized:string;codeHash:string;expiresAt:Date;
+  }):Promise<EmailVerificationChallengeRecord> {
+    const [row]=await this.db.insert(emailVerificationChallenges).values(input).returning();
+    if(!row)throw new Error("Email challenge creation failed.");
+    return row;
+  }
+
+  async getEmailVerificationChallenge(id:string):Promise<EmailVerificationChallengeRecord|null> {
+    const [row]=await this.db.select().from(emailVerificationChallenges)
+      .where(eq(emailVerificationChallenges.id,id)).limit(1);
+    return row??null;
+  }
+
+  async incrementEmailVerificationAttempts(id:string):Promise<void> {
+    await this.db.update(emailVerificationChallenges)
+      .set({attempts:sql`${emailVerificationChallenges.attempts} + 1`})
+      .where(and(eq(emailVerificationChallenges.id,id),isNull(emailVerificationChallenges.consumedAt)));
+  }
+
+  async completeEmailVerification(input:{
+    id:string;userId:string;emailNormalized:string;now:Date;
+  }):Promise<AuthUserRecord> {
+    try {
+      await this.db.transaction(async tx=>{
+        const [claimed]=await tx.update(emailVerificationChallenges)
+          .set({consumedAt:input.now})
+          .where(and(
+            eq(emailVerificationChallenges.id,input.id),
+            eq(emailVerificationChallenges.userId,input.userId),
+            eq(emailVerificationChallenges.emailNormalized,input.emailNormalized),
+            isNull(emailVerificationChallenges.consumedAt),
+            lt(emailVerificationChallenges.attempts,5),
+            sql`${emailVerificationChallenges.expiresAt} > ${input.now}`,
+          )).returning({id:emailVerificationChallenges.id});
+        if(!claimed)throw errors.badRequest("INVALID_EMAIL_CODE","This verification code is invalid or expired.");
+        const [updated]=await tx.update(users).set({
+          emailNormalized:input.emailNormalized,emailVerifiedAt:input.now,updatedAt:input.now,
+        }).where(and(eq(users.id,input.userId),eq(users.status,"ACTIVE")))
+          .returning({id:users.id});
+        if(!updated)throw errors.unauthorized("ACCOUNT_UNAVAILABLE","This account is unavailable.");
+        await tx.update(emailVerificationChallenges).set({consumedAt:input.now})
+          .where(and(eq(emailVerificationChallenges.userId,input.userId),isNull(emailVerificationChallenges.consumedAt)));
+      });
+    } catch(error) {
+      const constraint=uniqueConstraint(error);
+      if(constraint==="users_email_normalized_uq")
+        throw errors.conflict("EMAIL_ALREADY_EXISTS","That email address is already in use.");
+      throw error;
+    }
+    const user=await this.getUserById(input.userId);
+    if(!user)throw errors.unauthorized("ACCOUNT_UNAVAILABLE","This account is unavailable.");
+    return user;
+  }
+
   async createPasswordResetChallenge(input: {
     userId: string | null;
     emailNormalized: string;
