@@ -92,7 +92,8 @@
     "verify:admin-phase5": "node scripts/verify-admin-phase5.mjs",
     "verify:admin-phase6": "node scripts/verify-admin-phase6.mjs",
     "verify:admin-phase7": "node scripts/verify-admin-phase7.mjs",
-    "verify:referee-dashboard-only": "node scripts/verify-referee-dashboard-only.mjs"
+    "verify:referee-dashboard-only": "node scripts/verify-referee-dashboard-only.mjs",
+    "db:seed:test-accounts": "node apps/api/scripts/seed-test-accounts.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
