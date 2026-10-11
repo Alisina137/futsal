@@ -72,8 +72,8 @@ export default function AdminScreen() {
   const [page,setPage]=useState(1);
   const [sort,setSort]=useState<"newest"|"oldest">("newest");
   const [userTotal,setUserTotal]=useState(0);
-  const [statusFilter,setStatusFilter]=useState<AdminUserDirectoryFilter["status"]|"ALL">("ALL");
-  const [roleFilter,setRoleFilter]=useState<AdminUserDirectoryFilter["role"]|"ALL">("ALL");
+  const [statusFilter,setStatusFilter]=useState<NonNullable<AdminUserDirectoryFilter["status"]>|"ALL">("ALL");
+  const [roleFilter,setRoleFilter]=useState<NonNullable<AdminUserDirectoryFilter["role"]>|"ALL">("ALL");
   const [cityFilter,setCityFilter]=useState("");
   const [selectedUserId,setSelectedUserId]=useState<string|null>(null);
   const [venueTotal,setVenueTotal]=useState(0);

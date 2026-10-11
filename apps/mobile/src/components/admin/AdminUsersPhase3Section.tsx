@@ -13,8 +13,8 @@ import { AdminStatusBadge, AdminEmptyState } from "./AdminCommon";
 import { AdminPagination } from "./AdminPagination";
 import { styles } from "./AdminStyles";
 
-type StatusFilter=AdminUserDirectoryFilter["status"]|"ALL";
-type RoleFilter=AdminUserDirectoryFilter["role"]|"ALL";
+type StatusFilter=NonNullable<AdminUserDirectoryFilter["status"]>|"ALL";
+type RoleFilter=NonNullable<AdminUserDirectoryFilter["role"]>|"ALL";
 type Tab="Overview"|"Roles"|"Subscriptions"|"Teams"|"Reservations"|"Activity";
 const tabs:Tab[]=["Overview","Roles","Subscriptions","Teams","Reservations","Activity"];
 const statusChoices:StatusFilter[]=["ALL","ACTIVE","SUSPENDED","DELETED"];
