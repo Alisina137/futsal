@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {BookingDto,CompetitionListItemDto,PublicVenueDto,VenueAvailabilityResponse,VenuePostDto} from "@leaguekick/contracts";
 import {router} from "expo-router";
-import {useCallback,useEffect,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Image,Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {ApiRequestError,bookingApi,competitionApi,marketingApi,resolveMediaImageUrl,venueApi} from "../../lib/api";
 import {readAvailabilityCache,writeAvailabilityCache} from "../../lib/availability-cache";
@@ -14,6 +14,7 @@ import {useNetwork} from "../../providers/NetworkProvider";
 import {NearbyVenuesMap} from "./NearbyVenuesMap";
 import {VenueSlotTimetable} from "./VenueSlotTimetable";
 import {SlotTileContent} from "../ui/SlotTileContent";
+import {ReservationsPanel} from "../bookings/ReservationsPanel";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
@@ -214,7 +215,7 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
   const [loading,setLoading]=useState(false),[error,setError]=useState<string|null>(null);
   const [fresh,setFresh]=useState(false),[cachedAt,setCachedAt]=useState<string|null>(null);
   const [bookings,setBookings]=useState<BookingDto[]>([]),[bookingsLoading,setBookingsLoading]=useState(true);
-  const [bookingFilter,setBookingFilter]=useState<"UPCOMING"|"PENDING"|"COMPLETED"|"CANCELLED">("UPCOMING");
+  const bookingLoadSerial=useRef(0);
   const [reload,setReload]=useState(0);
   const today=todayAtKabul();
   const maximum=shiftVenueDate(today,venue.maximumAdvanceBookingDays);
@@ -248,20 +249,32 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
   // Avoid a second parallel request from the Offers view loader.
   useEffect(()=>{if(sub==="offers")void load();},[sub,date,reconnectVersion,reload,load]);
   const loadMine=useCallback(async()=>{
-    if(!session)return;
+    const serial=++bookingLoadSerial.current;
+    if(!session){setBookings([]);setBookingsLoading(false);return;}
     setBookingsLoading(true);setError(null);
     try{
       const result=await bookingApi.mine(session.accessToken);
-      setBookings(result.bookings.filter(x=>x.venueId===venue.id));
-    }catch(e){setError(messageForError(e,t("booking.loadBookingsError")));}
-    finally{setBookingsLoading(false);}
-  },[session?.accessToken,venue.id,t]);
+      if(serial===bookingLoadSerial.current)
+        setBookings(result.bookings.filter(x=>x.venueId===venue.id&&x.playerUserId===session.user.id));
+    }catch(e){
+      if(serial===bookingLoadSerial.current)
+        setError(messageForError(e,t("booking.loadBookingsError")));
+    }finally{
+      if(serial===bookingLoadSerial.current)setBookingsLoading(false);
+    }
+  },[session?.accessToken,session?.user.id,venue.id,t]);
   useEffect(()=>{if(sub==="bookings"&&session)void loadMine();},[sub,venue.id,reload,session?.accessToken,loadMine]);
   async function cancel(id:string){
-    if(!session||!isOnline)return;
+    if(!session||!isOnline)throw Error("Not connected");
     setError(null);
-    try{await bookingApi.cancel(session.accessToken,id);await loadMine();}
-    catch(e){setError(messageForError(e,t("booking.cancelError")));}
+    try{
+      const response=await bookingApi.cancel(session.accessToken,id);
+      setBookings(previous=>previous.map(x=>x.id===id?response.booking:x));
+      void loadMine();
+    }catch(e){
+      setError(messageForError(e,t("booking.cancelError")));
+      throw e;
+    }
   }
   function openSlot(slot:VenueAvailabilityResponse["slots"][number]){
     if(!fresh||!isOnline||availabilityDate!==date)return;
@@ -274,29 +287,11 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
   if(sub==="slots")return <VenueSlotTimetable venue={venue} startsAt={startsAt} promotionId={promotionId}/>;
   const usable=availabilityDate===date?availability?.slots??[]:[];
   const slots=sub==="offers"?usable.filter(slot=>slot.promotionId!==null):usable;
-  if(sub==="bookings")return <>
-    {!session?<Empty icon="person-outline" title={tr("signInBookings")}
-      detail={tr("signInBookingsHint")}/>:<>
-      <View style={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {(["UPCOMING","PENDING","COMPLETED","CANCELLED"] as const).map(x=>
-          <Pill key={x} selected={bookingFilter===x} label={tr("booking."+x)}
-            onPress={()=>setBookingFilter(x)}/>)}
-      </View>
-      <Button variant="secondary" label={t("common.retry")} onPress={()=>void loadMine()}/>
-      {bookingsLoading?<DataLoadingState variant="list" minHeight={200}/>:null}
-      {!bookingsLoading&&bookings.filter(b=>bookingStatus(b)===bookingFilter).length===0?
-        <Empty icon="receipt-outline" title={tr("noBookings")}/>:null}
-      {!bookingsLoading&&bookings.filter(b=>bookingStatus(b)===bookingFilter).map(b=>
-        <Card key={b.id} style={{gap:spacing.sm}}>
-          <AppText weight="bold">{formatCompetitionDateTime(b.startsAt,language)}</AppText>
-          <AppText variant="caption" muted>{venue.name} · {tr("booking."+bookingStatus(b))}</AppText>
-          <AppText weight="semibold" style={{color:colors.primary}}>{b.priceAfn} AFN</AppText>
-          {b.status!=="CANCELLED"&&Date.parse(b.startsAt)>Date.now()?
-            <Button variant="secondary" label={t("booking.cancel")} onPress={()=>void cancel(b.id)}/>:null}
-        </Card>)}
-    </>}
-    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-  </>;
+  if(sub==="bookings")return !session
+    ?<Empty icon="person-outline" title={tr("signInBookings")} detail={tr("signInBookingsHint")}/>
+    :<ReservationsPanel items={bookings.filter(b=>b.venueId===venue.id)}
+      loading={bookingsLoading} error={error}
+      onRefresh={()=>void loadMine()} onCancel={cancel} scopedVenueId={venue.id}/>;
   return <>
     {!venue.onlineBookingEnabled?<Empty icon="pause-circle-outline"
       title={tr("bookingPaused")} detail={tr("bookingPausedBody")}/>:<>
@@ -358,11 +353,6 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
       </View>:null}
     </>}
   </>;
-}
-function bookingStatus(booking:BookingDto):"UPCOMING"|"PENDING"|"COMPLETED"|"CANCELLED"{
-  if(booking.status==="CANCELLED")return "CANCELLED";
-  if(booking.status==="PENDING")return "PENDING";
-  return Date.parse(booking.endsAt)<Date.now()?"COMPLETED":"UPCOMING";
 }
 
 export function VenueCompetitionsContent({venue,sub}:{venue:PublicVenueDto;sub:VenueCompetitionSub}){
