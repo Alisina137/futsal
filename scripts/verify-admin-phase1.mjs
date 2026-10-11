@@ -33,7 +33,7 @@ assert.ok(side.includes("mobileOpen")&&side.includes("collapsed")&&
 assert.ok(styles.includes("maxWidth: 1500"),"Admin responsive workspace width must remain bounded.");
 for(const marker of [
   'adminApi.usersPage(token,query,page,25,controller.signal,sort,',
-  'adminApi.venuesPage(token,query,page,25,controller.signal,sort)',
+  'section==="venues"||section==="teams"||section==="competitions"',
   'const serial=++loadSequence.current',
   'abortController.current?.abort()',
   'if(serial===loadSequence.current)apply(data)',

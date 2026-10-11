@@ -134,12 +134,10 @@ export default function AdminScreen() {
       ()=>adminApi.usersPage(token,query,page,25,controller.signal,sort,{status:statusFilter==="ALL"?undefined:statusFilter,role:roleFilter==="ALL"?undefined:roleFilter,city:cityFilter||undefined}),data=>{
         setUsers(data.users);setUserTotal(data.total);
       });
-    else if(section==="venues")await Promise.all([
-      loadPart("venues",()=>adminApi.venuesPage(token,query,page,25,controller.signal,sort),data=>{
-        setVenues(data.venues);setVenueTotal(data.total);
-      }),
-      loadPart("duplicates",()=>adminApi.duplicateVenues(token),data=>setDuplicates(data.groups)),
-    ]);
+    else if(section==="venues"||section==="teams"||section==="competitions"||
+      section==="referees"||section==="reservations"||section==="cases"){
+      // Phase 4 child screens own cancellable, filter-scoped loads; do not double-fetch.
+    }
     else if(section==="subscriptions")await Promise.all([
       loadPart("subscriptions",()=>adminApi.roleSubscriptions(token),data=>setRoleSubscriptions(data.subscriptions)),
       loadPart("venues",()=>adminApi.venues(token),data=>setVenues(data.venues)),
@@ -197,7 +195,8 @@ export default function AdminScreen() {
       setPending(null);
       setMessage(pending.success);
       setOperationRefresh(current=>current+1);
-      if(pending.refresh)await load();
+      if(pending.refresh&&!["venues","teams","competitions","referees","reservations","cases"].includes(section))
+        await load();
     }catch(e){
       setConfirmError(e instanceof ApiRequestError?e.message:t("phase7.admin.actionError"));
     }finally{setBusy(false);}

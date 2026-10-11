@@ -5,6 +5,12 @@
 - Phase 3 implements server-side user filters, six-tab account details, role provenance/conflict review, audited private notes and session revocation, and atomic account suspensions. Do not auto-edit role conflicts. Run migration 0033 before starting the updated API.
 - Platform-admin role grant/revoke UI is postponed until a suitable MFA/step-up and dual-control policy exists; referee, player and paid management roles stay within their owner/team/subscription authority. Staging DB tests and manual browser QA remain deployment gates.
 
+## Admin Phase 4 (October 11, 2026)
+- Cross-platform operations console now has Venue, Team, Competition, Referee, Reservation directories, record details, filters, and role/scoped warning reviews.
+- Venue verification workflows remain reason-gated, confirmed, and newly **transactional with audit logs**; one venue owner = one venue and only one active court continues to be enforced by the database.
+- Investigation cases for Venue/Team/Competition/Referee/Reservation are stored in `admin_cases` (migration 0034) with OPEN → UNDER_REVIEW → RESOLVED transitions and immutable audit trails; business source records are never edited during investigation.
+- Existing manual-team claim/paid-subscription and venue-referee eligibility workflows remain authoritative. Staging visual QA and DB integration required before release.
+
 ## Product objective
 Increase futsal venue utilization and revenue through reliable availability and mobile booking, with integrated venue operations, competitions, and a futsal-specific public presence.
 

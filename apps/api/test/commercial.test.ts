@@ -18,6 +18,8 @@ class FakeCommercialRepository implements CommercialRepository {
   activated = false;
   userStatus: "ACTIVE" | "SUSPENDED" = "ACTIVE";
   lastFilters:Record<string,unknown>={};
+  lastOperations:{kind:string;filters:unknown}|null=null;
+  openedCase=false;caseUpdated=false;
   revokedSessions=false;
   userNote:string|null=null;
   lastPage:{target:"users"|"venues";query:string|undefined;page:number;size:number;sort:string}|null=null;
@@ -147,6 +149,39 @@ class FakeCommercialRepository implements CommercialRepository {
   async listUsersFiltered(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest",
     filters:import("@leaguekick/contracts").AdminUserDirectoryFilter){
     this.lastFilters=filters;return this.listUsers(query,page,pageSize,sort);
+  }
+  async operationsPage(kind:import("@leaguekick/contracts").AdminOperationKind,
+    filters:import("@leaguekick/contracts").AdminOperationFilters){
+    this.lastOperations={kind,filters};
+    return {items:[],total:0,page:filters.page,pageSize:filters.pageSize,hasMore:false};
+  }
+  async operationDetail(kind:import("@leaguekick/contracts").AdminOperationKind,id:string){
+    if(id!=="11111111-1111-4111-8111-111111111111")return null;
+    return {item:{id,kind,title:"Sample",subtitle:"Details",status:"ACTIVE",
+      secondaryStatus:null,ownerName:"Owner",venueName:null,location:null,startsAt:null,
+      createdAt:"2026-10-11T05:00:00.000Z",warningCount:0},facts:[],groups:[],warnings:[]};
+  }
+  async operationDuplicates(){return [];}
+  async adminCases(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED"|undefined;
+    targetType?:import("@leaguekick/contracts").AdminOperationKind|undefined;
+    page:number;pageSize:number}){
+    return {items:[],total:0,page:filters.page,pageSize:filters.pageSize,hasMore:false};
+  }
+  async targetAdminCases(){return [];}
+  async openAdminCase(_actor:string,kind:import("@leaguekick/contracts").AdminOperationKind,
+    id:string,reason:string,note:string,now:Date){
+    this.openedCase=true;
+    return {id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",targetType:kind,targetId:id,
+      state:"OPEN" as const,reason,note,openedByUserId:"44444444-4444-4444-8444-444444444444",
+      openedAt:now.toISOString(),updatedAt:now.toISOString(),closedAt:null};
+  }
+  async updateAdminCase(_actor:string,id:string,state:"OPEN"|"UNDER_REVIEW"|"RESOLVED",
+    reason:string,note:string,now:Date){
+    this.caseUpdated=true;
+    return {id,targetType:"RESERVATION" as const,
+      targetId:"11111111-1111-4111-8111-111111111111",state,reason,note,
+      openedByUserId:"44444444-4444-4444-8444-444444444444",
+      openedAt:now.toISOString(),updatedAt:now.toISOString(),closedAt:state==="RESOLVED"?now.toISOString():null};
   }
   async getUserDetail(userId:string){
     if(userId!=="11111111-1111-4111-8111-111111111111")return null;
@@ -415,5 +450,57 @@ describe("Admin Phase 3 user directory and actions",()=>{
     expect((await request(app).post("/api/v1/admin/users/"+id+"/notes")
       .send({reason:"account review",note:"Contact by support"}).set(header)).status).toBe(201);
     expect(repository.userNote).toBe("Contact by support");
+  });
+});
+
+describe("Admin Phase 4 operations / investigations",()=>{
+  const id="11111111-1111-4111-8111-111111111111";
+  it("requires admin auth for cross-platform operational reads and writes",async()=>{
+    const {app,tokens}=setup();
+    const normal=await tokens.createAccessToken("normal",[]);
+    const header={Authorization:"Bearer "+normal.token};
+    for(const url of ["/api/v1/admin/operations/RESERVATION",
+      "/api/v1/admin/operations/VENUE/"+id,
+      "/api/v1/admin/cases","/api/v1/admin/operations/venues/duplicates"]){
+      expect((await request(app).get(url).set(header)).status).toBe(403);
+    }
+    expect((await request(app).post("/api/v1/admin/cases").set(header)
+      .send({targetType:"VENUE",targetId:id,reason:"security review",note:"Look into this"})).status).toBe(403);
+  });
+
+  it("validates directory filters and pages, and returns entity details",async()=>{
+    const {app,tokens,repository}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const h={Authorization:"Bearer "+admin.token};
+    const ok=await request(app).get("/api/v1/admin/operations/COMPETITION")
+      .query({q:"League",status:"IN_PROGRESS",page:2,pageSize:25,from:"2026-10-01",to:"2026-10-11"}).set(h);
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({total:0,page:2,pageSize:25});
+    expect(repository.lastOperations).toMatchObject({kind:"COMPETITION",
+      filters:{q:"League",status:"IN_PROGRESS",page:2,from:"2026-10-01"}});
+    expect((await request(app).get("/api/v1/admin/operations/RESERVATION")
+      .query({from:"2026-10-12",to:"2026-10-11"}).set(h)).status).toBe(400);
+    expect((await request(app).get("/api/v1/admin/operations/REFEREE")
+      .query({status:"INVALID-STATUS"}).set(h)).status).toBe(400);
+    expect((await request(app).get("/api/v1/admin/operations/OTHER").set(h)).status).toBe(400);
+    expect((await request(app).get("/api/v1/admin/operations/TEAM/"+id).set(h)).body)
+      .toMatchObject({detail:{item:{kind:"TEAM",id},facts:[],groups:[]}});
+  });
+
+  it("uses separately audited cases, reason requirements, and immutable booking history",async()=>{
+    const {app,tokens,repository}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const h={Authorization:"Bearer "+admin.token};
+    const invalid=await request(app).post("/api/v1/admin/cases").set(h)
+      .send({targetType:"RESERVATION",targetId:id,reason:"x",note:"suspected booking overlap"});
+    expect(invalid.status).toBe(400);
+    const created=await request(app).post("/api/v1/admin/cases").set(h)
+      .send({targetType:"RESERVATION",targetId:id,reason:"duplicate check",note:"Review with venue"});
+    expect(created.status).toBe(201);expect(repository.openedCase).toBe(true);
+    const updated=await request(app).patch("/api/v1/admin/cases/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+      .set(h).send({state:"RESOLVED",reason:"checked against venue",note:"No duplicate found"});
+    expect(updated.status).toBe(200);expect(repository.caseUpdated).toBe(true);
+    expect((await request(app).patch("/api/v1/admin/cases/"+id).set(h)
+      .send({state:"UNKNOWN",reason:"test",note:"test"})).status).toBe(400);
   });
 });
