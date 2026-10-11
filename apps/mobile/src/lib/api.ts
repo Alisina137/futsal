@@ -911,12 +911,12 @@ export const adminApi = {
       { method: "POST", body: JSON.stringify(input) }, accessToken),
   dashboard: (accessToken: string) =>
     request<AdminDashboardResponse>("/api/v1/admin/dashboard", {}, accessToken),
-  usersPage:(accessToken:string,q="",page=1,pageSize=25,signal?:AbortSignal)=>
+  usersPage:(accessToken:string,q="",page=1,pageSize=25,signal?:AbortSignal,sort:"newest"|"oldest"="newest")=>
     request<{users:AdminUserDto[];total:number;page:number;pageSize:number;hasMore:boolean}>(
-      `/api/v1/admin/users/page?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`,signal?{signal}:{},accessToken),
-  venuesPage:(accessToken:string,q="",page=1,pageSize=25,signal?:AbortSignal)=>
+      `/api/v1/admin/users/page?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}&sort=${sort}`,signal?{signal}:{},accessToken),
+  venuesPage:(accessToken:string,q="",page=1,pageSize=25,signal?:AbortSignal,sort:"newest"|"oldest"="newest")=>
     request<{venues:AdminVenueDto[];total:number;page:number;pageSize:number;hasMore:boolean}>(
-      `/api/v1/admin/venues/page?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`,signal?{signal}:{},accessToken),
+      `/api/v1/admin/venues/page?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}&sort=${sort}`,signal?{signal}:{},accessToken),
   users: (accessToken: string, q = "") =>
     request<{ users: AdminUserDto[] }>(`/api/v1/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`, {}, accessToken),
   setUserStatus: (accessToken: string, userId: string, input: AdminUserStatusRequest) =>
