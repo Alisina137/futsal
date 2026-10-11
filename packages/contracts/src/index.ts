@@ -40,7 +40,7 @@ export const newPasswordSchema = passwordSchema
 
 export const registerRequestSchema = z.object({
   username: usernameSchema,
-  phone: phoneInputSchema,
+  phone: phoneInputSchema.optional().or(z.literal("")),
   password: newPasswordSchema,
   confirmPassword: newPasswordSchema,
   preferredLanguage: languageCodeSchema.default("fa-AF"),
@@ -73,7 +73,7 @@ export const accountProfileUpdateRequestSchema = z.object({
   displayName: z.string().trim().max(80).optional().or(z.literal("")),
   profileImageUrl: z.string().trim().url().refine((value) => value.startsWith("https://"), "Use an HTTPS image URL.").optional().or(z.literal("")),
   age: z.number().int().min(1).max(120).nullable().optional(),
-  email: z.string().trim().email().max(320).optional().or(z.literal("")),
+  phone: phoneInputSchema.optional().or(z.literal("")),
   city: z.string().trim().max(80).optional().or(z.literal("")),
   bio: z.string().trim().max(280).optional().or(z.literal("")),
   defaultLatitude:z.number().finite().min(-90).max(90).nullable().optional(),
@@ -94,7 +94,7 @@ export const loginRequestSchema = z.object({
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 
 export const passwordResetRequestSchema = z.object({
-  phone: phoneInputSchema,
+  identifier: z.string().trim().min(3).max(320),
 });
 export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;
 
@@ -132,8 +132,20 @@ export type PasswordResetVerifyResponse = {
   resetToken: string;
   resetTokenExpiresAt: string;
   username: string;
-  phone: string;
+  email: string;
 };
+
+export const emailVerificationRequestSchema = z.object({
+  email: z.string().trim().email().max(320),
+  password: passwordSchema,
+});
+export type EmailVerificationRequest = z.infer<typeof emailVerificationRequestSchema>;
+export const emailVerificationConfirmSchema = z.object({
+  requestId: z.string().uuid(),
+  code: z.string().regex(/^\d{6}$/),
+});
+export type EmailVerificationConfirm = z.infer<typeof emailVerificationConfirmSchema>;
+export type EmailVerificationRequestResponse = { requestId: string; expiresAt: string; debugCode?: string };
 
 export const refreshRequestSchema = z.object({ refreshToken: z.string().min(32) });
 export const logoutRequestSchema = refreshRequestSchema;
@@ -146,6 +158,7 @@ export const userDtoSchema = z.object({
   profileImageUrl: z.string().nullable(),
   age: z.number().int().min(1).max(120).nullable(),
   email: z.string().nullable(),
+  emailVerified: z.boolean(),
   city: z.string().nullable(),
   bio: z.string().nullable(),
   defaultLatitude:z.number().min(-90).max(90).nullable(),
