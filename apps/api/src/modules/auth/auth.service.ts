@@ -254,8 +254,7 @@ export class AuthService {
       throw errors.conflict("EMAIL_ALREADY_VERIFIED","This email is already verified for your account.");
     const last=await this.repository.getLastEmailVerificationRequestAt(userId);
     if(last&&Date.now()-last.getTime()<60_000)
-      throw errors.tooManyRequests?.("EMAIL_CODE_RATE_LIMIT","Wait before requesting another code.")
-        ?? errors.conflict("EMAIL_CODE_RATE_LIMIT","Wait at least 60 seconds before requesting a new code.");
+      throw errors.conflict("EMAIL_CODE_RATE_LIMIT","Wait at least 60 seconds before requesting a new code.");
     if(!this.deliverEmailCode&&!this.exposePasswordResetCode)
       throw errors.forbidden("EMAIL_DELIVERY_UNAVAILABLE","Email delivery is not configured.");
     const code=String(randomInt(0,1_000_000)).padStart(6,"0");
