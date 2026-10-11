@@ -16,7 +16,7 @@ const routes = read("apps/api/src/modules/marketing/marketing.routes.ts");
 const home = read("apps/mobile/app/(app)/(tabs)/home.tsx");
 const teamsDirectory = read("apps/mobile/app/(app)/teams/index.tsx");
 const teamExperience = read("apps/mobile/src/components/social/TeamDirectoryExperience.tsx");
-const team = read("apps/mobile/app/(app)/teams/[teamId].tsx");
+const team = read("apps/mobile/src/components/social/TeamDetailExperience.tsx");
 const commentsPage = read("apps/mobile/app/(app)/posts/[postId]/comments.tsx");
 const competition = read("apps/mobile/app/(app)/competitions/[competitionId].tsx");
 const header = read("apps/mobile/src/components/ui/AppHeader.tsx");
@@ -43,7 +43,7 @@ assert(teamsDirectory.includes('TeamDirectoryExperience mode="directory"')
 assert(teamExperience.includes("teamApi.requestJoin")&&teamExperience.includes('t("teams.viewTeam")'),
   "Teams directory must support join requests and opening team profiles.");
 assert(team.includes('"TEAM"') && team.includes("socialFollowState"), "Team follow control missing");
-assert(team.includes("teamApi.requestJoin") && team.includes("joinRequestStatus"), "Team profile must expose join-request state");
+assert(team.includes("teamApi.requestJoin") && team.includes("joinStatus"), "Team profile must expose join-request state");
 assert(competition.includes('"COMPETITION"') && competition.includes("socialFollowState"), "Competition follow control missing");
 assert(!header.includes('href:"/feed"'), "Feed must not be a separate hamburger option");
 const v=header.indexOf('href:"/venues"');
