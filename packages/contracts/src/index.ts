@@ -614,6 +614,61 @@ export const adminDashboardResponseSchema = z.object({
 });
 export type AdminDashboardResponse = z.infer<typeof adminDashboardResponseSchema>;
 
+/** Analytics money definitions:
+ * recordedVenuePaymentsAfn: non-voided venue subscription ledger entries only;
+ * bookingGmvAfn: CONFIRMED booking face value, NOT collected revenue.
+ * Paid role and extra-team activation records have no financial ledger yet. */
+export const adminAnalyticsDaysSchema = z.coerce.number().int().refine(
+  value => [7,30,90,365].includes(value),"Days must be 7, 30, 90 or 365",
+);
+export type AdminAnalyticsDays = 7|30|90|365;
+export const adminAnalyticsResponseSchema = z.object({
+  generatedAt:isoDateTimeSchema,
+  period:z.object({from:z.string(),to:z.string(),days:z.number().int(),timezone:z.literal("Asia/Kabul")}),
+  totals:z.object({
+    users:z.number().int().min(0),
+    activeAccounts:z.number().int().min(0),
+    venues:z.number().int().min(0),
+    activeVenues:z.number().int().min(0),
+    verifiedVenues:z.number().int().min(0),
+    payingVenues:z.number().int().min(0),
+    payingTeamManagers:z.number().int().min(0),
+    activeExtraTeamSlots:z.number().int().min(0),
+    teams:z.number().int().min(0),
+    activeCompetitions:z.number().int().min(0),
+  }),
+  metrics:z.object({
+    newUsers:z.number().int().min(0),
+    newVenues:z.number().int().min(0),
+    newTeams:z.number().int().min(0),
+    newCompetitions:z.number().int().min(0),
+    confirmedBookings:z.number().int().min(0),
+    onlineConfirmedBookings:z.number().int().min(0),
+    bookingGmvAfn:z.number().min(0),
+    recordedVenuePaymentsAfn:z.number().min(0),
+    recordedVenuePaymentsCount:z.number().int().min(0),
+  }),
+  daily:z.array(z.object({
+    date:z.string(),newUsers:z.number().int(),newVenues:z.number().int(),
+    newTeams:z.number().int(),newCompetitions:z.number().int(),
+    confirmedBookings:z.number().int(),
+    bookingGmvAfn:z.number(),recordedVenuePaymentsAfn:z.number(),
+  })),
+  roleGrants:z.array(z.object({role:userRoleSchema,count:z.number().int().min(0)})),
+  topProvinces:z.array(z.object({province:z.string(),venues:z.number().int().min(0)})),
+  attention:z.object({
+    pendingVenueVerifications:z.number().int().min(0),
+    pendingRoleSubscriptions:z.number().int().min(0),
+    pendingExtraTeamSlots:z.number().int().min(0),
+    pendingBookings:z.number().int().min(0),
+    expiringPaidVenues7d:z.number().int().min(0),
+  }),
+  revenueScope:z.literal("RECORDED_VENUE_PAYMENTS_ONLY"),
+  gmvScope:z.literal("CONFIRMED_BOOKING_VALUE_NOT_CASH"),
+});
+export type AdminAnalyticsResponse=z.infer<typeof adminAnalyticsResponseSchema>;
+
+
 export const bookingModeSchema = z.enum(["INSTANT", "APPROVAL"]);
 export type BookingMode = z.infer<typeof bookingModeSchema>;
 
