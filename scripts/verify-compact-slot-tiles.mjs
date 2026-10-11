@@ -1,0 +1,54 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import {formatSlotStartTime,formatSlotTilePrice} from "../apps/mobile/src/lib/slot-display.ts";
+
+const read=path=>fs.readFileSync(new URL("../"+path,import.meta.url),"utf8");
+const tile=read("apps/mobile/src/components/ui/SlotTileContent.tsx");
+const publicGrid=read("apps/mobile/src/components/venues/VenueSlotTimetable.tsx");
+const ownerGrid=read("apps/mobile/app/(app)/owner/schedule.tsx");
+const offerGrid=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
+const ownerCheck=read("scripts/verify-venue-timetable.mjs");
+const publicCheck=read("scripts/verify-venue-slot-grid.mjs");
+
+// Explicit examples: Kabul local 06:00, 13:30 and noon, independent of
+// the device's time zone or whether the user selected RTL language.
+assert.equal(formatSlotStartTime("2026-10-12T01:30:00.000Z","Asia/Kabul"),"6:00 AM");
+assert.equal(formatSlotStartTime("2026-10-12T09:00:00.000Z","Asia/Kabul"),"1:30 PM");
+assert.equal(formatSlotStartTime("2026-10-12T07:30:00.000Z","Asia/Kabul"),"12:00 PM");
+assert.equal(formatSlotStartTime("2026-10-11T19:30:00.000Z","Asia/Kabul"),"12:00 AM");
+assert.equal(formatSlotStartTime("2026-10-12T01:30:00.000Z","UTC"),"1:30 AM");
+assert.equal(formatSlotStartTime("not-a-date","Asia/Kabul"),"—");
+assert.equal(formatSlotTilePrice(500),"500 AF");
+assert.equal(formatSlotTilePrice(0),"0 AF");
+assert.equal(formatSlotTilePrice(null),"—");
+assert.equal(formatSlotTilePrice(undefined),"—");
+
+// The tile is pure display: owners keep their management actions and
+// customers keep existing ownership, offline and reservation protections.
+for(const fragment of [
+ 'formatSlotStartTime(startsAt,timeZone)',
+ 'formatSlotTilePrice(priceAfn)',
+ 'styles.header','styles.rule','styles.price','styles.marker',
+ 'textAlign:"left"','textAlign:"right"',
+ 'alignSelf:"flex-start"','alignSelf:"flex-end"',
+ 'backgroundColor:ink',
+ 'position:"absolute",top:3,right:2',
+ 'forceLtr','numberOfLines={1}',
+]){
+  assert.ok(tile.includes(fragment),"Missing shared slot face invariant: "+fragment);
+}
+assert.equal(publicGrid.split("<SlotTileContent").length-1,1,
+  "The same compact face must render both public Day and Week via Slot().");
+assert.equal(ownerGrid.split("<SlotTileContent").length-1,2,
+  "Owner Week and Day must use the same compact slot face.");
+assert.equal(offerGrid.split("<SlotTileContent").length-1,1,
+  "Promotion time slots must use the same compact slot face.");
+assert.ok(publicGrid.includes('disabled={disabled} onPress={()=>tap(item,date)}'));
+assert.ok(publicGrid.includes('setSelected({date,slot'));
+assert.ok(publicGrid.includes('statusColors'));
+assert.ok(ownerGrid.includes("onSelectSlot(event,day.date)"));
+assert.ok(ownerGrid.includes("SlotCornerMarker"));
+assert.ok(ownerGrid.includes("slotPalette[event.type]"));
+assert.ok(ownerCheck.includes("weekSlotGrid")&&publicCheck.includes("statusColors"));
+assert.ok(!tile.includes("AFN"),"Compact tiles show AF; full booking details retain AFN.");
+console.log("Compact slot tiles verified: 6:00 AM / 1:30 PM / noon, 500 AF, physical corner anchors, divider, owner/customer/offers reuse, and booking guards.");
