@@ -636,13 +636,19 @@ export const adminDeliveryRetrySchema=z.object({
 }).strict();
 export type AdminPhase6Page=z.infer<typeof adminPhase6PageSchema>;
 
+// Versioned administrative changes require a human-readable reason and
+// the timestamp of the settings snapshot the administrator reviewed.
 export const platformSettingsUpdateRequestSchema = z.object({
   monthlyPriceAfn: z.number().int().min(0).max(100_000_000),
   annualPriceAfn: z.number().int().min(0).max(1_000_000_000),
   trialDurationHours: z.number().int().min(1).max(720),
-  featureFlags: z.record(z.string(), z.boolean()).default({}),
-  notificationTemplates: z.record(z.string(), z.string()).default({}),
-});
+  featureFlags: z.record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9_.-]{0,59}$/), z.boolean())
+    .refine(x=>Object.keys(x).length<=30,{message:"Too many feature flags"}),
+  notificationTemplates: z.record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9_.-]{0,59}$/),
+    z.string().trim().max(500)).refine(x=>Object.keys(x).length<=20,{message:"Too many templates"}),
+  reason: z.string().trim().min(10).max(500),
+  expectedUpdatedAt: isoDateTimeSchema,
+}).strict();
 export type PlatformSettingsUpdateRequest = z.infer<typeof platformSettingsUpdateRequestSchema>;
 
 export const adminSupportNoteRequestSchema = z.object({
@@ -787,6 +793,41 @@ export const adminVenueDtoSchema = z.object({
   createdAt: isoDateTimeSchema,
 });
 export type AdminVenueDto = z.infer<typeof adminVenueDtoSchema>;
+
+// Admin Phase 7: bounded governance, privacy-safe CSV and operations checks.
+export const adminAuditFilterSchema=z.object({
+  page:z.coerce.number().int().min(1).max(100000).default(1),
+  pageSize:z.coerce.number().int().min(10).max(100).default(25),
+  action:z.string().trim().max(100).optional(),
+  targetType:z.string().trim().max(80).optional(),
+  actorId:z.string().uuid().optional(),
+  q:z.string().trim().max(100).optional(),
+  from:dateOnlySchema.optional(),
+  to:dateOnlySchema.optional(),
+}).refine(v=>!v.from||!v.to||v.from<=v.to,{message:"Start date cannot be after end date"});
+export type AdminAuditFilter=z.infer<typeof adminAuditFilterSchema>;
+export const adminAuditPageSchema=z.object({
+  items:z.array(z.lazy(()=>adminAuditLogDtoSchema)),
+  page:z.number().int().positive(),
+  pageSize:z.number().int().positive(),
+  total:z.number().int().nonnegative(),
+  hasMore:z.boolean(),
+});
+export const adminDiagnosticsSchema=z.object({
+  generatedAt:isoDateTimeSchema,
+  releaseGate:z.literal("MANUAL_APPROVAL_REQUIRED"),
+  checks:z.array(z.object({
+    key:z.string(),state:z.enum(["PASS","ATTENTION","UNKNOWN"]),
+    detail:z.string(),
+  })),
+  counts:z.object({
+    unresolvedReports:z.number().int().nonnegative(),
+    openSupportTickets:z.number().int().nonnegative(),
+    scheduledAnnouncements:z.number().int().nonnegative(),
+    failedPushDeliveries:z.number().int().nonnegative(),
+  }),
+});
+export type AdminDiagnostics=z.infer<typeof adminDiagnosticsSchema>;
 
 export const adminAuditLogDtoSchema = z.object({
   id: z.string().uuid(),
