@@ -7,10 +7,15 @@ import {
   roleSubscriptions,
   venueReferees,
   venueTrialClaims,
+  userRoles,
+  playerProfiles,
+  teamMemberships,
+  teams,
   venues,
   users,
 } from "@leaguekick/database";
-import { and, eq, gt, or } from "drizzle-orm";
+import { and, eq, gt, or, sql } from "drizzle-orm";
+import {canGrantRefereeToNormalUser} from "./referee-eligibility.js";
 import { errors } from "../../lib/errors.js";
 import type { OwnerAggregate, OwnerOnboardingRepository, OwnerSubscriptionRecord, OwnerVenueRecord } from "./owner.types.js";
 
@@ -351,8 +356,55 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
     return rows.map((row) => ({ ...row, assignedAt: row.assignedAt.toISOString() }));
   }
 
-  async grantVenueReferee(input: { venueId: string; userId: string; assignedByUserId: string; assignedAt: Date }) {
-    await this.db.insert(venueReferees).values(input).onConflictDoNothing();
+  async grantVenueReferee(input: { venueId: string; userId: string; assignedByUserId: string; assignedAt: Date }): Promise<"GRANTED"|"ALREADY_ASSIGNED"|"INELIGIBLE"> {
+    return this.db.transaction(async tx=>{
+      // Prevent concurrent referee/other-role grants that follow this user lock.
+      // Do not trust app-side role badges, which can be stale or derived.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
+      const [person]=await tx.select({id:users.id,status:users.status})
+        .from(users).where(eq(users.id,input.userId)).limit(1);
+      if(person?.status!=="ACTIVE")return "INELIGIBLE";
+
+      // Retrying the grant for this very venue is harmless/idempotent.
+      const [existing]=await tx.select({venueId:venueReferees.venueId})
+        .from(venueReferees).where(and(
+          eq(venueReferees.userId,input.userId),
+          eq(venueReferees.venueId,input.venueId),
+        )).limit(1);
+      if(existing)return "ALREADY_ASSIGNED";
+
+      const [assignedRoles,playerProfile,activeTeam,managedTeam,ownedVenue,
+        paidSubscription,otherRefereeGrant]=await Promise.all([
+        tx.select({role:userRoles.role}).from(userRoles)
+          .where(eq(userRoles.userId,input.userId)),
+        tx.select({id:playerProfiles.userId}).from(playerProfiles)
+          .where(eq(playerProfiles.userId,input.userId)).limit(1),
+        tx.select({id:teamMemberships.teamId}).from(teamMemberships)
+          .where(and(eq(teamMemberships.userId,input.userId),
+            eq(teamMemberships.status,"ACTIVE"))).limit(1),
+        tx.select({id:teams.id}).from(teams)
+          .where(eq(teams.managerUserId,input.userId)).limit(1),
+        tx.select({id:venues.id}).from(venues)
+          .where(eq(venues.ownerUserId,input.userId)).limit(1),
+        tx.select({role:roleSubscriptions.role}).from(roleSubscriptions)
+          .where(and(eq(roleSubscriptions.userId,input.userId),
+            or(eq(roleSubscriptions.status,"PENDING"),eq(roleSubscriptions.status,"ACTIVE")))).limit(1),
+        tx.select({id:venueReferees.venueId}).from(venueReferees)
+          .where(eq(venueReferees.userId,input.userId)).limit(1),
+      ]);
+      if(!canGrantRefereeToNormalUser({
+        status:person.status,assignedRoles:assignedRoles.map(r=>r.role),
+        hasPlayerProfile:playerProfile.length>0,
+        hasActiveTeamMembership:activeTeam.length>0,
+        managesTeam:managedTeam.length>0,
+        ownsVenue:ownedVenue.length>0,
+        hasPaidRoleSubscription:paidSubscription.length>0,
+        hasOtherRefereeGrant:otherRefereeGrant.length>0,
+      }))return "INELIGIBLE";
+
+      await tx.insert(venueReferees).values(input).onConflictDoNothing();
+      return "GRANTED";
+    });
   }
 
   async removeVenueReferee(venueId: string, userId: string) {
