@@ -166,6 +166,9 @@ async function networkRequest<T>(path: string, init: RequestInit = {}, accessTok
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const controller = new AbortController();
+    const externalAbort=()=>controller.abort();
+    if(init.signal?.aborted)externalAbort();
+    init.signal?.addEventListener("abort",externalAbort,{once:true});
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(`${baseUrl}${path}`, {
@@ -204,6 +207,8 @@ async function networkRequest<T>(path: string, init: RequestInit = {}, accessTok
       return body as T;
     } catch (error) {
       if (error instanceof ApiRequestError) throw error;
+      if(init.signal?.aborted)
+        throw new ApiRequestError("REQUEST_CANCELLED","Request cancelled.",null);
       const timedOut = error instanceof Error && error.name === "AbortError";
       const transient = new ApiRequestError(
         timedOut ? "TIMEOUT" : "NETWORK_ERROR",
@@ -219,6 +224,7 @@ async function networkRequest<T>(path: string, init: RequestInit = {}, accessTok
       throw transient;
     } finally {
       clearTimeout(timeout);
+      init.signal?.removeEventListener("abort",externalAbort);
     }
   }
 
@@ -227,6 +233,10 @@ async function networkRequest<T>(path: string, init: RequestInit = {}, accessTok
 
 async function request<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
   if (isSafeRead(init)) {
+    // Sensitive live administration must never be served from the app's offline
+    // cache, and stale page queries must obey the caller's abort signal.
+    if(path.startsWith("/api/v1/admin/"))
+      return networkRequest<T>(path,init,accessToken);
     return cachedApiRead(path, accessToken, () => networkRequest<T>(path, init, accessToken));
   }
 
