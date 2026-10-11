@@ -6,7 +6,8 @@ function read(path) {
 
 const repository = read("apps/api/src/modules/booking/booking.repository.ts");
 const service = read("apps/api/src/modules/booking/booking.service.ts");
-const playerAvailability = read("apps/mobile/app/(app)/venues/[venueId].tsx");
+const playerAvailability = read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
+const venuePage = read("apps/mobile/app/(app)/venues/[venueId].tsx");
 const cache = read("apps/mobile/src/lib/availability-cache.ts");
 const tests = read("apps/api/test/booking.test.ts");
 const rootLayout = read("apps/mobile/app/_layout.tsx");
@@ -19,7 +20,9 @@ const checks = [
   [repository.includes("bookings.createdByUserId") && repository.includes("bookings.idempotencyKey"), "actor-scoped idempotency lookup"],
   [service.includes("getVenueRecordByAreaId"), "direct area-to-venue lookup"],
   [service.includes("SLOT_UNAVAILABLE"), "server slot revalidation"],
-  [playerAvailability.includes("disabled={!live||!isOnline}"), "cached/offline booking guard"],
+  [venuePage.includes("<VenueReserveContent") &&
+   playerAvailability.includes("disabled={!fresh||!isOnline}") &&
+   playerAvailability.includes("availabilityDate!==date"), "cached/offline booking guard"],
   [playerAvailability.includes("writeAvailabilityCache") && cache.includes("AsyncStorage"), "availability cache"],
   [tests.includes("exactly one winner"), "concurrent winner test"],
   [tests.includes("tenant-scoped"), "tenant isolation test"],

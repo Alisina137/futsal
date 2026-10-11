@@ -23,6 +23,7 @@ const settingsPage=read("apps/mobile/app/(app)/owner/settings.tsx");
 const ownerNav=read("apps/mobile/src/components/owner/OwnerTopNav.tsx");
 const schedule=read("apps/mobile/app/(app)/owner/schedule.tsx");
 const publicVenue=read("apps/mobile/app/(app)/venues/[venueId].tsx");
+const venueDetailTabs=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
 const mobileApi=read("apps/mobile/src/lib/api.ts");
 const localization=read("packages/localization/src/index.ts");
 const mobilePackage=read("apps/mobile/package.json");
@@ -212,7 +213,9 @@ assert(!ownerNav.includes('labelKey:"owner.dashboardNav.settings",href:"/owner/o
 
 assert(mobileApi.includes("ownerApi")&&mobileApi.includes("updateSettings")&&mobileApi.includes("confirmBooking"),"Mobile API must support Venue Settings and booking approval.");
 assert(schedule.includes("schedule.approveBooking")&&schedule.includes("ownerApi.confirmBooking")&&schedule.includes('bookingStatus==="PENDING"'),"Pending online bookings must be approvable from Venue Time Table.");
-assert(publicVenue.includes("venue.cancellationPolicy")&&publicVenue.includes("maximumAdvanceBookingDays"),"Public venue page must show customer-facing booking rules.");
+assert(publicVenue.includes("<VenueAboutContent")&&venueDetailTabs.includes("venue.cancellationPolicy")&&
+  venueDetailTabs.includes("maximumAdvanceBookingDays"),
+  "Public venue About tab must show customer-facing booking rules.");
 
 for(const key of [
   "venueSettings.title",
