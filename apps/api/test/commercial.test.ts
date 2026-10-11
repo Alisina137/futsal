@@ -15,6 +15,7 @@ class FakeCommercialRepository implements CommercialRepository {
   requested = false;
   activated = false;
   userStatus: "ACTIVE" | "SUSPENDED" = "ACTIVE";
+  lastPage:{target:"users"|"venues";query:string|undefined;page:number;size:number;sort:string}|null=null;
   venue: CommercialVenueRecord = {
     id: "11111111-1111-4111-8111-111111111111",
     ownerUserId: "22222222-2222-4222-8222-222222222222",
@@ -115,8 +116,13 @@ class FakeCommercialRepository implements CommercialRepository {
       bookingGmvAfn: 1800,
     };
   }
-  async listUsers() { return []; }
-  async listVenues() {
+  async countUsers(){return 73;}
+  async countVenues(){return 51;}
+  async listUsers(query?:string,page=1,size=50,sort="newest"){
+    this.lastPage={target:"users",query,page,size,sort};return [];
+  }
+  async listVenues(query?:string,page=1,size=50,sort="newest") {
+    this.lastPage={target:"venues",query,page,size,sort};
     return [{
       id: this.venue.id,
       ownerUserId: this.venue.ownerUserId,
@@ -160,6 +166,41 @@ function setup() {
   const app = createApp({ authService: auth, tokenService: tokens, commercialService: commercial });
   return { app, tokens, repository, commercial };
 }
+
+describe("Admin Phase 1 paged directories",()=>{
+  it("returns server page metadata and query/sort params with strict bounds",async()=>{
+    const {app,tokens,repository}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const header={Authorization:`Bearer ${admin.token}`};
+    const users=await request(app).get("/api/v1/admin/users/page")
+      .query({q:"abc",page:2,pageSize:25,sort:"oldest"}).set(header);
+    expect(users.status).toBe(200);
+    expect(users.body).toMatchObject({page:2,pageSize:25,total:73,hasMore:true});
+    expect(repository.lastPage).toEqual({
+      target:"users",query:"abc",page:2,size:25,sort:"oldest",
+    });
+    const venues=await request(app).get("/api/v1/admin/venues/page")
+      .query({page:3,pageSize:25,sort:"newest"}).set(header);
+    expect(venues.status).toBe(200);
+    expect(venues.body).toMatchObject({page:3,pageSize:25,total:51,hasMore:false});
+    expect(repository.lastPage).toEqual({
+      target:"venues",query:undefined,page:3,size:25,sort:"newest",
+    });
+  });
+  it("rejects invalid limits, invalid sort and non-admin access",async()=>{
+    const {app,tokens}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const ordinary=await tokens.createAccessToken("user",[]);
+    for(const suffix of ["?page=0","?pageSize=1001","?sort=secret"]){
+      const r=await request(app).get("/api/v1/admin/users/page"+suffix)
+        .set("Authorization",`Bearer ${admin.token}`);
+      expect(r.status).toBe(400);
+    }
+    const blocked=await request(app).get("/api/v1/admin/users/page")
+      .set("Authorization",`Bearer ${ordinary.token}`);
+    expect(blocked.status).toBe(403);
+  });
+});
 
 describe("Phase 7 commercial SaaS API", () => {
   it("puts expired owners into continuity mode with payment/config visibility", async () => {
