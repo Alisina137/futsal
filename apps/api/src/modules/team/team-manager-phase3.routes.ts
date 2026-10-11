@@ -166,6 +166,56 @@ export class TeamManagerPhase3Service{
         competitionHistory:titles,championships:titles.filter(x=>x.champion).length},
     };
   }
+
+  // Public profile snapshot: only published material and confirmed public fixtures.
+  // This endpoint never returns member contact, invitations, private announcements,
+  // team activities, unpublished competitions, or unclaimed offline-team details.
+  async publicHighlights(teamId:string){
+    const [team]=await this.db.select({id:teams.id,status:teams.status,
+      offlineVenueId:teams.offlineVenueId,claimedAt:teams.claimedAt})
+      .from(teams).where(eq(teams.id,teamId)).limit(1);
+    if(!team||team.status!=="ACTIVE"||(team.offlineVenueId&&!team.claimedAt))
+      throw errors.badRequest("TEAM_NOT_FOUND","This team is not available.");
+
+    const [posts,registered,matches]=await Promise.all([
+      this.db.select({id:socialPosts.id,body:socialPosts.body,imageUrl:socialPosts.imageUrl,
+        publishedAt:socialPosts.publishedAt}).from(socialPosts)
+        .where(and(eq(socialPosts.entityType,"TEAM"),eq(socialPosts.entityId,teamId),
+          eq(socialPosts.status,"PUBLISHED"),eq(socialPosts.visibility,"PUBLIC")))
+        .orderBy(desc(socialPosts.publishedAt)).limit(50),
+      this.db.select({id:competitions.id,name:competitions.name,status:competitions.status,
+        format:competitions.format,startsAt:competitions.startsAt,endsAt:competitions.endsAt})
+        .from(competitionTeams).innerJoin(competitions,eq(competitionTeams.competitionId,competitions.id))
+        .where(and(eq(competitionTeams.teamId,teamId),eq(competitionTeams.status,"ACCEPTED"),
+          eq(competitions.published,true))).orderBy(desc(competitions.createdAt)).limit(50),
+      this.db.select({id:competitionMatches.id,competitionId:competitionMatches.competitionId,
+        competitionName:competitions.name,homeTeamId:competitionMatches.homeTeamId,
+        awayTeamId:competitionMatches.awayTeamId,status:competitionMatches.status,
+        stage:competitionMatches.stage,startsAt:competitionMatches.startsAt,
+        homeScore:competitionMatches.homeScore,awayScore:competitionMatches.awayScore})
+        .from(competitionMatches).innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
+        .where(and(eq(competitions.published,true),
+          or(eq(competitionMatches.homeTeamId,teamId),eq(competitionMatches.awayTeamId,teamId))))
+        .orderBy(desc(competitionMatches.startsAt)).limit(100),
+    ]);
+    const opponents=[...new Set(matches.flatMap(m=>[m.homeTeamId,m.awayTeamId])
+      .filter((id):id is string=>!!id&&id!==teamId))];
+    const opponentRows=opponents.length?await this.db.select({id:teams.id,name:teams.name})
+      .from(teams).where(inArray(teams.id,opponents)):[];
+    const opponentNames=new Map(opponentRows.map(row=>[row.id,row.name]));
+    const publicMatches=matches.map(m=>({...m,
+      homeTeamName:m.homeTeamId===teamId?"":opponentNames.get(m.homeTeamId??"")??"",
+      awayTeamName:m.awayTeamId===teamId?"":opponentNames.get(m.awayTeamId??"")??"",
+      startsAt:m.startsAt?.toISOString()??null}));
+    return {
+      posts:posts.map(p=>({...p,publishedAt:p.publishedAt.toISOString()})),
+      competitions:registered.map(c=>({...c,startsAt:c.startsAt?.toISOString()??null,
+        endsAt:c.endsAt?.toISOString()??null})),
+      matches:publicMatches,
+      stats:aggregateCompletedMatches(matches,teamId),
+    };
+  }
+
   async createPost(userId:string,teamId:string,input:z.infer<typeof postInput>){
     await this.access(userId,teamId,"WRITE");await this.ownedImage(userId,input.imageUrl);
     const [post]=await this.db.insert(socialPosts).values({
@@ -261,6 +311,10 @@ export function createTeamManagerPhase3Router(service:TeamManagerPhase3Service,t
       try{res.status(status).json(await fn(req.auth!.userId,uuid.parse(req.params.teamId),req));}
       catch(error){next(error);}
     };
+  router.get("/teams/:teamId/public-highlights",async(req,res,next)=>{
+    try{res.json(await service.publicHighlights(uuid.parse(req.params.teamId)));}
+    catch(error){next(error);}
+  });
   router.get("/teams/:teamId/manager/growth",auth,respond((u,t)=>service.workspace(u,t)));
   router.post("/teams/:teamId/manager/posts",auth,limit,respond((u,t,r)=>service.createPost(u,t,postInput.parse(r.body)),201));
   router.put("/teams/:teamId/manager/posts/:id",auth,limit,
