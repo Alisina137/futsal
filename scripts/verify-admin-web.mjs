@@ -10,6 +10,7 @@ const index = readFileSync("apps/mobile/app/index.tsx", "utf8");
 const login = readFileSync("apps/mobile/app/(auth)/login.tsx", "utf8");
 const admin = readFileSync("apps/mobile/app/(app)/admin/index.tsx", "utf8");
 const sidebar=readFileSync("apps/mobile/src/components/admin/AdminSidebar.tsx","utf8");
+const operations=readFileSync("apps/mobile/src/components/admin/AdminOperationsPhase4Section.tsx","utf8");
 const nav=readFileSync("apps/mobile/src/components/admin/admin-navigation.ts","utf8");
 const styles=readFileSync("apps/mobile/src/components/admin/AdminStyles.ts","utf8");
 const protectedLayout = readFileSync("apps/mobile/app/(app)/_layout.tsx", "utf8");
@@ -37,7 +38,8 @@ assert(styles.includes('maxWidth: 1500'), "Admin workspace must use a desktop-wi
 assert(admin.includes('const loadPart=async<T,>'), "Admin datasets must load independently so one failed endpoint cannot blank the console.");
 assert(admin.includes('loadIssues.join(" · ")'), "Admin console must expose endpoint-specific loading diagnostics.");
 
-assert(admin.includes('adminApi.usersPage(')&&admin.includes('adminApi.venuesPage('),"Admin lists must use server-side paging.");
+assert(admin.includes('adminApi.usersPage(')&&operations.includes('adminApi.operationsPage(')&&
+  operations.includes('pageSize:25'),"Admin lists must use server-side paging.");
 assert(admin.includes('abortController.current?.abort()'),"Admin must cancel stale directory requests.");
 assert(sidebar.includes('mobileOpen')&&sidebar.includes('collapsed'),"Sidebar must work on mobile with collapsible navigation groups.");
 console.log("Admin web verified: dedicated launcher, persistent browser session, admin-safe routing, desktop management shell, and PLATFORM_ADMIN gate.");
