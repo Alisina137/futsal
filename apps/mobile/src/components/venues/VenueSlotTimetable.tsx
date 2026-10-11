@@ -16,6 +16,8 @@ import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
 import {DataLoadingState} from "../ui/DataLoadingState";
+import {SlotTileContent} from "../ui/SlotTileContent";
+import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
 
 type DayResult={date:string;slots:VenueTimelineSlotDto[];fresh:boolean;failed:boolean};
 type SelectedSlot={date:string;slot:VenueTimelineSlotDto;fresh:boolean};
@@ -183,7 +185,6 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
   }
   function Slot({item,date}:{item:VenueTimelineSlotDto;date:string}){
     const mine=ownBooking(item);
-    const ownFuture=!!mine&&Date.parse(mine.startsAt)>Date.now();
     const palette=mine?{bg:"#DBEAFE",border:"#60A5FA",ink:"#1D4ED8"}:statusColors[item.status];
     const disabled=!mine&&!((item.status==="AVAILABLE"||item.status==="PROMOTION")
       &&date>=today&&date<=limit);
@@ -193,27 +194,17 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
       testID={"venue-public-slot-"+date+"-"+clock(item.startsAt,venue.timezone)}
       accessibilityRole="button" accessibilityState={{disabled}}
       accessibilityLabel={
-        clock(item.startsAt,venue.timezone)+", "+item.priceAfn+" AFN, "+
+        formatSlotStartTime(item.startsAt,venue.timezone)+", "+formatSlotTilePrice(item.priceAfn)+", "+
         (mine?tr("yourBooking"):tr("status."+item.status))}
       disabled={disabled} onPress={()=>tap(item,date)}
       style={({pressed})=>[styles.slot,{backgroundColor:palette.bg,borderColor:palette.border},
         disabled&&styles.disabledSlot,isTarget&&styles.target,pressed&&!disabled&&styles.pressed]}>
-      {item.status==="PROMOTION"?<View style={styles.corner}>
-        <AppText variant="caption" weight="bold" style={{color:palette.ink}}>%</AppText>
-      </View>:null}
-      {mine?<Ionicons name="person-circle" size={17} color={palette.ink}
-        style={styles.cornerIcon}/>:
-        item.status==="UNAVAILABLE"?<Ionicons name="lock-closed" size={14}
-        color={palette.ink} style={styles.cornerIcon}/>:null}
-      <AppText weight="bold" style={{color:palette.ink,textAlign:"center"}}>
-        {displayClock(item.startsAt,venue.timezone,language)}
-      </AppText>
-      <AppText variant="caption" weight="semibold" forceLtr
-        style={{color:palette.ink,textAlign:"center"}}>{item.priceAfn} AFN</AppText>
-      {mine?<AppText variant="caption" weight="semibold"
-        style={{color:palette.ink,textAlign:"center"}}>
-        {tr(ownFuture?"yourBooking":"yourPastBooking")}
-      </AppText>:null}
+      <SlotTileContent startsAt={item.startsAt} timeZone={venue.timezone}
+        priceAfn={item.priceAfn} ink={palette.ink}
+        marker={mine?<Ionicons name="person-circle" size={15} color={palette.ink}/>:
+          item.status==="UNAVAILABLE"?<Ionicons name="lock-closed" size={13} color={palette.ink}/>:
+          item.status==="PROMOTION"?
+            <AppText variant="caption" weight="bold" style={{color:palette.ink}}>%</AppText>:null}/>
     </Pressable>;
   }
   const selectedOwn=selected?ownBooking(selected.slot):undefined;
@@ -427,12 +418,12 @@ const styles=StyleSheet.create({
   dayHeading:{width:124,minHeight:80,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",gap:3,borderWidth:1,borderColor:colors.border},
   todayHeading:{backgroundColor:"#DBEAFE"},
-  timeCell:{width:67,minHeight:92,justifyContent:"center",alignItems:"center",
+  timeCell:{width:67,minHeight:62,justifyContent:"center",alignItems:"center",
     backgroundColor:"#EFF6FF",borderWidth:1,borderColor:colors.border},
-  weekCell:{width:124,minHeight:92,padding:4,borderWidth:1,borderColor:colors.border,
-    gap:3,justifyContent:"center",backgroundColor:colors.surface},
-  slot:{minHeight:78,borderRadius:radius.md,borderWidth:1,justifyContent:"center",
-    alignItems:"center",gap:4,paddingHorizontal:spacing.xs,position:"relative"},
+  weekCell:{width:124,minHeight:62,padding:3,borderWidth:1,borderColor:colors.border,
+    gap:2,justifyContent:"center",backgroundColor:colors.surface},
+  slot:{minHeight:54,borderRadius:radius.md,borderWidth:1,justifyContent:"center",
+    alignItems:"stretch",paddingHorizontal:2,position:"relative"},
   target:{borderWidth:2,borderColor:colors.primary},
   pressed:{opacity:0.68},
   disabledSlot:{opacity:0.72},
@@ -443,9 +434,7 @@ const styles=StyleSheet.create({
   modalPanel:{width:"100%",maxWidth:480,maxHeight:"90%",backgroundColor:colors.surface,
     borderRadius:radius.lg,padding:spacing.lg,gap:spacing.sm},
   modalHeading:{justifyContent:"space-between",alignItems:"center"},
-  corner:{position:"absolute",top:2,left:5},
-  cornerIcon:{position:"absolute",top:2,left:5},
-  dayGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  dayGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xs},
   dayCell:{width:"48%",minWidth:0},
   monthGrid:{flexDirection:"row",flexWrap:"wrap",gap:3},
   monthDay:{width:"13.65%",minHeight:48,backgroundColor:colors.surfaceMuted,
