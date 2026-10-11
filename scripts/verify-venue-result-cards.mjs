@@ -20,9 +20,11 @@ assert(card.includes('onlineBookingEnabled!==false')&&card.includes('disabled={!
   "Do not allow booking shortcuts from known paused venues.");
 assert(card.includes('focusAvailability:"1"')&&card.includes('venueId:id'),
   "Reserve Online must open the selected venue's availability section, not place an order.");
-assert(detail.includes('focusAvailability')&&detail.includes('scrollRef={availabilityScrollRef}')
-  &&detail.includes('onLayout={onAvailabilityLayout}')&&screen.includes("scrollRef"),
-  "Detail screen must honor booking deep links using the existing scroll view.");
+const detailSections=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
+assert(detail.includes('focusAvailability==="1"')&&detail.includes('setMain("reserve")')
+  &&detail.includes('reserve:"slots"')&&detail.includes("<VenueReserveContent")
+  &&detailSections.includes('venueApi.availability(')&&screen.includes("scrollRef"),
+  "Reserve Online must open Reserve > Available Slots and load real availability, never silently scroll to Media.");
 assert(listing.includes('venues.map(venue=><VenueResultCard')
   &&listing.includes('imageUrl={venue.pageCoverImageUrl??venue.pageProfileImageUrl}')
   &&listing.includes('onlineBookingEnabled={venue.onlineBookingEnabled}'),

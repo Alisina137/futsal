@@ -21,6 +21,8 @@ const bookingRepository=read("apps/api/src/modules/booking/booking.repository.ts
 const ownerMedia=read("apps/mobile/app/(app)/owner/posts/index.tsx");
 const composer=read("apps/mobile/app/(app)/owner/posts/create.tsx");
 const venuePage=read("apps/mobile/app/(app)/venues/[venueId].tsx");
+const venueMedia=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
+const venuePublic=venuePage+"\n"+venueMedia;
 const venueDirectory=read("apps/mobile/app/(app)/(tabs)/venues.tsx");
 const postDetail=read("apps/mobile/app/(app)/posts/[postId].tsx");
 const home=read("apps/mobile/app/(app)/(tabs)/home.tsx");
@@ -191,14 +193,14 @@ assert(!uploadSource.includes(".blob()"),"Media upload must not call Response.bl
 assert(venueDirectory.includes("booking.venueNameLocation")&&venueDirectory.includes("query.trim()")&&venueDirectory.includes("selectSuggestion"),"Users must be able to search venue pages by name or location with real suggestions.");
 for(const marker of [
   "marketingApi.venuePosts",
-  "media.pagePosts",
+  'sub==="posts"',
   "pageCoverImageUrl",
   "pageProfileImageUrl",
   "resolveMediaImageUrl",
   "socialPostId",
   'pathname:"/posts/[postId]/comments"',
 ]){
-  assert(venuePage.includes(marker),`Venue public page Media timeline missing: ${marker}`);
+  assert(venuePublic.includes(marker),`Venue public page Media timeline missing: ${marker}`);
 }
 assert(postDetail.includes("venuePostForUser")&&postDetail.includes("socialPostId"),"Follower-only post details must preserve audience checks and comments.");
 assert(home.includes("likeSocialPost")&&home.includes("openComments")&&home.includes("sharePost"),"Facebook-style Home interactions must remain wired.");

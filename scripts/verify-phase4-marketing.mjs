@@ -12,6 +12,7 @@ const notificationRepository = read("apps/api/src/modules/notifications/notifica
 const notificationService = read("apps/api/src/modules/notifications/notification.service.ts");
 const feedScreen = read("apps/mobile/app/(app)/(tabs)/feed.tsx");
 const venueScreen = read("apps/mobile/app/(app)/venues/[venueId].tsx");
+const venueSections = read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
 const notificationScreen = read("apps/mobile/app/(app)/notifications.tsx");
 const notificationPrefs = read("apps/mobile/app/(app)/notifications/preferences.tsx");
 const tests = read("apps/api/test/marketing.test.ts");
@@ -25,7 +26,8 @@ const checks = [
   [notificationRepository.includes("dedupeKey") && notificationRepository.includes("countRecentMarketingNotifications"), "notification persistence and frequency query"],
   [notificationService.includes("MARKETING_LIMIT_PER_24H = 3"), "marketing notification frequency limit"],
   [feedScreen.includes("followingOnly") && feedScreen.includes("PROMOTION"), "player feed and following mode"],
-  [venueScreen.includes("followState") && venueScreen.includes("promotedSlot"), "venue follow and promotion-aware slot UI"],
+  [venueScreen.includes("followState") && venueSections.includes("slot.promotionId") &&
+    venueSections.includes("originalPriceAfn"), "venue follow and promotion-aware slot UI"],
   [notificationPrefs.includes("updatePreferences") && notificationScreen.includes("markRead"), "notification center and preferences"],
   [tests.includes("books a promoted slot at the discounted server price"), "discount booking regression"],
 ];
