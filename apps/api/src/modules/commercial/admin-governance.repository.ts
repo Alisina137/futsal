@@ -84,30 +84,49 @@ export class DrizzleAdminGovernanceRepository{
     const result=await this.db.execute(sql`SELECT (${present})::int AS present_count`);
     const count=Number(result.rows[0]?.present_count??0);
     const schemaReady=count===expected.length;
+    // A successful authenticated diagnostics request proves this API process
+    // is alive, and the preceding SQL query establishes a live database read.
+    // Neither signal is a substitute for load-balanced uptime monitoring.
+    const declaredVersion=(process.env.APP_VERSION??"").trim().slice(0,80);
+    checks.push({key:"api_runtime",state:"PASS" as const,
+      detail:`Authenticated API served the request; process uptime ${Math.floor(process.uptime())} seconds`});
+    checks.push({key:"database_connection",state:"PASS" as const,
+      detail:"Database query completed successfully"});
+    checks.push({key:"release_version",state:declaredVersion?"PASS" as const:"UNKNOWN" as const,
+      detail:declaredVersion?`Configured application version: ${declaredVersion}`:
+        "APP_VERSION is not configured; verify deployed artifact/version independently"});
     checks.push({key:"database_schema",state:schemaReady?"PASS" as const:"ATTENTION" as const,
       detail:schemaReady?"Required admin tables present":`Required admin tables: ${count}/${expected.length} present; run reviewed migrations`});
     let unresolvedReports=0,openSupportTickets=0,scheduledAnnouncements=0,failedPushDeliveries=0;
+    let overdueAnnouncements=0;
     if(schemaReady){
       const metrics=await this.db.execute(sql`SELECT
         (SELECT count(*)::int FROM community_reports WHERE status IN ('OPEN','REVIEWING')) AS reports,
         (SELECT count(*)::int FROM support_tickets WHERE status NOT IN ('CLOSED','RESOLVED')) AS tickets,
         (SELECT count(*)::int FROM platform_announcements WHERE status IN ('SCHEDULED','SENDING')) AS announcements,
+        (SELECT count(*)::int FROM platform_announcements
+          WHERE status IN ('SCHEDULED','SENDING')
+            AND scheduled_at < ${new Date(now.getTime()-5*60_000)}) AS overdue_announcements,
         (SELECT count(*)::int FROM notification_deliveries
           WHERE channel='PUSH' AND status='FAILED') AS failed_push`);
       unresolvedReports=Number(metrics.rows[0]?.reports??0);
       openSupportTickets=Number(metrics.rows[0]?.tickets??0);
       scheduledAnnouncements=Number(metrics.rows[0]?.announcements??0);
+      overdueAnnouncements=Number(metrics.rows[0]?.overdue_announcements??0);
       failedPushDeliveries=Number(metrics.rows[0]?.failed_push??0);
       checks.push({key:"support_and_reports",
         state:unresolvedReports+openSupportTickets>0?"ATTENTION" as const:"PASS" as const,
         detail:`${unresolvedReports} reports and ${openSupportTickets} support tickets need review`});
       checks.push({key:"scheduled_campaigns",
-        state:"PASS" as const,detail:`${scheduledAnnouncements} scheduled or sending`});
+        state:overdueAnnouncements?"ATTENTION" as const:"PASS" as const,
+        detail:`${scheduledAnnouncements} scheduled/sending; ${overdueAnnouncements} due for over 5 minutes (may include large in-progress batches)`});
       checks.push({key:"failed_push",
         state:failedPushDeliveries?"ATTENTION" as const:"PASS" as const,
         detail:`${failedPushDeliveries} failed push deliveries`});
     }else checks.push({key:"queued_work",
       state:"UNKNOWN" as const,detail:"Queue health unavailable until schema migration completes"});
+    checks.push({key:"error_telemetry",state:"UNKNOWN" as const,
+      detail:"No independent HTTP error-rate/alert integration is configured; review structured logs and incident alerts"});
     checks.push({key:"push_sender",state:"UNKNOWN" as const,
       detail:"External push delivery worker is not included; pending is not sent"});
     checks.push({key:"backup_restore",state:"UNKNOWN" as const,

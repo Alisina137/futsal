@@ -42,3 +42,10 @@ The `expectedUpdatedAt` in real requests MUST come from `GET /api/v1/admin/setti
 - Verify: `pnpm verify:admin-phase7`; full chain: `pnpm verify`.
 - Phase 7 adds **no migration**. Ensure prior migrations `0033`–`0036` have been applied before starting the API.
 - Production release remains contingent on backups/restores, concurrency tests, token revocation, staging RTL/LTR QA, manual payment reconciliation, and explicit owner sign-off. External push sending remains outside these checks.
+
+### Health-check interpretation
+- **API runtime** reflects only the responding process and elapsed uptime, not load-balancer availability or latency SLOs.
+- **Database connection** demonstrates a successful SQL read, not database failover/restore readiness.
+- **Release version** is reported from non-secret `APP_VERSION` when configured; otherwise state UNKNOWN.
+- **Scheduled campaign health** flags work still SCHEDULED/SENDING more than five minutes after scheduled time. Large legitimate batches may require review; avoid presenting this as proven delivery failure.
+- **Error-rate telemetry** is UNKNOWN until independent metrics/alerts are connected. Logs, backups, and isolated restore remain operator-controlled gates.

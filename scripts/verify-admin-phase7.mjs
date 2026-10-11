@@ -19,6 +19,7 @@ for(const s of ["PLATFORM_SETTINGS_UPDATED","SETTINGS_STALE","SETTINGS_UNCHANGED
  "pg_advisory_xact_lock","this.db.transaction","changedKeys","previous.updatedAt.toISOString()",
  "nextVersion"])assert.ok(repo.includes(s),"Atomic configuration invariant missing: "+s);
 for(const s of ["auditPage(","csv(","diagnostics(","31*86400000","rows.length>1000",
+ "api_runtime","database_connection","release_version","overdue_announcements","error_telemetry",
  "restrictMetadata","replace(/","formula","BACKUP_CHECK"])
  if(s!=="BACKUP_CHECK"&&s!=="formula")assert.ok(governance.includes(s),
    "Audit/diagnostics invariant missing: "+s);
