@@ -27,6 +27,8 @@ export const runtimeEnvSchema = z.object({
   PASSWORD_RESET_SMS_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
   PASSWORD_RESET_SMS_WEBHOOK_TOKEN: z.string().optional().or(z.literal("")),
   PASSWORD_RESET_DEV_MODE: booleanFromEnv(true),
+  EMAIL_AUTH_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
+  EMAIL_AUTH_WEBHOOK_TOKEN: z.string().optional().or(z.literal("")),
 }).superRefine((value, ctx) => {
   if (value.NODE_ENV !== "production") return;
 
@@ -76,19 +78,13 @@ export const runtimeEnvSchema = z.object({
     });
   }
 
-  if (!value.PASSWORD_RESET_SMS_WEBHOOK_URL) {
+  if (!value.EMAIL_AUTH_WEBHOOK_URL || new URL(value.EMAIL_AUTH_WEBHOOK_URL).protocol !== "https:") {
     ctx.addIssue({
-      code: "custom",
-      path: ["PASSWORD_RESET_SMS_WEBHOOK_URL"],
-      message: "Production password reset requires an HTTPS SMS delivery webhook.",
-    });
-  } else if (new URL(value.PASSWORD_RESET_SMS_WEBHOOK_URL).protocol !== "https:") {
-    ctx.addIssue({
-      code: "custom",
-      path: ["PASSWORD_RESET_SMS_WEBHOOK_URL"],
-      message: "Production password reset SMS webhook must use HTTPS.",
+      code: "custom", path: ["EMAIL_AUTH_WEBHOOK_URL"],
+      message: "Production email verification and recovery require an HTTPS email delivery webhook.",
     });
   }
+
 });
 
 export type RuntimeEnv = z.infer<typeof runtimeEnvSchema>;
