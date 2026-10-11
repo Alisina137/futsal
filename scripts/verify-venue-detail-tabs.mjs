@@ -34,7 +34,7 @@ for(const fragment of [
   "bookingApi.mine","x.venueId===venue.id","bookingApi.cancel",
   "venueApi.availability","writeAvailabilityCache","readAvailabilityCache",
   "slot.promotionId","slot.originalPriceAfn","onlineBookingEnabled",
-  "bookings.filter","fresh&&isOnline","availabilityDate!==date",
+  "bookings.filter","!fresh||!isOnline","availabilityDate!==date",
   "formatCompetitionDateTime","NearbyVenuesMap","venue.latitude",
   "venue.areas.map","cancellationPolicy","notifications/preferences",
 ]){
