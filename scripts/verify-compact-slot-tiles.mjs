@@ -86,8 +86,8 @@ assert.ok(publicGrid.includes('styles.slot,{backgroundColor:softenSlotColor(pale
   publicGrid.includes('paddingHorizontal:2,position:"relative",overflow:"hidden"'),
   "Reserve slots must have softened time colors and clip at rounded borders.");
 assert.ok(ownerGrid.includes('backgroundColor:softenSlotColor(palette.background)')&&
-  /weekSlot:\\{[\\s\\S]{0,240}?overflow:"hidden"/.test(ownerGrid)&&
-  /daySlotButton:\\{[\\s\\S]{0,240}?overflow:"hidden"/.test(ownerGrid),
+  ownerGrid.split("  weekSlot:{")[1]?.split("  slotCornerMarker:")[0]?.includes('overflow:"hidden"')&&
+  ownerGrid.split("  daySlotButton:{")[1]?.split("  dayClosedSlot:")[0]?.includes('overflow:"hidden"'),
   "Owner Week/Day slots must soften time background and clip rounded corners.");
 assert.ok(offerGrid.includes('backgroundColor:softenSlotColor("#F3E8FF")')&&
   offerGrid.includes('borderRadius:radius.md,overflow:"hidden"'),
