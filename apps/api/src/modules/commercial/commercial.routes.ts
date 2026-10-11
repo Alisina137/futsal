@@ -1,5 +1,6 @@
 import {
   adminSubscriptionActivationRequestSchema,
+  adminAnalyticsDaysSchema,
   adminSupportNoteRequestSchema,
   adminTrialExtensionRequestSchema,
   adminUserStatusRequestSchema,
@@ -58,6 +59,14 @@ export function createOwnerCommercialRouter(service: CommercialService, tokens: 
 export function createAdminRouter(service: CommercialService, tokens: TokenService) {
   const router = Router();
   router.use(requireAuth(tokens), requireRole("PLATFORM_ADMIN"));
+
+  // A bounded period request returns aggregate counts only; role-gated at router level.
+  router.get("/analytics",async(request,response,next)=>{
+    try{
+      const days=adminAnalyticsDaysSchema.parse(request.query.days??30) as 7|30|90|365;
+      response.json(await service.adminAnalytics(days));
+    }catch(error){next(error);}
+  });
 
   router.get("/dashboard", async (_request, response, next) => {
     try {
