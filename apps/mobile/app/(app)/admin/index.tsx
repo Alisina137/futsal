@@ -209,7 +209,7 @@ export default function AdminScreen() {
     />
 
     <View style={styles.workspace}>
-      <View style={[styles.topbar, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+      <View style={[styles.topbar, { flexDirection:desktop?(isRTL?"row-reverse":"row"):"column", alignItems:desktop?"center":"stretch" }]}>
         <View style={styles.topbarCopy}>
           <View style={[styles.adminBreadcrumb,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <AppText variant="caption" muted>Futsal Admin</AppText>
