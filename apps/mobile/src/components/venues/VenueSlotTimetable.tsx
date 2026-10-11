@@ -35,9 +35,16 @@ function dayForTime(iso:string,timeZone:string){
   const x=Object.fromEntries(p.map(part=>[part.type,part.value]));
   return x.year+"-"+x.month+"-"+x.day;
 }
+const clockFormatters=new Map<string,Intl.DateTimeFormat>();
 function clock(iso:string,timeZone:string){
-  return new Intl.DateTimeFormat("en-GB",{timeZone,hour:"2-digit",minute:"2-digit",
-    hourCycle:"h23"}).format(new Date(iso));
+  let formatter=clockFormatters.get(timeZone);
+  if(!formatter){
+    formatter=new Intl.DateTimeFormat("en-GB",{timeZone,hour:"2-digit",minute:"2-digit",
+      hourCycle:"h23"});
+    if(clockFormatters.size>=12)clockFormatters.clear();
+    clockFormatters.set(timeZone,formatter);
+  }
+  return formatter.format(new Date(iso));
 }
 function displayClock(iso:string,timeZone:string,language:"en"|"fa-AF"|"ps-AF"){
   return new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
