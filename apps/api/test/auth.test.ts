@@ -376,7 +376,7 @@ describe("Authentication identity and role model", () => {
 
     const resetRequest = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ identifier: "ahmad7" });
+      .send({ identifier: "ahmad@example.com" });
     expect(resetRequest.status).toBe(200);
     expect(resetRequest.body.requestId).toBeTypeOf("string");
     expect(resetRequest.body.debugCode).toMatch(/^\d{6}$/);
@@ -397,7 +397,7 @@ describe("Authentication identity and role model", () => {
 
     const parallelRequest = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ identifier: "ahmad7" });
+      .send({ identifier: "ahmad@example.com" });
     expect(parallelRequest.status).toBe(200);
 
     const parallelVerified = await request(app)
@@ -457,7 +457,7 @@ describe("Authentication identity and role model", () => {
 
     const firstRequest = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ identifier: "ahmad7" });
+      .send({ identifier: "ahmad@example.com" });
     const firstVerified = await request(app)
       .post("/api/v1/auth/password-reset/verify")
       .send({ requestId: firstRequest.body.requestId, code: firstRequest.body.debugCode });
@@ -476,7 +476,7 @@ describe("Authentication identity and role model", () => {
 
     const secondRequest = await request(app)
       .post("/api/v1/auth/password-reset/request")
-      .send({ identifier: "ahmad7" });
+      .send({ identifier: "ahmad@example.com" });
     expect(secondRequest.status).toBe(200);
 
     const secondVerify = await request(app)
