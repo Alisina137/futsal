@@ -190,7 +190,9 @@ export class AdminTrustService{
     if(!ticket||(!admin&&ticket.requesterUserId!==viewerId))
       throw errors.badRequest("TICKET_NOT_FOUND","Support ticket not found.");
     const events=await this.db.select().from(supportTicketEvents)
-      .where(eq(supportTicketEvents.ticketId,id)).orderBy(asc(supportTicketEvents.createdAt))
+      .where(and(eq(supportTicketEvents.ticketId,id),
+        admin?undefined:eq(supportTicketEvents.visibility,"PUBLIC")))
+      .orderBy(asc(supportTicketEvents.createdAt))
       .limit(200);
     return {ticket,events};
   }
@@ -226,8 +228,9 @@ export class AdminTrustService{
         throw errors.conflict("INVALID_TICKET_TRANSITION","Resolve a ticket before closing it.");
       if(input.assignedToUserId){
         const [assigned]=await tx.select({id:userRoles.userId}).from(userRoles)
+          .innerJoin(users,eq(users.id,userRoles.userId))
           .where(and(eq(userRoles.userId,input.assignedToUserId),
-            eq(userRoles.role,"PLATFORM_ADMIN"))).limit(1);
+            eq(userRoles.role,"PLATFORM_ADMIN"),eq(users.status,"ACTIVE"))).limit(1);
         if(!assigned)throw errors.badRequest("ASSIGNEE_NOT_ADMIN","Assignee must be a platform administrator.");
       }
       const [updated]=await tx.update(supportTickets).set({
@@ -235,7 +238,7 @@ export class AdminTrustService{
         updatedAt:now,closedAt:input.status==="CLOSED"?now:null,
       }).where(eq(supportTickets.id,id)).returning();
       await tx.insert(supportTicketEvents).values({
-        ticketId:id,actorUserId:actor,action:"UPDATED",note:input.note,
+        ticketId:id,actorUserId:actor,action:"UPDATED",visibility:"INTERNAL",note:input.note,
         previousStatus:prior.status,nextStatus:input.status,createdAt:now,
       });
       await tx.insert(auditLogs).values({actorUserId:actor,action:"SUPPORT_TICKET_UPDATED",

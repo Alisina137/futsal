@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS "support_ticket_events" (
  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  "ticket_id" uuid NOT NULL REFERENCES "support_tickets"("id") ON DELETE CASCADE,
  "actor_user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE RESTRICT,
- "action" varchar(32) NOT NULL, "note" varchar(2000) NOT NULL,
+ "action" varchar(32) NOT NULL, "visibility" varchar(16) NOT NULL DEFAULT 'PUBLIC' CHECK ("visibility" IN ('PUBLIC','INTERNAL')), "note" varchar(2000) NOT NULL,
  "previous_status" varchar(24), "next_status" varchar(24),
  "created_at" timestamptz NOT NULL DEFAULT now()
 );

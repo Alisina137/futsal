@@ -240,6 +240,7 @@ export const supportTicketEvents=pgTable("support_ticket_events",{
   ticketId:uuid("ticket_id").notNull().references(()=>supportTickets.id,{onDelete:"cascade"}),
   actorUserId:uuid("actor_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
   action:varchar("action",{length:32}).notNull(),
+  visibility:varchar("visibility",{length:16}).notNull().default("PUBLIC"),
   note:varchar("note",{length:2000}).notNull(),
   previousStatus:varchar("previous_status",{length:24}),
   nextStatus:varchar("next_status",{length:24}),
