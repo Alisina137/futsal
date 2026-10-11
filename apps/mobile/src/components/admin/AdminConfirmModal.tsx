@@ -5,8 +5,8 @@ import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 
-export function AdminConfirmModal({visible,target,reason,busy,onCancel,onConfirm}:{
-  visible:boolean;target:string;reason:string;busy:boolean;
+export function AdminConfirmModal({visible,target,reason,busy,error,onCancel,onConfirm}:{
+  visible:boolean;target:string;reason:string;busy:boolean;error:string|null;
   onCancel:()=>void;onConfirm:()=>void;
 }){
   const {t}=useLocale();
@@ -28,6 +28,7 @@ export function AdminConfirmModal({visible,target,reason,busy,onCancel,onConfirm
           </AppText>:null}
         </View>
         <AppText variant="caption" muted>{t("phase7.admin.confirmWarning" as never)}</AppText>
+        {error?<AppText accessibilityRole="alert" style={{color:colors.danger}}>{error}</AppText>:null}
         <View style={styles.actions}>
           <Button style={styles.button} variant="secondary"
             label={t("phase7.admin.cancelAction" as never)} disabled={busy}
