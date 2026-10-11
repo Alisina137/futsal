@@ -909,6 +909,9 @@ export const adminApi = {
     request<{ assignment: { teamId: string; managerUserId: string; claimedAt: string } }>(
       `/api/v1/admin/manual-teams/${teamId}/assign`,
       { method: "POST", body: JSON.stringify(input) }, accessToken),
+  analytics:(accessToken:string,days:7|30|90|365,signal?:AbortSignal)=>
+    request<import("@leaguekick/contracts").AdminAnalyticsResponse>(
+      `/api/v1/admin/analytics?days=${days}`,signal?{signal}:{},accessToken),
   dashboard: (accessToken: string) =>
     request<AdminDashboardResponse>("/api/v1/admin/dashboard", {}, accessToken),
   usersPage:(accessToken:string,q="",page=1,pageSize=25,signal?:AbortSignal,sort:"newest"|"oldest"="newest")=>
