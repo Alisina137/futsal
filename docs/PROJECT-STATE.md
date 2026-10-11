@@ -11,6 +11,14 @@
 - Investigation cases for Venue/Team/Competition/Referee/Reservation are stored in `admin_cases` (migration 0034) with OPEN → UNDER_REVIEW → RESOLVED transitions and immutable audit trails; business source records are never edited during investigation.
 - Existing manual-team claim/paid-subscription and venue-referee eligibility workflows remain authoritative. Staging visual QA and DB integration required before release.
 
+## Admin Phase 5 — Financial operations (October 11, 2026)
+- Migration 0035 adds a separate manual-receipt ledger for **future** paid Venue Owner / Team Manager and separately billed extra team-slot subscription activations. No unsupported historical payments are backfilled as cash.
+- Existing venue `subscription_payments` retain full past history; new financial APIs read venue, paid-role and team-extra receipts together in server-paged, date-filtered finance reports, clearly scoped as **manually recorded** receipts (not confirmed bank settlements).
+- Manual activation uses a mandatory unique payment reference, amount and term snapshot; receipt inserts and entitlement grants share one transaction and a cross-stream reference lock.
+- Paid receipt voiding is reason-required, row-locked and audited atomically. Voiding a receipt never silently rewrites entitlements or historical bookings; subscription access needs a separate explicit review.
+- Financial console shows 7-day expiry/pending review counts, type/status/ref filters, local Kabul time and English/Dari/Pashto. Team-slot confirmation includes a second explicit review step.
+- **Deployment gate:** apply migration 0035 before rolling out the updated API; run `pnpm verify`, test real DB transaction concurrency, compare receipts to actual manual payment proof and manually inspect RTL layouts.
+
 ## Product objective
 Increase futsal venue utilization and revenue through reliable availability and mobile booking, with integrated venue operations, competitions, and a futsal-specific public presence.
 

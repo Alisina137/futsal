@@ -20,6 +20,7 @@ class FakeCommercialRepository implements CommercialRepository {
   lastFilters:Record<string,unknown>={};
   lastOperations:{kind:string;filters:unknown}|null=null;
   openedCase=false;caseUpdated=false;
+  billingFilters:unknown=null;voidPaidReceiptCalled=false;
   revokedSessions=false;
   userNote:string|null=null;
   lastPage:{target:"users"|"venues";query:string|undefined;page:number;size:number;sort:string}|null=null;
@@ -149,6 +150,25 @@ class FakeCommercialRepository implements CommercialRepository {
   async listUsersFiltered(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest",
     filters:import("@leaguekick/contracts").AdminUserDirectoryFilter){
     this.lastFilters=filters;return this.listUsers(query,page,pageSize,sort);
+  }
+  async billingReceipts(filters:import("@leaguekick/contracts").AdminBillingFilters){
+    this.billingFilters=filters;
+    return {items:[],total:51,page:filters.page,pageSize:filters.pageSize,
+      hasMore:filters.page*filters.pageSize<51};
+  }
+  async billingSummary(_filters:import("@leaguekick/contracts").AdminBillingFilters,_now:Date){
+    return {period:{from:"2026-10-01",to:"2026-10-11"},recordedTotalAfn:2500,
+      voidedTotalAfn:100,byKind:[
+        {kind:"VENUE" as const,recordedAfn:1000,recordedCount:1,voidedCount:1},
+        {kind:"PAID_ROLE" as const,recordedAfn:1200,recordedCount:4,voidedCount:0},
+        {kind:"EXTRA_TEAM" as const,recordedAfn:300,recordedCount:1,voidedCount:0}],
+      attention:{pendingPaidRoles:3,pendingExtraTeams:2,
+        expiringVenues7d:1,expiringPaidRoles7d:1,expiringExtraTeams7d:1},
+      scope:"MANUAL_RECORDED_RECEIPTS_ONLY" as const,
+      historicalCoverage:"ROLE_AND_EXTRA_TEAM_FROM_PHASE5_ONLY" as const};
+  }
+  async voidPaidReceipt(_actor:string,_id:string,_reason:string){
+    this.voidPaidReceiptCalled=true;
   }
   async operationsPage(kind:import("@leaguekick/contracts").AdminOperationKind,
     filters:import("@leaguekick/contracts").AdminOperationFilters){
@@ -502,5 +522,62 @@ describe("Admin Phase 4 operations / investigations",()=>{
     expect(updated.status).toBe(200);expect(repository.caseUpdated).toBe(true);
     expect((await request(app).patch("/api/v1/admin/cases/"+id).set(h)
       .send({state:"UNKNOWN",reason:"test",note:"test"})).status).toBe(400);
+  });
+});
+
+describe("Admin Phase 5 financial oversight",()=>{
+  const id="11111111-1111-4111-8111-111111111111";
+  it("rejects unauthenticated and non-admin financial queries and mutations",async()=>{
+    const {app,tokens}=setup();
+    const ordinary=await tokens.createAccessToken("ordinary",[]);
+    const h={Authorization:"Bearer "+ordinary.token};
+    for(const url of ["/api/v1/admin/billing/receipts",
+      "/api/v1/admin/billing/summary"]){
+      expect((await request(app).get(url).set(h)).status).toBe(403);
+    }
+    expect((await request(app).post("/api/v1/admin/billing/paid-receipts/"+id+"/void")
+      .set(h).send({reason:"not paid"})).status).toBe(403);
+  });
+  it("server-paginates receipts, validates period boundaries, and distinguishes manual totals",async()=>{
+    const {app,tokens,repository}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const h={Authorization:"Bearer "+admin.token};
+    const page=await request(app).get("/api/v1/admin/billing/receipts")
+      .query({kind:"PAID_ROLE",status:"RECORDED",q:"ali",page:2,pageSize:25,
+        from:"2026-10-01",to:"2026-10-11"}).set(h);
+    expect(page.status).toBe(200);
+    expect(page.body).toMatchObject({total:51,page:2,pageSize:25,hasMore:true});
+    expect(repository.billingFilters).toMatchObject({
+      kind:"PAID_ROLE",status:"RECORDED",page:2,pageSize:25,q:"ali",
+    });
+    const summary=await request(app).get("/api/v1/admin/billing/summary")
+      .query({from:"2026-10-01",to:"2026-10-11"}).set(h);
+    expect(summary.status).toBe(200);
+    expect(summary.body.recordedTotalAfn).toBe(2500);
+    expect(summary.body.scope).toBe("MANUAL_RECORDED_RECEIPTS_ONLY");
+    expect(summary.body.attention.pendingExtraTeams).toBe(2);
+    expect((await request(app).get("/api/v1/admin/billing/receipts")
+      .query({kind:"OTHER"}).set(h)).status).toBe(400);
+    expect((await request(app).get("/api/v1/admin/billing/receipts")
+      .query({from:"2026-10-12",to:"2026-10-11"}).set(h)).status).toBe(400);
+    expect((await request(app).get("/api/v1/admin/billing/receipts")
+      .query({pageSize:101}).set(h)).status).toBe(400);
+  });
+  it("requires a reason for financial void and validates subscription activation references",async()=>{
+    const {app,tokens,repository}=setup();
+    const admin=await tokens.createAccessToken("admin",["PLATFORM_ADMIN"]);
+    const h={Authorization:"Bearer "+admin.token};
+    const path="/api/v1/admin/billing/paid-receipts/"+id+"/void";
+    expect((await request(app).post(path).send({reason:"x"}).set(h)).status).toBe(400);
+    expect((await request(app).post(path).send({reason:"duplicate reference confirmed"}).set(h)).status).toBe(200);
+    expect(repository.voidPaidReceiptCalled).toBe(true);
+    const invalid=await request(app)
+      .post("/api/v1/admin/venues/"+id+"/subscription/activate").set(h)
+      .send({months:1,amountAfn:1000,provider:"MANUAL",providerReference:""});
+    expect(invalid.status).toBe(400);
+    const invalidAmount=await request(app)
+      .post("/api/v1/admin/venues/"+id+"/subscription/activate").set(h)
+      .send({months:1,amountAfn:0,provider:"MANUAL",providerReference:"abc"});
+    expect(invalidAmount.status).toBe(400);
   });
 });
