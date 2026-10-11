@@ -87,7 +87,7 @@ for(const marker of [
 for(const marker of [
  'groupAnalyticsDaily','AdminPeriodPicker',
  'AdminMetricChart','safeRatio','roleGrants','topProvinces',
- 'intervalNames','gmvScope','revenueScope',
+ 'fullIntervals','longIntervals','gmvScope','revenueScope',
 ]){
  assert.ok((charts+visual).includes(marker),"Analytics UX missing: "+marker);
 }
