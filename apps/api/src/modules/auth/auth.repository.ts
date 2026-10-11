@@ -2,7 +2,7 @@ import type { AdminRoleSubscriptionDto, PaidRole, RoleSubscriptionOfferDto, User
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
 import { accountProfileImages, auditLogs, passwordResetChallenges, roleSubscriptions, sessions, userRoles, users, venueReferees, venueSubscriptions, venues } from "@leaguekick/database";
-import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
 
@@ -173,6 +173,10 @@ export class DrizzleAuthRepository implements AuthRepository {
     paymentReference: string | null,
     now: Date,
   ): Promise<RoleSubscriptionOfferDto> {
+    const [referee]=await this.db.select({id:venueReferees.venueId})
+      .from(venueReferees).where(eq(venueReferees.userId,userId)).limit(1);
+    if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+      "Referees cannot request a different role. Remove their referee assignment first.");
     const [current] = await this.db.select().from(roleSubscriptions).where(and(
       eq(roleSubscriptions.userId, userId),
       eq(roleSubscriptions.role, role),
@@ -263,6 +267,11 @@ export class DrizzleAuthRepository implements AuthRepository {
     now: Date;
   }): Promise<AuthUserRecord> {
     await this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
+      const [referee]=await tx.select({id:venueReferees.venueId})
+        .from(venueReferees).where(eq(venueReferees.userId,input.userId)).limit(1);
+      if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+        "Referees cannot activate another role. Remove their referee assignment first.");
       const [current] = await tx.select().from(roleSubscriptions).where(and(
         eq(roleSubscriptions.userId, input.userId),
         eq(roleSubscriptions.role, input.role),
