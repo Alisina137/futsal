@@ -8,6 +8,7 @@ import { Card } from "../ui/Card";
 import { TextField } from "../ui/TextField";
 import { adminApi } from "../../lib/api";
 import { styles } from "./AdminStyles";
+import {AdminPagination} from "./AdminPagination";
 
 function SearchPanel({ query, setQuery, reason, setReason, loading, reload, t }: {
   query: string; setQuery: (value: string) => void; reason: string; setReason: (value: string) => void; loading: boolean; reload: () => Promise<void>; t: (key: any, params?: Record<string, string | number>) => string;
@@ -21,7 +22,7 @@ function SearchPanel({ query, setQuery, reason, setReason, loading, reload, t }:
   </Card>;
 }
 
-export function UsersSection({ users, query, setQuery, reason, setReason, loading, busy, reload, action, token, t, isRTL }: any) {
+export function UsersSection({ users, query, setQuery, reason, setReason, loading, busy, reload, action, token, t, isRTL, page, total, onPage }: any) {
   return <>
     <SearchPanel query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} reload={reload} t={t}/>
     <Card style={styles.panel}>
@@ -45,11 +46,12 @@ export function UsersSection({ users, query, setQuery, reason, setReason, loadin
           t("phase7.admin.updated"),
         )} disabled={busy || reason.trim().length < 3} variant={user.status === "SUSPENDED" ? "secondary" : "danger"}/>
       </View>)}
+      <AdminPagination page={page} total={total} pageSize={25} onPage={onPage} loading={loading}/>
     </Card>
   </>;
 }
 
-export function VenuesSection({ venues, duplicates, query, setQuery, reason, setReason, loading, busy, reload, action, token, t, isRTL }: any) {
+export function VenuesSection({ venues, duplicates, query, setQuery, reason, setReason, loading, busy, reload, action, token, t, isRTL, page, total, onPage }: any) {
   return <>
     <SearchPanel query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} reload={reload} t={t}/>
     <Card style={styles.panel}>
@@ -77,6 +79,7 @@ export function VenuesSection({ venues, duplicates, query, setQuery, reason, set
           </View>
         </View>
       </View>)}
+      <AdminPagination page={page} total={total} pageSize={25} onPage={onPage} loading={loading}/>
     </Card>
 
     {duplicates.length > 0 ? <Card style={styles.panel}>
