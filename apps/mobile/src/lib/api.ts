@@ -899,6 +899,28 @@ export const teamApi = {
 
 
 export const adminApi = {
+  billingReceipts:(token:string,filters:import("@leaguekick/contracts").AdminBillingFilters,
+    signal?:AbortSignal)=>{
+    const params=new URLSearchParams();
+    for(const [key,value] of Object.entries(filters)){
+      if(value!==undefined&&value!==null&&String(value).trim()!=="")params.set(key,String(value));
+    }
+    return request<{items:import("@leaguekick/contracts").AdminBillingReceipt[];total:number;
+      page:number;pageSize:number;hasMore:boolean}>(
+      "/api/v1/admin/billing/receipts?"+params.toString(),signal?{signal}:{},token);
+  },
+  billingSummary:(token:string,filters:Pick<import("@leaguekick/contracts").AdminBillingFilters,"from"|"to">,
+    signal?:AbortSignal)=>{
+    const params=new URLSearchParams();
+    if(filters.from)params.set("from",filters.from);
+    if(filters.to)params.set("to",filters.to);
+    return request<import("@leaguekick/contracts").AdminBillingSummary>(
+      "/api/v1/admin/billing/summary?"+params.toString(),signal?{signal}:{},token);
+  },
+  voidPaidReceipt:(token:string,id:string,reason:string)=>
+    request<{voided:boolean}>("/api/v1/admin/billing/paid-receipts/"+encodeURIComponent(id)+"/void",
+      {method:"POST",body:JSON.stringify({reason})},token),
+
   operationsPage:(token:string,kind:import("@leaguekick/contracts").AdminOperationKind,
     filters:Partial<import("@leaguekick/contracts").AdminOperationFilters>,signal?:AbortSignal)=>{
     const params=new URLSearchParams();
