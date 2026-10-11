@@ -27,6 +27,8 @@ export function ConfigurationSection({ settings, monthly, setMonthly, annual, se
           trialDurationHours: Number(configTrialHours),
           featureFlags: settings.featureFlags ?? {},
           notificationTemplates: settings.notificationTemplates ?? {},
+          reason:"Changed platform configuration after administrative review",
+          expectedUpdatedAt:settings.updatedAt,
         }),
         t("phase7.admin.updated"),
       )} disabled={busy}/>
