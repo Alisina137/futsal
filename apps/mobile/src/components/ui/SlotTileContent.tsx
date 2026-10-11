@@ -1,4 +1,5 @@
-import {StyleSheet,View,type ReactNode} from "react-native";
+import {StyleSheet,View} from "react-native";
+import type {ReactNode} from "react";
 import {useMemo} from "react";
 import {AppText} from "./AppText";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
