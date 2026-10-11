@@ -1,363 +1,231 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { FollowStateDto, PublicVenueDto, VenueAvailabilityResponse, VenuePostDto } from "@leaguekick/contracts";
-import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import { ApiRequestError, marketingApi, resolveMediaImageUrl, venueApi } from "../../../src/lib/api";
-import { readAvailabilityCache, writeAvailabilityCache } from "../../../src/lib/availability-cache";
-import { formatPostTimeAgo } from "../../../src/lib/date-time";
-import { usePostTimeNow } from "../../../src/hooks/usePostTimeNow";
-import { AppText } from "../../../src/components/ui/AppText";
-import { Button } from "../../../src/components/ui/Button";
-import { Card } from "../../../src/components/ui/Card";
-import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
-import { Screen } from "../../../src/components/ui/Screen";
-import { TextField } from "../../../src/components/ui/TextField";
-import { useAuth } from "../../../src/providers/AuthProvider";
-import { useLocale } from "../../../src/providers/LocaleProvider";
-import { useNetwork } from "../../../src/providers/NetworkProvider";
-
-function todayKabul(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
-function timeLabel(iso:string,timeZone:string){return new Intl.DateTimeFormat("en-GB",{timeZone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(iso));}
+import {colors,radius,spacing} from "@leaguekick/design-tokens";
+import type {FollowStateDto,PublicVenueDto} from "@leaguekick/contracts";
+import {useLocalSearchParams} from "expo-router";
+import {useCallback,useEffect,useRef,useState} from "react";
+import {Image,Pressable,ScrollView,Share,StyleSheet,View} from "react-native";
+import {marketingApi,resolveMediaImageUrl,venueApi} from "../../../src/lib/api";
+import {AppText} from "../../../src/components/ui/AppText";
+import {Button} from "../../../src/components/ui/Button";
+import {Card} from "../../../src/components/ui/Card";
+import {DataLoadingState} from "../../../src/components/ui/DataLoadingState";
+import {Screen} from "../../../src/components/ui/Screen";
+import {useAuth} from "../../../src/providers/AuthProvider";
+import {useLocale} from "../../../src/providers/LocaleProvider";
+import {VenueAboutContent,VenueCompetitionsContent,VenueMediaContent,
+  VenueReserveContent,VenueUpdatesContent,venueNavItems,venueSubtabs,
+  type VenueMainTab,type VenueMediaSub,type VenueReserveSub,type VenueCompetitionSub,
+  type VenueUpdatesSub,type VenueAboutSub} from "../../../src/components/venues/VenueDetailSections";
 
 export default function VenueDetailScreen(){
-  const {venueId,promotionId,startsAt,focusAvailability}=useLocalSearchParams<{venueId:string;promotionId?:string;startsAt?:string;focusAvailability?:string}>();
-  const {session}=useAuth();
-  const {t,isRTL,language}=useLocale();
-  const postNow=usePostTimeNow();
-  const {isOnline,reconnectVersion}=useNetwork();
+  const {venueId,focusAvailability,startsAt,promotionId}=useLocalSearchParams<{
+    venueId:string;focusAvailability?:string;startsAt?:string;promotionId?:string;
+  }>();
+  const {session}=useAuth(),{t,isRTL}=useLocale();
+  const tr=(key:string)=>t(("vd."+key) as never);
+  const targetId=typeof venueId==="string"?venueId:"";
+  const bookingDeepLink=focusAvailability==="1"||!!startsAt||!!promotionId;
+  const [main,setMain]=useState<VenueMainTab>(bookingDeepLink?"reserve":"media");
+  const [sub,setSub]=useState<Record<VenueMainTab,string>>({
+    media:"posts",reserve:"slots",competitions:"upcoming",updates:"announcements",about:"overview",
+  });
   const [venue,setVenue]=useState<PublicVenueDto|null>(null);
-  const availabilityScrollRef=useRef<ScrollView>(null);
-  const bookingJumpHandled=useRef(false);
-  // The booking shortcut only scrolls to the timetable; it never books a slot.
-  const onAvailabilityLayout=useCallback((event:LayoutChangeEvent)=>{
-    if(focusAvailability!=="1"||bookingJumpHandled.current)return;
-    bookingJumpHandled.current=true;
-    const y=event.nativeEvent.layout.y;
-    requestAnimationFrame(()=>availabilityScrollRef.current?.scrollTo({y:Math.max(0,y-spacing.sm),animated:true}));
-  },[focusAvailability]);
-  useEffect(()=>{bookingJumpHandled.current=false;},[venueId,focusAvailability]);
-  const [date,setDate]=useState(todayKabul());
-  const [availability,setAvailability]=useState<VenueAvailabilityResponse|null>(null);
-  const [live,setLive]=useState(false);
-  const [cachedAt,setCachedAt]=useState<string|null>(null);
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState<string|null>(null);
-  const [followState,setFollowState]=useState<FollowStateDto|null>(null);
-  const [followBusy,setFollowBusy]=useState(false);
-  const [posts,setPosts]=useState<VenuePostDto[]>([]);
-  const [postsLoading,setPostsLoading]=useState(true);
-
-  const load=useCallback(async()=>{
-    if(!venueId)return;
+  const [loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);
+  const [followState,setFollowState]=useState<FollowStateDto|null>(null),[followBusy,setFollowBusy]=useState(false);
+  const [reserveStartsAt,setReserveStartsAt]=useState<string|undefined>(startsAt);
+  const [reservePromotionId,setReservePromotionId]=useState<string|undefined>(promotionId);
+  const scroll=useRef<ScrollView>(null),initialVenue=useRef(targetId);
+  const loadVenue=useCallback(async()=>{
+    if(!targetId)return;
     setLoading(true);setError(null);
     try{
-      if(!venue)setVenue((await venueApi.get(venueId)).venue);
-      if(!isOnline)throw new ApiRequestError("NETWORK_ERROR","Offline",null);
-      const next=await venueApi.availability(venueId,date);
-      setAvailability(next);setVenue(next.venue);setLive(true);setCachedAt(null);
-      await writeAvailabilityCache(next);
-    }catch(cause){
-      const cached=await readAvailabilityCache(venueId,date);
-      if(cached){setAvailability(cached.value);setVenue(cached.value.venue);setLive(false);setCachedAt(cached.cachedAt);}
-      else setError(cause instanceof ApiRequestError&&cause.isNetworkError?t("booking.offlineNoCache"):t("booking.loadAvailabilityError"));
-    }finally{setLoading(false);}
-  },[date,isOnline,t,venue,venueId]);
-
-  useEffect(()=>{void load();},[venueId,date,reconnectVersion]);
-
+      const result=await venueApi.get(targetId);
+      setVenue(result.venue);
+    }catch{setError(tr("venueError"));}
+    finally{setLoading(false);}
+  },[targetId,t]);
+  useEffect(()=>{void loadVenue();},[loadVenue]);
   useEffect(()=>{
-    if(!venue||!startsAt)return;
-    const promotedDate=new Intl.DateTimeFormat("en-CA",{timeZone:venue.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(startsAt));
-    if(promotedDate!==date)setDate(promotedDate);
-  },[date,startsAt,venue]);
-
+    if(initialVenue.current!==targetId){
+      initialVenue.current=targetId;
+      setMain(bookingDeepLink?"reserve":"media");
+      setSub({media:"posts",reserve:"slots",competitions:"upcoming",
+        updates:"announcements",about:"overview"});
+      setVenue(null);setFollowState(null);
+    }
+  },[targetId]);
+  // Clicking "Reserve Online" from any venue result/followed card must open
+  // Reserve > Available Slots, not the default Media feed.
   useEffect(()=>{
-    if(!session||!venueId)return;
-    marketingApi.followState(session.accessToken,venueId).then(setFollowState).catch(()=>{});
-  },[session,venueId]);
-
-  const loadPosts=useCallback(async()=>{
-    if(!venueId)return;
-    setPostsLoading(true);
-    try{
-      const result=await marketingApi.venuePosts(venueId,session?.accessToken);
-      setPosts(result.posts);
-    }catch{
-      setPosts([]);
-    }finally{setPostsLoading(false);}
-  },[session?.accessToken,venueId]);
-
-  useEffect(()=>{void loadPosts();},[loadPosts]);
-
+    if(!bookingDeepLink)return;
+    setReserveStartsAt(startsAt);setReservePromotionId(promotionId);
+    setMain("reserve");setSub(value=>({...value,reserve:"slots"}));
+  },[targetId,focusAvailability,startsAt,promotionId]);
+  useEffect(()=>{
+    if(!session||!targetId)return;
+    let active=true;
+    void marketingApi.followState(session.accessToken,targetId).then(value=>{
+      if(active)setFollowState(value);
+    }).catch(()=>{});
+    return()=>{active=false;};
+  },[session?.accessToken,targetId]);
+  function chooseMain(id:VenueMainTab){
+    setMain(id);
+    requestAnimationFrame(()=>scroll.current?.scrollTo({y:0,animated:true}));
+  }
+  function reserve(date?:string,promo?:string){
+    setReserveStartsAt(date);setReservePromotionId(promo);
+    setSub(current=>({...current,reserve:"slots"}));
+    chooseMain("reserve");
+  }
   async function toggleFollow(){
-    if(!session||!venueId||!followState)return;
+    if(!session||!followState)return;
     setFollowBusy(true);setError(null);
     try{
       setFollowState(followState.following
-        ?await marketingApi.unfollow(session.accessToken,venueId)
-        :await marketingApi.follow(session.accessToken,venueId));
-      await loadPosts();
-    }catch{
-      setError(t("feed.followError"));
-    }finally{setFollowBusy(false);}
+        ?await marketingApi.unfollow(session.accessToken,targetId)
+        :await marketingApi.follow(session.accessToken,targetId));
+    }catch{setError(t("feed.followError"));}
+    finally{setFollowBusy(false);}
   }
+  async function share(){
+    if(!venue)return;
+    try{
+      await Share.share({message:venue.name+"\n"+venue.address+"\nleaguekick://venues/"+venue.id});
+    }catch{}
+  }
+  if(loading&&!venue)return <Screen showHeader><DataLoadingState variant="detail" minHeight={460}/></Screen>;
+  if(!venue)return <Screen showHeader><Card style={{gap:spacing.md}}>
+    <AppText style={{color:colors.danger}}>{error||tr("venueError")}</AppText>
+    <Button variant="secondary" label={t("common.retry")} onPress={()=>void loadVenue()}/>
+  </Card></Screen>;
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={520}/></Screen>;
-
-  return <Screen showHeader scrollRef={availabilityScrollRef}>
-    {venue?<>
-      <View style={styles.pageHeader}>
-        <View style={styles.publicCover}>
-          {resolveMediaImageUrl(venue.pageCoverImageUrl)
-            ?<Image source={{uri:resolveMediaImageUrl(venue.pageCoverImageUrl)!}} style={StyleSheet.absoluteFill} resizeMode="cover"/>
-            :<View style={styles.publicCoverFallback}><Ionicons name="football-outline" size={54} color="#BFDBFE"/></View>}
+  return <Screen showHeader scrollRef={scroll}>
+    <View style={styles.header}>
+      <View style={styles.cover}>
+        {resolveMediaImageUrl(venue.pageCoverImageUrl)?
+          <Image source={{uri:resolveMediaImageUrl(venue.pageCoverImageUrl)!}}
+            style={StyleSheet.absoluteFill} resizeMode="cover"/>:
+          <View style={styles.coverFallback}>
+            <Ionicons name="football-outline" color="#CFE0FF" size={52}/>
+          </View>}
+      </View>
+      <View style={styles.identity}>
+        <View style={styles.avatarFrame}>
+          {resolveMediaImageUrl(venue.pageProfileImageUrl)?
+            <Image source={{uri:resolveMediaImageUrl(venue.pageProfileImageUrl)!}}
+              style={styles.avatar} resizeMode="cover"/>:
+            <View style={[styles.avatar,styles.avatarFallback]}>
+              <AppText weight="bold" variant="title" style={{color:colors.primary}}>
+                {venue.name.trim().slice(0,2).toUpperCase()}
+              </AppText>
+            </View>}
         </View>
-        <View style={styles.publicIdentity}>
-          <View style={styles.publicAvatarFrame}>
-            {resolveMediaImageUrl(venue.pageProfileImageUrl)
-              ?<Image source={{uri:resolveMediaImageUrl(venue.pageProfileImageUrl)!}} style={styles.publicAvatar} resizeMode="cover"/>
-              :<View style={[styles.publicAvatar,styles.publicAvatarFallback]}>
-                <AppText variant="title" weight="bold" style={{color:colors.primary}}>{venue.name.trim().slice(0,2).toUpperCase()}</AppText>
-              </View>}
-          </View>
-          <AppText variant="title" weight="bold" style={{textAlign:"center"}}>{venue.name}</AppText>
-          <View style={[styles.publicMeta,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <Ionicons name="location-outline" size={15} color={colors.textMuted}/>
-            <AppText variant="caption" muted>{venue.city}, {venue.province}</AppText>
-            {followState?<><View style={styles.publicDot}/><AppText variant="caption" muted>{t("social.followers",{count:followState.followerCount})}</AppText></>:null}
-          </View>
-          {venue.pageBio?<AppText style={styles.publicBio}>{venue.pageBio}</AppText>:null}
-          {followState?<View style={styles.publicFollow}>
-            <Button
-              label={followState.following?t("social.unfollow"):t("social.follow")}
-              onPress={()=>void toggleFollow()}
-              loading={followBusy}
-              variant={followState.following?"secondary":"primary"}
-              style={{flex:1}}
-            />
-          </View>:null}
+        <AppText variant="title" weight="bold" style={{textAlign:"center"}}>{venue.name}</AppText>
+        <View style={[styles.location,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="location-outline" color={colors.textMuted} size={16}/>
+          <AppText variant="caption" muted>{venue.city+", "+venue.province}</AppText>
+          {followState?<AppText variant="caption" muted>
+            {" · "+t("social.followers",{count:followState.followerCount})}
+          </AppText>:null}
+        </View>
+        <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Button style={styles.primaryAction} label={followState?.following?t("social.unfollow"):t("social.follow")}
+            variant={followState?.following?"secondary":"primary"} loading={followBusy}
+            disabled={!session||!followState} onPress={()=>void toggleFollow()}/>
+          <Button style={styles.primaryAction} label={t("booking.reserveOnline")}
+            variant="secondary" onPress={()=>reserve()}/>
+        </View>
+        <View style={[styles.secondaryActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Pressable style={styles.iconButton} accessibilityRole="button"
+            accessibilityLabel={tr("notifications")} onPress={()=>chooseMain("updates")}>
+            <Ionicons name="notifications-outline" color={colors.primary} size={21}/>
+            <AppText variant="caption" weight="medium">{tr("notifications")}</AppText>
+          </Pressable>
+          <Pressable style={styles.iconButton} accessibilityRole="button"
+            accessibilityLabel={tr("share")} onPress={()=>void share()}>
+            <Ionicons name="share-social-outline" color={colors.primary} size={21}/>
+            <AppText variant="caption" weight="medium">{tr("share")}</AppText>
+          </Pressable>
+          <Pressable style={styles.iconButton} accessibilityRole="button"
+            accessibilityLabel={tr("location")} onPress={()=>{setSub(s=>({...s,about:"location"}));chooseMain("about");}}>
+            <Ionicons name="map-outline" color={colors.primary} size={21}/>
+            <AppText variant="caption" weight="medium">{tr("location")}</AppText>
+          </Pressable>
         </View>
       </View>
-
-      <View style={styles.statGrid}>
-        <ProfileStat icon="flash-outline" value={t(`publicProfile.bookingMode.${venue.bookingMode}` as never)} label={t("publicProfile.bookingMode")}/>
-      </View>
-
-      <Card style={styles.aboutCard}>
-        <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <View style={styles.sectionIcon}><Ionicons name="information-circle-outline" size={21} color={colors.primary}/></View>
-          <AppText variant="bodyLarge" weight="bold">{t("publicProfile.aboutVenue")}</AppText>
-        </View>
-        <InfoRow icon="location-outline" value={venue.address} rtl={isRTL}/>
-        <InfoRow icon="call-outline" value={venue.publicPhone} rtl={isRTL} ltr/>
-        <InfoRow icon="time-outline" value={venue.timezone} rtl={isRTL} ltr/>
-      </Card>
-
-      <Card style={styles.aboutCard}>
-        <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <View style={styles.sectionIcon}><Ionicons name="calendar-outline" size={21} color={colors.primary}/></View>
-          <AppText variant="bodyLarge" weight="bold">{t("venueSettings.bookingWindowTitle")}</AppText>
-        </View>
-        <InfoRow
-          icon={venue.onlineBookingEnabled?"globe-outline":"pause-circle-outline"}
-          value={venue.onlineBookingEnabled?t("venueSettings.enabled"):t("venueSettings.paused")}
-          rtl={isRTL}
-        />
-        <InfoRow
-          icon="checkmark-done-outline"
-          value={t(`publicProfile.bookingMode.${venue.bookingMode}` as never)}
-          rtl={isRTL}
-        />
-        <InfoRow
-          icon="time-outline"
-          value={t("venueSettings.minimumNoticeValue",{minutes:venue.minimumBookingNoticeMinutes})}
-          rtl={isRTL}
-        />
-        <InfoRow
-          icon="calendar-number-outline"
-          value={t("venueSettings.advanceDaysValue",{days:venue.maximumAdvanceBookingDays})}
-          rtl={isRTL}
-        />
-        <View style={styles.policyBox}>
-          <AppText variant="caption" weight="bold">{t("venueSettings.cancellationPolicy")}</AppText>
-          <AppText>{venue.cancellationPolicy}</AppText>
-        </View>
-      </Card>
-
-      <View style={{gap:spacing.xs}}>
-        <AppText variant="bodyLarge" weight="bold">{t("media.pagePosts")}</AppText>
-        <AppText muted>{t("media.pagePostsBody")}</AppText>
-      </View>
-
-      {postsLoading?<DataLoadingState variant="list" minHeight={260}/>:null}
-      {!postsLoading&&posts.length===0?<Card><AppText muted>{t("media.pagePostsEmpty")}</AppText></Card>:null}
-      {!postsLoading?posts.slice(0,20).map((post)=><VenuePagePost
-        key={post.id}
-        post={post}
-        language={language}
-        postNow={postNow}
-        isRTL={isRTL}
-        t={t}
-        onOpenCta={()=>{
-          if(post.ctaType==="PROMOTION"&&post.ctaTargetId){
-            void marketingApi.promotion(post.ctaTargetId).then(({promotion})=>{
-              router.push({pathname:"/venues/[venueId]",params:{
-                venueId:promotion.venueId,
-                promotionId:promotion.id,
-                startsAt:promotion.startsAt,
-              }});
-            }).catch(()=>setError(t("feed.promotionUnavailable")));
-          }else if(post.ctaType==="COMPETITION"&&post.ctaTargetId){
-            router.push({pathname:"/competitions/[competitionId]",params:{competitionId:post.ctaTargetId}});
-          }
-        }}
-      />):null}
-    </>:null}
-
-    <View onLayout={onAvailabilityLayout} style={{gap:spacing.xs}}>
-      <AppText variant="bodyLarge" weight="bold">{t("publicProfile.availability")}</AppText>
-      <AppText muted>{t("publicProfile.availabilityBody")}</AppText>
     </View>
 
-    <Card style={{gap:spacing.md}}>
-      <TextField label={t("booking.date")} value={date} onChangeText={setDate} forceLtr hint="YYYY-MM-DD"/>
-      <Button label={t("common.retry")} onPress={()=>void load()} loading={loading} variant="secondary"/>
-    </Card>
-
-    {!live&&availability?<Card style={{backgroundColor:colors.surfaceMuted}}>
-      <AppText weight="semibold" style={{color:colors.warning}}>{t("booking.cachedAvailability")}</AppText>
-      <AppText>{t("booking.cachedAvailabilityBody")}</AppText>
-      {cachedAt?<AppText variant="caption" forceLtr>{cachedAt}</AppText>:null}
-    </Card>:null}
+    <View style={styles.navContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
+        contentContainerStyle={[styles.navRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {venueNavItems.map(item=>{
+          const active=main===item.id;
+          return <Pressable key={item.id} accessibilityRole="tab"
+            accessibilityState={{selected:active}}
+            onPress={()=>chooseMain(item.id)}
+            style={[styles.navItem,active&&styles.navActive]}>
+            <Ionicons name={item.icon} size={22} color={active?colors.primary:colors.textMuted}/>
+            <AppText variant="caption" weight="semibold" numberOfLines={1}
+              style={{color:active?colors.primary:colors.textMuted}}>
+              {tr("tab."+item.id)}
+            </AppText>
+          </Pressable>;
+        })}
+      </ScrollView>
+    </View>
+    <View style={[styles.subNav,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {venueSubtabs[main].map(item=><Pressable key={item} accessibilityRole="tab"
+        accessibilityState={{selected:sub[main]===item}}
+        style={[styles.subItem,sub[main]===item&&styles.subActive]}
+        onPress={()=>setSub(current=>({...current,[main]:item}))}>
+        <AppText variant="caption" weight="semibold"
+          style={{color:sub[main]===item?colors.primary:colors.textMuted,textAlign:"center"}}>
+          {tr("sub."+main+"."+item)}
+        </AppText>
+      </Pressable>)}
+    </View>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-    {availability?.slots.length===0?<Card><AppText>{t("booking.noSlots")}</AppText></Card>:null}
-
-    {availability?.slots.map((slot)=><Card
-      key={`${slot.areaId}-${slot.startsAt}`}
-      style={[
-        styles.slotCard,
-        promotionId&&slot.promotionId===promotionId?styles.slotPromoted:undefined,
-      ]}
-    >
-      <View style={[styles.slotHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <View style={styles.slotIcon}><Ionicons name="football-outline" size={20} color={colors.primary}/></View>
-        <View style={{flex:1,gap:2}}>
-          <AppText weight="bold" forceLtr>
-            {timeLabel(slot.startsAt,availability.venue.timezone)} - {timeLabel(slot.endsAt,availability.venue.timezone)}
-          </AppText>
-          <AppText variant="caption" muted>{t("booking.availableSlot")}</AppText>
-        </View>
-        <AppText weight="bold" style={{color:colors.primary}}>{slot.priceAfn} AFN</AppText>
-      </View>
-      {slot.promotionId?<View style={styles.promoBadge}>
-        <AppText variant="caption" weight="bold" style={{color:colors.primary}}>{t("feed.promotedSlot")}</AppText>
-        {slot.originalPriceAfn!==null?<AppText variant="caption" muted style={{textDecorationLine:"line-through"}}>{slot.originalPriceAfn} AFN</AppText>:null}
-      </View>:null}
-      <Button
-        label={live&&isOnline?t("booking.bookNow"):t("booking.liveRequired")}
-        disabled={!live||!isOnline}
-        onPress={()=>router.push({pathname:"/booking/confirm",params:{
-          venueId:slot.venueId,areaId:slot.areaId,venueName:availability.venue.name,
-          startsAt:slot.startsAt,endsAt:slot.endsAt,priceAfn:String(slot.priceAfn),timeZone:availability.venue.timezone
-        }})}
-      />
-    </Card>)}
+    {main==="media"?<VenueMediaContent venue={venue} sub={sub.media as VenueMediaSub}
+      onReserve={reserve}/>:null}
+    {main==="reserve"?<VenueReserveContent venue={venue} sub={sub.reserve as VenueReserveSub}
+      startsAt={reserveStartsAt} promotionId={reservePromotionId}/>:null}
+    {main==="competitions"?<VenueCompetitionsContent venue={venue}
+      sub={sub.competitions as VenueCompetitionSub}/>:null}
+    {main==="updates"?<VenueUpdatesContent venue={venue}
+      sub={sub.updates as VenueUpdatesSub} onReserve={()=>reserve()}/>:null}
+    {main==="about"?<VenueAboutContent venue={venue} sub={sub.about as VenueAboutSub}/>:null}
   </Screen>;
 }
-
-function VenuePagePost({
-  post,language,postNow,isRTL,t,onOpenCta,
-}:{
-  post:VenuePostDto;
-  language:Parameters<typeof formatPostTimeAgo>[1];
-  postNow:number;
-  isRTL:boolean;
-  t:(key:any,params?:Record<string,string|number>)=>string;
-  onOpenCta:()=>void;
-}){
-  const published=formatPostTimeAgo(post.publishedAt,language,postNow);
-  return <Card style={styles.pagePost}>
-    <View style={[styles.postMeta,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <View style={styles.postTypeBadge}>
-        <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
-          {t(`media.type.${post.postType}` as never)}
-        </AppText>
-      </View>
-      <View style={{flex:1}}/>
-      <AppText variant="caption" muted>{published}</AppText>
-    </View>
-    <AppText>{post.body}</AppText>
-    {resolveMediaImageUrl(post.imageUrl)?<Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={styles.pagePostImage} resizeMode="cover"/>:null}
-    <View style={[styles.postActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      {post.ctaType!=="NONE"&&post.ctaType!=="VENUE"?<Button
-        label={t("feed.openCta")}
-        onPress={onOpenCta}
-        variant="secondary"
-        style={{flex:1}}
-      />:null}
-      {post.socialPostId?<Button
-        label={t("social.comment")}
-        onPress={()=>router.push({pathname:"/posts/[postId]/comments",params:{postId:post.socialPostId!}})}
-        variant="secondary"
-        style={{flex:1}}
-      />:null}
-      <Pressable
-        onPress={()=>router.push({pathname:"/posts/[postId]",params:{postId:post.id}})}
-        style={styles.openPostButton}
-      >
-        <AppText variant="caption" weight="bold" style={{color:colors.primary}}>{t("feed.openPost")}</AppText>
-      </Pressable>
-    </View>
-  </Card>;
-}
-
-function ProfileStat({icon,value,label}:{icon:keyof typeof Ionicons.glyphMap;value:string;label:string}){
-  return <Card style={styles.statCard}>
-    <View style={styles.statIcon}><Ionicons name={icon} size={20} color={colors.primary}/></View>
-    <AppText weight="bold" style={{textAlign:"center"}}>{value}</AppText>
-    <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText>
-  </Card>;
-}
-
-function InfoRow({icon,value,rtl,ltr=false}:{icon:keyof typeof Ionicons.glyphMap;value:string;rtl:boolean;ltr?:boolean}){
-  return <View style={[styles.infoRow,{flexDirection:rtl?"row-reverse":"row"}]}>
-    <Ionicons name={icon} size={18} color={colors.textMuted}/>
-    <AppText style={{flex:1}} forceLtr={ltr}>{value}</AppText>
-  </View>;
-}
-
 const styles=StyleSheet.create({
-  pageHeader:{borderRadius:radius.lg,overflow:"hidden",borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface},
-  publicCover:{height:190,backgroundColor:"#1E40AF"},
-  publicCoverFallback:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:"#1E3A8A"},
-  publicIdentity:{alignItems:"center",paddingHorizontal:spacing.md,paddingBottom:spacing.md},
-  publicAvatarFrame:{width:112,height:112,borderRadius:56,marginTop:-50,padding:4,backgroundColor:"#FFFFFF"},
-  publicAvatar:{width:"100%",height:"100%",borderRadius:52},
-  publicAvatarFallback:{alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
-  publicMeta:{alignItems:"center",justifyContent:"center",gap:spacing.xs,flexWrap:"wrap",marginTop:4},
-  publicDot:{width:3,height:3,borderRadius:2,backgroundColor:colors.textMuted},
-  publicBio:{textAlign:"center",marginTop:spacing.sm,maxWidth:560},
-  publicFollow:{width:"100%",marginTop:spacing.md},
-  statGrid:{flexDirection:"row",gap:spacing.sm},
-  statCard:{flex:1,alignItems:"center",gap:spacing.xs,padding:spacing.md},
-  statIcon:{width:36,height:36,borderRadius:18,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
-  aboutCard:{gap:spacing.md},
-  policyBox:{gap:4,padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
-  pagePost:{gap:spacing.md},
-  postMeta:{alignItems:"center",gap:spacing.sm},
-  postTypeBadge:{paddingHorizontal:spacing.sm,paddingVertical:4,borderRadius:radius.pill,backgroundColor:colors.primarySoft},
-  pagePostImage:{width:"100%",height:220,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
-  postActions:{alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
-  openPostButton:{minHeight:42,paddingHorizontal:spacing.md,alignItems:"center",justifyContent:"center"},
-  sectionHeading:{alignItems:"center",gap:spacing.sm},
-  sectionIcon:{width:38,height:38,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
-  infoRow:{alignItems:"center",gap:spacing.sm},
-  slotCard:{gap:spacing.md},
-  slotPromoted:{borderWidth:2,borderColor:colors.primary},
-  slotHeader:{alignItems:"center",gap:spacing.sm},
-  slotIcon:{width:40,height:40,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
-  promoBadge:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.primarySoft},
+  header:{backgroundColor:colors.surface,borderRadius:radius.lg,borderWidth:1,
+    borderColor:colors.border,overflow:"hidden"},
+  cover:{height:156,backgroundColor:"#173B7B"},
+  coverFallback:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:"#1E3A8A"},
+  identity:{alignItems:"center",paddingHorizontal:spacing.md,paddingBottom:spacing.md,gap:spacing.sm},
+  avatarFrame:{width:94,height:94,padding:4,backgroundColor:colors.surface,
+    borderRadius:47,marginTop:-44},
+  avatar:{height:"100%",width:"100%",borderRadius:43},
+  avatarFallback:{alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
+  location:{alignItems:"center",justifyContent:"center",gap:4,flexWrap:"wrap"},
+  actions:{width:"100%",gap:spacing.sm},
+  primaryAction:{flex:1,minWidth:0,paddingHorizontal:spacing.xs},
+  secondaryActions:{gap:spacing.sm,width:"100%",justifyContent:"space-around",marginTop:spacing.xs},
+  iconButton:{gap:spacing.xs,alignItems:"center",justifyContent:"center",minHeight:54,
+    minWidth:74,paddingHorizontal:spacing.sm},
+  navContainer:{borderBottomWidth:1,borderTopWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surface},
+  navRow:{gap:spacing.xs,alignItems:"center",paddingHorizontal:spacing.xs},
+  navItem:{minHeight:75,minWidth:96,paddingHorizontal:spacing.sm,paddingTop:spacing.sm,
+    borderBottomWidth:3,borderBottomColor:"transparent",gap:5,alignItems:"center",
+    justifyContent:"center"},
+  navActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft,
+    borderTopLeftRadius:radius.md,borderTopRightRadius:radius.md},
+  subNav:{borderBottomWidth:1,borderColor:colors.border,gap:spacing.xs,
+    justifyContent:"space-between"},
+  subItem:{flex:1,minWidth:0,minHeight:46,paddingVertical:spacing.sm,
+    paddingHorizontal:spacing.xs,justifyContent:"center",alignItems:"center",
+    borderBottomWidth:3,borderBottomColor:"transparent"},
+  subActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft},
 });
