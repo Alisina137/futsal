@@ -21,6 +21,8 @@ const settings = read("apps/mobile/app/(app)/(tabs)/settings.tsx");
 const ownerSubscription = read("apps/mobile/app/(app)/owner/subscription.tsx");
 const ownerAnalytics = read("apps/mobile/app/(app)/owner/analytics.tsx");
 const admin = read("apps/mobile/app/(app)/admin/index.tsx");
+const adminDirectories=read("apps/mobile/src/components/admin/AdminDirectorySections.tsx");
+const adminBilling=read("apps/mobile/src/components/admin/AdminBillingSection.tsx");
 const localization = read("packages/localization/src/index.ts");
 const journal = read("packages/database/drizzle/meta/_journal.json");
 const migration = read("packages/database/drizzle/0006_phase7_commercial_core.sql");
@@ -88,9 +90,9 @@ for (const marker of [
 
 requireText(ownerSubscription, "requestReactivation", "Owner reactivation UI missing");
 requireText(ownerAnalytics, "occupancyRate", "Owner analytics UI missing");
-requireText(admin, "activateSubscription", "Admin subscription activation UI missing");
-requireText(admin, "extendTrial", "Admin trial extension UI missing");
-requireText(admin, "venueAction", "Admin venue controls UI missing");
+requireText(adminBilling, "activateSubscription", "Admin subscription activation UI missing");
+requireText(adminBilling, "extendTrial", "Admin trial extension UI missing");
+requireText(adminDirectories, "venueAction", "Admin venue controls UI missing");
 requireText(mobileApi, "adminApi", "Admin mobile API client missing");
 
 for (const marker of [
