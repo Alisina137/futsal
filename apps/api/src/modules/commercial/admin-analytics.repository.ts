@@ -4,7 +4,7 @@ import {
   users,venues,teams,competitions,bookings,subscriptionPayments,
   venueSubscriptions,roleSubscriptions,teamExtraSubscriptions,userRoles,
 } from "@leaguekick/database";
-import {and,desc,eq,gte,gt,lt,lte,sql,type SQLWrapper} from "drizzle-orm";
+import {and,desc,eq,gte,gt,lt,lte,or,isNull,sql,type SQLWrapper} from "drizzle-orm";
 
 type Snapshot=Omit<AdminAnalyticsResponse,"generatedAt">;
 type DailyPoint=AdminAnalyticsResponse["daily"][number];
@@ -56,7 +56,7 @@ export class DrizzleAdminAnalyticsRepository{
     // Aggregate inside PostgreSQL; never pull customer rows or payment references.
     const [
       userSummary,venueSummary,teamSummary,competitionSummary,
-      activeVenuePaying,activeManagerPaying,extraSlots,
+      activeVenuePaying,activeManagerPaying,extraSlots,trialCohorts,
       userDaily,venueDaily,teamDaily,competitionDaily,bookingDaily,paymentDaily,
       roles,provinces,pendingRole,pendingExtras,pendingBookings,expiringPaid,
     ]=await Promise.all([
@@ -74,12 +74,22 @@ export class DrizzleAdminAnalyticsRepository{
       this.db.select({total:sql<number>`count(*)::int`}).from(competitions)
         .where(sql`${competitions.status} IN ('IN_PROGRESS','REGISTRATION_OPEN','REGISTRATION_CLOSED','SCHEDULED')`),
       this.db.select({total:sql<number>`count(*)::int`}).from(venueSubscriptions)
-        .where(and(eq(venueSubscriptions.status,"ACTIVE"),gt(venueSubscriptions.activeUntil,now))),
+        .where(and(eq(venueSubscriptions.status,"ACTIVE"),or(isNull(venueSubscriptions.activeUntil),gt(venueSubscriptions.activeUntil,now)))),
       this.db.select({total:sql<number>`count(*)::int`}).from(roleSubscriptions)
         .where(and(eq(roleSubscriptions.role,"TEAM_MANAGER"),
           eq(roleSubscriptions.status,"ACTIVE"),gt(roleSubscriptions.activeUntil,now))),
       this.db.select({total:sql<number>`count(*)::int`}).from(teamExtraSubscriptions)
         .where(and(eq(teamExtraSubscriptions.status,"ACTIVE"),gt(teamExtraSubscriptions.activeUntil,now))),
+      // Historical cohort: ever started a trial vs ever had a valid non-voided
+      // venue payment. Active subscription status alone is not conversion.
+      this.db.select({
+        started:sql<number>`count(*) filter (where ${venueSubscriptions.trialStartedAt} is not null)::int`,
+        converted:sql<number>`count(*) filter (where ${venueSubscriptions.trialStartedAt} is not null and exists (
+          select 1 from ${subscriptionPayments} where
+          ${subscriptionPayments.venueId}=${venueSubscriptions.venueId}
+          and ${subscriptionPayments.status}='RECORDED'
+        ))::int`,
+      }).from(venueSubscriptions),
       this.db.select({day:userDate,count:sql<number>`count(*)::int`})
         .from(users).where(and(gte(users.createdAt,fromAt),lt(users.createdAt,beforeAt)))
         .groupBy(userDate),
@@ -151,6 +161,8 @@ export class DrizzleAdminAnalyticsRepository{
         payingVenues:num(activeVenuePaying[0]?.total),
         payingTeamManagers:num(activeManagerPaying[0]?.total),
         activeExtraTeamSlots:num(extraSlots[0]?.total),
+        trialStartedVenues:num(trialCohorts[0]?.started),
+        trialConvertedVenues:num(trialCohorts[0]?.converted),
         teams:num(teamSummary[0]?.total),
         activeCompetitions:num(competitionSummary[0]?.total),
       },
