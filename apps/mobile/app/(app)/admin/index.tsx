@@ -2,7 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type {
   AdminAuditLogDto,
-  AdminDashboardResponse,
+  AdminAnalyticsResponse,
+  AdminAnalyticsDays,
   AdminRoleSubscriptionDto,
   AdminUserDto,
   AdminVenueDto,
@@ -15,6 +16,7 @@ import { adminNavItems, type SectionKey } from "../../../src/components/admin/ad
 import { AdminSidebar } from "../../../src/components/admin/AdminSidebar";
 import { AdminConfirmModal } from "../../../src/components/admin/AdminConfirmModal";
 import { DashboardSection } from "../../../src/components/admin/AdminDashboardSection";
+import {AdminAnalyticsSection} from "../../../src/components/admin/AdminAnalyticsSection";
 import { UsersSection, VenuesSection } from "../../../src/components/admin/AdminDirectorySections";
 import { SubscriptionsSection } from "../../../src/components/admin/AdminBillingSection";
 import { ConfigurationSection, SupportSection, ModerationSection, AuditSection } from "../../../src/components/admin/AdminOperationsSections";
@@ -52,7 +54,8 @@ export default function AdminScreen() {
       .sessionStorage?.setItem("futsal.admin.section",section);}catch{/* restricted browser storage */}
   },[section]);
 
-  const [dashboard, setDashboard] = useState<AdminDashboardResponse | null>(null);
+  const [analytics,setAnalytics]=useState<AdminAnalyticsResponse|null>(null);
+  const [analyticsDays,setAnalyticsDays]=useState<AdminAnalyticsDays>(30);
   const [users, setUsers] = useState<AdminUserDto[]>([]);
   const [venues, setVenues] = useState<AdminVenueDto[]>([]);
   const [duplicates, setDuplicates] = useState<AdminVenueDto[][]>([]);
@@ -114,7 +117,7 @@ export default function AdminScreen() {
     };
     // Demand-load the selected section only. A user search must not refetch
     // audits, settings, billing or dashboard metrics.
-    if(section==="dashboard")await loadPart("dashboard",()=>adminApi.dashboard(token),setDashboard);
+    if(section==="dashboard"||section==="analytics")await loadPart("analytics",()=>adminApi.analytics(token,analyticsDays,controller.signal),setAnalytics);
     else if(section==="users")await loadPart("users",
       ()=>adminApi.usersPage(token,query,page,25,controller.signal,sort),data=>{
         setUsers(data.users);setUserTotal(data.total);
@@ -140,7 +143,7 @@ export default function AdminScreen() {
       setLoadIssues(failures);
       setLoading(false);
     }
-  },[isAdmin,token,section,query,page,sort]);
+  },[isAdmin,token,section,query,page,sort,analyticsDays]);
 
   useEffect(()=>{
     void load();
@@ -248,7 +251,8 @@ export default function AdminScreen() {
         </View> : null}
 
         {loading?<DataLoadingState variant={section==="dashboard"?"dashboard":"list"} minHeight={360}/>:<>
-          {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={selectSection} t={t} /> : null}
+          {section === "dashboard" ? <DashboardSection data={analytics} days={analyticsDays} onDays={setAnalyticsDays} setSection={selectSection} /> : null}
+          {section === "analytics" ? <AdminAnalyticsSection data={analytics} days={analyticsDays} onDays={setAnalyticsDays}/> : null}
           {section === "users" ? <UsersSection users={users} query={queryDraft} setQuery={setQueryDraft} page={page} total={userTotal} onPage={setPage} sort={sort} onSort={updateSort} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={async()=>submitSearch()} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "manualTeams" ? <ManualTeamsAdminSection /> : null}
           {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={queryDraft} setQuery={setQueryDraft} page={page} total={venueTotal} onPage={setPage} sort={sort} onSort={updateSort} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
