@@ -79,11 +79,9 @@ export class DrizzleAdminGovernanceRepository{
       "paid_entitlement_payments","community_reports","support_tickets",
       "platform_announcements","platform_announcement_recipients","notification_deliveries"];
     const checks=[];
-    const result=await this.db.execute(sql`SELECT
-      ${expected.map(x=>x).length}::int AS expected_count,
-      (SELECT count(*)::int FROM (
-        SELECT to_regclass(x.name) ref FROM unnest(${expected}::text[]) x(name)
-      ) ready WHERE ready.ref IS NOT NULL) AS present_count`);
+    const present=sql.join(expected.map(name=>
+      sql`(CASE WHEN to_regclass(${name}) IS NOT NULL THEN 1 ELSE 0 END)`),sql` + `);
+    const result=await this.db.execute(sql`SELECT (${present})::int AS present_count`);
     const count=Number(result.rows[0]?.present_count??0);
     const schemaReady=count===expected.length;
     checks.push({key:"database_schema",state:schemaReady?"PASS" as const:"ATTENTION" as const,
