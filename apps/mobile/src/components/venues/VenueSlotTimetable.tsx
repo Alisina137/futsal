@@ -225,9 +225,9 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
         {callLink?<Button style={styles.contactButton} variant="secondary"
           label={tr("callVenue")} icon={<Ionicons name="call-outline" size={18} color={colors.primary}/>}
           onPress={()=>void openContact(callLink)}/>:null}
-        {whatsappLink?<Button style={styles.contactButton} variant="secondary"
+        <Button style={styles.contactButton} variant="secondary"
           label={tr("whatsapp")} icon={<Ionicons name="logo-whatsapp" size={18} color={colors.primary}/>}
-          onPress={()=>void openContact(whatsappLink)}/>:null}
+          disabled={!whatsappLink} onPress={()=>{if(whatsappLink)void openContact(whatsappLink);}}/>
       </View>
       {!whatsappLink?<AppText variant="caption" muted>{tr("whatsappUnavailable")}</AppText>:null}
       <AppText variant="caption" muted>{tr("contactDisclaimer")}</AppText>
@@ -396,8 +396,9 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
           <View style={[styles.contactRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             {callLink?<Button style={styles.contactButton} variant="secondary"
               label={tr("callVenue")} onPress={()=>void openContact(callLink)}/>:null}
-            {selectedWhatsapp?<Button style={styles.contactButton} variant="secondary"
-              label={tr("whatsapp")} onPress={()=>void openContact(selectedWhatsapp)}/>:null}
+            <Button style={styles.contactButton} variant="secondary"
+              label={tr("whatsapp")} disabled={!selectedWhatsapp}
+              onPress={()=>{if(selectedWhatsapp)void openContact(selectedWhatsapp);}}/>
           </View>
           <AppText variant="caption" muted>{tr("contactDisclaimer")}</AppText>
           {contactError?<AppText variant="caption" style={{color:colors.danger}}>
