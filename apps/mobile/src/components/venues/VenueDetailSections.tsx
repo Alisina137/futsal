@@ -14,6 +14,7 @@ import {useNetwork} from "../../providers/NetworkProvider";
 import {NearbyVenuesMap} from "./NearbyVenuesMap";
 import {VenueSlotTimetable} from "./VenueSlotTimetable";
 import {SlotTileContent} from "../ui/SlotTileContent";
+import {softenSlotColor} from "../../lib/slot-color";
 import {ReservationsPanel} from "../bookings/ReservationsPanel";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
 import {AppText} from "../ui/AppText";
@@ -498,8 +499,8 @@ const styles=StyleSheet.create({
   viewer:{flex:1,backgroundColor:"#061426",padding:spacing.lg,paddingTop:60},
   viewerImage:{width:"100%",flex:1},
   offerGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xs},
-  offerSlot:{width:"48%",minHeight:54,backgroundColor:"#F3E8FF",borderColor:"#D8B4FE",
-    borderWidth:1,borderRadius:radius.md,paddingHorizontal:2,justifyContent:"center"},
+  offerSlot:{width:"48%",minHeight:54,backgroundColor:softenSlotColor("#F3E8FF"),borderColor:"#D8B4FE",
+    borderWidth:1,borderRadius:radius.md,overflow:"hidden",paddingHorizontal:2,justifyContent:"center"},
   offerDisabled:{opacity:.65},
   offerPressed:{opacity:.75},
   slotIcon:{width:42,height:42,borderRadius:12,backgroundColor:colors.primarySoft,
