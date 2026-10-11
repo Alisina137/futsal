@@ -12,6 +12,7 @@ import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {useNetwork} from "../../providers/NetworkProvider";
 import {NearbyVenuesMap} from "./NearbyVenuesMap";
+import {VenueSlotTimetable} from "./VenueSlotTimetable";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -241,7 +242,9 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
           t("booking.offlineNoCache"):t("booking.loadAvailabilityError"));}
     }finally{setLoading(false);}
   },[date,dateValid,isOnline,venue.id,venue.onlineBookingEnabled,t]);
-  useEffect(()=>{if(sub!=="bookings")void load();},[sub,date,reconnectVersion,reload,load]);
+  // The time-grid has its own scoped 1- or 7-day availability loader.
+  // Avoid a second parallel request from the Offers view loader.
+  useEffect(()=>{if(sub==="offers")void load();},[sub,date,reconnectVersion,reload,load]);
   const loadMine=useCallback(async()=>{
     if(!session)return;
     setBookingsLoading(true);setError(null);
@@ -266,6 +269,7 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
       timeZone:venue.timezone,
     }});
   }
+  if(sub==="slots")return <VenueSlotTimetable venue={venue} startsAt={startsAt} promotionId={promotionId}/>;
   const usable=availabilityDate===date?availability?.slots??[]:[];
   const slots=sub==="offers"?usable.filter(slot=>slot.promotionId!==null):usable;
   if(sub==="bookings")return <>
