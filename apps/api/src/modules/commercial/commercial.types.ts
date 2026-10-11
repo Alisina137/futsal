@@ -1,5 +1,7 @@
 import type {
   AdminAuditLogDto,
+  AdminAnalyticsDays,
+  AdminAnalyticsResponse,
   AdminUserDto,
   AdminVenueDto,
   SubscriptionPaymentDto,
@@ -148,6 +150,7 @@ export interface CommercialRepository {
   requestReactivation(ownerUserId: string, venueId: string, createdAt: Date): Promise<void>;
   analyticsSnapshot(ownerUserId: string, startsAt: Date, endsAt: Date, from: string, to: string): Promise<OwnerAnalyticsSnapshot | null>;
 
+  adminAnalytics(now:Date,days:AdminAnalyticsDays):Promise<Omit<AdminAnalyticsResponse,"generatedAt">>;
   adminDashboard(now: Date): Promise<{
     activeUsers: number;
     activeVenues: number;
