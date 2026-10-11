@@ -215,6 +215,7 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
   const [loading,setLoading]=useState(false),[error,setError]=useState<string|null>(null);
   const [fresh,setFresh]=useState(false),[cachedAt,setCachedAt]=useState<string|null>(null);
   const [bookings,setBookings]=useState<BookingDto[]>([]),[bookingsLoading,setBookingsLoading]=useState(true);
+  const [bookingsActor,setBookingsActor]=useState<string|null>(null);
   const bookingLoadSerial=useRef(0);
   const [reload,setReload]=useState(0);
   const today=todayAtKabul();
@@ -250,12 +251,14 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
   useEffect(()=>{if(sub==="offers")void load();},[sub,date,reconnectVersion,reload,load]);
   const loadMine=useCallback(async()=>{
     const serial=++bookingLoadSerial.current;
-    if(!session){setBookings([]);setBookingsLoading(false);return;}
+    if(!session){setBookings([]);setBookingsActor(null);setBookingsLoading(false);return;}
     setBookingsLoading(true);setError(null);
     try{
       const result=await bookingApi.mine(session.accessToken);
-      if(serial===bookingLoadSerial.current)
+      if(serial===bookingLoadSerial.current){
         setBookings(result.bookings.filter(x=>x.venueId===venue.id&&x.playerUserId===session.user.id));
+        setBookingsActor(session.user.id);
+      }
     }catch(e){
       if(serial===bookingLoadSerial.current)
         setError(messageForError(e,t("booking.loadBookingsError")));
@@ -289,7 +292,7 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
   const slots=sub==="offers"?usable.filter(slot=>slot.promotionId!==null):usable;
   if(sub==="bookings")return !session
     ?<Empty icon="person-outline" title={tr("signInBookings")} detail={tr("signInBookingsHint")}/>
-    :<ReservationsPanel items={bookings.filter(b=>b.venueId===venue.id)}
+    :<ReservationsPanel items={bookingsActor===session.user.id?bookings.filter(b=>b.venueId===venue.id):[]}
       loading={bookingsLoading} error={error}
       onRefresh={()=>void loadMine()} onCancel={cancel} scopedVenueId={venue.id}/>;
   return <>
