@@ -117,7 +117,10 @@ export default function AdminScreen() {
     };
     // Demand-load the selected section only. A user search must not refetch
     // audits, settings, billing or dashboard metrics.
-    if(section==="dashboard"||section==="analytics")await loadPart("analytics",()=>adminApi.analytics(token,analyticsDays,controller.signal),setAnalytics);
+    if(section==="dashboard"||section==="analytics"){
+      setAnalytics(null); // never show last period metrics after a failed period change
+      await loadPart("analytics",()=>adminApi.analytics(token,analyticsDays,controller.signal),setAnalytics);
+    }
     else if(section==="users")await loadPart("users",
       ()=>adminApi.usersPage(token,query,page,25,controller.signal,sort),data=>{
         setUsers(data.users);setUserTotal(data.total);
