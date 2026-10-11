@@ -522,7 +522,7 @@ export type OwnerAnalyticsResponse = z.infer<typeof ownerAnalyticsResponseSchema
 
 export const adminSubscriptionActivationRequestSchema = z.object({
   months: z.number().int().min(1).max(24),
-  amountAfn: z.number().int().min(0).max(100_000_000),
+  amountAfn: z.number().int().min(1).max(100_000_000),
   provider: z.string().trim().min(1).max(40).default("MANUAL"),
   providerReference: z.string().trim().min(3).max(120),
   note: z.string().trim().max(500).optional().or(z.literal("")),

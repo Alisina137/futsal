@@ -34,11 +34,11 @@ export function SubscriptionsSection({ roleSubscriptions, venues, payments, paym
           onPress={()=>void action(
             ()=>adminApi.activateRoleSubscription(token,subscription.userId,subscription.role,{
               months:Number(months)||1,
-              paymentReference:subscription.paymentReference||paymentRef,
+              paymentReference:paymentRef.trim()||(subscription.status==="PENDING"?subscription.paymentReference?.trim():"")||"",
             }),
             t("phase7.admin.activated"),true,subscription.displayName+" · "+subscription.role,
           )}
-          disabled={busy}
+          disabled={busy||!(paymentRef.trim()||(subscription.status==="PENDING"?subscription.paymentReference:""))||Number(months)<1||Number(months)>24||!Number.isInteger(Number(months))}
         />:null}
       </View>)}
     </Card>
@@ -65,7 +65,9 @@ export function SubscriptionsSection({ roleSubscriptions, venues, payments, paym
         <Button label={t("phase7.admin.activate")} onPress={() => void action(
           () => adminApi.activateSubscription(token, venue.id, { months: Number(months), amountAfn: Number(amountAfn), provider: "MANUAL", providerReference: paymentRef, note: reason }),
           t("phase7.admin.activated"),
-        )} disabled={busy || reason.trim().length < 3}/>
+        )} disabled={busy || reason.trim().length < 3||paymentRef.trim().length<3||
+          !Number.isInteger(Number(months))||Number(months)<1||Number(months)>24||
+          !Number.isInteger(Number(amountAfn))||Number(amountAfn)<1}/>
         <TextField label={t("phase7.admin.trialHours")} value={trialHours} onChangeText={setTrialHours} keyboardType="number-pad" forceLtr containerStyle={styles.smallField}/>
         <Button label={t("phase7.admin.extendTrial")} onPress={() => void action(
           () => adminApi.extendTrial(token, venue.id, { hours: Number(trialHours), reason }),

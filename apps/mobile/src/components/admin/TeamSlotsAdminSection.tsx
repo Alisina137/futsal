@@ -8,6 +8,7 @@ import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
 import {TextField} from "../ui/TextField";
+function countOrOne(value:string){const n=Number(value);return Number.isInteger(n)&&n>0&&n<=24?n:1;}
 export function TeamSlotsAdminSection({token}:{token:string}){
   const {t,language}=useLocale();
   const [slots,setSlots]=useState<TeamExtraSlot[]>([]);
@@ -16,6 +17,7 @@ export function TeamSlotsAdminSection({token}:{token:string}){
   const [months,setMonths]=useState("1");
   const [paymentRef,setPaymentRef]=useState("");
   const [refresh,setRefresh]=useState(0);
+  const [confirmSlot,setConfirmSlot]=useState<TeamExtraSlot|null>(null);
   const load=useCallback(async()=>{
     try{setSlots((await adminApi.teamSlots(token)).slots);setError(null);}
     catch(e){setError(e instanceof ApiRequestError?e.message:t("tmBilling.loadError"));}
@@ -31,7 +33,7 @@ export function TeamSlotsAdminSection({token}:{token:string}){
     if(!ref){setError(t("tmBilling.paymentRequired"));return;}
     setBusy(slot.id);setError(null);
     try{await adminApi.activateTeamSlot(token,slot.id,count,ref);
-      setRefresh(v=>v+1);}
+      setConfirmSlot(null);setPaymentRef("");setRefresh(v=>v+1);}
     catch(e){setError(e instanceof ApiRequestError?e.message:t("tmBilling.requestError"));}
     finally{setBusy(null);}
   }
@@ -53,7 +55,14 @@ export function TeamSlotsAdminSection({token}:{token:string}){
         formatCompetitionDateTime(slot.activeUntil,language):t("tmBilling.awaiting")}</AppText>
       {slot.paymentReference?<AppText variant="caption" muted forceLtr>{slot.paymentReference}</AppText>:null}
       {slot.status==="PENDING"?<Button label={t("roles.confirmPaymentActivate")}
-        disabled={busy!==null} loading={busy===slot.id} onPress={()=>void activate(slot)}/>:null}
+        disabled={busy!==null} loading={busy===slot.id} onPress={()=>setConfirmSlot(slot)}/>:null}
+      {confirmSlot?.id===slot.id?<Card style={{gap:spacing.sm,backgroundColor:colors.primarySoft}}>
+        <AppText weight="bold">{slot.displayName??slot.username??slot.userId} · {countOrOne(months)} × {slot.monthlyPriceAfn} AFN</AppText>
+        <AppText muted variant="caption" forceLtr>{paymentRef.trim()||slot.paymentReference||"Payment reference required"}</AppText>
+        <Button label={t("roles.confirmPaymentActivate")} disabled={busy!==null}
+          loading={busy===slot.id} onPress={()=>void activate(slot)}/>
+        <Button label={t("common.cancel")} variant="secondary" onPress={()=>setConfirmSlot(null)}/>
+      </Card>:null}
     </View>)}
   </Card>;
 }
