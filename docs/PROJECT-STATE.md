@@ -19,6 +19,15 @@
 - Financial console shows 7-day expiry/pending review counts, type/status/ref filters, local Kabul time and English/Dari/Pashto. Team-slot confirmation includes a second explicit review step.
 - **Deployment gate:** apply migration 0035 before rolling out the updated API; run `pnpm verify`, test real DB transaction concurrency, compare receipts to actual manual payment proof and manually inspect RTL layouts.
 
+## Admin Phase 6 — Moderation, Reports & Customer Support (October 11, 2026)
+- Database migration 0036 creates private user abuse reports, support ticket timeline/status/assignment, scheduled platform announcements with deduplicated audience snapshots, and a non-destructive `social_post_comments.hidden_at`.
+- Platform administrators receive paginated Moderation, Reports, Support, Announcements and Notification Delivery Health workspaces. Public authenticated users have their own support ticket and abuse report submission screen. Only the reporter's ticket history is visible to that requester.
+- Hidden posts and comments no longer appear in social feed or comments; promotions are closed without rewriting booking history. User warnings are in-app notices and each moderator write is reason-audited.
+- Support workflow: OPEN → IN_PROGRESS → WAITING_FOR_USER → RESOLVED → CLOSED, with internal assignment/priority and actor/time-stamped messages. Resolved tickets are inspectable; closed tickets cannot be rewritten.
+- Scheduled announcements: audience scoped to all active accounts, a specified user, role or city, with one `ADMIN_ANNOUNCEMENT` notification per user per campaign. Durable recipient snapshot, 150/batch deliveries and a 60-second server poll. All-in-app only; push pipeline has no external send worker yet.
+- Delivery administration is read-only status overview plus safe FAILED push requeue (max 3 attempts). Requeue explicitly does not claim successful push delivery.
+- Run `pnpm db:migrate` before API start and `pnpm verify`. Staging gates: test moderation hiding, owner isolation, concurrent report filing, workflow transitions, campaign retries, large audiences, notification preferences/push execution, and RTL form usability.
+
 ## Product objective
 Increase futsal venue utilization and revenue through reliable availability and mobile booking, with integrated venue operations, competitions, and a futsal-specific public presence.
 
