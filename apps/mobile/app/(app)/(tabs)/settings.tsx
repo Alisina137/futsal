@@ -4,6 +4,7 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { PaidRole } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import {setDashboardRole,type DashboardRole} from "../../../src/lib/dashboard-role";
+import {availableDashboardRoles} from "../../../src/lib/dashboard-role-options";
 import { useMemo, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { LanguagePicker } from "../../../src/components/LanguagePicker";
@@ -16,6 +17,13 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 import { useNetwork } from "../../../src/providers/NetworkProvider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
+const dashboardIcons:Record<DashboardRole,IconName>={
+  PLAYER:"football-outline",
+  REFEREE:"flag-outline",
+  TEAM_MANAGER:"people-outline",
+  VENUE_OWNER:"business-outline",
+};
+
 
 export default function ProfileScreen(){
   const {session,signOut,revalidate}=useAuth();
@@ -111,15 +119,11 @@ export default function ProfileScreen(){
     <SectionHeader icon="grid-outline" title={t("rf1.dashboardMode")} subtitle={t("rf1.dashboardModeHint")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
       <View style={{gap:spacing.sm}}>
-        {([{key:"PLAYER",icon:"football-outline"},
-          ...(user?.roles.includes("REFEREE")?[{key:"REFEREE",icon:"flag-outline"}]:[]),
-          ...(user?.roles.includes("TEAM_MANAGER")?[{key:"TEAM_MANAGER",icon:"people-outline"}]:[]),
-          ...(user?.roles.includes("VENUE_OWNER")?[{key:"VENUE_OWNER",icon:"business-outline"}]:[]),
-        ] as Array<{key:DashboardRole;icon:IconName}>).map(choice=>
-          <ActionRow key={choice.key} icon={choice.icon}
-            title={t(("rf1.dashboardRole."+choice.key) as never)}
+        {availableDashboardRoles(user?.roles??[]).map(choice=>
+          <ActionRow key={choice} icon={dashboardIcons[choice]}
+            title={t(("rf1.dashboardRole."+choice) as never)}
             subtitle={t("rf1.dashboardSelect")} rtl={isRTL}
-            onPress={()=>{if(user)void setDashboardRole(user.id,choice.key).then(()=>router.push("/dashboard"));}}/>
+            onPress={()=>{if(user)void setDashboardRole(user.id,choice).then(()=>router.push("/dashboard"));}}/>
         )}
       </View>
     </Card>
