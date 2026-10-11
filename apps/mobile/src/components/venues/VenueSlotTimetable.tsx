@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {BookingDto,PublicVenueDto,VenueAvailabilityResponse,VenueTimelineSlotDto} from "@leaguekick/contracts";
 import {router} from "expo-router";
-import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {memo,useCallback,useEffect,useMemo,useRef,useState} from "react";
+import {ActivityIndicator,Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {bookingApi,venueApi} from "../../lib/api";
 import {callVenueUrl,venueWhatsAppUrl} from "../../lib/venue-contact";
 import {useAuth} from "../../providers/AuthProvider";
@@ -48,6 +48,59 @@ function asTimeline(data:VenueAvailabilityResponse):VenueTimelineSlotDto[]{
   // Backward compatibility with previously cached responses/API instances.
   return data.timeline??data.slots.map(slot=>({...slot,status:"AVAILABLE" as const}));
 }
+type PublicSlotProps={
+  item:VenueTimelineSlotDto;
+  date:string;
+  own:BookingDto|undefined;
+  timezone:string;
+  today:string;
+  limit:string;
+  promotionId:string|undefined;
+  startsAt:string|undefined;
+  t:ReturnType<typeof useLocale>["t"];
+  onTap:(slot:VenueTimelineSlotDto,date:string)=>void;
+};
+// Keep slot component identity stable: an inline component definition inside
+// VenueSlotTimetable unmounted EVERY tile on setSelected, retriggering its
+// expensive Intl/layout effects and delaying the native slot dialog.
+const Slot=memo(function Slot({item,date,own,timezone,today,limit,promotionId,startsAt,t,onTap}:PublicSlotProps){
+  const [processing,setProcessing]=useState(false);
+  const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  useEffect(()=>()=>{if(timer.current!==null)clearTimeout(timer.current);},[]);
+  const palette=own?{bg:"#DBEAFE",border:"#60A5FA",ink:"#1D4ED8"}:statusColors[item.status];
+  const disabled=!own&&!((item.status==="AVAILABLE"||item.status==="PROMOTION")
+    &&date>=today&&date<=limit);
+  const isTarget=(!!promotionId&&item.promotionId===promotionId)||
+    (!!startsAt&&item.startsAt===startsAt);
+  function press(){
+    if(disabled||processing)return;
+    // Paint feedback before opening the modal, without an API round trip.
+    setProcessing(true);
+    requestAnimationFrame(()=>onTap(item,date));
+    if(timer.current!==null)clearTimeout(timer.current);
+    timer.current=setTimeout(()=>setProcessing(false),1200);
+  }
+  return <Pressable
+    testID={"venue-public-slot-"+date+"-"+clock(item.startsAt,timezone)}
+    accessibilityRole="button" accessibilityState={{disabled,busy:processing}}
+    accessibilityLabel={
+      formatSlotStartTime(item.startsAt,timezone)+", "+
+      formatSlotTilePrice(own?own.priceAfn:item.priceAfn)+", "+
+      (own?t("vd.grid.yourBooking"):t(("vd.grid.status."+item.status) as never))}
+    disabled={disabled||processing} onPress={press}
+    style={({pressed})=>[styles.slot,{backgroundColor:palette.bg,borderColor:palette.border},
+      disabled&&styles.disabledSlot,isTarget&&styles.target,pressed&&!disabled&&styles.pressed]}>
+    <SlotTileContent startsAt={item.startsAt} timeZone={timezone}
+      priceAfn={own?own.priceAfn:item.priceAfn} ink={palette.ink}
+      marker={own?<Ionicons name="person-circle" size={15} color={palette.ink}/>:
+        item.status==="UNAVAILABLE"?<Ionicons name="lock-closed" size={13} color={palette.ink}/>:
+        item.status==="PROMOTION"?
+          <AppText variant="caption" weight="bold" style={{color:palette.ink}}>%</AppText>:null}/>
+    {processing?<View pointerEvents="none" style={styles.slotProcessing}>
+      <ActivityIndicator size="small" color={palette.ink}/>
+    </View>:null}
+  </Pressable>;
+});
 export function VenueSlotTimetable({venue,startsAt,promotionId}:{
   venue:PublicVenueDto;startsAt?:string|undefined;promotionId?:string|undefined;
 }){
@@ -81,11 +134,15 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
     }).catch(()=>{if(live)setMineError(true);});
     return()=>{live=false;};
   },[session?.accessToken,session?.user.id,venue.id,connected,reload,reconnectVersion]);
-  function ownBooking(slot:VenueTimelineSlotDto):BookingDto|undefined{
-    return ownBookings.find(item=>item.areaId===slot.areaId
-      &&Date.parse(item.startsAt)===Date.parse(slot.startsAt)
-      &&item.status!=="CANCELLED");
-  }
+  const ownBySlot=useMemo(()=>{
+    const map=new Map<string,BookingDto>();
+    for(const booking of ownBookings)if(booking.status!=="CANCELLED"){
+      map.set(booking.areaId+"|"+Date.parse(booking.startsAt),booking);
+    }
+    return map;
+  },[ownBookings]);
+  const ownBooking=useCallback((slot:VenueTimelineSlotDto)=>ownBySlot.get(
+    slot.areaId+"|"+Date.parse(slot.startsAt)),[ownBySlot]);
   async function openContact(url:string){
     setContactError(false);
     try{await Linking.openURL(url);}catch{setContactError(true);}
@@ -147,8 +204,23 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
     return()=>{sequence.current++;};
   },[venue.id,venue.onlineBookingEnabled,view,visibleDays.join("|"),reload,reconnectVersion,connected,t]);
   // Avoid showing the wrong slot or price after moving between days/weeks.
-  const all=visibleDays.flatMap(date=>days[date]?.slots??[]);
-  const timeRows=[...new Set(all.map(slot=>clock(slot.startsAt,venue.timezone)))].sort();
+  // The previous un-memoized Week renderer formatted every time cell through
+  // a new Intl.DateTimeFormat and filtered every day's full slot array in every
+  // row. Selecting one tile caused this entire O(rows * slots) cost again.
+  const {timeRows,slotsAtTime}=useMemo(()=>{
+    const keys=new Set<string>();
+    const lookup=new Map<string,VenueTimelineSlotDto[]>();
+    for(const date of visibleDays){
+      for(const slot of days[date]?.slots??[]){
+        const time=clock(slot.startsAt,venue.timezone);
+        keys.add(time);
+        const key=date+"|"+time;
+        const group=lookup.get(key);
+        if(group)group.push(slot);else lookup.set(key,[slot]);
+      }
+    }
+    return {timeRows:[...keys].sort(),slotsAtTime:lookup};
+  },[days,visibleDays,venue.timezone]);
   const monthDays=useMemo(()=>{
     if(view!=="MONTH")return [];
     const dates:string[]=[];
@@ -161,16 +233,15 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
     if(next<today&&delta===-1)return;
     setAnchor(next);setSelected(null);
   }
-  function tap(slot:VenueTimelineSlotDto,date:string){
+  const tap=useCallback((slot:VenueTimelineSlotDto,date:string)=>{
     const bookable=(slot.status==="AVAILABLE"||slot.status==="PROMOTION")
       &&date>=today&&date<=limit;
     const mine=ownBooking(slot);
-    // The public timetable does not reveal who reserved an unavailable slot.
-    // Only a separately authenticated owner-only booking read enables interaction.
+    // Public unavailable slots never reveal someone else's reservation.
     if(!bookable&&!mine)return;
     setContactError(false);setCancelConfirm(false);
     setSelected({date,slot,fresh:days[date]?.fresh===true});
-  }
+  },[today,limit,days,ownBooking]);
   function book(){
     if(!selected||!connected||!selected.fresh||!["AVAILABLE","PROMOTION"].includes(selected.slot.status)
       ||selected.date<today||selected.date>limit)return;
@@ -182,30 +253,6 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
       startsAt:slot.startsAt,endsAt:slot.endsAt,
       priceAfn:String(slot.priceAfn),timeZone:venue.timezone,
     }});
-  }
-  function Slot({item,date}:{item:VenueTimelineSlotDto;date:string}){
-    const mine=ownBooking(item);
-    const palette=mine?{bg:"#DBEAFE",border:"#60A5FA",ink:"#1D4ED8"}:statusColors[item.status];
-    const disabled=!mine&&!((item.status==="AVAILABLE"||item.status==="PROMOTION")
-      &&date>=today&&date<=limit);
-    const isTarget=(!!promotionId&&item.promotionId===promotionId)||
-      (!!startsAt&&item.startsAt===startsAt);
-    return <Pressable key={item.areaId+"-"+item.startsAt}
-      testID={"venue-public-slot-"+date+"-"+clock(item.startsAt,venue.timezone)}
-      accessibilityRole="button" accessibilityState={{disabled}}
-      accessibilityLabel={
-        formatSlotStartTime(item.startsAt,venue.timezone)+", "+formatSlotTilePrice(item.priceAfn)+", "+
-        (mine?tr("yourBooking"):tr("status."+item.status))}
-      disabled={disabled} onPress={()=>tap(item,date)}
-      style={({pressed})=>[styles.slot,{backgroundColor:palette.bg,borderColor:palette.border},
-        disabled&&styles.disabledSlot,isTarget&&styles.target,pressed&&!disabled&&styles.pressed]}>
-      <SlotTileContent startsAt={item.startsAt} timeZone={venue.timezone}
-        priceAfn={mine?mine.priceAfn:item.priceAfn} ink={palette.ink}
-        marker={mine?<Ionicons name="person-circle" size={15} color={palette.ink}/>:
-          item.status==="UNAVAILABLE"?<Ionicons name="lock-closed" size={13} color={palette.ink}/>:
-          item.status==="PROMOTION"?
-            <AppText variant="caption" weight="bold" style={{color:palette.ink}}>%</AppText>:null}/>
-    </Pressable>;
   }
   const selectedOwn=selected?ownBooking(selected.slot):undefined;
   const selectedWhatsapp=selected?venueWhatsAppUrl(venue,language,selected.slot,!!selectedOwn):null;
@@ -302,7 +349,9 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
               weekday:"long",month:"long",day:"numeric"})}</AppText>
             <View style={styles.dayGrid}>{(days[date]?.slots??[]).map(item=>
               <View key={item.areaId+"-"+item.startsAt} style={styles.dayCell}>
-                <Slot item={item} date={date}/>
+                <Slot item={item} date={date} own={ownBooking(item)}
+                  timezone={venue.timezone} today={today} limit={limit}
+                  promotionId={promotionId} startsAt={startsAt} t={t} onTap={tap}/>
               </View>)}</View>
             {(!days[date]||days[date].slots.length===0)?<Card>
               <AppText muted>{tr("noScheduledSlots")}</AppText>
@@ -331,9 +380,11 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
                 <View style={styles.timeCell}><AppText variant="caption" weight="semibold"
                   forceLtr>{time}</AppText></View>
                 {visibleDays.map(date=>{
-                  const found=days[date]?.slots.filter(x=>clock(x.startsAt,venue.timezone)===time)??[];
+                  const found=slotsAtTime.get(date+"|"+time)??[];
                   return <View key={date+"-"+time} style={styles.weekCell}>
-                    {found.map(item=><Slot key={item.areaId+"-"+item.startsAt} item={item} date={date}/>)}
+                    {found.map(item=><Slot key={item.areaId+"-"+item.startsAt} item={item} date={date}
+                      own={ownBooking(item)} timezone={venue.timezone} today={today} limit={limit}
+                      promotionId={promotionId} startsAt={startsAt} t={t} onTap={tap}/>)}
                   </View>;
                 })}
               </View>)}
@@ -425,6 +476,9 @@ const styles=StyleSheet.create({
   slot:{minHeight:54,borderRadius:radius.md,borderWidth:1,justifyContent:"center",
     alignItems:"stretch",paddingHorizontal:2,position:"relative"},
   target:{borderWidth:2,borderColor:colors.primary},
+  slotProcessing:{position:"absolute",top:0,bottom:0,left:0,right:0,
+    alignItems:"center",justifyContent:"center",backgroundColor:"rgba(255,255,255,0.82)",
+    borderRadius:radius.md},
   pressed:{opacity:0.68},
   disabledSlot:{opacity:0.72},
   contactRow:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
