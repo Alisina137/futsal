@@ -136,6 +136,10 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   async ensurePlayerProfile(userId: string, fallbackDisplayName: string, now: Date): Promise<OwnPlayerProfileDto> {
+    const [referee]=await this.db.select({id:venueReferees.venueId})
+      .from(venueReferees).where(eq(venueReferees.userId,userId)).limit(1);
+    if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+      "Referees cannot activate a player profile. Remove their referee assignment first.");
     await this.db.insert(playerProfiles).values({
       userId,
       publicDisplayName: fallbackDisplayName,
