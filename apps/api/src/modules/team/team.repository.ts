@@ -600,6 +600,10 @@ export class DrizzleTeamRepository implements TeamRepository {
         eq(teamMemberships.status, "ACTIVE"),
       )).limit(1);
       if (!nextMembership) return false;
+      const [candidate] = await tx.select({emailVerifiedAt:users.emailVerifiedAt})
+        .from(users).where(eq(users.id,nextManagerUserId)).limit(1);
+      if(!candidate?.emailVerifiedAt)
+        throw errors.forbidden("EMAIL_VERIFICATION_REQUIRED","Verify an email before becoming a team manager.");
       // A transfer cannot turn an unpaid member into a manager of an extra team.
       // For now a target manager must have a paid role and no already-managed team.
       const [paid]=await tx.select({status:roleSubscriptions.status,activeUntil:roleSubscriptions.activeUntil})
