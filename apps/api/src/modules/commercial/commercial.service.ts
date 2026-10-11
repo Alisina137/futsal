@@ -489,6 +489,11 @@ export class CommercialService {
     };
   }
 
+  async adminAnalytics(days:import("@leaguekick/contracts").AdminAnalyticsDays){
+    const now=this.now();
+    return {generatedAt:now.toISOString(),...await this.repository.adminAnalytics(now,days)};
+  }
+
   adminDashboard() {
     return this.repository.adminDashboard(this.now()).then((metrics) => ({
       generatedAt: this.now().toISOString(),
