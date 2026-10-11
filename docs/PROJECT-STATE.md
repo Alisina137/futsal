@@ -1,5 +1,12 @@
 # PROJECT STATE
 
+## QA test users (October 11, 2026)
+- Added an opt-in local 25-account authenticated fixture seeder (`pnpm db:seed:test-accounts seed --confirm`), with 5 each of Normal User, Team Owner, Venue Owner, Referee, and Player. Fixture details and cleanup: `docs/QA-TEST-ACCOUNTS.md`.
+- No passwords are stored in Git; seeder requires a separately delivered private, gitignored CSV. Seed marks email verification for QA without sending an actual email; addresses under `@futsal.test` cannot receive mail.
+- The seeder creates real test-only active subscriptions, teams, venues with one court each, player memberships and venue-scoped referee grants. User role conflict boundaries and cleanup ownership markers are preserved. No financial receipts are fabricated.
+- **Important**: The code/fixtures are versioned; the actual database remains unchanged until the operator runs the seed against their configured development or staging database. Never seed a production database.
+
+
 ## Verified-email identity rollout (October 11, 2026)
 - Authentication redesign: username + optional phone + strong password on signup; no account role is assigned. Registration UI returns to Sign In. Password login uses username or **verified** email only; phone is contact data and no longer a login/recovery identifier.
 - Profile now offers authenticated email linking/change with current-password verification, 6-digit one-time codes, 10-minute expiry, 5 attempts, 60-second resend delay, and normalized uniqueness. A newly linked email unlocks role requests/assignments; unverified legacy profile emails do **not** count as verified.
