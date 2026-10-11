@@ -169,6 +169,11 @@ export default function ProfileScreen(){
 
     <SectionHeader icon="shield-checkmark-outline" title={t("settings.security")} subtitle={t("settings.securitySubtitle")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
+      <ActionRow icon="key-outline" title={t("security.credentials")}
+        subtitle={t("security.credentialsHelp")} rtl={isRTL}
+        onPress={()=>router.push("/profile/credentials")}/>
+      <Divider/>
+
       <View style={[styles.securityBanner,direction]}>
         <IconBox name="lock-closed-outline" positive/>
         <View style={{flex:1,gap:2}}>
