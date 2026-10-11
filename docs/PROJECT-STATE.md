@@ -28,6 +28,13 @@
 - Delivery administration is read-only status overview plus safe FAILED push requeue (max 3 attempts). Requeue explicitly does not claim successful push delivery.
 - Run `pnpm db:migrate` before API start and `pnpm verify`. Staging gates: test moderation hiding, owner isolation, concurrent report filing, workflow transitions, campaign retries, large audiences, notification preferences/push execution, and RTL form usability.
 
+## Admin Phase 7 — Final Governance and Release Controls (October 11, 2026)
+- FINAL planned admin rollout stage: sensitive settings writes require **reason (10–500 characters)**, reviewed `expectedUpdatedAt` version and strict validation. The database serializes configuration changes with an advisory lock; stale edits and no-op changes are rejected with HTTP 409. Configuration+audit are committed atomically and audit records contain a safe diff (never template bodies).
+- A new admin-only Audit History view supports server-side paging, target/action/user/date filters and date-bounded CSV export (31-day interval, max 1,000 rows, formula-escaped fields, no raw metadata). Legacy audit remains available but redacted. Admin API responses are marked no-store and CSV exports are throttled.
+- Operational Readiness provides authenticated checks for presence of required admin tables and counts outstanding reports, support cases, campaigns and failed push deliveries. External push sender, independent backup restoration and staging/security QA remain explicitly **UNKNOWN**; automatic PASS is not a deployment authorization.
+- Web/mobile administration provides localized English/Dari/Pashto configuration diff review, conflict-aware refresh, audit/export and readiness dashboard. No arbitrary admin permission granting: MFA, dual-control, restore testing, payment reconciliation and production cutover require a separate approved security plan.
+- **No new database migration in Phase 7**, but production must first have all existing migrations through `0036_admin_trust_support`. See `docs/ADMIN-PHASE-07.md` and `docs/OPERATIONS-RUNBOOK.md` for operator release gates.
+
 ## Product objective
 Increase futsal venue utilization and revenue through reliable availability and mobile booking, with integrated venue operations, competitions, and a futsal-specific public presence.
 

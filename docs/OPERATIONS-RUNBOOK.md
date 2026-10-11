@@ -103,3 +103,18 @@ For an Android regression, stop expanding the pilot and distribute the last veri
 ## Shutdown
 
 SIGTERM/SIGINT triggers graceful HTTP shutdown and database-pool close. The server stops waiting after ten seconds and closes remaining connections so deploys cannot hang indefinitely.
+
+
+## Platform administration — Phase 7 preproduction gate (October 11, 2026)
+
+The final admin-console phase is **code-complete, not production-approved**. Do not use a PASS check in Admin → Readiness as a substitute for operator sign-off.
+
+1. On a separate staging database, run migrations through `0036_admin_trust_support`. Run `pnpm verify` and Expo web export, confirm `/ready`, then sign in as a current platform admin. A stale/suspended admin's old access token must be rejected without waiting for the token to expire.
+2. Test two administrators opening the same configuration snapshot and saving conflicting updates. The later attempt must receive `SETTINGS_STALE` 409 and must reload. Confirm identical/no-op saves get `SETTINGS_UNCHANGED`. Confirm valid changes atomically create one `PLATFORM_SETTINGS_UPDATED` audit row with reason and changed key names, without logging template bodies.
+3. In Admin → Audit, validate server-side filters and pagination, then export a narrow date range on desktop. CSV must exclude free-form metadata and safely quote Excel formula-like strings. Exports are capped at 31 days/1,000 records (and 5 export requests per minute); longer periods require smaller batches. Store copies only in secure operations storage.
+4. Inspect Admin → Readiness and explicitly mark every UNKNOWN item after independent evidence: backup/restore rehearsal, Android and browser RTL/LTR QA, on-call escalation, secrets and CORS review, real-world charge/reference reconciliation, and post-rollback smoke tests.
+5. Run real PostgreSQL integration scenarios: parallel billing reference activations, duplicate report requests, support ownership/private internal notes, hidden comments and social counts, scheduled announcements across two API instances and >150 recipients. Validate no duplicate notification messages and that opt-out users are excluded.
+6. The push system currently supports recording/requeueing failed deliveries, **not a guaranteed external sender**. Never describe PENDING as SENT. Configure and test the external push worker and provider credentials before promising device delivery.
+7. If an admin release fails, halt changes and traffic, capture request IDs, restore the prior known-good app version, and use a reviewed DB forward-fix or an isolated validated restore plan. Do not delete migration entries or manually rewrite irreversible financial/booking history.
+
+Release evidence should include git commit, workflow run, migrations applied, backup ID + restore rehearsal, reviewer, date/time (Asia/Kabul), smoke-test results, open incidents and sign-off.
