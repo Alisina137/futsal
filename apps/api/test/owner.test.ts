@@ -18,6 +18,9 @@ import { FakeAuthRepository } from "./fake-auth-repository.js";
 class FakeOwnerRepository implements OwnerOnboardingRepository {
   venues = new Map<string, OwnerAggregate>();
   claimedIdentities = new Set<string>();
+  refereeCandidate: {id:string;displayName:string;username:string|null;phoneE164:string}|null=null;
+  refereeEligible=true;
+  refereeGrants=new Set<string>();
 
   async getByOwnerId(ownerUserId: string) {
     return this.venues.get(ownerUserId) ?? null;
@@ -129,10 +132,24 @@ class FakeOwnerRepository implements OwnerOnboardingRepository {
     }
   }
 
-  async resolveActiveUser() { return null; }
+  async resolveActiveUser(input: {usernameNormalized?:string;phoneE164?:string}){
+    const person=this.refereeCandidate;
+    return person&&(
+      input.usernameNormalized===person.username?.toLowerCase()||
+      input.phoneE164===person.phoneE164
+    )?person:null;
+  }
   async listVenueReferees() { return []; }
-  async grantVenueReferee() {}
-  async removeVenueReferee() {}
+  async grantVenueReferee(input: {venueId:string;userId:string;assignedByUserId:string;assignedAt:Date}):
+    Promise<"GRANTED"|"ALREADY_ASSIGNED"|"INELIGIBLE">{
+    const key=input.venueId+":"+input.userId;
+    if(this.refereeGrants.has(key))return "ALREADY_ASSIGNED";
+    if(!this.refereeEligible)return "INELIGIBLE";
+    this.refereeGrants.add(key);return "GRANTED";
+  }
+  async removeVenueReferee(venueId:string,userId:string){
+    this.refereeGrants.delete(venueId+":"+userId);
+  }
 }
 
 const completeSetup = {
@@ -206,6 +223,37 @@ async function register(
   expect(refreshed.status).toBe(200);
   return refreshed;
 }
+
+
+describe("Venue referee grants accept only Normal Users",()=>{
+  it("rejects a candidate who already has a different role and leaves the grants unchanged",async()=>{
+    const {app,ownerRepository,authRepository}=setup();
+    const venueOwner=await register(app,authRepository,"VENUE_OWNER","0704440111");
+    const normal=await register(app,authRepository,"PLAYER","0704440222");
+    const auth={Authorization:`Bearer ${venueOwner.body.accessToken}`};
+    const setupResult=await request(app).put("/api/v1/owner/onboarding").set(auth).send(completeSetup);
+    expect(setupResult.status).toBe(200);
+    ownerRepository.refereeCandidate={
+      id:normal.body.user.id,displayName:normal.body.user.displayName,
+      username:normal.body.user.username,phoneE164:normal.body.user.phone,
+    };
+    ownerRepository.refereeEligible=false;
+    const blocked=await request(app).post("/api/v1/owner/referees").set(auth)
+      .send({identifier:normal.body.user.username});
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.error.code).toBe("REFEREE_NORMAL_USER_REQUIRED");
+    expect(ownerRepository.refereeGrants.size).toBe(0);
+    ownerRepository.refereeEligible=true;
+    const assigned=await request(app).post("/api/v1/owner/referees").set(auth)
+      .send({identifier:normal.body.user.username});
+    expect(assigned.status).toBe(201);
+    expect(ownerRepository.refereeGrants.size).toBe(1);
+    const repeated=await request(app).post("/api/v1/owner/referees").set(auth)
+      .send({identifier:normal.body.user.username});
+    expect(repeated.status).toBe(201);
+    expect(ownerRepository.refereeGrants.size).toBe(1);
+  });
+});
 
 describe("Phase 2 owner onboarding API", () => {
   it("rejects owner routes for ordinary players", async () => {
