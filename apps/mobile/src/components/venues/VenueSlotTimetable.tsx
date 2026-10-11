@@ -18,6 +18,7 @@ import {Card} from "../ui/Card";
 import {DataLoadingState} from "../ui/DataLoadingState";
 import {SlotTileContent} from "../ui/SlotTileContent";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
+import {softenSlotColor} from "../../lib/slot-color";
 
 type DayResult={date:string;slots:VenueTimelineSlotDto[];fresh:boolean;failed:boolean};
 type SelectedSlot={date:string;slot:VenueTimelineSlotDto;fresh:boolean};
@@ -95,7 +96,7 @@ const Slot=memo(function Slot({item,date,own,timezone,today,limit,promotionId,st
       formatSlotTilePrice(own?own.priceAfn:item.priceAfn)+", "+
       (own?t("vd.grid.yourBooking"):t(("vd.grid.status."+item.status) as never))}
     disabled={disabled||processing} onPress={press}
-    style={({pressed})=>[styles.slot,{backgroundColor:palette.bg,borderColor:palette.border},
+    style={({pressed})=>[styles.slot,{backgroundColor:softenSlotColor(palette.bg),borderColor:palette.border},
       disabled&&styles.disabledSlot,isTarget&&styles.target,pressed&&!disabled&&styles.pressed]}>
     <SlotTileContent startsAt={item.startsAt} timeZone={timezone}
       priceAfn={own?own.priceAfn:item.priceAfn} ink={palette.ink}
@@ -481,7 +482,7 @@ const styles=StyleSheet.create({
   weekCell:{width:124,minHeight:62,padding:3,borderWidth:1,borderColor:colors.border,
     gap:2,justifyContent:"center",backgroundColor:colors.surface},
   slot:{minHeight:54,borderRadius:radius.md,borderWidth:1,justifyContent:"center",
-    alignItems:"stretch",paddingHorizontal:2,position:"relative"},
+    alignItems:"stretch",paddingHorizontal:2,position:"relative",overflow:"hidden"},
   target:{borderWidth:2,borderColor:colors.primary},
   slotProcessing:{position:"absolute",top:0,bottom:0,left:0,right:0,
     alignItems:"center",justifyContent:"center",backgroundColor:"rgba(255,255,255,0.82)",
