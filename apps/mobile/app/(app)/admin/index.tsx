@@ -213,6 +213,7 @@ export default function AdminScreen() {
             <AppText variant="caption" weight="bold" style={{ color: colors.success }}>PLATFORM_ADMIN</AppText>
           </View>
           <Button label={t("common.retry")} onPress={() => void load()} loading={loading} variant="secondary" />
+          {!desktop?<Button label={t("common.signOut")} onPress={()=>void signOut()} variant="secondary" />:null}
         </View>
       </View>
 
