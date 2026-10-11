@@ -45,7 +45,7 @@ assert(hook.includes("setInterval(")&&hook.includes("60_000")&&hook.includes('st
 const files=[
   "apps/mobile/app/(app)/(tabs)/home.tsx",
   "apps/mobile/app/(app)/owner/posts/index.tsx",
-  "apps/mobile/app/(app)/venues/[venueId].tsx",
+  "apps/mobile/src/components/venues/VenueDetailSections.tsx",
   "apps/mobile/app/(app)/posts/[postId].tsx",
 ];
 for(const file of files){
@@ -54,4 +54,4 @@ for(const file of files){
   assert(page.includes("usePostTimeNow()"),`Post timestamp doesn't refresh: ${file}`);
 }
 assert(read(files[1]).includes("formatLocalDateTimeParts(schedule.executeAt"),"Scheduled actions must retain their precise execution date/time.");
-console.log("Relative post timestamps verified: now, minutes, hours, days, weeks, months, years, locale support, refresh, all four post surfaces.");
+console.log("Relative post timestamps verified: now, minutes, hours, days, weeks, months, years, locale support, refresh, all post surfaces including the venue tab.");
