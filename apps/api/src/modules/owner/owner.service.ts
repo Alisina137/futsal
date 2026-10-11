@@ -274,12 +274,14 @@ export class OwnerOnboardingService {
       throw errors.badRequest("OWNER_CANNOT_BE_REFEREE", "The venue owner already has venue management access.");
     }
 
-    await this.repository.grantVenueReferee({
+    const grant=await this.repository.grantVenueReferee({
       venueId: aggregate.venue.id,
       userId: target.id,
       assignedByUserId: ownerUserId,
       assignedAt: this.now(),
     });
+    if(grant==="INELIGIBLE")throw errors.conflict("REFEREE_NORMAL_USER_REQUIRED",
+      "Only an active Normal User without Player, Team Manager, Venue Owner, Referee or other roles can become a referee.");
     return { referees: await this.repository.listVenueReferees(aggregate.venue.id) };
   }
 
