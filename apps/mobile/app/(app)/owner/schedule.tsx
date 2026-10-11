@@ -24,6 +24,7 @@ import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
 import { SlotTileContent } from "../../../src/components/ui/SlotTileContent";
+import { softenSlotColor } from "../../../src/lib/slot-color";
 import { formatSlotStartTime,formatSlotTilePrice } from "../../../src/lib/slot-display";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
@@ -69,7 +70,7 @@ const slotPalette:Record<VenueCalendarEventType,{background:string;border:string
   COMPETITION:{background:"#FEF3C7",border:"#FCD34D",text:"#92400E"},
   BLOCKED:{background:"#E2E8F0",border:"#94A3B8",text:"#475569"},
   PROMOTION:{background:"#F3E8FF",border:"#C084FC",text:"#7E22CE"},
-  CLOSED:{background:"#F1F5F9",border:"#CBD5E1",text:"#64748B"},
+  CLOSED:{background:"#F1F5F9",border:"#CBD5E1",text:"#475569"},
 };
 
 function statusColor(type:VenueCalendarEventType){
@@ -483,7 +484,7 @@ function WeekView({
                   onPress={()=>onSelectSlot(event,day.date)}
                   style={({pressed})=>[
                     styles.weekSlot,
-                    {backgroundColor:palette.background,borderColor:palette.border},
+                    {backgroundColor:softenSlotColor(palette.background),borderColor:palette.border},
                     pressed&&styles.weekSlotPressed,
                   ]}
                 >
@@ -632,7 +633,7 @@ function DaySlotView({
               onPress={()=>onSelectSlot(event,day.date)}
               style={({pressed})=>[
                 styles.daySlotButton,
-                {backgroundColor:palette.background,borderColor:palette.border},
+                {backgroundColor:softenSlotColor(palette.background),borderColor:palette.border},
                 pressed&&styles.weekSlotPressed,
               ]}
             >
@@ -928,6 +929,7 @@ const styles=StyleSheet.create({
     paddingHorizontal:2,
     borderRadius:radius.sm,
     borderWidth:1,
+    overflow:"hidden",
     alignItems:"stretch",
     justifyContent:"center",
   },
@@ -997,6 +999,7 @@ const styles=StyleSheet.create({
     minHeight:54,
     borderRadius:radius.md,
     borderWidth:1,
+    overflow:"hidden",
     paddingHorizontal:2,
     alignItems:"stretch",
     justifyContent:"center",
