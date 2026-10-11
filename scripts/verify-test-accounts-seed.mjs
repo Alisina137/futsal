@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import {execFileSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 
 function read(path) {
   return fs.readFileSync(new URL("../"+path,import.meta.url),"utf8");
@@ -8,7 +9,7 @@ function requireMarker(source,marker) {
   if(!source.includes(marker))throw new Error("Test-account seed invariant missing: "+marker);
 }
 const name="apps/api/scripts/seed-test-accounts.mjs";
-execFileSync(process.execPath,["--check",new URL("../"+name,import.meta.url).pathname],{stdio:"pipe"});
+execFileSync(process.execPath,["--check",fileURLToPath(new URL("../"+name,import.meta.url))],{stdio:"pipe"});
 const code=read(name);
 const gitignore=read(".gitignore");
 const pkg=JSON.parse(read("package.json"));
