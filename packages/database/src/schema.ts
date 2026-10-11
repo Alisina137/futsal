@@ -437,6 +437,31 @@ export const subscriptionPayments = pgTable(
   ],
 );
 
+/** Phase 5 payment records are insert-only receipts except an explicit audited void.
+ * Older role/team activations without receipts are intentionally not fabricated. */
+export const paidEntitlementPayments=pgTable("paid_entitlement_payments",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  kind:varchar("kind",{length:24}).notNull(),
+  targetId:uuid("target_id").notNull(),
+  userId:uuid("user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  role:varchar("role",{length:24}).notNull(),
+  amountAfn:integer("amount_afn").notNull(),
+  months:integer("months").notNull(),
+  periodStartsAt:timestamp("period_starts_at",{withTimezone:true}).notNull(),
+  periodEndsAt:timestamp("period_ends_at",{withTimezone:true}).notNull(),
+  provider:varchar("provider",{length:40}).notNull().default("MANUAL"),
+  providerReference:varchar("provider_reference",{length:120}).notNull(),
+  status:subscriptionPaymentStatusEnum("status").notNull().default("RECORDED"),
+  recordedByUserId:uuid("recorded_by_user_id").notNull().references(()=>users.id,{onDelete:"restrict"}),
+  voidedAt:timestamp("voided_at",{withTimezone:true}),
+  voidedByUserId:uuid("voided_by_user_id").references(()=>users.id,{onDelete:"set null"}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  uniqueIndex("paid_entitlement_payments_reference_uq").on(table.provider,table.providerReference),
+  index("paid_entitlement_payments_created_idx").on(table.createdAt),
+  index("paid_entitlement_payments_user_idx").on(table.userId),
+]);
+
 export const platformSettings = pgTable(
   "platform_settings",
   {

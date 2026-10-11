@@ -547,6 +547,41 @@ export const adminUserStatusRequestSchema = z.object({
 });
 export type AdminUserStatusRequest = z.infer<typeof adminUserStatusRequestSchema>;
 
+/** The ledger reports manually recorded subscription receipts only.
+ * It is NOT a payment-processor reconciliation or verified bank balance. */
+export const adminBillingKindSchema=z.enum(["VENUE","PAID_ROLE","EXTRA_TEAM"]);
+export const adminBillingStateSchema=z.enum(["RECORDED","VOIDED"]);
+export const adminBillingFiltersSchema=z.object({
+  kind:adminBillingKindSchema.optional(),
+  status:adminBillingStateSchema.optional(),
+  q:z.string().trim().max(100).optional(),
+  from:dateOnlySchema.optional(),
+  to:dateOnlySchema.optional(),
+  page:z.coerce.number().int().min(1).max(100000).default(1),
+  pageSize:z.coerce.number().int().min(10).max(100).default(25),
+}).refine(f=>!f.from||!f.to||f.from<=f.to,{message:"From must not exceed To"});
+export type AdminBillingFilters=z.infer<typeof adminBillingFiltersSchema>;
+export const adminBillingReceiptSchema=z.object({
+  id:z.string().uuid(),kind:adminBillingKindSchema,targetId:z.string().uuid(),
+  accountName:z.string(),description:z.string(),amountAfn:z.number().int().min(0),
+  status:adminBillingStateSchema,provider:z.string(),providerReference:z.string().nullable(),
+  periodStartsAt:isoDateTimeSchema,periodEndsAt:isoDateTimeSchema,
+  createdAt:isoDateTimeSchema,recordedByUserId:z.string().uuid(),voidedAt:isoDateTimeSchema.nullable(),
+});
+export type AdminBillingReceipt=z.infer<typeof adminBillingReceiptSchema>;
+export const adminBillingSummarySchema=z.object({
+  period:z.object({from:dateOnlySchema.optional(),to:dateOnlySchema.optional()}),
+  recordedTotalAfn:z.number().int().min(0),voidedTotalAfn:z.number().int().min(0),
+  byKind:z.array(z.object({kind:adminBillingKindSchema,recordedAfn:z.number().int().min(0),
+    recordedCount:z.number().int().min(0),voidedCount:z.number().int().min(0)})),
+  attention:z.object({pendingPaidRoles:z.number().int().min(0),
+    pendingExtraTeams:z.number().int().min(0),expiringVenues7d:z.number().int().min(0),
+    expiringPaidRoles7d:z.number().int().min(0),expiringExtraTeams7d:z.number().int().min(0)}),
+  scope:z.literal("MANUAL_RECORDED_RECEIPTS_ONLY"),
+  historicalCoverage:z.literal("ROLE_AND_EXTRA_TEAM_FROM_PHASE5_ONLY"),
+});
+export type AdminBillingSummary=z.infer<typeof adminBillingSummarySchema>;
+
 export const platformSettingsUpdateRequestSchema = z.object({
   monthlyPriceAfn: z.number().int().min(0).max(100_000_000),
   annualPriceAfn: z.number().int().min(0).max(1_000_000_000),
