@@ -651,6 +651,20 @@ export const teamOperationsApi={
       {method:"POST",body:JSON.stringify({availability})},token),
 };
 
+export type TeamPublicHighlights={
+  posts:Array<{id:string;body:string;imageUrl:string|null;publishedAt:string}>;
+  competitions:Array<{id:string;name:string;status:string;format:string;startsAt:string|null;endsAt:string|null}>;
+  matches:Array<{id:string;competitionId:string;competitionName:string;homeTeamId:string|null;
+    awayTeamId:string|null;homeTeamName:string;awayTeamName:string;status:string;stage:string;
+    startsAt:string|null;homeScore:number|null;awayScore:number|null}>;
+  stats:{played:number;wins:number;draws:number;losses:number;goalsFor:number;
+    goalsAgainst:number;goalDifference:number;winRate:number};
+};
+export const teamPublicApi={
+  highlights:(teamId:string)=>request<TeamPublicHighlights>(
+    `/api/v1/teams/${teamId}/public-highlights`),
+};
+
 export type TeamGrowthPost={id:string;body:string;imageUrl:string|null;publishedAt:string};
 export type TeamGrowthAnnouncement={id:string;teamId:string;authorId:string;title:string;body:string;createdAt:string;updatedAt:string};
 export type TeamGrowthChallenge={id:string;fromTeamId:string;toTeamId:string;opponentName:string;proposedAt:string;
