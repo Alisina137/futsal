@@ -9,6 +9,7 @@ export type AuthUserRecord = {
   profileImageUrl: string | null;
   age: number | null;
   emailNormalized: string | null;
+  emailVerifiedAt: Date | null;
   city: string | null;
   bio: string | null;
   defaultLatitude:number|null;
@@ -57,7 +58,7 @@ export type CreateUserInput = {
   displayName: string;
   username: string;
   usernameNormalized: string;
-  phoneE164: string;
+  phoneE164: string | null;
   passwordHash: string;
   preferredLanguage: LanguageCode;
 };
@@ -66,15 +67,25 @@ export type UpdateAccountProfileInput = {
   displayName: string;
   profileImageUrl: string | null;
   age: number | null;
-  emailNormalized: string | null;
+  phoneE164: string | null;
   city: string | null;
   bio: string | null;
   defaultLatitude:number|null;
   defaultLongitude:number|null;
 };
 
+export type EmailVerificationChallengeRecord = {
+  id:string; userId:string; emailNormalized:string; codeHash:string;
+  expiresAt:Date; attempts:number; consumedAt:Date|null; createdAt:Date;
+};
+
 export interface AuthRepository {
   findUserByIdentifier(identifier: string): Promise<AuthUserRecord | null>;
+  getLastEmailVerificationRequestAt(userId:string):Promise<Date|null>;
+  createEmailVerificationChallenge(input:{userId:string;emailNormalized:string;codeHash:string;expiresAt:Date}):Promise<EmailVerificationChallengeRecord>;
+  getEmailVerificationChallenge(id:string):Promise<EmailVerificationChallengeRecord|null>;
+  incrementEmailVerificationAttempts(id:string):Promise<void>;
+  completeEmailVerification(input:{id:string;userId:string;emailNormalized:string;now:Date}):Promise<AuthUserRecord>;
   getUserById(userId: string): Promise<AuthUserRecord | null>;
   createUser(input: CreateUserInput): Promise<AuthUserRecord>;
   addRoles(userId: string, roles: UserRole[]): Promise<AuthUserRecord>;
@@ -95,7 +106,7 @@ export interface AuthRepository {
   publicProfileImage(userId:string,publicToken:string):Promise<{mimeType:string;byteSize:number;dataBase64:string}|null>;
   createPasswordResetChallenge(input: {
     userId: string | null;
-    phoneE164: string;
+    emailNormalized: string;
     codeHash: string;
     expiresAt: Date;
   }): Promise<PasswordResetChallengeRecord>;
@@ -127,10 +138,11 @@ export function toUserDto(user: AuthUserRecord): UserDto {
     id: user.id,
     displayName: user.displayName,
     username: user.username,
-    phone: user.phoneE164,
+    phone: user.phoneE164 ?? "",
     profileImageUrl: user.profileImageUrl,
     age: user.age,
     email: user.emailNormalized,
+    emailVerified: Boolean(user.emailNormalized && user.emailVerifiedAt),
     city: user.city,
     bio: user.bio,
     defaultLatitude:user.defaultLatitude,
