@@ -23,6 +23,7 @@ import { VenuesSection } from "../../../src/components/admin/AdminDirectorySecti
 import { AdminOperationsPhase4Section } from "../../../src/components/admin/AdminOperationsPhase4Section";
 import { AdminUsersPhase3Section } from "../../../src/components/admin/AdminUsersPhase3Section";
 import { SubscriptionsSection } from "../../../src/components/admin/AdminBillingSection";
+import { AdminBillingPhase5Section } from "../../../src/components/admin/AdminBillingPhase5Section";
 import { ConfigurationSection, SupportSection, ModerationSection, AuditSection } from "../../../src/components/admin/AdminOperationsSections";
 
 import { ManualTeamsAdminSection } from "../../../src/components/admin/ManualTeamsAdminSection";
@@ -289,6 +290,9 @@ export default function AdminScreen() {
             reason={reason} setReason={setReason} busy={busy} action={action}
             refreshVersion={operationRefresh}/> : null}
           {section === "cases" ? <AdminOperationsPhase4Section key="CASE" kind="CASE" token={token!}
+            reason={reason} setReason={setReason} busy={busy} action={action}
+            refreshVersion={operationRefresh}/> : null}
+          {section === "subscriptions" ? <AdminBillingPhase5Section token={token!}
             reason={reason} setReason={setReason} busy={busy} action={action}
             refreshVersion={operationRefresh}/> : null}
           {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
