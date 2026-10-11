@@ -19,6 +19,7 @@ import {
   roleSubscriptions,
   teamExtraSubscriptions,
   teams,
+  venueReferees,
   userRoles,
   users,
 } from "@leaguekick/database";
@@ -470,6 +471,13 @@ export class DrizzleTeamRepository implements TeamRepository {
       if (!request || request.status !== "PENDING") return false;
 
       if (accept) {
+        // Referees must stay separate from players even after their original
+        // venue grant. The user lock matches referee appointment locking.
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${request.requesterUserId}))`);
+        const [referee]=await tx.select({id:venueReferees.venueId})
+          .from(venueReferees).where(eq(venueReferees.userId,request.requesterUserId)).limit(1);
+        if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+          "Referees cannot join teams as players. Remove their referee assignment first.");
         await tx.insert(teamMemberships).values({
           teamId,
           userId: request.requesterUserId,
@@ -803,6 +811,12 @@ export class DrizzleTeamRepository implements TeamRepository {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${invite.teamId}))`);
       const [team] = await tx.select().from(teams).where(eq(teams.id, invite.teamId)).limit(1);
       if (!team || team.status !== "ACTIVE") return false;
+
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${invitedUserId}))`);
+      const [referee]=await tx.select({id:venueReferees.venueId})
+        .from(venueReferees).where(eq(venueReferees.userId,invitedUserId)).limit(1);
+      if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+        "Referees cannot join teams as players. Remove their referee assignment first.");
 
       const [existing] = await tx.select().from(teamMemberships).where(and(
         eq(teamMemberships.teamId, invite.teamId),
