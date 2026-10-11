@@ -9,6 +9,9 @@ const launcher = readFileSync("scripts/dev-admin.mjs", "utf8");
 const index = readFileSync("apps/mobile/app/index.tsx", "utf8");
 const login = readFileSync("apps/mobile/app/(auth)/login.tsx", "utf8");
 const admin = readFileSync("apps/mobile/app/(app)/admin/index.tsx", "utf8");
+const sidebar=readFileSync("apps/mobile/src/components/admin/AdminSidebar.tsx","utf8");
+const nav=readFileSync("apps/mobile/src/components/admin/admin-navigation.ts","utf8");
+const styles=readFileSync("apps/mobile/src/components/admin/AdminStyles.ts","utf8");
 const protectedLayout = readFileSync("apps/mobile/app/(app)/_layout.tsx", "utf8");
 const authLayout = readFileSync("apps/mobile/app/(auth)/_layout.tsx", "utf8");
 const authStorage = readFileSync("apps/mobile/src/lib/auth-storage.ts", "utf8");
@@ -28,10 +31,13 @@ assert(authLayout.includes('adminMode ? "/admin" : "/home"'), "Authenticated adm
 assert(authStorage.includes('Platform.OS !== "web"'), "Auth storage must have a browser-specific persistence path.");
 assert(authStorage.includes('localStorage'), "Admin web sessions must persist in browser storage.");
 assert(admin.includes('roles.includes("PLATFORM_ADMIN")'), "Admin screen must remain PLATFORM_ADMIN-gated.");
-assert(admin.includes('const adminNavItems'), "Admin screen must provide dedicated management navigation.");
-assert(admin.includes('function AdminSidebar'), "Admin screen must provide a dedicated admin sidebar.");
-assert(admin.includes('maxWidth: 1500'), "Admin workspace must use a desktop-width management layout.");
-assert(admin.includes('const loadPart = async <T,>'), "Admin datasets must load independently so one failed endpoint cannot blank the console.");
+assert(nav.includes('const adminNavItems'), "Admin must provide typed dedicated management navigation.");
+assert(sidebar.includes('function AdminSidebar'), "Admin must provide dedicated reusable sidebar.");
+assert(styles.includes('maxWidth: 1500'), "Admin workspace must use a desktop-width management layout.");
+assert(admin.includes('const loadPart=async<T,>'), "Admin datasets must load independently so one failed endpoint cannot blank the console.");
 assert(admin.includes('loadIssues.join(" · ")'), "Admin console must expose endpoint-specific loading diagnostics.");
 
+assert(admin.includes('adminApi.usersPage(')&&admin.includes('adminApi.venuesPage('),"Admin lists must use server-side paging.");
+assert(admin.includes('abortController.current?.abort()'),"Admin must cancel stale directory requests.");
+assert(sidebar.includes('mobileOpen')&&sidebar.includes('collapsed'),"Sidebar must work on mobile with collapsible navigation groups.");
 console.log("Admin web verified: dedicated launcher, persistent browser session, admin-safe routing, desktop management shell, and PLATFORM_ADMIN gate.");
