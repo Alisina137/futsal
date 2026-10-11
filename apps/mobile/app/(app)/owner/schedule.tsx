@@ -23,6 +23,8 @@ import { Button } from "../../../src/components/ui/Button";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
 import { Screen } from "../../../src/components/ui/Screen";
+import { SlotTileContent } from "../../../src/components/ui/SlotTileContent";
+import { formatSlotStartTime,formatSlotTilePrice } from "../../../src/lib/slot-display";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -474,7 +476,7 @@ function WeekView({
                 return <Pressable
                   key={event.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${time}, ${event.priceAfn??0} AFN`}
+                  accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatSlotStartTime(event.startsAt!,"Asia/Kabul")}, ${formatSlotTilePrice(event.priceAfn)}`}
                   onPress={()=>onSelectSlot(event,day.date)}
                   style={({pressed})=>[
                     styles.weekSlot,
@@ -482,13 +484,9 @@ function WeekView({
                     pressed&&styles.weekSlotPressed,
                   ]}
                 >
-                  <SlotCornerMarker type={event.type} color={palette.text}/>
-                  <AppText weight="bold" forceLtr style={{color:palette.text}}>
-                    {formatCalendarTime(event.startsAt!,language)}
-                  </AppText>
-                  <AppText variant="caption" weight="semibold" forceLtr style={{color:palette.text}}>
-                    {event.priceAfn!==null?`${event.priceAfn} AFN`:"—"}
-                  </AppText>
+                  <SlotTileContent startsAt={event.startsAt!} timeZone="Asia/Kabul"
+                    priceAfn={event.priceAfn} ink={palette.text}
+                    marker={<SlotCornerMarker type={event.type} color={palette.text}/>}/>
                 </Pressable>;
               }):<View style={styles.weekEmptySlot}/>}
             </View>;
@@ -624,7 +622,7 @@ function DaySlotView({
           <View style={styles.dayStatusCell}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatCalendarTime(event.startsAt!,language)}, ${event.priceAfn??0} AFN`}
+              accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatSlotStartTime(event.startsAt!,"Asia/Kabul")}, ${formatSlotTilePrice(event.priceAfn)}`}
               onPress={()=>onSelectSlot(event,day.date)}
               style={({pressed})=>[
                 styles.daySlotButton,
@@ -632,27 +630,9 @@ function DaySlotView({
                 pressed&&styles.weekSlotPressed,
               ]}
             >
-              <SlotCornerMarker type={event.type} color={palette.text}/>
-              <View style={styles.daySlotButtonTop}>
-                <View style={{flex:1,minWidth:0}}>
-                  <AppText weight="bold" style={{color:palette.text}}>
-                    {t(`schedule.event.${event.type}` as never)}
-                  </AppText>
-                  <AppText variant="caption" muted={false} numberOfLines={1} style={{color:palette.text}}>
-                    {event.title}
-                  </AppText>
-                </View>
-              </View>
-              <View style={styles.daySlotButtonBottom}>
-                <AppText variant="caption" forceLtr style={{color:palette.text}}>
-                  {event.startsAt&&event.endsAt
-                    ?`${formatCalendarTime(event.startsAt,language)} – ${formatCalendarTime(event.endsAt,language)}`
-                    :""}
-                </AppText>
-                <AppText weight="bold" forceLtr style={{color:palette.text}}>
-                  {event.priceAfn!==null?`${event.priceAfn} AFN`:"—"}
-                </AppText>
-              </View>
+              <SlotTileContent startsAt={event.startsAt!} timeZone="Asia/Kabul"
+                priceAfn={event.priceAfn} ink={palette.text}
+                marker={<SlotCornerMarker type={event.type} color={palette.text}/>}/>
             </Pressable>
           </View>
         </View>;
@@ -916,7 +896,7 @@ const styles=StyleSheet.create({
   },
   weekTimeCell:{
     width:70,
-    minHeight:52,
+    minHeight:62,
     alignItems:"center",
     justifyContent:"center",
     padding:spacing.xs,
@@ -926,8 +906,8 @@ const styles=StyleSheet.create({
   },
   weekSlotCell:{
     width:134,
-    minHeight:52,
-    padding:4,
+    minHeight:62,
+    padding:3,
     justifyContent:"center",
     gap:4,
     borderRightWidth:1,
@@ -936,25 +916,20 @@ const styles=StyleSheet.create({
   },
   weekSlot:{
     position:"relative",
-    minHeight:40,
-    paddingHorizontal:spacing.xs,
-    paddingVertical:5,
+    minHeight:54,
+    paddingHorizontal:2,
     borderRadius:radius.sm,
     borderWidth:1,
-    alignItems:"center",
+    alignItems:"stretch",
     justifyContent:"center",
   },
   slotCornerMarker:{
-    position:"absolute",
-    top:4,
-    left:4,
-    width:18,
-    height:18,
-    borderRadius:9,
+    width:16,
+    height:16,
+    borderRadius:8,
     alignItems:"center",
     justifyContent:"center",
     backgroundColor:"rgba(255,255,255,0.78)",
-    zIndex:2,
   },
   weekSlotPressed:{opacity:.72,transform:[{scale:.98}]},
   weekEmptySlot:{minHeight:40},
@@ -995,7 +970,7 @@ const styles=StyleSheet.create({
   },
   dayTimeCell:{
     width:78,
-    minHeight:70,
+    minHeight:62,
     alignItems:"center",
     justifyContent:"center",
     padding:spacing.xs,
@@ -1011,15 +986,13 @@ const styles=StyleSheet.create({
   },
   daySlotButton:{
     position:"relative",
-    minHeight:60,
+    minHeight:54,
     borderRadius:radius.md,
     borderWidth:1,
-    paddingHorizontal:spacing.sm,
-    paddingVertical:spacing.xs,
-    gap:spacing.xs,
+    paddingHorizontal:2,
+    alignItems:"stretch",
+    justifyContent:"center",
   },
-  daySlotButtonTop:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
-  daySlotButtonBottom:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
   dayClosedSlot:{
     minHeight:68,
     padding:spacing.md,
