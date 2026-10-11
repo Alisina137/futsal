@@ -1,5 +1,6 @@
 import {
   adminBillingFiltersSchema,
+  adminAuditFilterSchema,
   adminCaseCreateSchema,
   adminCaseFilterSchema,
   adminCaseUpdateSchema,
@@ -274,6 +275,26 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
     } catch (error) {
       next(error);
     }
+  });
+
+  router.get("/audit/page",async(request,response,next)=>{
+    try{response.json(await service.auditPage(adminAuditFilterSchema.parse(request.query)));}
+    catch(error){next(error);}
+  });
+  router.get("/audit/export",async(request,response,next)=>{
+    try{
+      const csv=await service.auditCsv(adminAuditFilterSchema.parse(request.query));
+      response.setHeader("Content-Type","text/csv; charset=utf-8");
+      response.setHeader("Content-Disposition",'attachment; filename="futsal-admin-audit.csv"');
+      response.setHeader("Cache-Control","no-store");
+      response.status(200).send(csv);
+    }catch(error){next(error);}
+  });
+  router.get("/diagnostics",async(_request,response,next)=>{
+    try{
+      response.setHeader("Cache-Control","no-store");
+      response.json(await service.diagnostics());
+    }catch(error){next(error);}
   });
 
   router.get("/audit", async (_request, response, next) => {

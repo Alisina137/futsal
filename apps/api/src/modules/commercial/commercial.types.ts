@@ -1,5 +1,8 @@
 import type {
   AdminAuditLogDto,
+  AdminAuditFilter,
+  AdminDiagnostics,
+  PlatformSettingsUpdateRequest,
   AdminAnalyticsDays,
   AdminAnalyticsResponse,
   AdminUserDto,
@@ -209,13 +212,12 @@ export interface CommercialRepository {
   }): Promise<void>;
   extendTrial(actorUserId: string, venueId: string, hours: number, reason: string, now: Date): Promise<void>;
   voidPayment(actorUserId: string, paymentId: string, reason: string, now: Date): Promise<void>;
-  updateSettings(actorUserId: string, input: {
-    monthlyPriceAfn: number;
-    annualPriceAfn: number;
-    trialDurationHours: number;
-    featureFlags: Record<string, boolean>;
-    notificationTemplates: Record<string, string>;
-  }, now: Date): Promise<CommercialSettingsRecord>;
+  updateSettings(actorUserId:string,input:PlatformSettingsUpdateRequest,now:Date):Promise<CommercialSettingsRecord>;
+  auditPage?(filter:AdminAuditFilter):Promise<{
+    items:AdminAuditLogDto[];total:number;page:number;pageSize:number;hasMore:boolean;
+  }>;
+  auditCsv?(filter:AdminAuditFilter):Promise<string>;
+  diagnostics?(now:Date):Promise<AdminDiagnostics>;
   listAuditLogs(): Promise<AdminAuditLogDto[]>;
   addSupportNote(actorUserId: string, targetType: "USER" | "VENUE", targetId: string, note: string, now: Date): Promise<void>;
   unpublishPost(actorUserId: string, postId: string, reason: string, now: Date): Promise<void>;

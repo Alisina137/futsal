@@ -50,6 +50,7 @@ import {DrizzleAdminAnalyticsRepository} from "./admin-analytics.repository.js";
 import { DrizzleAdminUsersRepository } from "./admin-users.repository.js";
 import { DrizzleAdminOperationsRepository } from "./admin-operations.repository.js";
 import { DrizzleAdminBillingRepository } from "./admin-billing.repository.js";
+import {DrizzleAdminGovernanceRepository} from "./admin-governance.repository.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 import type {
   CommercialRepository,
@@ -782,47 +783,64 @@ export class DrizzleCommercialRepository implements CommercialRepository {
   }
 
   async updateSettings(
-    actorUserId: string,
-    input: {
-      monthlyPriceAfn: number;
-      annualPriceAfn: number;
-      trialDurationHours: number;
-      featureFlags: Record<string, boolean>;
-      notificationTemplates: Record<string, string>;
-    },
-    now: Date,
-  ): Promise<CommercialSettingsRecord> {
-    const [row] = await this.db.insert(platformSettings).values({
-      id: "default",
-      ...input,
-      updatedByUserId: actorUserId,
-      updatedAt: now,
-    }).onConflictDoUpdate({
-      target: platformSettings.id,
-      set: {
-        ...input,
-        updatedByUserId: actorUserId,
-        updatedAt: now,
-      },
-    }).returning();
-
-    if (!row) throw new Error("Platform settings could not be saved.");
-    await this.db.insert(auditLogs).values({
-      actorUserId,
-      action: "PLATFORM_SETTINGS_UPDATED",
-      targetType: "PLATFORM_SETTINGS",
-      targetId: "default",
-      metadata: input,
-      createdAt: now,
+    actorUserId:string,
+    input:import("@leaguekick/contracts").PlatformSettingsUpdateRequest,
+    now:Date,
+  ):Promise<CommercialSettingsRecord>{
+    const {reason,expectedUpdatedAt,...next}=input;
+    return this.db.transaction(async tx=>{
+      // A transaction-scoped advisory lock also serializes the very first
+      // update before the singleton configuration row exists.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('platform:configuration'))`);
+      const [previous]=await tx.select().from(platformSettings)
+        .where(eq(platformSettings.id,"default")).for("update").limit(1);
+      if(previous&&previous.updatedAt.toISOString()!==expectedUpdatedAt)
+        throw errors.conflict("SETTINGS_STALE",
+          "Configuration changed since it was opened. Reload before saving.");
+      const before={monthlyPriceAfn:previous?.monthlyPriceAfn??1000,
+        annualPriceAfn:previous?.annualPriceAfn??12000,
+        trialDurationHours:previous?.trialDurationHours??72,
+        featureFlags:previous?.featureFlags??{},
+        notificationTemplates:previous?.notificationTemplates??{}};
+      const changedKeys=(Object.keys(next) as Array<keyof typeof next>)
+        .filter(k=>JSON.stringify(next[k])!==JSON.stringify(before[k]));
+      if(changedKeys.length===0)throw errors.conflict("SETTINGS_UNCHANGED",
+        "No configuration changes were made.");
+      const updatedAt=new Date(Math.max(now.getTime(),
+        (previous?.updatedAt.getTime()??0)+1));
+      const [row]=await tx.insert(platformSettings).values({
+        id:"default",...next,updatedByUserId:actorUserId,updatedAt,
+      }).onConflictDoUpdate({target:platformSettings.id,
+        set:{...next,updatedByUserId:actorUserId,updatedAt}}).returning();
+      if(!row)throw new Error("Platform settings could not be saved.");
+      await tx.insert(auditLogs).values({
+        actorUserId,action:"PLATFORM_SETTINGS_UPDATED",targetType:"PLATFORM_SETTINGS",
+        targetId:"default",
+        metadata:{reason,changedKeys,
+          oldMonthlyPriceAfn:before.monthlyPriceAfn,newMonthlyPriceAfn:next.monthlyPriceAfn,
+          oldAnnualPriceAfn:before.annualPriceAfn,newAnnualPriceAfn:next.annualPriceAfn,
+          oldTrialDurationHours:before.trialDurationHours,
+          newTrialDurationHours:next.trialDurationHours,
+          featureFlagKeys:Object.keys(next.featureFlags),
+          notificationTemplateKeys:Object.keys(next.notificationTemplates),
+          previousVersion:previous?.updatedAt.toISOString()??null,
+          nextVersion:updatedAt.toISOString(),
+        },createdAt:updatedAt,
+      });
+      return {monthlyPriceAfn:row.monthlyPriceAfn,annualPriceAfn:row.annualPriceAfn,
+        trialDurationHours:row.trialDurationHours,featureFlags:row.featureFlags,
+        notificationTemplates:row.notificationTemplates,updatedAt:row.updatedAt};
     });
-    return {
-      monthlyPriceAfn: row.monthlyPriceAfn,
-      annualPriceAfn: row.annualPriceAfn,
-      trialDurationHours: row.trialDurationHours,
-      featureFlags: row.featureFlags,
-      notificationTemplates: row.notificationTemplates,
-      updatedAt: row.updatedAt,
-    };
+  }
+
+  auditPage(filters:import("@leaguekick/contracts").AdminAuditFilter){
+    return new DrizzleAdminGovernanceRepository(this.db).auditPage(filters);
+  }
+  auditCsv(filters:import("@leaguekick/contracts").AdminAuditFilter){
+    return new DrizzleAdminGovernanceRepository(this.db).csv(filters);
+  }
+  diagnostics(now:Date){
+    return new DrizzleAdminGovernanceRepository(this.db).diagnostics(now);
   }
 
   async listAuditLogs() {

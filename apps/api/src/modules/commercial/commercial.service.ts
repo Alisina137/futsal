@@ -1,5 +1,6 @@
 import type {
   AdminSubscriptionActivationRequest,
+  AdminAuditFilter,
   AdminSupportNoteRequest,
   AdminTrialExtensionRequest,
   AdminUserStatusRequest,
@@ -636,6 +637,18 @@ export class CommercialService {
 
   auditLogs() {
     return this.repository.listAuditLogs();
+  }
+  async auditPage(filter:AdminAuditFilter){
+    if(!this.repository.auditPage)throw errors.badRequest("AUDIT_UNAVAILABLE","Audit browsing unavailable.");
+    return this.repository.auditPage(filter);
+  }
+  async auditCsv(filter:AdminAuditFilter){
+    if(!this.repository.auditCsv)throw errors.badRequest("AUDIT_UNAVAILABLE","Audit export unavailable.");
+    return this.repository.auditCsv(filter);
+  }
+  async diagnostics(){
+    if(!this.repository.diagnostics)throw errors.badRequest("DIAGNOSTICS_UNAVAILABLE","Diagnostics unavailable.");
+    return this.repository.diagnostics(this.now());
   }
 
   async supportNote(actorUserId: string, input: AdminSupportNoteRequest) {
