@@ -46,7 +46,6 @@ export class DrizzleAdminOperationsRepository {
         f.status?sql`${venues.status}=${f.status}`:undefined,
         f.verification?eq(venues.verificationStatus,f.verification):undefined,
         f.venueId?eq(venues.id,f.venueId):undefined,dateScope(venues.createdAt,f));
-      const source=()=>this.db.from(venues).innerJoin(users,eq(venues.ownerUserId,users.id));
       const [records,totals]=await Promise.all([
         this.db.select({id:venues.id,name:venues.name,city:venues.city,province:venues.province,
           owner:users.displayName,status:venues.status,verified:venues.verificationStatus,
@@ -151,10 +150,7 @@ export class DrizzleAdminOperationsRepository {
   }
 
   private async find(kind:AdminOperationKind,id:string):Promise<AdminOperationItem|null>{
-    const result=await this.list(kind,{page:1,pageSize:10,sort:"newest",
-      ...(kind==="VENUE"||kind==="COMPETITION"||kind==="RESERVATION"?{venueId:undefined}:{})});
-    // Detail identification uses direct primary-key queries below, not a paged lookup.
-    void result; void id;
+    void kind; void id;
     return null;
   }
 
