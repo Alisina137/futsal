@@ -377,6 +377,13 @@ export const systemApi = {
 export const authApi = {
   register: (input: RegisterRequest) => request<AuthResponse>("/api/v1/auth/register", { method: "POST", body: JSON.stringify(input) }),
   login: (input: LoginRequest) => request<AuthResponse>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(input) }),
+  requestEmailVerification: (token:string,input:{email:string;password:string}) =>
+    request<import("@leaguekick/contracts").EmailVerificationRequestResponse>(
+      "/api/v1/auth/email-verification/request",{method:"POST",body:JSON.stringify(input)},token),
+  confirmEmailVerification: (token:string,input:{requestId:string;code:string}) =>
+    request<{user:UserDto;reauthRequired:boolean}>(
+      "/api/v1/auth/email-verification/confirm",{method:"POST",body:JSON.stringify(input)},token),
+
   requestPasswordReset: (input: PasswordResetRequest) =>
     request<PasswordResetRequestResponse>("/api/v1/auth/password-reset/request", { method: "POST", body: JSON.stringify(input) }),
   verifyPasswordReset: (input: PasswordResetVerifyRequest) =>
