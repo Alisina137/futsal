@@ -9,7 +9,7 @@ import type {
   PlatformSettingsDto,
   SubscriptionPaymentDto,
 } from "@leaguekick/contracts";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { styles } from "../../../src/components/admin/AdminStyles";
 import { adminNavItems, type SectionKey } from "../../../src/components/admin/admin-navigation";
 import { AdminSidebar } from "../../../src/components/admin/AdminSidebar";
@@ -50,6 +50,12 @@ export default function AdminScreen() {
   const [paymentVenueId, setPaymentVenueId] = useState("");
 
   const [query, setQuery] = useState("");
+  const [queryDraft,setQueryDraft]=useState("");
+  const [page,setPage]=useState(1);
+  const [userTotal,setUserTotal]=useState(0);
+  const [venueTotal,setVenueTotal]=useState(0);
+  const loadSequence=useRef(0);
+  const abortController=useRef<AbortController|null>(null);
   const [reason, setReason] = useState("");
   const [months, setMonths] = useState("1");
   const [amountAfn, setAmountAfn] = useState("1000");
@@ -68,53 +74,70 @@ export default function AdminScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [loadIssues, setLoadIssues] = useState<string[]>([]);
 
-  const load = useCallback(async () => {
-    if (!token || !isAdmin) return;
-    setLoading(true);
-    setMessage(null);
-    setLoadIssues([]);
-
-    const failures: string[] = [];
-    const describeFailure = (label: string, error: unknown) => {
-      if (error instanceof ApiRequestError) {
-        const status = error.status ? ` HTTP ${error.status}` : "";
-        return `${label}: ${error.code}${status}`;
-      }
-      return `${label}: UNKNOWN_ERROR`;
-    };
-    const loadPart = async <T,>(
-      label: string,
-      task: () => Promise<T>,
-      apply: (value: T) => void,
-    ) => {
-      try {
-        apply(await task());
-      } catch (error) {
-        failures.push(describeFailure(label, error));
+  const load=useCallback(async()=>{
+    if(!token||!isAdmin)return;
+    const serial=++loadSequence.current;
+    abortController.current?.abort();
+    const controller=new AbortController();
+    abortController.current=controller;
+    setLoading(true);setLoadIssues([]);
+    const failures:string[]=[];
+    const describeFailure=(name:string,e:unknown)=>
+      e instanceof ApiRequestError?`${name}: ${e.code}${e.status?" HTTP "+e.status:""}`
+      :`${name}: UNKNOWN_ERROR`;
+    const loadPart=async<T,>(name:string,task:()=>Promise<T>,apply:(data:T)=>void)=>{
+      try{
+        const data=await task();
+        if(serial===loadSequence.current)apply(data);
+      }catch(e){
+        if(serial===loadSequence.current&&!controller.signal.aborted)
+          failures.push(describeFailure(name,e));
       }
     };
-
-    await Promise.all([
-      loadPart("dashboard", () => adminApi.dashboard(token), setDashboard),
-      loadPart("users", () => adminApi.users(token, query), (data) => setUsers(data.users)),
-      loadPart("role subscriptions", () => adminApi.roleSubscriptions(token), (data) => setRoleSubscriptions(data.subscriptions)),
-      loadPart("venues", () => adminApi.venues(token, query), (data) => setVenues(data.venues)),
-      loadPart("duplicates", () => adminApi.duplicateVenues(token), (data) => setDuplicates(data.groups)),
-      loadPart("audit", () => adminApi.audit(token), (data) => setAudit(data.logs)),
-      loadPart("settings", () => adminApi.settings(token), (data) => {
-        setSettings(data.settings);
-        setMonthly(String(data.settings.monthlyPriceAfn));
-        setAnnual(String(data.settings.annualPriceAfn));
-        setConfigTrialHours(String(data.settings.trialDurationHours));
+    // Demand-load the selected section only. A user search must not refetch
+    // audits, settings, billing or dashboard metrics.
+    if(section==="dashboard")await loadPart("dashboard",()=>adminApi.dashboard(token),setDashboard);
+    else if(section==="users")await loadPart("users",
+      ()=>adminApi.usersPage(token,query,page,25,controller.signal),data=>{
+        setUsers(data.users);setUserTotal(data.total);
+      });
+    else if(section==="venues")await Promise.all([
+      loadPart("venues",()=>adminApi.venuesPage(token,query,page,25,controller.signal),data=>{
+        setVenues(data.venues);setVenueTotal(data.total);
       }),
+      loadPart("duplicates",()=>adminApi.duplicateVenues(token),data=>setDuplicates(data.groups)),
     ]);
+    else if(section==="subscriptions")await Promise.all([
+      loadPart("subscriptions",()=>adminApi.roleSubscriptions(token),data=>setRoleSubscriptions(data.subscriptions)),
+      loadPart("venues",()=>adminApi.venues(token),data=>setVenues(data.venues)),
+    ]);
+    else if(section==="configuration")await loadPart("settings",()=>adminApi.settings(token),data=>{
+      setSettings(data.settings);
+      setMonthly(String(data.settings.monthlyPriceAfn));
+      setAnnual(String(data.settings.annualPriceAfn));
+      setConfigTrialHours(String(data.settings.trialDurationHours));
+    });
+    else if(section==="audit")await loadPart("audit",()=>adminApi.audit(token),data=>setAudit(data.logs));
+    if(serial===loadSequence.current){
+      setLoadIssues(failures);
+      setLoading(false);
+    }
+  },[isAdmin,token,section,query,page]);
 
-    setLoadIssues(failures);
-    if (failures.length === 7) setMessage(t("phase7.admin.loadError"));
-    setLoading(false);
-  }, [isAdmin, query, t, token]);
+  useEffect(()=>{
+    void load();
+    return()=>{loadSequence.current++;abortController.current?.abort();};
+  },[load]);
 
-  useEffect(() => { void load(); }, [load]);
+  function submitSearch(){
+    const next=queryDraft.trim();
+    setPage(1);
+    if(next===query&&page===1)void load();else setQuery(next);
+  }
+  function selectSection(next:SectionKey){
+    setSection(next);setPage(1);setQuery("");setQueryDraft("");
+    setMessage(null);
+  }
 
   async function action(task: () => Promise<unknown>, success: string, refresh = true) {
     setBusy(true);
@@ -148,7 +171,7 @@ export default function AdminScreen() {
       desktop={desktop}
       isRTL={isRTL}
       section={section}
-      onSelect={setSection}
+      onSelect={selectSection}
       displayName={session?.user.displayName ?? session?.user.username ?? ""}
       username={session?.user.username ?? ""}
       onSignOut={() => void signOut()}
@@ -189,11 +212,11 @@ export default function AdminScreen() {
           </View>
         </View> : null}
 
-        {loading?<DataLoadingState variant="dashboard" minHeight={520}/>:<>
-          {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={setSection} t={t} /> : null}
-          {section === "users" ? <UsersSection users={users} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+        {loading?<DataLoadingState variant={section==="dashboard"?"dashboard":"list"} minHeight={360}/>:<>
+          {section === "dashboard" ? <DashboardSection dashboard={dashboard} setSection={selectSection} t={t} /> : null}
+          {section === "users" ? <UsersSection users={users} query={queryDraft} setQuery={setQueryDraft} page={page} total={userTotal} onPage={setPage} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={async()=>submitSearch()} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "manualTeams" ? <ManualTeamsAdminSection /> : null}
-          {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={query} setQuery={setQuery} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
+          {section === "venues" ? <VenuesSection venues={venues} duplicates={duplicates} query={queryDraft} setQuery={setQueryDraft} page={page} total={venueTotal} onPage={setPage} reason={reason} setReason={setReason} loading={loading} busy={busy} reload={load} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" ? <SubscriptionsSection roleSubscriptions={roleSubscriptions} venues={venues} payments={payments} paymentVenueId={paymentVenueId} setPayments={setPayments} setPaymentVenueId={setPaymentVenueId} months={months} setMonths={setMonths} amountAfn={amountAfn} setAmountAfn={setAmountAfn} paymentRef={paymentRef} setPaymentRef={setPaymentRef} trialHours={trialHours} setTrialHours={setTrialHours} reason={reason} setReason={setReason} busy={busy} action={action} token={token!} t={t} isRTL={isRTL} /> : null}
           {section === "subscriptions" && token ? <TeamSlotsAdminSection token={token}/> : null}
           {section === "configuration" ? <ConfigurationSection settings={settings} monthly={monthly} setMonthly={setMonthly} annual={annual} setAnnual={setAnnual} configTrialHours={configTrialHours} setConfigTrialHours={setConfigTrialHours} busy={busy} action={action} token={token!} t={t} /> : null}
