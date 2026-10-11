@@ -49,6 +49,7 @@ import { errors } from "../../lib/errors.js";
 import {DrizzleAdminAnalyticsRepository} from "./admin-analytics.repository.js";
 import { DrizzleAdminUsersRepository } from "./admin-users.repository.js";
 import { DrizzleAdminOperationsRepository } from "./admin-operations.repository.js";
+import { DrizzleAdminBillingRepository } from "./admin-billing.repository.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 import type {
   CommercialRepository,
@@ -478,6 +479,16 @@ export class DrizzleCommercialRepository implements CommercialRepository {
   }
   noteUser(actorUserId:string,userId:string,note:string,reason:string,now:Date){
     return new DrizzleAdminUsersRepository(this.db).addNote(actorUserId,userId,note,reason,now);
+  }
+
+  billingReceipts(filters:import("@leaguekick/contracts").AdminBillingFilters){
+    return new DrizzleAdminBillingRepository(this.db).list(filters);
+  }
+  billingSummary(filters:import("@leaguekick/contracts").AdminBillingFilters,now:Date){
+    return new DrizzleAdminBillingRepository(this.db).summary(filters,now);
+  }
+  voidPaidReceipt(actorUserId:string,id:string,reason:string,now:Date){
+    return new DrizzleAdminBillingRepository(this.db).voidPaidReceipt(actorUserId,id,reason,now);
   }
 
   operationsPage(kind:import("@leaguekick/contracts").AdminOperationKind,

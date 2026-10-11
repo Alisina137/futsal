@@ -510,6 +510,18 @@ export class CommercialService {
     return {users,total,page,pageSize,hasMore:page*pageSize<total};
   }
 
+  async billingReceipts(filters:import("@leaguekick/contracts").AdminBillingFilters){
+    if(!this.repository.billingReceipts)throw errors.badRequest("BILLING_UNAVAILABLE","Billing is unavailable.");
+    return this.repository.billingReceipts(filters);
+  }
+  async billingSummary(filters:import("@leaguekick/contracts").AdminBillingFilters){
+    if(!this.repository.billingSummary)throw errors.badRequest("BILLING_UNAVAILABLE","Billing is unavailable.");
+    return this.repository.billingSummary(filters,this.now());
+  }
+  async voidPaidReceipt(actorUserId:string,id:string,reason:string){
+    if(!this.repository.voidPaidReceipt)throw errors.badRequest("BILLING_UNAVAILABLE","Billing is unavailable.");
+    await this.repository.voidPaidReceipt(actorUserId,id,reason,this.now());
+  }
   async operationsPage(kind:import("@leaguekick/contracts").AdminOperationKind,
     filters:import("@leaguekick/contracts").AdminOperationFilters){
     if(!this.repository.operationsPage)throw errors.badRequest("OPERATIONS_UNAVAILABLE","Review module is unavailable.");

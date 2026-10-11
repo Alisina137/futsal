@@ -10,6 +10,9 @@ import type {
   AdminOperationDetail,
   AdminOperationItem,
   AdminCaseDto,
+  AdminBillingFilters,
+  AdminBillingReceipt,
+  AdminBillingSummary,
   AdminVenueDto,
   SubscriptionPaymentDto,
   UserRole,
@@ -170,6 +173,10 @@ export interface CommercialRepository {
   }>;
   listUsers(query?: string,page?:number,pageSize?:number,sort?:"newest"|"oldest"): Promise<AdminUserDto[]>;
   listVenues(query?: string,page?:number,pageSize?:number,sort?:"newest"|"oldest"): Promise<AdminVenueDto[]>;
+  billingReceipts?(filters:AdminBillingFilters):Promise<{
+    items:AdminBillingReceipt[];total:number;page:number;pageSize:number;hasMore:boolean}>;
+  billingSummary?(filters:AdminBillingFilters,now:Date):Promise<AdminBillingSummary>;
+  voidPaidReceipt?(actor:string,id:string,reason:string,now:Date):Promise<void>;
   operationsPage?(kind:AdminOperationKind,filters:AdminOperationFilters):Promise<{
     items:AdminOperationItem[];total:number;page:number;pageSize:number;hasMore:boolean}>;
   operationDetail?(kind:AdminOperationKind,id:string):Promise<AdminOperationDetail|null>;

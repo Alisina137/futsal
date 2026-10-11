@@ -1,4 +1,5 @@
 import {
+  adminBillingFiltersSchema,
   adminCaseCreateSchema,
   adminCaseFilterSchema,
   adminCaseUpdateSchema,
@@ -84,6 +85,25 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
     } catch (error) {
       next(error);
     }
+  });
+
+  // Phase 5: financial oversight. Sources are manually recorded subscription
+  // receipts, not bookings GMV or processor-verified revenue.
+  router.get("/billing/receipts",async(request,response,next)=>{
+    try{response.json(await service.billingReceipts(adminBillingFiltersSchema.parse(request.query)));}
+    catch(error){next(error);}
+  });
+  router.get("/billing/summary",async(request,response,next)=>{
+    try{response.json(await service.billingSummary(adminBillingFiltersSchema.parse(request.query)));}
+    catch(error){next(error);}
+  });
+  router.post("/billing/paid-receipts/:id/void",async(request,response,next)=>{
+    try{
+      const id=userIdSchema.parse(request.params.id);
+      const {reason}=reasonSchema.parse(request.body);
+      await service.voidPaidReceipt(request.auth!.userId,id,reason);
+      response.json({voided:true});
+    }catch(error){next(error);}
   });
 
   // Phase 4: read-only monitoring, plus separately audited investigation records.
