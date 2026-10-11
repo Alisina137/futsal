@@ -9,6 +9,7 @@ import { TextField } from "../ui/TextField";
 import { adminApi } from "../../lib/api";
 import { styles } from "./AdminStyles";
 import {AdminPagination} from "./AdminPagination";
+import {AdminStatusBadge,AdminEmptyState} from "./AdminCommon";
 
 function SearchPanel({ query, setQuery, reason, setReason, loading, reload, t }: {
   query: string; setQuery: (value: string) => void; reason: string; setReason: (value: string) => void; loading: boolean; reload: () => Promise<void>; t: (key: any, params?: Record<string, string | number>) => string;
@@ -30,17 +31,16 @@ export function UsersSection({ users, query, setQuery, reason, setReason, loadin
         <AppText variant="bodyLarge" weight="bold">{t("phase7.admin.users")}</AppText>
         <View style={styles.countBadge}><AppText variant="caption" weight="bold">{users.length}</AppText></View>
       </View>
-      {users.length === 0 ? <AppText muted>No users found.</AppText> : users.map((user: AdminUserDto) => <View key={user.id} style={[styles.dataRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+      {users.length === 0 ? <AdminEmptyState title={t("phase7.admin.noUsers" as never)}/> : users.map((user: AdminUserDto) => <View key={user.id} style={[styles.dataRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <View style={styles.rowIdentity}>
           <View style={styles.avatar}><Ionicons name="person" size={18} color={colors.primary}/></View>
           <View style={{ flex: 1 }}>
             <AppText weight="semibold">{user.displayName}</AppText>
             <AppText variant="caption" muted forceLtr>{user.phone}</AppText>
+            <AppText variant="caption" muted>{user.roles.length?user.roles.join(" · "):t("phase7.admin.normalUser" as never)}</AppText>
           </View>
         </View>
-        <View style={user.status === "SUSPENDED" ? styles.statusDanger : styles.statusSuccess}>
-          <AppText variant="caption" weight="bold" style={{ color: user.status === "SUSPENDED" ? colors.danger : colors.success }}>{user.status}</AppText>
-        </View>
+        <AdminStatusBadge label={user.status} tone={user.status==="SUSPENDED"?"danger":"success"}/>
         <Button label={user.status === "SUSPENDED" ? t("phase7.admin.restore") : t("phase7.admin.suspend")} onPress={() => void action(
           () => adminApi.setUserStatus(token, user.id, { status: user.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED", reason }),
           t("phase7.admin.updated"),
@@ -62,13 +62,18 @@ export function VenuesSection({ venues, duplicates, query, setQuery, reason, set
         </View>
         <View style={styles.countBadge}><AppText variant="caption" weight="bold">{venues.length}</AppText></View>
       </View>
+      {venues.length===0?<AdminEmptyState title={t("phase7.admin.noVenues" as never)}/>:null}
       {venues.map((venue: AdminVenueDto) => <View key={venue.id} style={styles.venueBlock}>
         <View style={[styles.dataRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={styles.rowIdentity}>
             <View style={styles.avatar}><Ionicons name="business" size={18} color={colors.primary}/></View>
             <View style={{ flex: 1 }}>
               <AppText weight="semibold">{venue.name}</AppText>
-              <AppText variant="caption" muted>{venue.city} · {venue.status} · {venue.verificationStatus}</AppText>
+              <AppText variant="caption" muted>{venue.city} · {venue.address}</AppText>
+              <View style={{flexDirection:"row",gap:spacing.sm,flexWrap:"wrap"}}>
+                <AdminStatusBadge label={venue.status} tone={venue.status==="SUSPENDED"?"danger":"success"}/>
+                <AdminStatusBadge label={venue.verificationStatus} tone={venue.verificationStatus==="VERIFIED"?"success":venue.verificationStatus==="REJECTED"?"danger":"warning"}/>
+              </View>
               <AppText variant="caption" muted forceLtr>{venue.id}</AppText>
             </View>
           </View>
