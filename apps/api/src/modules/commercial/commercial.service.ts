@@ -510,6 +510,37 @@ export class CommercialService {
     return {users,total,page,pageSize,hasMore:page*pageSize<total};
   }
 
+  async operationsPage(kind:import("@leaguekick/contracts").AdminOperationKind,
+    filters:import("@leaguekick/contracts").AdminOperationFilters){
+    if(!this.repository.operationsPage)throw errors.badRequest("OPERATIONS_UNAVAILABLE","Review module is unavailable.");
+    return this.repository.operationsPage(kind,filters);
+  }
+  async operationDetail(kind:import("@leaguekick/contracts").AdminOperationKind,id:string){
+    const detail=await this.repository.operationDetail?.(kind,id);
+    if(!detail)throw errors.badRequest("TARGET_NOT_FOUND","No matching entity.");
+    return detail;
+  }
+  async operationDuplicates(){return {groups:await this.repository.operationDuplicates?.()??[]};}
+  async adminCases(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED";
+    targetType?:import("@leaguekick/contracts").AdminOperationKind;page:number;pageSize:number}){
+    if(!this.repository.adminCases)throw errors.badRequest("OPERATIONS_UNAVAILABLE","Review module is unavailable.");
+    return this.repository.adminCases(filters);
+  }
+  async targetAdminCases(kind:import("@leaguekick/contracts").AdminOperationKind,id:string){
+    if(!this.repository.targetAdminCases)throw errors.badRequest("OPERATIONS_UNAVAILABLE","Review module is unavailable.");
+    return {items:await this.repository.targetAdminCases(kind,id)};
+  }
+  async openAdminCase(actor:string,input:{targetType:import("@leaguekick/contracts").AdminOperationKind;
+    targetId:string;reason:string;note:string}){
+    if(!this.repository.openAdminCase)throw errors.badRequest("OPERATIONS_UNAVAILABLE","Review module is unavailable.");
+    return {item:await this.repository.openAdminCase(actor,input.targetType,
+      input.targetId,input.reason,input.note,this.now())};
+  }
+  async updateAdminCase(actor:string,id:string,input:{state:"OPEN"|"UNDER_REVIEW"|"RESOLVED";reason:string;note:string}){
+    if(!this.repository.updateAdminCase)throw errors.badRequest("OPERATIONS_UNAVAILABLE","Review module is unavailable.");
+    return {item:await this.repository.updateAdminCase(actor,id,input.state,input.reason,input.note,this.now())};
+  }
+
   listVenues(query?: string) {return this.repository.listVenues(query);}
   async listVenuesPage(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest"="newest"){
     const [venues,total]=await Promise.all([

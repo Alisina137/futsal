@@ -5,6 +5,11 @@ import type {
   AdminUserDto,
   AdminUserDirectoryFilter,
   AdminUserDetailDto,
+  AdminOperationKind,
+  AdminOperationFilters,
+  AdminOperationDetail,
+  AdminOperationItem,
+  AdminCaseDto,
   AdminVenueDto,
   SubscriptionPaymentDto,
   UserRole,
@@ -165,6 +170,17 @@ export interface CommercialRepository {
   }>;
   listUsers(query?: string,page?:number,pageSize?:number,sort?:"newest"|"oldest"): Promise<AdminUserDto[]>;
   listVenues(query?: string,page?:number,pageSize?:number,sort?:"newest"|"oldest"): Promise<AdminVenueDto[]>;
+  operationsPage?(kind:AdminOperationKind,filters:AdminOperationFilters):Promise<{
+    items:AdminOperationItem[];total:number;page:number;pageSize:number;hasMore:boolean}>;
+  operationDetail?(kind:AdminOperationKind,id:string):Promise<AdminOperationDetail|null>;
+  operationDuplicates?():Promise<Array<{key:string;count:number;items:AdminOperationItem[]}>>;
+  adminCases?(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED";
+    targetType?:AdminOperationKind;page:number;pageSize:number}):Promise<{
+    items:AdminCaseDto[];total:number;page:number;pageSize:number;hasMore:boolean}>;
+  targetAdminCases?(kind:AdminOperationKind,id:string):Promise<AdminCaseDto[]>;
+  openAdminCase?(actor:string,kind:AdminOperationKind,id:string,reason:string,note:string,now:Date):Promise<AdminCaseDto>;
+  updateAdminCase?(actor:string,id:string,state:"OPEN"|"UNDER_REVIEW"|"RESOLVED",
+    reason:string,note:string,now:Date):Promise<AdminCaseDto>;
   listUsersFiltered?(query:string|undefined,page:number,pageSize:number,sort:"newest"|"oldest",filters:AdminUserDirectoryFilter):Promise<AdminUserDto[]>;
   countUsersFiltered?(query:string|undefined,filters:AdminUserDirectoryFilter):Promise<number>;
   getUserDetail?(userId:string):Promise<AdminUserDetailDto|null>;

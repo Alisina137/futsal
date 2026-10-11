@@ -1,4 +1,9 @@
 import {
+  adminCaseCreateSchema,
+  adminCaseFilterSchema,
+  adminCaseUpdateSchema,
+  adminOperationFiltersSchema,
+  adminOperationKindSchema,
   adminSubscriptionActivationRequestSchema,
   adminAnalyticsDaysSchema,
   adminSupportNoteRequestSchema,
@@ -79,6 +84,47 @@ export function createAdminRouter(service: CommercialService, tokens: TokenServi
     } catch (error) {
       next(error);
     }
+  });
+
+  // Phase 4: read-only monitoring, plus separately audited investigation records.
+  router.get("/operations/venues/duplicates",async(_request,response,next)=>{
+    try{response.json(await service.operationDuplicates());}catch(error){next(error);}
+  });
+  router.get("/operations/:kind",async(request,response,next)=>{
+    try{
+      const kind=adminOperationKindSchema.parse(request.params.kind);
+      const filters=adminOperationFiltersSchema.parse(request.query);
+      response.json(await service.operationsPage(kind,filters));
+    }catch(error){next(error);}
+  });
+  router.get("/operations/:kind/:id",async(request,response,next)=>{
+    try{
+      const kind=adminOperationKindSchema.parse(request.params.kind);
+      response.json({detail:await service.operationDetail(kind,userIdSchema.parse(request.params.id))});
+    }catch(error){next(error);}
+  });
+  router.get("/operations/:kind/:id/cases",async(request,response,next)=>{
+    try{
+      const kind=adminOperationKindSchema.parse(request.params.kind);
+      response.json(await service.targetAdminCases(kind,userIdSchema.parse(request.params.id)));
+    }catch(error){next(error);}
+  });
+  router.get("/cases",async(request,response,next)=>{
+    try{response.json(await service.adminCases(adminCaseFilterSchema.parse(request.query)));}
+    catch(error){next(error);}
+  });
+  router.post("/cases",async(request,response,next)=>{
+    try{
+      const input=adminCaseCreateSchema.parse(request.body);
+      response.status(201).json(await service.openAdminCase(request.auth!.userId,input));
+    }catch(error){next(error);}
+  });
+  router.patch("/cases/:id",async(request,response,next)=>{
+    try{
+      const id=userIdSchema.parse(request.params.id);
+      response.json(await service.updateAdminCase(request.auth!.userId,id,
+        adminCaseUpdateSchema.parse(request.body)));
+    }catch(error){next(error);}
   });
 
   router.get("/users", async (request, response, next) => {

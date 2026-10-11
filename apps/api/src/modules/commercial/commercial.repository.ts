@@ -47,6 +47,7 @@ import type {
 import { errors } from "../../lib/errors.js";
 import {DrizzleAdminAnalyticsRepository} from "./admin-analytics.repository.js";
 import { DrizzleAdminUsersRepository } from "./admin-users.repository.js";
+import { DrizzleAdminOperationsRepository } from "./admin-operations.repository.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 import type {
   CommercialRepository,
@@ -476,6 +477,30 @@ export class DrizzleCommercialRepository implements CommercialRepository {
   }
   noteUser(actorUserId:string,userId:string,note:string,reason:string,now:Date){
     return new DrizzleAdminUsersRepository(this.db).addNote(actorUserId,userId,note,reason,now);
+  }
+
+  operationsPage(kind:import("@leaguekick/contracts").AdminOperationKind,
+    filter:import("@leaguekick/contracts").AdminOperationFilters){
+    return new DrizzleAdminOperationsRepository(this.db).list(kind,filter);
+  }
+  operationDetail(kind:import("@leaguekick/contracts").AdminOperationKind,id:string){
+    return new DrizzleAdminOperationsRepository(this.db).detail(kind,id);
+  }
+  operationDuplicates(){return new DrizzleAdminOperationsRepository(this.db).duplicates();}
+  adminCases(filters:{state?:"OPEN"|"UNDER_REVIEW"|"RESOLVED";
+    targetType?:import("@leaguekick/contracts").AdminOperationKind;page:number;pageSize:number}){
+    return new DrizzleAdminOperationsRepository(this.db).cases(filters);
+  }
+  targetAdminCases(kind:import("@leaguekick/contracts").AdminOperationKind,id:string){
+    return new DrizzleAdminOperationsRepository(this.db).targetCases(kind,id);
+  }
+  openAdminCase(actor:string,kind:import("@leaguekick/contracts").AdminOperationKind,
+    id:string,reason:string,note:string,now:Date){
+    return new DrizzleAdminOperationsRepository(this.db).createCase(actor,kind,id,reason,note,now);
+  }
+  updateAdminCase(actor:string,id:string,state:"OPEN"|"UNDER_REVIEW"|"RESOLVED",
+    reason:string,note:string,now:Date){
+    return new DrizzleAdminOperationsRepository(this.db).updateCase(actor,id,state,reason,note,now);
   }
 
   async listVenues(query?: string,page=1,pageSize=50,sort:"newest"|"oldest"="newest"): Promise<AdminVenueDto[]> {
