@@ -36,7 +36,7 @@ export function SubscriptionsSection({ roleSubscriptions, venues, payments, paym
               months:Number(months)||1,
               paymentReference:subscription.paymentReference||paymentRef,
             }),
-            t("phase7.admin.activated"),
+            t("phase7.admin.activated"),true,subscription.displayName+" · "+subscription.role,
           )}
           disabled={busy}
         />:null}
@@ -89,7 +89,7 @@ export function SubscriptionsSection({ roleSubscriptions, venues, payments, paym
         </View>
         {payment.status === "RECORDED" ? <Button label={t("phase7.admin.voidPayment")} onPress={() => void action(
           () => adminApi.voidPayment(token, payment.id, reason),
-          t("phase7.admin.updated"),
+          t("phase7.admin.updated"),true,payment.id+" · "+payment.amountAfn+" AFN",
         )} disabled={busy || reason.trim().length < 3} variant="danger"/> : null}
       </View>)}
     </Card> : null}
