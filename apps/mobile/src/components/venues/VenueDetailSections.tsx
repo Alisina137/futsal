@@ -201,7 +201,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
 }
 
 export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
-  venue:PublicVenueDto;sub:VenueReserveSub;startsAt?:string;promotionId?:string;
+  venue:PublicVenueDto;sub:VenueReserveSub;startsAt?:string|undefined;promotionId?:string|undefined;
 }){
   const {session}=useAuth(),{isOnline,reconnectVersion}=useNetwork();
   const {t,language,isRTL}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
