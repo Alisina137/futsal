@@ -35,6 +35,11 @@ function clock(iso:string,timeZone:string){
   return new Intl.DateTimeFormat("en-GB",{timeZone,hour:"2-digit",minute:"2-digit",
     hourCycle:"h23"}).format(new Date(iso));
 }
+function displayClock(iso:string,timeZone:string,language:"en"|"fa-AF"|"ps-AF"){
+  return new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
+    timeZone,hour:"2-digit",minute:"2-digit",hourCycle:"h23",
+  }).format(new Date(iso));
+}
 function asTimeline(data:VenueAvailabilityResponse):VenueTimelineSlotDto[]{
   // Backward compatibility with previously cached responses/API instances.
   return data.timeline??data.slots.map(slot=>({...slot,status:"AVAILABLE" as const}));
@@ -144,8 +149,8 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
       </View>:null}
       {item.status==="UNAVAILABLE"?<Ionicons name="checkmark-circle" size={14}
         color={palette.ink} style={styles.cornerIcon}/>:null}
-      <AppText weight="bold" forceLtr style={{color:palette.ink,textAlign:"center"}}>
-        {clock(item.startsAt,venue.timezone)}
+      <AppText weight="bold" style={{color:palette.ink,textAlign:"center"}}>
+        {displayClock(item.startsAt,venue.timezone,language)}
       </AppText>
       <AppText variant="caption" weight="semibold" forceLtr
         style={{color:palette.ink,textAlign:"center"}}>{item.priceAfn} AFN</AppText>
@@ -160,6 +165,9 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
         <View style={[styles.controlRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Button variant="secondary" label={tr("today")} onPress={()=>{
             setAnchor(today);setSelected(null);
+          }}/>
+          <Button variant="secondary" label={tr("refresh")} onPress={()=>{
+            setSelected(null);setReload(v=>v+1);
           }}/>
           <AppText variant="caption" muted style={{flex:1,textAlign:isRTL?"left":"right"}}>
             {tr("customerView")}
@@ -261,8 +269,9 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
           <AppText variant="bodyLarge" weight="bold">{tr("selectedSlot")}</AppText>
           <AppText weight="semibold">{formatCalendarDate(selected.date,language,{
             weekday:"long",day:"numeric",month:"long"})}</AppText>
-          <AppText variant="title" weight="bold" forceLtr style={{color:colors.primary}}>
-            {clock(selected.slot.startsAt,venue.timezone)+" – "+clock(selected.slot.endsAt,venue.timezone)}
+          <AppText variant="title" weight="bold" style={{color:colors.primary}}>
+            {displayClock(selected.slot.startsAt,venue.timezone,language)+" – "+
+              displayClock(selected.slot.endsAt,venue.timezone,language)}
           </AppText>
           <AppText weight="bold">{selected.slot.priceAfn} AFN</AppText>
           <AppText muted>{tr("status."+selected.slot.status)}</AppText>

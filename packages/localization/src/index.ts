@@ -9,6 +9,7 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "vd.grid.refresh": "Refresh",
   "vd.grid.customerView": "Public booking timetable",
   "vd.grid.today": "Today",
   "vd.grid.previous": "Previous",
@@ -2585,6 +2586,7 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "vd.grid.refresh": "تازه‌سازی",
   "vd.grid.customerView": "جدول زمانی رزرو آنلاین",
   "vd.grid.today": "امروز",
   "vd.grid.previous": "قبلی",
@@ -5159,6 +5161,7 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "vd.grid.refresh": "تازه کړئ",
   "vd.grid.customerView": "د آنلاین ریزرف مهالوېش",
   "vd.grid.today": "نن",
   "vd.grid.previous": "مخکینی",
