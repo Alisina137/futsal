@@ -80,6 +80,6 @@ export interface OwnerOnboardingRepository {
     phoneE164: string;
   } | null>;
   listVenueReferees(venueId: string): Promise<VenueRefereeDto[]>;
-  grantVenueReferee(input: { venueId: string; userId: string; assignedByUserId: string; assignedAt: Date }): Promise<void>;
+  grantVenueReferee(input: { venueId: string; userId: string; assignedByUserId: string; assignedAt: Date }): Promise<"GRANTED"|"ALREADY_ASSIGNED"|"INELIGIBLE">;
   removeVenueReferee(venueId: string, userId: string): Promise<void>;
 }
