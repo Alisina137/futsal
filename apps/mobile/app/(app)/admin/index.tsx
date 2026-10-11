@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { styles } from "../../../src/components/admin/AdminStyles";
 import { adminNavItems, type SectionKey } from "../../../src/components/admin/admin-navigation";
 import { AdminSidebar } from "../../../src/components/admin/AdminSidebar";
+import { AdminConfirmModal } from "../../../src/components/admin/AdminConfirmModal";
 import { DashboardSection } from "../../../src/components/admin/AdminDashboardSection";
 import { UsersSection, VenuesSection } from "../../../src/components/admin/AdminDirectorySections";
 import { SubscriptionsSection } from "../../../src/components/admin/AdminBillingSection";
@@ -73,6 +74,10 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [loadIssues, setLoadIssues] = useState<string[]>([]);
+  const [pending,setPending]=useState<{
+    task:()=>Promise<unknown>;success:string;refresh:boolean;target:string;reason:string;
+  }|null>(null);
+  const [confirmError,setConfirmError]=useState<string|null>(null);
 
   const load=useCallback(async()=>{
     if(!token||!isAdmin)return;
@@ -139,19 +144,32 @@ export default function AdminScreen() {
     setMessage(null);
   }
 
-  async function action(task: () => Promise<unknown>, success: string, refresh = true) {
-    setBusy(true);
-    setMessage(null);
-    try {
-      await task();
-      setMessage(success);
-      if (refresh) await load();
-    } catch {
-      setMessage(t("phase7.admin.actionError"));
-    } finally {
-      setBusy(false);
+  async function action(task:()=>Promise<unknown>,success:string,refresh=true,target?:string){
+    if(busy||pending)return;
+    if(!refresh){
+      // Read-only payment-history inspection does not need a confirmation.
+      setBusy(true);setMessage(null);
+      try{await task();setMessage(success);}catch{setMessage(t("phase7.admin.actionError"));}
+      finally{setBusy(false);}
+      return;
     }
+    setConfirmError(null);
+    setPending({task,success,refresh,target:target??sectionTitle+" · "+success,reason});
   }
+
+  async function confirmPending(){
+    if(!pending||busy)return;
+    setBusy(true);setConfirmError(null);
+    try{
+      await pending.task();
+      setPending(null);
+      setMessage(pending.success);
+      if(pending.refresh)await load();
+    }catch(e){
+      setConfirmError(e instanceof ApiRequestError?e.message:t("phase7.admin.actionError"));
+    }finally{setBusy(false);}
+  }
+
 
   if (!isAdmin) {
     return <View style={styles.deniedPage}>
@@ -225,6 +243,10 @@ export default function AdminScreen() {
           {section === "audit" ? <AuditSection audit={audit} t={t} /> : null}
         </>}
       </ScrollView>
+      <AdminConfirmModal visible={pending!==null} target={pending?.target??""}
+        reason={pending?.reason??""} busy={busy} error={confirmError}
+        onCancel={()=>{if(!busy){setPending(null);setConfirmError(null);}}}
+        onConfirm={()=>void confirmPending()}/>
     </View>
   </View>;
 }
