@@ -15,7 +15,8 @@ type Props={
 /** A compact, two-tone diagonal slot face. The diagonal rises from bottom-left
  * to top-right, like the provided reference. Its dimensions follow the real
  * tile width, so customer/owner, Day/Week and RTL all share the same geometry.
- * This is purely visual; the parent Pressable owns availability and actions. */
+ * Upper-left keeps the pale status background and dark text; lower-right uses
+ * an opaque dark status color with a white price. The parent Pressable owns actions. */
 export function SlotTileContent({startsAt,timeZone,priceAfn,ink,marker}:Props){
   const time=useMemo(()=>formatSlotStartTime(startsAt,timeZone),[startsAt,timeZone]);
   const [frame,setFrame]=useState({width:0,height:0});
@@ -33,14 +34,14 @@ export function SlotTileContent({startsAt,timeZone,priceAfn,ink,marker}:Props){
       style={[styles.diagonal,{
         borderLeftWidth:frame.width,
         borderBottomWidth:frame.height,
-        borderBottomColor:ink+"32",
+        borderBottomColor:ink,
       }]}/>:null}
     <View style={styles.header}>
       <AppText weight="bold" forceLtr numberOfLines={1}
         style={[styles.time,{color:ink}]}>{time}</AppText>
     </View>
     <AppText variant="caption" weight="semibold" forceLtr numberOfLines={1}
-      style={[styles.price,{color:ink}]}>{formatSlotTilePrice(priceAfn)}</AppText>
+      style={styles.price}>{formatSlotTilePrice(priceAfn)}</AppText>
     {marker?<View pointerEvents="none" style={styles.marker}>{marker}</View>:null}
   </View>;
 }
@@ -53,7 +54,8 @@ const styles=StyleSheet.create({
   header:{minHeight:17,alignSelf:"stretch",justifyContent:"flex-start",
     flexDirection:"row",paddingRight:19},
   time:{fontSize:12,lineHeight:17,textAlign:"left",alignSelf:"flex-start",writingDirection:"ltr"},
-  price:{fontSize:11,lineHeight:15,textAlign:"right",alignSelf:"flex-end",writingDirection:"ltr"},
-  marker:{position:"absolute",top:3,right:2,minWidth:16,minHeight:16,
+  price:{fontSize:11,lineHeight:15,color:"#FFFFFF",textAlign:"right",alignSelf:"flex-end",writingDirection:"ltr"},
+  marker:{position:"absolute",top:2,right:2,minWidth:18,minHeight:18,
+    backgroundColor:"rgba(255,255,255,0.95)",borderRadius:9,
     alignItems:"center",justifyContent:"center"},
 });
