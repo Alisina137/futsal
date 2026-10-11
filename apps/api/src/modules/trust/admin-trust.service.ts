@@ -276,7 +276,14 @@ export class AdminTrustService{
     });
     // Tick starts immediately for now announcements; scheduled announcements
     // are processed by the production interval (not a user notification promise).
-    if(scheduledAt<=now)await this.dispatchDue();
+    if(scheduledAt<=now){
+      // A campaign may be committed even if immediate notification dispatch
+      // fails. Never encourage a duplicate campaign by returning HTTP 500;
+      // the periodic worker safely resumes SCHEDULED/SENDING campaigns.
+      try{await this.dispatchDue();}
+      catch(e){console.error(JSON.stringify({event:"admin_announcement_immediate_dispatch_failed",
+        announcementId:created.id,message:e instanceof Error?e.message:String(e)}));}
+    }
     return created;
   }
   async listAnnouncements(p:AdminPhase6Page){
