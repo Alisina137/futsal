@@ -4,7 +4,7 @@ import {
   users,venues,teams,competitions,bookings,subscriptionPayments,
   venueSubscriptions,roleSubscriptions,teamExtraSubscriptions,userRoles,
 } from "@leaguekick/database";
-import {and,asc,desc,eq,gte,gt,lt,lte,sql} from "drizzle-orm";
+import {and,desc,eq,gte,gt,lt,lte,sql,type SQLWrapper} from "drizzle-orm";
 
 type Snapshot=Omit<AdminAnalyticsResponse,"generatedAt">;
 type DailyPoint=AdminAnalyticsResponse["daily"][number];
@@ -34,7 +34,7 @@ function timeline(from:string,days:AdminAnalyticsDays){
     recordedVenuePaymentsAfn:0,
   }));
 }
-const dateGroup=(field:typeof users.createdAt)=>
+const dateGroup=(field:SQLWrapper)=>
   sql<string>`to_char(${field} AT TIME ZONE 'Asia/Kabul','YYYY-MM-DD')`;
 
 export class DrizzleAdminAnalyticsRepository{
@@ -125,7 +125,7 @@ export class DrizzleAdminAnalyticsRepository{
     function apply(rows:readonly {day:string;count:number}[],key:SeriesKey){
       for(const row of rows){
         const point=map.get(row.day);
-        if(point)(point[key] as number)+=num(row.count);
+        if(point)point[key]+=num(row.count);
       }
     }
     apply(userDaily,"newUsers");apply(venueDaily,"newVenues");
