@@ -208,7 +208,7 @@ export class DrizzleAdminOperationsRepository {
         .from(teams).innerJoin(users,eq(teams.managerUserId,users.id))
         .where(eq(teams.id,id)).limit(1);
       if(!t)return null;
-      const [roster,registered,paid]=await Promise.all([
+      const [roster,registered,paid,extra,firstTeam]=await Promise.all([
         this.db.select({userId:users.id,name:users.displayName,
           role:teamMemberships.role,status:teamMemberships.status})
           .from(teamMemberships).innerJoin(users,eq(users.id,teamMemberships.userId))
@@ -220,10 +220,20 @@ export class DrizzleAdminOperationsRepository {
         this.db.select({role:roleSubscriptions.role,status:roleSubscriptions.status,
           until:roleSubscriptions.activeUntil}).from(roleSubscriptions)
           .where(and(eq(roleSubscriptions.userId,t.team.managerUserId),eq(roleSubscriptions.role,"TEAM_MANAGER"))).limit(1),
+        this.db.select({status:teamExtraSubscriptions.status,activeUntil:teamExtraSubscriptions.activeUntil})
+          .from(teamExtraSubscriptions).where(and(eq(teamExtraSubscriptions.userId,t.team.managerUserId),
+            eq(teamExtraSubscriptions.teamId,id))).limit(1),
+        this.db.select({id:teams.id}).from(teams).where(eq(teams.managerUserId,t.team.managerUserId))
+          .orderBy(asc(teams.createdAt),asc(teams.id)).limit(1),
       ]);
+      const activeBase=paid.some(p=>p.status==="ACTIVE"&&!!p.until&&p.until.getTime()>Date.now());
+      const needsExtra=!!firstTeam[0]&&firstTeam[0].id!==id;
+      const extraValid=extra.some(e=>e.status==="ACTIVE"&&!!e.activeUntil&&e.activeUntil.getTime()>Date.now());
       const warnings=[
-        ...(t.team.status==="ACTIVE"&&paid.some(p=>p.status!=="ACTIVE"||!p.until||p.until.getTime()<=Date.now())
-          ?["Manager subscription is not active; confirm team-specific entitlements."]:[]),
+        ...(t.team.status==="ACTIVE"&&!activeBase
+          ?["Manager paid role is not active; review its subscription."]:[]),
+        ...(t.team.status==="ACTIVE"&&needsExtra&&!extraValid
+          ?["Additional managed team has no active individually paid team slot."]:[]),
       ];
       return {item:{id,kind,title:t.team.name,subtitle:t.team.city,status:t.team.status,
         secondaryStatus:t.team.privacy,ownerName:t.manager,venueName:null,location:t.team.city,
@@ -231,7 +241,11 @@ export class DrizzleAdminOperationsRepository {
         facts:[fact("Manager",t.manager),fact("Manager user ID",t.team.managerUserId),
           fact("Privacy",t.team.privacy),fact("Offline venue ID",t.team.offlineVenueId),
           fact("Claimed at",fmt(t.team.claimedAt)),fact("Manager subscription",paid[0]?.status??"NONE"),
-          fact("Manager role paid until",fmt(paid[0]?.until)),fact("Roster (shown)",roster.length)],
+          fact("Manager role paid until",fmt(paid[0]?.until)),
+          fact("Requires extra team slot",needsExtra?"Yes":"No"),
+          fact("Team-specific extra subscription",extra[0]?.status??"NONE"),
+          fact("Extra slot paid until",fmt(extra[0]?.activeUntil)),
+          fact("Roster (shown)",roster.length)],
         groups:[{title:"Team roster",rows:roster.map(r=>record(r.userId,r.name,r.role,r.status))},
           {title:"Competitions",rows:registered.map(r=>record(r.id,r.name,"Fee: "+r.fee,r.status))}],
         warnings};
