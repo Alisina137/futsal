@@ -54,26 +54,50 @@ try{
   "values('CI Alisina United','Kabul',$1,'ACTIVE','PUBLIC') returning id",
   [accounts.alisina]);
 
- const membershipBefore=await first(
-  "select count(*)::int as n from team_memberships where team_id=$1 and user_id=$2",
+ // Regression: Abdul exists on Alisina's team but was previously REMOVED,
+ // which caused the real user's run to roll back before creating competitions.
+ await q("insert into team_memberships(team_id,user_id,role,shirt_number,status,joined_at,left_at) "+
+  "values($1,$2,'PLAYER',7,'REMOVED',now()-interval '30 days',now()-interval '1 day')",
   [team.id,accounts.abdul]);
- assert.equal(membershipBefore.n,0,"Regression setup must start without Abdul membership.");
  const script=path.join(root,"packages/database/scripts/seed-competition-story.mjs");
+ let refused=false;
+ try{
+  execFileSync(process.execPath,[script,"--confirm"],{
+   cwd:root,env:{...process.env,NODE_ENV:"test"},encoding:"utf8",timeout:90000,
+   stdio:"pipe",
+  });
+ }catch(error){
+  refused=true;
+  assert.ok(String(error.stderr).includes("--restore-abdul-membership"),
+   "Must tell operator how to explicitly restore the removed Player record.");
+ }
+ assert.ok(refused,"Removed membership must not be overwritten without opt-in.");
+ const rolledBack=await first(
+  "select count(*)::int as n from competitions where venue_id=$1",[venue.id]);
+ assert.equal(rolledBack.n,0,"Failed seed must leave no competitions.");
+ const stillRemoved=await first(
+  "select role,status,left_at from team_memberships where team_id=$1 and user_id=$2",
+  [team.id,accounts.abdul]);
+ assert.equal(stillRemoved.status,"REMOVED");
+ assert.ok(stillRemoved.left_at,"Refused seed must preserve member departure date.");
+
  for(let run=1;run<=2;run++){
-  const stdout=execFileSync(process.execPath,[script,"--confirm"],{
+  const flags=run===1?["--confirm","--restore-abdul-membership"]:["--confirm"];
+  const stdout=execFileSync(process.execPath,[script,...flags],{
    cwd:root,env:{...process.env,NODE_ENV:"test"},
    encoding:"utf8",timeout:90000,
   });
   assert.ok(stdout.includes("QA story committed"),"The seeder must commit successfully.");
-  if(run===1)assert.ok(stdout.includes("Created the missing test-only Player membership"),
-   "The seeder must explain its repaired QA membership.");
+  if(run===1)assert.ok(stdout.includes("Explicitly restored Abdul's REMOVED membership"),
+   "Seeder must explicitly log its opt-in restoration.");
  }
 
  const membershipAfter=await first(
-  "select role,status from team_memberships where team_id=$1 and user_id=$2",
+  "select role,status,left_at from team_memberships where team_id=$1 and user_id=$2",
   [team.id,accounts.abdul]);
  assert.equal(membershipAfter.role,"PLAYER");
  assert.equal(membershipAfter.status,"ACTIVE");
+ assert.equal(membershipAfter.left_at,null);
  const comps=await q(
   "select name,format,max_teams from competitions where venue_id=$1 and description like '[QA-COMP-STORY-V1]%' "+
   "order by name",[venue.id]);
@@ -94,7 +118,7 @@ try{
  assert.ok(scoreRows.n>=2,"Abdul must have official match stats.");
  const activities=await first("select count(*)::int as n from team_activities where team_id=$1",[team.id]);
  assert.ok(activities.n>=3,"Team Manager activity feed should be populated.");
- console.log("Competition DB smoke passed: missing Abdul membership safely seeded; 3 competitions and statistics are idempotent.");
+ console.log("Competition DB smoke passed: REMOVED Abdul membership protected by default, explicitly restored; 3 competitions and stats idempotent.");
 }finally{
  await pool.end();
 }
