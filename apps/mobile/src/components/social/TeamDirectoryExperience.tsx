@@ -357,10 +357,11 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
       {!loading&&!error?<View testID="teams-results-grid" style={[styles.resultsGrid,{
         flexDirection:isRTL?"row-reverse":"row",
       }]}>{teams.map(render)}</View>:null}
-      {!loading&&!error&&hasMore?<Button testID="teams-load-more"
-        label={t("teams.phase2.showMore")} variant="secondary"
-        disabled={loadingMore} loading={loadingMore}
-        onPress={()=>void load(applied.current,currentPage+1,true)}/>:null}
+      {!loading&&!error&&hasMore?<View testID="teams-load-more">
+        <Button label={t("teams.phase2.showMore")} variant="secondary"
+          disabled={loadingMore} loading={loadingMore}
+          onPress={()=>void load(applied.current,currentPage+1,true)}/>
+      </View>:null}
     </View>
   </Screen>;
 }
