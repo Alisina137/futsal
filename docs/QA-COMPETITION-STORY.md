@@ -15,12 +15,21 @@ changing ownership or roles. It requires Abdul to already have an active
 player membership on the chosen team. The console prints the resolved
 target names. Do not interchange owners just to run tests.
 
-The named base demo users, a subscribed venue, a managed team and Abdul's
-active membership must already exist. The older role-demo seeder can reset
-roles/subscriptions of six named accounts; **do not run it on a database with
-real user data or user-customized role ownership**.
+The named base demo accounts, a subscribed venue, and a real managed team
+must exist. The seeder now checks **both** named manager teams for Abdul's
+existing active Player membership before choosing a team. If neither has
+one, it may add a new ACTIVE PLAYER membership to the selected team,
+**only** if Abdul is an ACTIVE account with an explicit PLAYER role,
+without a Referee/paid-owner conflict or pre-existing inactive membership.
+This is deliberate test data, not a change to account roles. The original
+role-demo seeder can reset roles/subscriptions of six named users: **do not
+run it on a database with user-customized role ownership or real data**.
 
 ## Command
+
+If a previous seed printed `QA story rolled back: Abdul must already be a
+player ...`, the transaction was rolled back, so that attempt inserted **no**
+competitions. Pull the fix and retry with the same seed command.
 
 From PowerShell in C:\projects\futsal:
 
@@ -78,7 +87,8 @@ of the league participants and Abdul's active player team.
   career goals, assists, cards, man-of-the-match flags and match history.
 - Competition rosters, team lineups, a forthcoming fixture and results.
 - Player preferences (only if blank), three training/meeting events,
-  availability responses, competition follows, a confirmed friendly and\n  several in-app notifications.
+  availability responses, competition follows, a confirmed friendly and
+  several in-app notifications.
 
 ## Team manager (existing owner of Abdul's team)
 
