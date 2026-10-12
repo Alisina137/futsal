@@ -905,7 +905,7 @@ const styles=StyleSheet.create({
     borderBottomColor:colors.border,
   },
   weekTimeCell:{
-    width:70,
+    width:94,
     minHeight:62,
     alignItems:"center",
     justifyContent:"center",
