@@ -72,6 +72,33 @@ async function participants(ctx){
  }
  return ids;
 }
+async function sampleAthletes(ctx,teams){
+ // Purpose-built non-login performers make leaderboards realistic without
+ // giving extra active user accounts or changing any paid team-manager roles.
+ const athleteIds=new Map();
+ for(let i=1;i<teams.length;i++){
+  const display="QA Story Athlete "+String(i).padStart(2,"0");
+  let player=await get("select id,status,username_normalized,email_normalized from users where display_name=$1 and bio=$2",
+   [display,TAG]);
+  if(player){
+   guard(player.status==="SUSPENDED"&&!player.username_normalized&&!player.email_normalized,
+    "Fixture athlete has become a login account: "+display);
+  }else{
+   player=await get(
+    "insert into users(display_name,username,username_normalized,phone_e164,email_normalized,"+
+    "password_hash,preferred_language,status,bio,city) "+
+    "values($1,null,null,null,null,'!DISABLED_QA_NO_LOGIN','en','SUSPENDED',$2,'Kabul') returning id",
+    [display,TAG]);
+  }
+  athleteIds.set(teams[i],player.id);
+  await q("insert into player_profiles(user_id,public_display_name,position,visibility) "+
+   "values($1,$2,'ALA','PUBLIC') on conflict do nothing",[player.id,display]);
+  await q("insert into team_memberships(team_id,user_id,role,status,shirt_number,joined_at,updated_at) "+
+   "values($1,$2,'PLAYER','ACTIVE',$3,now(),now()) on conflict(team_id,user_id) do nothing",
+   [teams[i],player.id,10+i]);
+ }
+ return athleteIds;
+}
 async function createCompetition(ctx,cfg,now){
  const [name,format,count]=cfg;
  const prev=await get("select id,format,max_teams,description from competitions where venue_id=$1 and name=$2",
@@ -138,6 +165,19 @@ async function match(ctx,cid,stage,round,slot,home,away,when,completed=false,gro
     "values($1,$2,$3,true,$4,$5,$6,0,$7,$8) on conflict do nothing",
     [inserted.id,ctx.users.abdul.id,ctx.team.id,goals,assists,
      round%6===0?1:0,conceded===0,own>conceded&&goals>0]);
+  }
+ }
+ if(completed&&ctx.athletes){
+  // One registered simulated scorer per offline team. The remaining score
+  // is deliberately uncredited rather than inventing impossible goal totals.
+  for(const [team,own,against] of [[home,hs,as],[away,as,hs]]){
+   const athlete=ctx.athletes.get(team);
+   if(!athlete)continue;
+   const goals=Math.min(own,2),assists=Math.min(Math.max(own-goals,0),1);
+   await q("insert into player_match_stats(match_id,player_user_id,team_id,appeared,goals,assists,"+
+    "yellow_cards,red_cards,clean_sheet,player_of_match) "+
+    "values($1,$2,$3,true,$4,$5,$6,0,$7,$8) on conflict do nothing",
+    [inserted.id,athlete,team,goals,assists,slot%7===0?1:0,against===0,own>against&&goals>0]);
   }
  }
  return inserted.id;
@@ -301,6 +341,7 @@ try{
  await db.query("begin");
  await q("select pg_advisory_xact_lock(hashtext('futsal-qa-story-v1'))");
  const now=new Date(),ctx=await target(),all=await participants(ctx),ids=[];
+ ctx.athletes=await sampleAthletes(ctx,all);
  // Idempotent: no partial existing tournament set, and existing full seed is checked not overwritten.
  const exists=await Promise.all(names.map(x=>get(
   "select id from competitions where venue_id=$1 and name=$2",[ctx.venue.id,x[0]])));
