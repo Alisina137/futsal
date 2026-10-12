@@ -1,7 +1,7 @@
 # PROJECT STATE
 
 ## QA competition story (October 12, 2026)
-- New opt-in `pnpm db:seed:competition-story --confirm` fixture; 15-team/105-fixture League currently in week 4 with 21 completed results, 12-team/4-group Groups-and-Knockout, 16-team Knockout bracket. Included connected stats for Abdul, competition rosters/lineups, manager profile/activities/announcements/posts and friendly. Details: `docs/QA-COMPETITION-STORY.md`.
+- New opt-in `pnpm db:seed:competition-story --confirm` fixture; 15-team/105-fixture League currently in week 4 with 21 completed results, 12-team/4-group Groups-and-Knockout, 16-team Knockout bracket. Included connected stats for Abdul, an eight-person manager-team roster (five starters and three substitutes), 22 no-login suspended athlete fixtures for stat leaderboards, venue-scoped referee match assignments, competition rosters/lineups, in-app notifications, manager profile/activities/announcements/posts and friendly. Details: `docs/QA-COMPETITION-STORY.md`.
 - Existing role-demo source maps Mahdi to Venue Owner and Alisina to Team Manager, contrary to the latest user's wording. Seed resolves actual owned venue/team at runtime (prefers specifically named requested roles only if real) and **does not swap ownership or existing roles**.
 - No database connection is exposed to ChatGPT; the application database remains unchanged until the seed command runs on the operator's development/staging DB.
 
