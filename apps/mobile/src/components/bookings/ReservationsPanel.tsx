@@ -195,6 +195,13 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
             icon={<Ionicons name={canCancel?"receipt-outline":"calendar-outline"} size={17} color={colors.primary}/>}
             onPress={()=>canCancel?setExpandedId(expanded?null:item.id):openVenue(item,true)}/>
         </View>
+        {item.status==="CONFIRMED"&&item.source==="ONLINE"&&
+          Date.parse(item.endsAt)<=now?<Button variant="secondary"
+          testID={"booking-rate-venue-"+item.id}
+          label={t("booking.community.rateVenue")} onPress={()=>
+          router.push({pathname:"/venues/[venueId]",params:{
+            venueId:item.venueId,reviewBookingId:item.id,
+          }})}/>:null}
         {!canCancel?<Pressable accessibilityRole="button" accessibilityState={{expanded}}
           onPress={()=>setExpandedId(expanded?null:item.id)}
           style={[styles.detailsToggle,rtlRow]}>
