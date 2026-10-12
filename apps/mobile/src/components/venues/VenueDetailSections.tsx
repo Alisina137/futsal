@@ -13,6 +13,7 @@ import {useLocale} from "../../providers/LocaleProvider";
 import {useNetwork} from "../../providers/NetworkProvider";
 import {NearbyVenuesMap} from "./NearbyVenuesMap";
 import {VenueSlotTimetable} from "./VenueSlotTimetable";
+import {VenueReviewsPanel,VenueSavedTimePanel} from "./VenueCommunityPanels";
 import {SlotTileContent} from "../ui/SlotTileContent";
 import {softenSlotColor} from "../../lib/slot-color";
 import {ReservationsPanel} from "../bookings/ReservationsPanel";
@@ -28,7 +29,7 @@ export type VenueMediaSub="posts"|"photos"|"videos";
 export type VenueReserveSub="slots"|"offers"|"bookings";
 export type VenueCompetitionSub="upcoming"|"live"|"completed";
 export type VenueUpdatesSub="announcements"|"alerts";
-export type VenueAboutSub="overview"|"facilities"|"location";
+export type VenueAboutSub="overview"|"facilities"|"location"|"reviews"|"preferences";
 export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}[]=[
   {id:"media",icon:"images-outline"},{id:"reserve",icon:"calendar-outline"},
   {id:"competitions",icon:"trophy-outline"},{id:"updates",icon:"notifications-outline"},
@@ -37,7 +38,7 @@ export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}
 export const venueSubtabs:Record<VenueMainTab,string[]>={
   media:["posts","photos","videos"],reserve:["slots","offers","bookings"],
   competitions:["upcoming","live","completed"],updates:["announcements","alerts"],
-  about:["overview","facilities","location"],
+  about:["overview","facilities","location","reviews","preferences"],
 };
 export function todayAtKabul(){
   const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
@@ -410,7 +411,9 @@ export function VenueUpdatesContent({venue,sub,onReserve}:{
   </>;
 }
 
-export function VenueAboutContent({venue,sub}:{venue:PublicVenueDto;sub:VenueAboutSub}){
+export function VenueAboutContent({venue,sub,reviewBookingId}:{
+  venue:PublicVenueDto;sub:VenueAboutSub;reviewBookingId?:string|undefined;
+}){
   const {t,isRTL}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
   const [mapReady,setMapReady]=useState(false),[mapFailed,setMapFailed]=useState(false);
   const position=venue.latitude!==null&&venue.longitude!==null?
@@ -426,6 +429,8 @@ export function VenueAboutContent({venue,sub}:{venue:PublicVenueDto;sub:VenueAbo
     const address=encodeURIComponent(position.latitude+","+position.longitude);
     await Linking.openURL("https://www.google.com/maps/search/?api=1&query="+address);
   }
+  if(sub==="reviews")return <VenueReviewsPanel venue={venue} reviewBookingId={reviewBookingId}/>;
+  if(sub==="preferences")return <VenueSavedTimePanel venue={venue}/>;
   if(sub==="overview")return <>
     <Card><SectionHeading name={tr("aboutVenue")} icon="information-circle-outline"/>
       <AppText>{venue.pageBio||tr("noBio")}</AppText>
