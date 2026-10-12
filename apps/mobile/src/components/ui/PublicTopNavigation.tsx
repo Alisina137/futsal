@@ -59,7 +59,8 @@ export function PublicTopNavigation(){
   return <View style={styles.container}>
     <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {items.map(item=>{
-        const active=pathname===item.href||pathname.startsWith(item.href+"/");
+        const active=pathname===item.href||pathname.startsWith(item.href+"/")||
+          (item.key==="home"&&!items.some(nav=>pathname===nav.href||pathname.startsWith(nav.href+"/")));
         const badge=item.key==="notifications"&&unread>0;
         const accessibilityLabel=badge?`${item.label}, ${unread} ${t("notifications.unread")}`:item.label;
         return <Pressable
