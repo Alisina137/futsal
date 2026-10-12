@@ -380,11 +380,17 @@ export class AuthService {
     this.ensureActive(user);
     this.ensurePasswordResetCooldown(user);
 
-    const username = input.username.trim();
+    // The existing verified-email / single-use reset token is mandatory for
+    // either change. Reuse unchanged fields without asking for the current
+    // password or silently replacing it. The same cooldown, transaction and
+    // all-session revocation apply to all three modes.
+    const username = (input.username??user.username??"").trim();
     const usernameNormalized = normalizeUsername(username);
     if (!usernameNormalized) throw errors.badRequest("INVALID_USERNAME", "Enter a valid username.");
+    if(!input.password && usernameNormalized===user.usernameNormalized)
+      throw errors.badRequest("NO_CREDENTIAL_CHANGE", "Choose a different username or a new password.");
 
-    const passwordHash = await argon2.hash(input.password);
+    const passwordHash = input.password?await argon2.hash(input.password):user.passwordHash;
     const credentialResetAt = new Date();
     await this.repository.completePasswordReset({
       challengeId: challenge.id,

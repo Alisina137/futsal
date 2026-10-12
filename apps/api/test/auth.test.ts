@@ -449,6 +449,68 @@ describe("Authentication identity and role model", () => {
     expect(oldSession.status).toBe(401);
   });
 
+  it("changes username only without changing password, and revokes sessions",async()=>{
+    const {app}=setup();
+    const registered=await request(app).post("/api/v1/auth/register").send(baseRegistration);
+    await linkEmail(app,registered.body.accessToken);
+    const challenge=await request(app).post("/api/v1/auth/password-reset/request")
+      .send({identifier:"ahmad@example.com"});
+    const verified=await request(app).post("/api/v1/auth/password-reset/verify")
+      .send({requestId:challenge.body.requestId,code:challenge.body.debugCode});
+    expect(verified.status).toBe(200);
+    const input={requestId:verified.body.requestId,resetToken:verified.body.resetToken};
+
+    const noChange=await request(app).post("/api/v1/auth/password-reset/complete")
+      .send({...input,username:"ahmad7"});
+    expect(noChange.status).toBe(400);
+    expect(noChange.body.error.code).toBe("NO_CREDENTIAL_CHANGE");
+    const noFields=await request(app).post("/api/v1/auth/password-reset/complete").send(input);
+    expect(noFields.status).toBe(400);
+
+    const update=await request(app).post("/api/v1/auth/password-reset/complete")
+      .send({...input,username:"better_name"});
+    expect(update.status).toBe(204);
+    const newLogin=await request(app).post("/api/v1/auth/login")
+      .send({identifier:"better_name",password:baseRegistration.password});
+    expect(newLogin.status).toBe(200);
+    const oldLogin=await request(app).post("/api/v1/auth/login")
+      .send({identifier:"ahmad7",password:baseRegistration.password});
+    expect(oldLogin.status).toBe(401);
+    const oldSession=await request(app).post("/api/v1/auth/refresh")
+      .send({refreshToken:registered.body.refreshToken});
+    expect(oldSession.status).toBe(401);
+  });
+
+  it("changes password only without changing username or allowing reuse",async()=>{
+    const {app}=setup();
+    const registered=await request(app).post("/api/v1/auth/register").send(baseRegistration);
+    await linkEmail(app,registered.body.accessToken);
+    const challenge=await request(app).post("/api/v1/auth/password-reset/request")
+      .send({identifier:"ahmad@example.com"});
+    const verified=await request(app).post("/api/v1/auth/password-reset/verify")
+      .send({requestId:challenge.body.requestId,code:challenge.body.debugCode});
+    const input={requestId:verified.body.requestId,resetToken:verified.body.resetToken};
+
+    const mismatch=await request(app).post("/api/v1/auth/password-reset/complete")
+      .send({...input,password:"Newpass1!",confirmPassword:"wrongpass2!"});
+    expect(mismatch.status).toBe(400);
+    const weak=await request(app).post("/api/v1/auth/password-reset/complete")
+      .send({...input,password:"weakpass",confirmPassword:"weakpass"});
+    expect(weak.status).toBe(400);
+    const updated=await request(app).post("/api/v1/auth/password-reset/complete")
+      .send({...input,password:"Newpass1!",confirmPassword:"Newpass1!"});
+    expect(updated.status).toBe(204);
+    const changedLogin=await request(app).post("/api/v1/auth/login")
+      .send({identifier:"ahmad7",password:"Newpass1!"});
+    expect(changedLogin.status).toBe(200);
+    expect(changedLogin.body.user.username).toBe("ahmad7");
+    expect((await request(app).post("/api/v1/auth/login").send({
+      identifier:"ahmad7",password:baseRegistration.password,
+    })).status).toBe(401);
+    expect((await request(app).post("/api/v1/auth/password-reset/complete")
+      .send({...input,password:"Another1!",confirmPassword:"Another1!"})).status).toBe(400);
+  });
+
   it("blocks a new verified recovery for 72 hours after a successful credential reset", async () => {
     const { app } = setup();
     const registration = await request(app).post("/api/v1/auth/register").send(baseRegistration);

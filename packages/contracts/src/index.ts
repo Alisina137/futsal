@@ -104,19 +104,26 @@ export const passwordResetVerifySchema = z.object({
 });
 export type PasswordResetVerifyRequest = z.infer<typeof passwordResetVerifySchema>;
 
+/** A verified one-time reset token can update just the username, just the
+ * password, or both. No changes / orphaned confirmation are rejected. */
 export const passwordResetCompleteSchema = z.object({
   requestId: z.string().uuid(),
   resetToken: z.string().min(32),
-  username: usernameSchema,
-  password: newPasswordSchema,
-  confirmPassword: newPasswordSchema,
+  username: usernameSchema.optional(),
+  password: newPasswordSchema.optional(),
+  confirmPassword: newPasswordSchema.optional(),
 }).superRefine((value, ctx) => {
-  if (value.password !== value.confirmPassword) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["confirmPassword"],
-      message: "Passwords do not match.",
-    });
+  if (value.username === undefined && value.password === undefined) {
+    ctx.addIssue({code:"custom",path:["username"],
+      message:"Choose a username or password to update."});
+  }
+  if(value.password !== undefined && value.password !== value.confirmPassword){
+    ctx.addIssue({code:"custom",path:["confirmPassword"],
+      message:"Passwords do not match."});
+  }
+  if(value.password === undefined && value.confirmPassword !== undefined){
+    ctx.addIssue({code:"custom",path:["confirmPassword"],
+      message:"Password confirmation requires a new password."});
   }
 });
 export type PasswordResetCompleteRequest = z.infer<typeof passwordResetCompleteSchema>;
