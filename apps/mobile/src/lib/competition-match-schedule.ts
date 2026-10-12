@@ -47,8 +47,8 @@ export function formatFixtureSchedule(
   const date=new Intl.DateTimeFormat(locale,nearby
     ?{...options,weekday:"long"}
     :{...options,day:"numeric",month:"short",year:"numeric"}).format(instant);
-  const time=new Intl.DateTimeFormat(locale,{
-    ...options,hour:"2-digit",minute:"2-digit",hourCycle:"h23",
-  }).format(instant);
+  const time=new Intl.DateTimeFormat("en-US",{
+    ...options,hour:"2-digit",minute:"2-digit",hour12:true,
+  }).format(instant).replace(/[\u00a0\u202f]/g," ");
   return {date,time,nearby};
 }
