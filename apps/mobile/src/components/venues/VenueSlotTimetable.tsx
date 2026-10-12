@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {BookingDto,PublicVenueDto,VenueAvailabilityResponse,VenueTimelineSlotDto} from "@leaguekick/contracts";
-import {router} from "expo-router";
+import {router,useFocusEffect} from "expo-router";
 import {memo,useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {ActivityIndicator,Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {bookingApi,venueApi} from "../../lib/api";
@@ -20,6 +20,7 @@ import {SlotTileContent} from "../ui/SlotTileContent";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
 import {formatAppClock,formatClock12From24Hour} from "../../lib/clock-display";
 import {softenSlotColor} from "../../lib/slot-color";
+import {findOwnBookingForSlot,ownActiveVenueBookings} from "../../lib/own-slot-bookings";
 
 type DayResult={date:string;slots:VenueTimelineSlotDto[];fresh:boolean;failed:boolean};
 type SelectedSlot={date:string;slot:VenueTimelineSlotDto;fresh:boolean};
@@ -31,6 +32,9 @@ const statusColors:Record<VenueTimelineSlotDto["status"],{bg:string;border:strin
   NOTICE_REQUIRED:{bg:"#FEF3C7",border:"#FDE68A",ink:"#92400E"},
 };
 const validIso=/^\d{4}-\d{2}-\d{2}$/;
+// Shared widths keep time/day headers aligned with the slot columns.
+const WEEK_TIME_COLUMN_WIDTH=94;
+const WEEK_DAY_COLUMN_WIDTH=124;
 function dayForTime(iso:string,timeZone:string){
   const p=new Intl.DateTimeFormat("en-GB",{timeZone,day:"2-digit",month:"2-digit",year:"numeric"})
     .formatToParts(new Date(iso));
@@ -130,26 +134,28 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
   const callLink=callVenueUrl(venue.publicPhone);
   const whatsappLink=venueWhatsAppUrl(venue,language);
   const sequence=useRef(0);
-  useEffect(()=>{
+  // Reload account-owned bookings each time the venue screen regains focus.
+  useFocusEffect(useCallback(()=>{
     let live=true;
     setOwnBookings([]);setMineError(false);
     if(!session||!connected)return()=>{live=false;};
     void bookingApi.mine(session.accessToken).then(result=>{
-      if(live)setOwnBookings(result.bookings.filter(item=>
-        item.venueId===venue.id&&item.playerUserId===session.user.id&&item.source==="ONLINE"
-        &&item.status!=="CANCELLED"));
+      if(live)setOwnBookings(ownActiveVenueBookings(result.bookings,venue.id,session.user.id));
     }).catch(()=>{if(live)setMineError(true);});
     return()=>{live=false;};
-  },[session?.accessToken,session?.user.id,venue.id,connected,reload,reconnectVersion]);
-  const ownBySlot=useMemo(()=>{
-    const map=new Map<string,BookingDto>();
-    for(const booking of ownBookings)if(booking.status!=="CANCELLED"){
-      map.set(booking.areaId+"|"+Date.parse(booking.startsAt),booking);
+  },[session?.accessToken,session?.user.id,venue.id,connected,reload,reconnectVersion]));
+  const ownBookingsByArea=useMemo(()=>{
+    const map=new Map<string,BookingDto[]>();
+    for(const booking of ownBookings){
+      const list=map.get(booking.areaId);
+      if(list)list.push(booking);else map.set(booking.areaId,[booking]);
     }
     return map;
   },[ownBookings]);
-  const ownBooking=useCallback((slot:VenueTimelineSlotDto)=>ownBySlot.get(
-    slot.areaId+"|"+Date.parse(slot.startsAt)),[ownBySlot]);
+  // A venue may edit slot boundaries after booking. Prefer exact starts, but
+  // also recognize overlapping intervals on the same court.
+  const ownBooking=useCallback((slot:VenueTimelineSlotDto)=>
+    findOwnBookingForSlot(ownBookingsByArea.get(slot.areaId)??[],slot),[ownBookingsByArea]);
   async function openContact(url:string){
     setContactError(false);
     try{await Linking.openURL(url);}catch{setContactError(true);}
@@ -406,7 +412,8 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
       <View style={styles.modalBackdrop}>
         <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button"
           accessibilityLabel={tr("close")} onPress={()=>{if(!cancelBusy){setSelected(null);setCancelConfirm(false);}}}/>
-        {selected?<View style={styles.modalPanel}>
+        {selected?<ScrollView style={styles.modalPanel} contentContainerStyle={styles.modalContent}
+          showsVerticalScrollIndicator>
           <View style={[styles.modalHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <AppText variant="bodyLarge" weight="bold">{tr(selectedOwn?"yourBooking":"selectedSlot")}</AppText>
             <Pressable accessibilityRole="button" accessibilityLabel={tr("close")}
@@ -437,7 +444,7 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
                   loading={cancelBusy} disabled={!connected} onPress={()=>void cancelMine()}/>
                 <Button label={tr("keepReservation")} variant="secondary"
                   disabled={cancelBusy} onPress={()=>setCancelConfirm(false)}/>
-              </Card>:<Button label={tr("cancelReservation")} variant="secondary"
+              </Card>:<Button label={tr("cancelReservation")} variant="danger"
                 disabled={!connected} onPress={()=>setCancelConfirm(true)}/>:null}
           </>:selected.fresh&&connected&&["AVAILABLE","PROMOTION"].includes(selected.slot.status)?
             <Button label={t("booking.bookNow")} onPress={book}/>:
@@ -454,7 +461,7 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
             {tr("contactFailed")}</AppText>:null}
           {error?<AppText variant="caption" style={{color:colors.danger}}>{error}</AppText>:null}
           <Button label={tr("close")} variant="ghost" onPress={()=>{setSelected(null);setCancelConfirm(false);}}/>
-        </View>:null}
+        </ScrollView>:null}
       </View>
     </Modal>
   </View>;
@@ -471,14 +478,14 @@ const styles=StyleSheet.create({
   legendItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
   swatch:{width:22,height:22,borderRadius:5,borderWidth:1},
   gridRow:{alignItems:"stretch"},
-  timeHeading:{width:67,minHeight:80,backgroundColor:colors.primarySoft,
+  timeHeading:{width:WEEK_TIME_COLUMN_WIDTH,minHeight:80,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:colors.border},
-  dayHeading:{width:124,minHeight:80,backgroundColor:colors.primarySoft,
+  dayHeading:{width:WEEK_DAY_COLUMN_WIDTH,minHeight:80,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",gap:3,borderWidth:1,borderColor:colors.border},
   todayHeading:{backgroundColor:"#DBEAFE"},
-  timeCell:{width:94,minHeight:62,justifyContent:"center",alignItems:"center",
+  timeCell:{width:WEEK_TIME_COLUMN_WIDTH,minHeight:62,justifyContent:"center",alignItems:"center",
     backgroundColor:"#EFF6FF",borderWidth:1,borderColor:colors.border},
-  weekCell:{width:124,minHeight:62,padding:3,borderWidth:1,borderColor:colors.border,
+  weekCell:{width:WEEK_DAY_COLUMN_WIDTH,minHeight:62,padding:3,borderWidth:1,borderColor:colors.border,
     gap:2,justifyContent:"center",backgroundColor:colors.surface},
   slot:{minHeight:54,borderRadius:radius.md,borderWidth:1,justifyContent:"center",
     alignItems:"stretch",paddingHorizontal:2,position:"relative",overflow:"hidden"},
@@ -493,7 +500,8 @@ const styles=StyleSheet.create({
   modalBackdrop:{flex:1,backgroundColor:"rgba(9,22,47,0.72)",
     alignItems:"center",justifyContent:"center",padding:spacing.md},
   modalPanel:{width:"100%",maxWidth:480,maxHeight:"90%",backgroundColor:colors.surface,
-    borderRadius:radius.lg,padding:spacing.lg,gap:spacing.sm},
+    borderRadius:radius.lg},
+  modalContent:{padding:spacing.lg,gap:spacing.sm},
   modalHeading:{justifyContent:"space-between",alignItems:"center"},
   dayGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xs},
   dayCell:{width:"48%",minWidth:0},

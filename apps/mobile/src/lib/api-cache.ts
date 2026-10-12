@@ -46,6 +46,8 @@ function cachePolicy(path: string, accessToken?: string): CachePolicy | null {
   // Availability is intentionally excluded: booking inventory must remain live.
   // Its existing dedicated cache is read-only fallback/orientation data.
   if (pathname.includes("/availability")) return null;
+  // User booking ownership/cancellation must never rely on stale cached data.
+  if (pathname === "/api/v1/bookings/me") return null;
 
   // Public/read-mostly data can survive app restarts.
   if (pathname === "/api/v1/venues") return { ttlMs: 5 * 60_000, persist: true };
@@ -74,7 +76,6 @@ function cachePolicy(path: string, accessToken?: string): CachePolicy | null {
   // fetching while navigating without writing customer, billing, notification,
   // or owner-operation data to unencrypted AsyncStorage.
   if (pathname.startsWith("/api/v1/owner/")) return { ttlMs: 20_000, persist: false };
-  if (pathname === "/api/v1/bookings/me") return { ttlMs: 15_000, persist: false };
   if (pathname.startsWith("/api/v1/notifications")) return { ttlMs: 10_000, persist: false };
   return null;
 }

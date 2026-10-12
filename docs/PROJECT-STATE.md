@@ -1,3 +1,9 @@
+## Reserve slot grid header and own-booking cancellation (October 12, 2026)
+- Reserve > Available Slots weekly grid now shares the same 94px width for its time-column header and time cells and the same 124px width for its weekday headers and slot cells, including RTL layouts.
+- Authenticated player booking lookup no longer rejects player-linked MANUAL reservations; it still filters to the exact venue, user and active booking statuses. Matches prefer area + exact start time and fall back to interval overlap on the same court if the published timetable changed after reservation.
+- The venue grid requests fresh owned bookings on focus, bypassing the old 15-second cache for /bookings/me. Selecting a future owned slot now exposes the existing cancel confirmation via a prominent danger button. Cancellation remains online-only and enforced by the server; other players' slots, expired bookings, and unlinked manual bookings cannot be cancelled by the viewer. Successful cancellation refreshes the timetable.
+- Existing verify:reserve-actions now exercises the same-court ownership matching, manual/online bookings, unrelated owners, cancelled states, slot grid column alignment, live reads and cancel action. Device/RTL visual QA is recommended. No backend schema changes.
+
 # PROJECT STATE
 
 ## Navigation selection and focused tab visibility (October 12, 2026)
