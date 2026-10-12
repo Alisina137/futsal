@@ -2,6 +2,8 @@ import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
   TeamDirectoryItemDto,
+  TeamDiscoveryQuery,
+  TeamDiscoveryResponse,
   TeamDto,
   TeamInvitationDto,
   TeamJoinRequestDto,
@@ -14,6 +16,7 @@ import {
   playerProfiles,
   teamInvitations,
   teamManagerProfiles,
+  socialFollows,
   teamJoinRequests,
   teamMemberships,
   roleSubscriptions,
@@ -23,7 +26,7 @@ import {
   userRoles,
   users,
 } from "@leaguekick/database";
-import { and, asc, count, desc, eq, isNull, isNotNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, isNull, isNotNull, lte, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import {requireTeamLicense} from "./team-slots.js";
 import type {
@@ -413,6 +416,117 @@ export class DrizzleTeamRepository implements TeamRepository {
       });
     }
     return result;
+  }
+
+  /** One filtered SQL page with bounded metadata queries. No N+1 per-team
+   * reads, no exposure of hidden roster identities or private join requests. */
+  async discoverTeams(userId:string,filters:TeamDiscoveryQuery):Promise<TeamDiscoveryResponse>{
+    const active=and(eq(teams.status,"ACTIVE"),
+      or(isNull(teams.offlineVenueId),isNotNull(teams.claimedAt)));
+    const memberCounts=this.db.select({
+      teamId:teamMemberships.teamId,
+      count:sql<number>`count(*)::int`.as("member_count"),
+    }).from(teamMemberships).where(eq(teamMemberships.status,"ACTIVE"))
+      .groupBy(teamMemberships.teamId).as("discovery_member_count");
+    const followCounts=this.db.select({
+      teamId:socialFollows.entityId,
+      count:sql<number>`count(*)::int`.as("follow_count"),
+    }).from(socialFollows).where(eq(socialFollows.entityType,"TEAM"))
+      .groupBy(socialFollows.entityId).as("discovery_follow_count");
+    const joined=and(eq(teamMemberships.teamId,teams.id),
+      eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE"));
+    const requested=and(eq(teamJoinRequests.teamId,teams.id),
+      eq(teamJoinRequests.requesterUserId,userId),eq(teamJoinRequests.status,"PENDING"));
+    const followed=and(eq(socialFollows.entityId,teams.id),
+      eq(socialFollows.entityType,"TEAM"),eq(socialFollows.userId,userId));
+    const constraints=[active!];
+    if(filters.province)constraints.push(eq(teamManagerProfiles.province,filters.province));
+    if(filters.city)constraints.push(eq(teams.city,filters.city));
+    if(filters.district)constraints.push(eq(teamManagerProfiles.district,filters.district));
+    if(filters.q){
+      // Literal substring matching: user wildcards must not broaden results.
+      const pattern="%"+filters.q.replace(/[\\%_]/g,"\\  async allowsJoinRequests(teamId:string):Promise<boolean>{")+"%";
+      constraints.push(or(ilike(teams.name,pattern),ilike(teams.city,pattern),
+        ilike(teamManagerProfiles.province,pattern),
+        ilike(teamManagerProfiles.district,pattern))!);
+    }
+    if(filters.scope==="following")constraints.push(isNotNull(socialFollows.userId));
+    if(filters.scope==="mine")constraints.push(isNotNull(teamMemberships.userId));
+    const condition=and(...constraints)!;
+    const memberSort=sql<number>`coalesce(${memberCounts.count},0)`;
+    const followSort=sql<number>`coalesce(${followCounts.count},0)`;
+    const sort=filters.scope==="popular"?"mostFollowed":filters.sort;
+    const order=sort==="mostFollowed"?
+      [desc(followSort),desc(memberSort),asc(teams.name),asc(teams.id)]:
+      sort==="mostMembers"?
+      [desc(memberSort),desc(followSort),asc(teams.name),asc(teams.id)]:
+      sort==="newest"?
+      [desc(teams.createdAt),asc(teams.id)]:
+      sort==="alphabetical"?
+      [asc(teams.name),asc(teams.id)]:
+      [desc(followSort),desc(memberSort),asc(teams.name),asc(teams.id)];
+    // All joins are one-to-one or aggregated to one row per team.
+    const base=()=>this.db.select({
+      id:teams.id,name:teams.name,logoUrl:teams.logoUrl,city:teams.city,
+      status:teams.status,privacy:teams.privacy,managerUserId:teams.managerUserId,
+      captainUserId:teams.captainUserId,createdAt:teams.createdAt,
+      province:teamManagerProfiles.province,district:teamManagerProfiles.district,
+      rosterCount:memberSort,followerCount:followSort,
+      myMembershipRole:teamMemberships.role,
+      joinRequestStatus:teamJoinRequests.status,
+      allowJoinRequests:teamManagerProfiles.allowJoinRequests,
+    }).from(teams)
+      .leftJoin(teamManagerProfiles,eq(teamManagerProfiles.teamId,teams.id))
+      .leftJoin(memberCounts,eq(memberCounts.teamId,teams.id))
+      .leftJoin(followCounts,eq(followCounts.teamId,teams.id))
+      .leftJoin(teamMemberships,joined)
+      .leftJoin(teamJoinRequests,requested)
+      .leftJoin(socialFollows,followed);
+    // Build the count with the same predicates; joins must not multiply teams.
+    const filteredTotal=this.db.select({total:sql<number>`count(*)::int`})
+      .from(teams)
+      .leftJoin(teamManagerProfiles,eq(teamManagerProfiles.teamId,teams.id))
+      .leftJoin(teamMemberships,joined)
+      .leftJoin(socialFollows,followed)
+      .where(condition);
+    const facetBase=and(active,
+      ...(filters.province?[eq(teamManagerProfiles.province,filters.province)]:[]),
+      ...(filters.city?[eq(teams.city,filters.city)]:[]));
+    const [rows,totalRows,provinces,cities,districts]=await Promise.all([
+      base().where(condition).orderBy(...order)
+        .limit(filters.limit).offset((filters.page-1)*filters.limit),
+      filteredTotal,
+      this.db.selectDistinct({value:teamManagerProfiles.province}).from(teams)
+        .innerJoin(teamManagerProfiles,eq(teamManagerProfiles.teamId,teams.id))
+        .where(and(active,isNotNull(teamManagerProfiles.province)))
+        .orderBy(asc(teamManagerProfiles.province)).limit(200),
+      this.db.selectDistinct({value:teams.city}).from(teams)
+        .leftJoin(teamManagerProfiles,eq(teamManagerProfiles.teamId,teams.id))
+        .where(and(active,...(filters.province?[eq(teamManagerProfiles.province,filters.province)]:[])))
+        .orderBy(asc(teams.city)).limit(500),
+      this.db.selectDistinct({value:teamManagerProfiles.district}).from(teams)
+        .innerJoin(teamManagerProfiles,eq(teamManagerProfiles.teamId,teams.id))
+        .where(and(facetBase,isNotNull(teamManagerProfiles.district)))
+        .orderBy(asc(teamManagerProfiles.district)).limit(500),
+    ]);
+    const total=Number(totalRows[0]?.total??0);
+    return {
+      teams:rows.map(row=>({
+        id:row.id,name:row.name,logoUrl:row.logoUrl,city:row.city,status:row.status,
+        privacy:row.privacy,managerUserId:row.managerUserId,captainUserId:row.captainUserId,
+        createdAt:row.createdAt.toISOString(),
+        rosterCount:Number(row.rosterCount),followerCount:Number(row.followerCount),
+        province:row.province,district:row.district,
+        myMembershipRole:row.myMembershipRole,joinRequestStatus:row.joinRequestStatus,
+        allowJoinRequests:row.allowJoinRequests??true,
+      })),
+      total,page:filters.page,limit:filters.limit,hasMore:filters.page*filters.limit<total,
+      facets:{
+        provinces:provinces.map(x=>x.value).filter((x):x is string=>Boolean(x)),
+        cities:cities.map(x=>x.value).filter(Boolean),
+        districts:districts.map(x=>x.value).filter((x):x is string=>Boolean(x)),
+      },
+    };
   }
 
   async allowsJoinRequests(teamId:string):Promise<boolean>{

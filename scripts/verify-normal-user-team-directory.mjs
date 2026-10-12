@@ -31,7 +31,9 @@ assert(service.includes("ALREADY_TEAM_MEMBER"), "join request must reject existi
 assert(routes.includes('router.get("/teams", auth') && routes.includes('router.post("/teams/:teamId/join-request"'), "team directory/join routes missing");
 assert(api.includes('directory: (accessToken: string)') && api.includes('requestJoin: (accessToken: string, teamId: string)'), "mobile team directory API missing");
 assert(screen.includes('TeamDirectoryExperience mode="directory"')
-  &&experience.includes("teamApi.directory")&&!experience.includes("teamApi.mine("),
+  &&experience.includes("teamApi.discover")&&
+  experience.includes('modeScope=mode==="popular"')&&
+  !experience.includes("teamApi.mine("),
   "Teams page must use the all-team directory, not only My Teams.");
 assert(experience.includes('t("teams.viewTeam")')&&experience.includes('t("teams.requestToJoin")'),
   "directory must expose View Team and Request to Join");

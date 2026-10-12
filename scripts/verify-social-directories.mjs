@@ -17,15 +17,19 @@ const paths=["teams/index","teams/popular","teams/following","teams/my",
   "competitions/index","competitions/popular","competitions/following","competitions/ongoing"];
 for(const path of paths)ensure(read(`apps/mobile/app/(app)/${path}.tsx`).includes("DirectoryExperience"),
   `Missing new or refactored discovery screen: ${path}`);
-ensure(team.includes("teamApi.directory")&&team.includes('socialDirectoryDiscovery(token,"TEAM")')
+ensure(team.includes("teamApi.discover")&&team.includes('scope:"following",limit:11')
   &&team.includes("teamApi.requestJoin")&&team.includes('joinRequestStatus==="PENDING"')
   &&team.includes("myMembershipRole")&&team.includes("SocialDirectoryCard")
   &&team.includes("SocialFollowedTile"),"Teams must keep their membership workflow, followed carousel and search cards.");
 ensure(team.includes("followed.slice(0,10)")&&team.includes("router.push(\"/teams/following\")")
   &&team.includes("router.push(\"/teams/popular\")")
   &&team.includes("router.push(\"/teams/my\")"),"Team discovery rail needs up to ten followed teams and two relevant shortcuts.");
-ensure(team.includes("count")&&team.includes("followers.get(b.id)")
-  &&team.includes(".slice(0,15)"),"Most followed teams must rank true follower counts.");
+const teamRepository=read("apps/api/src/modules/team/team.repository.ts");
+ensure(team.includes('modeScope=mode==="popular"')&&
+  team.includes('t("social.followers",{count:team.followerCount})')&&
+  teamRepository.includes('const sort=filters.scope==="popular"?"mostFollowed":filters.sort')&&
+  teamRepository.includes('desc(followSort)'),
+  "Most followed teams must rank server-counted followers without a local top-fifteen cutoff.");
 ensure(competition.includes('socialDirectoryDiscovery(token,"COMPETITION")')
   &&competition.includes("marketingApi.followedVenues(token)")
   &&competition.includes('status==="IN_PROGRESS"&&followedVenueIds.includes(x.venueId)')

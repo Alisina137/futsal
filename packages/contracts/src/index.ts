@@ -1812,6 +1812,40 @@ export const teamDirectoryItemDtoSchema = teamListItemDtoSchema.extend({
 });
 export type TeamDirectoryItemDto = z.infer<typeof teamDirectoryItemDtoSchema>;
 
+/** Paginated, authenticated discovery. City is the team's required city;
+ * province/district are optional manager-maintained profile fields. */
+export const teamDiscoverySortSchema=z.enum([
+  "recommended","mostFollowed","mostMembers","newest","alphabetical",
+]);
+export const teamDiscoveryScopeSchema=z.enum(["all","popular","following","mine"]);
+export const teamDiscoveryQuerySchema=z.object({
+  q:z.string().trim().max(120).default(""),
+  province:z.string().trim().max(80).default(""),
+  city:z.string().trim().max(80).default(""),
+  district:z.string().trim().max(80).default(""),
+  sort:teamDiscoverySortSchema.default("recommended"),
+  scope:teamDiscoveryScopeSchema.default("all"),
+  page:z.coerce.number().int().min(1).max(500).default(1),
+  limit:z.coerce.number().int().min(1).max(40).default(20),
+});
+export type TeamDiscoveryQuery=z.infer<typeof teamDiscoveryQuerySchema>;
+export const teamDiscoveryItemSchema=teamDirectoryItemDtoSchema.extend({
+  province:z.string().nullable(),district:z.string().nullable(),
+  followerCount:z.number().int().nonnegative(),
+});
+export type TeamDiscoveryItem=z.infer<typeof teamDiscoveryItemSchema>;
+export const teamDiscoveryResponseSchema=z.object({
+  teams:z.array(teamDiscoveryItemSchema),
+  total:z.number().int().nonnegative(),
+  page:z.number().int().positive(),limit:z.number().int().positive(),
+  hasMore:z.boolean(),
+  facets:z.object({
+    provinces:z.array(z.string()),cities:z.array(z.string()),districts:z.array(z.string()),
+  }),
+});
+export type TeamDiscoveryResponse=z.infer<typeof teamDiscoveryResponseSchema>;
+
+
 export const teamJoinRequestDtoSchema = z.object({
   id: z.string().uuid(),
   teamId: z.string().uuid(),

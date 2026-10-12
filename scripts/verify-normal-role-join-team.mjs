@@ -20,7 +20,7 @@ for(const fragment of [
 ])assert.ok(screen.includes(fragment),"Missing Join Team UI invariant: "+fragment);
 assert.ok(screen.indexOf('testID="profile-join-team"')>screen.indexOf('onSelect={selectRole}'),
   "Join Team must appear after paid Team Owner subscription in Roles & participation.");
-assert.ok(directory.includes('teamApi.directory(token)')&&
+assert.ok(directory.includes('teamApi.discover(token,')&&
   directory.includes('teamApi.requestJoin(token,id)')&&
   directory.includes('joinRequestStatus:"PENDING"')&&
   directory.includes('team.myMembershipRole?'),

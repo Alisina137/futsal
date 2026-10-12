@@ -920,6 +920,12 @@ export const teamApi = {
     request<{ player: OwnPlayerProfileDto }>("/api/v1/players/me", { method: "PATCH", body: JSON.stringify(input) }, accessToken),
   publicPlayer: (playerId: string) =>
     request<{ player: PublicPlayerProfileDto }>(`/api/v1/players/${playerId}`),
+  discover:(token:string,input:import("@leaguekick/contracts").TeamDiscoveryQuery)=>
+    request<import("@leaguekick/contracts").TeamDiscoveryResponse>(
+      "/api/v1/teams/discover?"+new URLSearchParams({
+        q:input.q,province:input.province,city:input.city,district:input.district,
+        sort:input.sort,scope:input.scope,page:String(input.page),limit:String(input.limit),
+      }).toString(),{},token),
   directory: (accessToken: string) =>
     request<{ teams: TeamDirectoryItemDto[] }>("/api/v1/teams", {}, accessToken),
   mine: (accessToken: string) =>
