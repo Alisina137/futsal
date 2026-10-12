@@ -8,6 +8,7 @@ import {ApiRequestError,bookingApi,playerActivityApi,teamOperationsApi,
   type PlayerActivities,type PlayerTeamEvent,type TeamAvailability} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useVisibleTab} from "../../hooks/useVisibleTab";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -47,9 +48,11 @@ export function actualScheduleConflicts(events:ScheduleItem[]){
   return conflictIds;
 }
 function Options({values,selected,onChange}:{values:{id:string;label:string}[];selected:string;onChange:(id:string)=>void}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
+  const optionRail=useVisibleTab(selected);
+  return <ScrollView ref={optionRail.scrollRef} onLayout={optionRail.onViewport}
+    onContentSizeChange={optionRail.onContentSize} horizontal showsHorizontalScrollIndicator={false}
     contentContainerStyle={{flexDirection:"row",gap:spacing.sm,paddingVertical:spacing.xs}}>
-    {values.map(item=><Pressable key={item.id} onPress={()=>onChange(item.id)}
+    {values.map(item=><Pressable key={item.id} onLayout={e=>optionRail.cellLayout(item.id,e)} onPress={()=>onChange(item.id)}
       accessibilityRole="button" accessibilityState={{selected:item.id===selected}}
       style={[styles.filter,selected===item.id&&styles.filterActive]}>
       <AppText variant="caption" weight="semibold"
