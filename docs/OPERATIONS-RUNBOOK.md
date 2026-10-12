@@ -59,6 +59,42 @@ Use `EXPO_PUBLIC_API_URL` with the printed HTTPS ngrok URL for a mobile
 device; do not use an unrelated tunnel from a previously running ngrok.
 Do not expose test APIs or fixtures against a production database.
 
+### When the app says Internet works but the Futsal server is unavailable
+
+The banner is driven by an actual `/health` API request, not merely Wi-Fi
+connectivity. On Expo Go, a stale `EXPO_PUBLIC_API_URL` is common after a
+free ngrok tunnel restarts: the API is alive at `localhost:4000`, but the
+phone still requests yesterday's ngrok hostname.
+
+**From `C:\projects\futsal` in two separate PowerShell terminals:**
+
+1. First run `pnpm dev:api` and leave that terminal open. After checking
+   the local Express health, DB readiness, and the **public HTTPS** tunnel
+   health, it now updates only the `EXPO_PUBLIC_API_URL` line in the
+   gitignored `apps/mobile/.env.local`. Existing environment keys remain
+   unchanged. It will not write an unreachable or non-Futsal tunnel URL.
+2. Stop the previously running Expo process (`Ctrl+C`), then start
+   `pnpm dev:mobile` in a new terminal and reload Expo Go.
+3. To diagnose any remaining problem without guessing, run
+   `pnpm dev:check-api`. It checks local `/health`, database `/ready`,
+   ngrok inspector `http://127.0.0.1:4040`, the configured mobile API
+   hostname, and public `/health` response. No database credentials are
+   printed.
+
+If ngrok authentication or network restrictions prevent the public URL
+from serving the real API, the launcher prints an error and keeps the
+local API running. It does **not** overwrite Expo's working URL with a
+broken tunnel. For a deliberate remote API override, set
+`FUTSAL_SYNC_MOBILE_API_URL=false` before starting `pnpm dev:api`.
+
+For a physical phone, `localhost:4000` always means the **phone**, not
+your Windows machine. Use the current HTTPS API tunnel, or a reachable
+LAN address if testing on the same network. Expo's own `--tunnel`
+address is separate from the Futsal API ngrok tunnel. A separately
+configured `EXPO_PUBLIC_API_URL` in the process environment can override
+`.env.local`; the diagnostic command warns about disagreement.
+The Support & Diagnostics screen shows the API host that the app is using.
+
 ## Health and readiness
 
 - `GET /health` is a process liveness check. It does not query the database.
