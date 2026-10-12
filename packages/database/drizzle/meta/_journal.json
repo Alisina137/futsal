@@ -274,6 +274,13 @@
       "when": 1791737700000,
       "tag": "0038_team_profile_date_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1791802800000,
+      "tag": "0039_venue_reviews_times_alerts",
+      "breakpoints": true
     }
   ]
 }
