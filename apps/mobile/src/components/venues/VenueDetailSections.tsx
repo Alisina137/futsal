@@ -48,9 +48,6 @@ export function shiftVenueDate(day:string,offset:number){
   const value=Date.parse(day+"T12:00:00Z");
   return Number.isFinite(value)?new Date(value+offset*86400000).toISOString().slice(0,10):day;
 }
-function timeLabel(iso:string,timeZone:string){
-  return new Intl.DateTimeFormat("en-GB",{timeZone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(iso));
-}
 function messageForError(error:unknown,fallback:string){
   return error instanceof Error?error.message:fallback;
 }
