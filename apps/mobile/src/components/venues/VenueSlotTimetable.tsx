@@ -18,6 +18,7 @@ import {Card} from "../ui/Card";
 import {DataLoadingState} from "../ui/DataLoadingState";
 import {SlotTileContent} from "../ui/SlotTileContent";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
+import {formatAppClock,formatClock12From24Hour} from "../../lib/clock-display";
 import {softenSlotColor} from "../../lib/slot-color";
 
 type DayResult={date:string;slots:VenueTimelineSlotDto[];fresh:boolean;failed:boolean};
@@ -47,10 +48,8 @@ function clock(iso:string,timeZone:string){
   }
   return formatter.format(new Date(iso));
 }
-function displayClock(iso:string,timeZone:string,language:"en"|"fa-AF"|"ps-AF"){
-  return new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
-    timeZone,hour:"2-digit",minute:"2-digit",hourCycle:"h23",
-  }).format(new Date(iso));
+function displayClock(iso:string,timeZone:string,_language:"en"|"fa-AF"|"ps-AF"){
+  return formatAppClock(iso,timeZone);
 }
 function asTimeline(data:VenueAvailabilityResponse):VenueTimelineSlotDto[]{
   // Backward compatibility with previously cached responses/API instances.
@@ -386,7 +385,7 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
               {timeRows.map(time=><View key={time}
                 style={[styles.gridRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
                 <View style={styles.timeCell}><AppText variant="caption" weight="semibold"
-                  forceLtr>{time}</AppText></View>
+                  forceLtr>{formatClock12From24Hour(time)}</AppText></View>
                 {visibleDays.map(date=>{
                   const found=slotsAtTime.get(date+"|"+time)??[];
                   return <View key={date+"-"+time} style={styles.weekCell}>
@@ -477,7 +476,7 @@ const styles=StyleSheet.create({
   dayHeading:{width:124,minHeight:80,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",gap:3,borderWidth:1,borderColor:colors.border},
   todayHeading:{backgroundColor:"#DBEAFE"},
-  timeCell:{width:67,minHeight:62,justifyContent:"center",alignItems:"center",
+  timeCell:{width:94,minHeight:62,justifyContent:"center",alignItems:"center",
     backgroundColor:"#EFF6FF",borderWidth:1,borderColor:colors.border},
   weekCell:{width:124,minHeight:62,padding:3,borderWidth:1,borderColor:colors.border,
     gap:2,justifyContent:"center",backgroundColor:colors.surface},

@@ -1,3 +1,5 @@
+import {TimeOfDayPickerField} from "../../../../src/components/ui/TimeOfDayPickerField";
+import {formatCompetitionDateTime} from "../../../../src/lib/date-time";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type {
@@ -327,8 +329,8 @@ export default function TimetableEditorScreen(){
         {day.periods.map((period,index)=><View key={index} style={styles.periodBlock}>
           <AppText variant="caption" weight="semibold">{t("schedule.period")} {index+1}</AppText>
           <View style={[styles.periodFields,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <TextField label={t("schedule.startTime")} value={period.startsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{startsAt:value})} forceLtr containerStyle={styles.periodField}/>
-            <TextField label={t("schedule.endTime")} value={period.endsAt} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{endsAt:value})} forceLtr containerStyle={styles.periodField}/>
+            <TimeOfDayPickerField label={t("schedule.startTime")} value={period.startsAt} onChange={(value)=>updatePeriod(day.dayOfWeek,index,{startsAt:value})} containerStyle={styles.periodField}/>
+            <TimeOfDayPickerField label={t("schedule.endTime")} value={period.endsAt} onChange={(value)=>updatePeriod(day.dayOfWeek,index,{endsAt:value})} containerStyle={styles.periodField}/>
             <TextField label={t("schedule.slotPrice")} value={period.priceAfn} onChangeText={(value)=>updatePeriod(day.dayOfWeek,index,{priceAfn:value})} keyboardType="number-pad" forceLtr hint={t("schedule.slotPriceHint")} containerStyle={styles.priceField}/>
           </View>
           {day.periods.length>1?<Button
@@ -380,7 +382,7 @@ export default function TimetableEditorScreen(){
       <AppText>{t("schedule.publishConflictBody")}</AppText>
       {conflicts.slice(0,20).map((item,index)=><View key={`${item.areaId}-${item.startsAt}-${index}`} style={styles.conflict}>
         <AppText weight="semibold">{item.areaName} · {item.title}</AppText>
-        <AppText variant="caption" muted forceLtr>{item.startsAt} → {item.endsAt}</AppText>
+        <AppText variant="caption" muted forceLtr>{formatCompetitionDateTime(item.startsAt,language)} → {formatCompetitionDateTime(item.endsAt,language)}</AppText>
       </View>)}
       <Button label={t("schedule.reviewConflicts")} onPress={()=>{
         const first=conflicts[0];

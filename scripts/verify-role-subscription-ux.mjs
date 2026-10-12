@@ -20,8 +20,10 @@ assert(!screen.includes("{offer.activeUntil}</AppText>"), "Expiry must never dis
 assert(screen.includes('active || offer?.status === "EXPIRED"'), "Current and expired subscriptions should use appropriate deadline labels");
 assert(screen.includes('router.replace(role === "VENUE_OWNER" ? "/owner/competitions" : "/teams")'), "Open venue tools must navigate directly to the owner dashboard, without breaking team tools");
 assert(dashboard.includes('<Redirect href="/owner/competitions"/>'), "Owner dashboard entry route must point to Competitions");
-assert(formatter.includes('AFGHANISTAN_TIME_ZONE = "Asia/Kabul"') && formatter.includes('timeZone,'),
-  "The formatter must use Afghanistan time for date and time");
+assert(formatter.includes('AFGHANISTAN_TIME_ZONE = "Asia/Kabul"') &&
+  formatter.includes("timeZone:zone") && formatter.includes("hour12:true") &&
+  !formatter.includes('timeZoneName: "short"'),
+  "The formatter must use Kabul local date and explicit AM/PM time without a Greenwich suffix");
 
 const sample = new Date("2026-10-04T06:18:00.000Z");
 const kabul = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kabul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(sample);

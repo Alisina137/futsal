@@ -12,6 +12,7 @@ import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { useAuth } from "../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
+import {formatCompetitionDateTime} from "../../../../src/lib/date-time";
 
 function todayKabul(){
   return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
@@ -20,7 +21,7 @@ function todayKabul(){
 export default function CreatePromotionScreen(){
   const params=useLocalSearchParams<{areaId?:string;date?:string;start?:string}>();
   const {session}=useAuth();
-  const {t}=useLocale();
+  const {t,language}=useLocale();
   const [date,setDate]=useState(typeof params.date==="string"?params.date:todayKabul());
   const [slots,setSlots]=useState<AvailabilitySlotDto[]>([]);
   const [selected,setSelected]=useState<AvailabilitySlotDto|null>(null);
@@ -103,14 +104,14 @@ export default function CreatePromotionScreen(){
     }}>
       <Card style={selected?.areaId===slot.areaId&&selected.startsAt===slot.startsAt?{borderColor:colors.primary,borderWidth:2}:undefined}>
         <AppText weight="bold" forceLtr>{slot.priceAfn} AFN</AppText>
-        <AppText forceLtr>{slot.startsAt}</AppText>
+        <AppText>{formatCompetitionDateTime(slot.startsAt,language)}</AppText>
       </Card>
     </Pressable>)}
 
     {selected?<Card style={{backgroundColor:colors.primarySoft}}>
       <AppText weight="bold">{t("ownerMarketing.selectedSlot")}</AppText>
       <AppText>{selectedLabel}</AppText>
-      <AppText forceLtr>{selected.startsAt}</AppText>
+      <AppText>{formatCompetitionDateTime(selected.startsAt,language)}</AppText>
     </Card>:null}
 
     <TextField label={t("ownerMarketing.promotionTitle")} value={title} onChangeText={setTitle}/>

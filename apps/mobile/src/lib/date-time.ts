@@ -13,52 +13,41 @@ export function formatLocalDateTime(
   language: LanguageCode,
   timeZone: string = AFGHANISTAN_TIME_ZONE,
 ) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (!Number.isFinite(date.getTime())) return String(value);
-
-  return new Intl.DateTimeFormat(localeByLanguage[language], {
-    calendar: "gregory",
-    timeZone,
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    timeZoneName: "short",
-  }).format(date);
+  const parts=formatLocalDateTimeParts(value,language,timeZone);
+  return parts.time?parts.date+" · "+parts.time:parts.date;
 }
 
-
-/** User-facing calendar date and clock time with Kabul wall time, no GMT offset,
- * timezone abbreviation or seconds. Use in public competition About. */
+/** Public competition About: date and AM/PM time; no seconds or offset. */
 export function formatCompetitionDateTime(value:string|Date,language:LanguageCode):string{
-  const date=value instanceof Date?value:new Date(value);
-  if(!Number.isFinite(date.getTime()))return String(value);
-  const locale=localeByLanguage[language];
-  const options={timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory"} as const;
-  const day=new Intl.DateTimeFormat(locale,{
-    ...options,year:"numeric",month:"short",day:"numeric",
-  }).format(date);
-  const time=new Intl.DateTimeFormat(locale,{
-    ...options,hour:"numeric",minute:"2-digit",
-  }).format(date);
-  return `${day} · ${time}`;
+  return formatLocalDateTime(value,language);
 }
 
-/** Separate Kabul-local calendar date and 24-hour clock for compact RTL cards. */
+/** Timezone-correct date and explicit 12-hour English AM/PM clock. */
+function clock(value:Date,timeZone:string):string{
+  let zone=timeZone||AFGHANISTAN_TIME_ZONE;
+  try{
+    return new Intl.DateTimeFormat("en-US",{
+      timeZone:zone,hour:"2-digit",minute:"2-digit",hour12:true,
+    }).format(value).replace(/[\u00a0\u202f]/g," ");
+  }catch{
+    zone=AFGHANISTAN_TIME_ZONE;
+    return new Intl.DateTimeFormat("en-US",{
+      timeZone:zone,hour:"2-digit",minute:"2-digit",hour12:true,
+    }).format(value).replace(/[\u00a0\u202f]/g," ");
+  }
+}
+
+/** Separate calendar date and clock; referee schedules include weekday. */
 export function formatRefereeScheduleParts(value:string|Date,language:LanguageCode){
- const date=value instanceof Date?value:new Date(value);
- if(!Number.isFinite(date.getTime()))return {date:String(value),time:""};
- const zone={timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory"} as const;
- return {
-   date:new Intl.DateTimeFormat(localeByLanguage[language],{
-     ...zone,weekday:"short",year:"numeric",month:"long",day:"numeric",
-   }).format(date),
-   time:new Intl.DateTimeFormat(localeByLanguage[language],{
-     ...zone,hour:"2-digit",minute:"2-digit",hourCycle:"h23",
-   }).format(date),
- };
+  const date=value instanceof Date?value:new Date(value);
+  if(!Number.isFinite(date.getTime()))return {date:String(value),time:""};
+  return {
+    date:new Intl.DateTimeFormat(localeByLanguage[language],{
+      timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory",
+      weekday:"short",year:"numeric",month:"long",day:"numeric",
+    }).format(date),
+    time:clock(date,AFGHANISTAN_TIME_ZONE),
+  };
 }
 /** The calendar shows its selected Kabul-local period, not an arbitrary anchor time. */
 export function formatRefereeCalendarPeriod(value:Date,mode:"day"|"week"|"month",language:LanguageCode){
@@ -86,27 +75,16 @@ export function formatLocalDateTimeParts(
   timeZone: string = AFGHANISTAN_TIME_ZONE,
 ) {
   const date = value instanceof Date ? value : new Date(value);
-  if (!Number.isFinite(date.getTime())) {
-    return { date: String(value), time: "" };
-  }
-
-  const locale = localeByLanguage[language];
-
+  if (!Number.isFinite(date.getTime()))return {date:String(value),time:""};
+  let zone=timeZone||AFGHANISTAN_TIME_ZONE;
+  try{new Intl.DateTimeFormat("en-US",{timeZone:zone}).format(date);}
+  catch{zone=AFGHANISTAN_TIME_ZONE;}
   return {
-    date: new Intl.DateTimeFormat(locale, {
-      calendar: "gregory",
-      timeZone,
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+    date:new Intl.DateTimeFormat(localeByLanguage[language],{
+      calendar:"gregory",timeZone:zone,
+      year:"numeric",month:"short",day:"numeric",
     }).format(date),
-    time: new Intl.DateTimeFormat(locale, {
-      timeZone,
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-      timeZoneName: "short",
-    }).format(date),
+    time:clock(date,zone),
   };
 }
 

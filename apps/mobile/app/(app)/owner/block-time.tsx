@@ -1,3 +1,4 @@
+import {TimeOfDayPickerField} from "../../../src/components/ui/TimeOfDayPickerField";
 import { colors, spacing } from "@leaguekick/design-tokens";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -45,8 +46,8 @@ export default function BlockTimeScreen(){
     <AppText variant="title" weight="bold">{t(blockId?"schedule.editBlock":"schedule.blockTitle")}</AppText>
     <TextField label={t("booking.date")} value={date} onChangeText={setDate} forceLtr/>
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
-      <TextField label={t("schedule.startTime")} value={start} onChangeText={setStart} forceLtr containerStyle={{flex:1}}/>
-      <TextField label={t("schedule.endTime")} value={end} onChangeText={setEnd} forceLtr containerStyle={{flex:1}}/>
+      <TimeOfDayPickerField label={t("schedule.startTime")} value={start} onChange={setStart} containerStyle={{flex:1}}/>
+      <TimeOfDayPickerField label={t("schedule.endTime")} value={end} onChange={setEnd} containerStyle={{flex:1}}/>
     </View>
     <TextField label={t("schedule.reasonOptional")} value={reason} onChangeText={setReason}/>
     {error?<AppText style={{color:colors.danger}}>{error}</AppText>:null}

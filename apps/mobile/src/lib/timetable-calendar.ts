@@ -219,12 +219,11 @@ export function formatCalendarDate(
   }).format(dateAtNoon(value));
 }
 
-export function formatCalendarTime(value:string,language:TimetableCalendarLanguage) {
-  const locale=language==="en"?"en-GB":language;
-  return new Intl.DateTimeFormat(locale,{
+export function formatCalendarTime(value:string,_language:TimetableCalendarLanguage) {
+  return new Intl.DateTimeFormat("en-US",{
     timeZone:KABUL_TIME_ZONE,
     hour:"2-digit",
     minute:"2-digit",
-    hourCycle:"h23",
-  }).format(new Date(value));
+    hour12:true,
+  }).format(new Date(value)).replace(/[\u00a0\u202f]/g," ");
 }

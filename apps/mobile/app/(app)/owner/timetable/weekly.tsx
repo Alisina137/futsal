@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../../src/lib/api";
 import { formatCalendarDate } from "../../../../src/lib/timetable-calendar";
+import {formatCompetitionDateTime} from "../../../../src/lib/date-time";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
@@ -101,7 +102,7 @@ export default function WeeklyTimetableScreen(){
       <AppText weight="bold">{t("schedule.conflictCount",{count:conflicts.length})}</AppText>
       {conflicts.slice(0,10).map((item,index)=><View key={`${item.areaId}-${item.startsAt}-${index}`} style={styles.conflictRow}>
         <AppText weight="semibold">{item.areaName} · {item.title}</AppText>
-        <AppText variant="caption" muted forceLtr>{item.startsAt} → {item.endsAt}</AppText>
+        <AppText variant="caption" muted forceLtr>{formatCompetitionDateTime(item.startsAt,language)} → {formatCompetitionDateTime(item.endsAt,language)}</AppText>
       </View>)}
     </Card>:null}
 

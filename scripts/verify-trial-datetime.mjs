@@ -18,8 +18,9 @@ const kabulTime = new Intl.DateTimeFormat("en-GB", {
 const checks = [
   [kabulTime === "10:48", `UTC→Kabul conversion expected 10:48, received ${kabulTime}`],
   [formatter.includes('AFGHANISTAN_TIME_ZONE = "Asia/Kabul"'), "shared formatter uses Kabul timezone"],
-  [formatter.includes('calendar: "gregory"'), "calendar is explicitly Gregorian for current MVP"],
-  [formatter.includes('timeZoneName: "short"'), "formatted expiry includes timezone"],
+  [formatter.includes('calendar:"gregory"'), "calendar is explicitly Gregorian for current MVP"],
+  [!formatter.includes('timeZoneName: "short"'), "no Greenwich offset or timezone suffix in displayed expiry"],
+  [formatter.includes('hour12:true'), "shared formatter uses explicit 12-hour AM/PM"],
   [onboarding.includes("formatLocalDateTimeParts(status.subscription.trialEndsAt, language)"), "onboarding splits trial end into date/time parts"],
   [onboarding.includes("trialEnd.date") && onboarding.includes("trialEnd.time"), "onboarding renders date and time on separate lines"],
   [!onboarding.includes("<AppText>{status.subscription.trialEndsAt}</AppText>") && !onboarding.includes("<AppText forceLtr>{status.subscription.trialEndsAt}</AppText>"), "onboarding does not render raw trial timestamp directly"],

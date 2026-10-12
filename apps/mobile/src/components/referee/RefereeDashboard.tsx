@@ -1,3 +1,4 @@
+import {TimeOfDayPickerField} from "../ui/TimeOfDayPickerField";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,spacing,radius} from "@leaguekick/design-tokens";
@@ -355,10 +356,10 @@ export function RefereeDashboard(){
                 }}/>
             </View>
             {slot?<View style={styles.actions}>
-              <View style={{flex:1}}><TextField label={tr("start")} value={slot.start} forceLtr
-                onChangeText={v=>editSlot(index,"start",v)}/></View>
-              <View style={{flex:1}}><TextField label={tr("end")} value={slot.end} forceLtr
-                onChangeText={v=>editSlot(index,"end",v)}/></View>
+              <View style={{flex:1}}><TimeOfDayPickerField label={tr("start")} value={slot.start}
+                onChange={v=>editSlot(index,"start",v)}/></View>
+              <View style={{flex:1}}><TimeOfDayPickerField label={tr("end")} value={slot.end}
+                onChange={v=>editSlot(index,"end",v)}/></View>
             </View>:null}
           </View>;
         })}

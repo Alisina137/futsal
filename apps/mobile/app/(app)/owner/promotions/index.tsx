@@ -11,10 +11,11 @@ import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState
 import { Screen } from "../../../../src/components/ui/Screen";
 import { useAuth } from "../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
+import {formatCompetitionDateTime} from "../../../../src/lib/date-time";
 
 export default function OwnerPromotionsScreen(){
   const {session}=useAuth();
-  const {t}=useLocale();
+  const {t,language}=useLocale();
   const [items,setItems]=useState<PromotionDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -49,7 +50,7 @@ export default function OwnerPromotionsScreen(){
     {items.map((item)=><Card key={item.id}>
       <AppText variant="bodyLarge" weight="bold">{item.title}</AppText>
       <AppText muted>{item.areaName}</AppText>
-      <AppText forceLtr>{item.startsAt}</AppText>
+      <AppText>{formatCompetitionDateTime(item.startsAt,language)}</AppText>
       <View style={{gap:spacing.xs}}>
         <AppText weight="bold" style={{color:colors.primary}}>{item.discountedPriceAfn} AFN</AppText>
         <AppText muted style={{textDecorationLine:"line-through"}}>{item.originalPriceAfn} AFN</AppText>

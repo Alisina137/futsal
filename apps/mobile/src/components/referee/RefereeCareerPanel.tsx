@@ -80,7 +80,7 @@ export function RefereeCareerPanel({token,section}:{token:string;section:"overvi
          {item.finishedAt?<View style={styles.historyDateTime}>
            <AppText variant="caption" muted>{formatRefereeScheduleParts(item.finishedAt,language).date}</AppText>
            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
-             {formatRefereeScheduleParts(item.finishedAt,language).time} · {tr("kabulTime")}
+             {formatRefereeScheduleParts(item.finishedAt,language).time}
            </AppText>
          </View>:null}
          <View style={styles.actions}>

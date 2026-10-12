@@ -1,3 +1,4 @@
+import {TimeOfDayPickerField} from "../../../../src/components/ui/TimeOfDayPickerField";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { VenueTimetableListResponse } from "@leaguekick/contracts";
@@ -212,8 +213,8 @@ export default function TimetableExceptionScreen(){
             </Pressable>:null}
           </View>
           <View style={[styles.times,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <TextField label={t("schedule.startTime")} value={period.startsAt} onChangeText={(value)=>updatePeriod(index,{startsAt:value})} forceLtr containerStyle={styles.field}/>
-            <TextField label={t("schedule.endTime")} value={period.endsAt} onChangeText={(value)=>updatePeriod(index,{endsAt:value})} forceLtr containerStyle={styles.field}/>
+            <TimeOfDayPickerField label={t("schedule.startTime")} value={period.startsAt} onChange={(value)=>updatePeriod(index,{startsAt:value})} containerStyle={styles.field}/>
+            <TimeOfDayPickerField label={t("schedule.endTime")} value={period.endsAt} onChange={(value)=>updatePeriod(index,{endsAt:value})} containerStyle={styles.field}/>
           </View>
           <TextField
             label={t("schedule.slotPrice")}
