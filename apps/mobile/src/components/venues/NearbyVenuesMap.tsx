@@ -11,14 +11,16 @@ type Props={
   onSelect:(id:string)=>void;
   onFailed:()=>void;
   onReady:()=>void;
+  /** Directory map can plot more filtered venues; Nearby retains its ten-pin limit. */
+  maxPins?:number;
 };
 
-function createNearbyMapHtml(position:Point,venues:NearbyVenueDto[]):string{
+function createNearbyMapHtml(position:Point,venues:NearbyVenueDto[],maxPins=10):string{
   // Only serializable, bounded location data is passed to the embedded map.
   // Escape HTML-breaking characters so venue names never become executable script.
   const payload=JSON.stringify({
     position,
-    venues:venues.slice(0,10).map(v=>({
+    venues:venues.slice(0,Math.min(25,Math.max(1,maxPins))).map(v=>({
       id:v.id,name:v.name,latitude:v.latitude,longitude:v.longitude,
       imageUrl:resolveMediaImageUrl(v.imageUrl),
     })),
@@ -64,9 +66,9 @@ function createNearbyMapHtml(position:Point,venues:NearbyVenueDto[]):string{
     '})();</script></body></html>';
 }
 
-export function NearbyVenuesMap({position,venues,onSelect,onFailed,onReady}:Props){
-  const html=useMemo(()=>createNearbyMapHtml(position,venues),
-    [position.latitude,position.longitude,venues]);
+export function NearbyVenuesMap({position,venues,onSelect,onFailed,onReady,maxPins=10}:Props){
+  const html=useMemo(()=>createNearbyMapHtml(position,venues,maxPins),
+    [position.latitude,position.longitude,venues,maxPins]);
   function receive(event:WebViewMessageEvent){
     try{
       const message:unknown=JSON.parse(event.nativeEvent.data);
