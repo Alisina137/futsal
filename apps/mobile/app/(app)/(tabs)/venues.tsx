@@ -40,13 +40,15 @@ export default function VenuesScreen(){
   const [followsError,setFollowsError]=useState<string|null>(null);
   const [followRefresh,setFollowRefresh]=useState(0);
   const latestRequest=useRef(0);
+  const lastSearchRef=useRef({query:"",province:DEFAULT_PROVINCE});
   const [lastSearch,setLastSearch]=useState({query:"",province:DEFAULT_PROVINCE});
 
   // Search requests can overlap when filters change quickly. Only the newest
   // response is allowed to replace the visible directory or its loading state.
   const load=useCallback(async(nextQuery:string,nextProvince:string)=>{
     const request=++latestRequest.current;
-    setLastSearch({query:nextQuery,province:nextProvince});
+    lastSearchRef.current={query:nextQuery,province:nextProvince};
+    setLastSearch(lastSearchRef.current);
     setLoading(true);setError(null);
     try{
       const result=await venueApi.list({
@@ -62,6 +64,15 @@ export default function VenuesScreen(){
   },[t]);
 
   useEffect(()=>{void load("",DEFAULT_PROVINCE);},[load]);
+
+  // Screen state remains mounted while opening a venue profile. Refresh real
+  // results on return without resetting the selected province/query or scroll.
+  const initialFocus=useRef(true);
+  useFocusEffect(useCallback(()=>{
+    if(initialFocus.current){initialFocus.current=false;return;}
+    const {query:activeQuery,province:activeProvince}=lastSearchRef.current;
+    void load(activeQuery,activeProvince);
+  },[load]));
 
   // Provinces are provided by subscribed, currently discoverable venue pages;
   // never maintain an outdated hard-coded Afghanistan province list.
