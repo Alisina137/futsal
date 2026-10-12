@@ -557,7 +557,7 @@ export const venueApi = {
   availabilityLive: (venueId:string,date:string)=>
     networkRequest<VenueAvailabilityResponse>(
       `/api/v1/venues/${encodeURIComponent(venueId)}/availability?date=${encodeURIComponent(date)}`,
-      {cache:"no-store",headers:{"Cache-Control":"no-cache"}}),
+      {cache:"no-store"}),
 
 };
 
