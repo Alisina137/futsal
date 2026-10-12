@@ -83,6 +83,19 @@ export type CreateBookingRecordInput = {
 export type VenueDiscoveryRecord = Pick<BookingVenueRecord, "id"|"name"|"province"|"city"|"address"|"status"|"subscription">;
 
 export interface BookingRepository {
+  listVerifiedReviews(venueId:string,limit:number):Promise<{
+    averageRating:number;reviewCount:number;reviews:import("@leaguekick/contracts").VenueReviewDto[];
+  }>;
+  createVerifiedReview(input:{venueId:string;bookingId:string;userId:string;
+    rating:number;body:string;createdAt:Date}):Promise<import("@leaguekick/contracts").VenueReviewDto>;
+  getSavedVenueTime(userId:string,venueId:string):Promise<string|null>;
+  setSavedVenueTime(userId:string,venueId:string,time:string|null,now:Date):Promise<void>;
+  watchVenueSlot(input:{userId:string;venueId:string;areaId:string;startsAt:Date;
+    expiresAt:Date}):Promise<import("@leaguekick/contracts").VenueSlotWatchDto>;
+  listVenueSlotWatches(areaId:string,startsAt:Date,now:Date):Promise<import("@leaguekick/contracts").VenueSlotWatchDto[]&{userId:string}[]>;
+  removeVenueSlotWatch(userId:string,watchId:string):Promise<boolean>;
+  listMyVenueSlotWatches(userId:string,venueId:string,now:Date):Promise<import("@leaguekick/contracts").VenueSlotWatchDto[]>;
+
   listVenueDiscoveryRecords():Promise<VenueDiscoveryRecord[]>;
   /** Public aggregate only, never individual follower identities. */
   countVenueFollowers?():Promise<Map<string,number>>;
