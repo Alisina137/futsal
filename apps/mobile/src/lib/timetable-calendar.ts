@@ -219,8 +219,7 @@ export function formatCalendarDate(
   }).format(dateAtNoon(value));
 }
 
-export function formatCalendarTime(value:string,language:TimetableCalendarLanguage) {
-  const locale=language==="en"?"en-GB":language;
+export function formatCalendarTime(value:string,_language:TimetableCalendarLanguage) {
   return new Intl.DateTimeFormat("en-US",{
     timeZone:KABUL_TIME_ZONE,
     hour:"2-digit",
