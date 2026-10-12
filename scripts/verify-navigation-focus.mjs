@@ -51,6 +51,32 @@ for(const p of [
   assert.ok(source.includes("scrollTo({"),"Navigation must focus horizontally: "+p);
   assert.ok(source.includes("accessibilityState={{selected"),"Must visually identify selected tab: "+p);
 }
+
+const competition=read("apps/mobile/app/(app)/competitions/[competitionId].tsx");
+for(const [name,source,marker] of [
+  ["venue",venue,'testID="venue-tab-content"'],
+  ["team",team,'testID="team-tab-content"'],
+  ["competition",competition,'testID="competition-tab-content"'],
+]){
+  assert.ok(source.includes(marker)&&source.includes("minHeight:viewportHeight"),
+    name+" navigation must reserve stable content height when changing tabs.");
+  assert.ok(source.includes("useWindowDimensions()"),
+    name+" content height guard must use the live device viewport.");
+}
+const venueChoose=venue.slice(venue.indexOf("function chooseMain("),venue.indexOf("function reserve("));
+const teamChoose=team.slice(team.indexOf("function chooseTab("),team.indexOf("  const role=",team.indexOf("function chooseTab(")));
+const competitionChoose=competition.slice(competition.indexOf("function switchTab("),competition.indexOf("function registrationLayout("));
+for(const [name,handler] of [["venue",venueChoose],["team",teamChoose],["competition",competitionChoose]]){
+  assert.ok(!handler.includes("scrollTo({")&&!handler.includes("scrollToEnd("),
+    name+" tab press must not trigger vertical scrolling or a pseudo page refresh.");
+}
+assert.ok(venue.includes("mainNav.focus(id,true)")&&team.includes("mainNav.focus(value,true)")
+  &&competition.includes("focusSelectedTab(next,true)"),
+  "Removing vertical scroll-to-top must not break horizontal active tab focus.");
+assert.ok(competition.includes('focusRegistration!=="1"')&&
+  competition.includes("contentY.current+y"),
+  "Explicit registration deep links must still be allowed to scroll to their target.");
+
 const manager=read("apps/mobile/src/components/team-manager/TeamManagerDashboard.tsx");
 assert.ok(manager.includes('useState<Section>("overview")'));
 assert.ok(manager.includes('section==="aboutTeam"?aboutTeamTabs[0].id:section'),

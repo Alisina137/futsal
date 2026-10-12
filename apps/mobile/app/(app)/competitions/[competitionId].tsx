@@ -3,7 +3,7 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {CompetitionDto,CompetitionMediaPostDto,SocialFollowStateDto,TeamDirectoryItemDto,TeamListItemDto,ManualTeamDto} from "@leaguekick/contracts";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {AppState,Image,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
+import {AppState,Image,Pressable,ScrollView,StyleSheet,View,useWindowDimensions,type LayoutChangeEvent} from "react-native";
 import {competitionApi,marketingApi,ownerApi,manualTeamApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
 import {TextField} from "../../../src/components/ui/TextField";
 import {AppText} from "../../../src/components/ui/AppText";
@@ -31,12 +31,12 @@ export default function CompetitionDetailScreen(){
   }>();
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
+  const {height:viewportHeight}=useWindowDimensions();
   const scrollRef=useRef<ScrollView>(null);
   const tabScrollRef=useRef<ScrollView>(null);
   const tabViewportWidth=useRef(0);
   const tabPositions=useRef(new Map<CompetitionProfileTab,{x:number;width:number}>());
   const tabScrollTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const tabsY=useRef(0);
   const contentY=useRef(0);
   const handledRegistration=useRef(false);
   const [activeTab,setActiveTab]=useState<CompetitionProfileTab>(()=>selectedTab(tab));
@@ -207,11 +207,9 @@ export default function CompetitionDetailScreen(){
   },[activeTab,isRTL,competition?.id]);
 
   function switchTab(next:CompetitionProfileTab){
-    setActiveTab(next);
+    if(next!==activeTab)setActiveTab(next);
+    // A tab selection is not a command to move the outer page.
     requestAnimationFrame(()=>focusSelectedTab(next,true));
-    requestAnimationFrame(()=>scrollRef.current?.scrollTo({
-      y:Math.max(0,tabsY.current-spacing.sm),animated:true,
-    }));
   }
   function registrationLayout(event:LayoutChangeEvent){
     if(focusRegistration!=="1"||handledRegistration.current||activeTab!=="TEAMS")return;
@@ -398,7 +396,7 @@ export default function CompetitionDetailScreen(){
       </View>
     </View>
 
-    <View onLayout={e=>{tabsY.current=e.nativeEvent.layout.y;}} style={styles.tabWrapper}>
+    <View style={styles.tabWrapper}>
       <ScrollView horizontal testID="competition-profile-tabs" showsHorizontalScrollIndicator={false}
         ref={tabScrollRef} onLayout={event=>{
           tabViewportWidth.current=event.nativeEvent.layout.width;
@@ -434,7 +432,8 @@ export default function CompetitionDetailScreen(){
     </View>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-    <View onLayout={e=>{contentY.current=e.nativeEvent.layout.y;}}>
+    <View testID="competition-tab-content" style={{minHeight:viewportHeight}}
+      onLayout={e=>{contentY.current=e.nativeEvent.layout.y;}}>
       <CompetitionProfileSections competition={competition} posts={mediaPosts}
         activeTab={activeTab} registration={registration} onTabChange={switchTab}
         initialStage={stage==="KNOCKOUT"?"KNOCKOUT":undefined}

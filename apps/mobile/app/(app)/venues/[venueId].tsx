@@ -3,7 +3,7 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {FollowStateDto,PublicVenueDto} from "@leaguekick/contracts";
 import {useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {Image,Pressable,ScrollView,Share,StyleSheet,View} from "react-native";
+import {Image,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions} from "react-native";
 import {marketingApi,resolveMediaImageUrl,venueApi} from "../../../src/lib/api";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
@@ -23,6 +23,7 @@ export default function VenueDetailScreen(){
     venueId:string;focusAvailability?:string;startsAt?:string;promotionId?:string;
   }>();
   const {session}=useAuth(),{t,isRTL}=useLocale();
+  const {height:viewportHeight}=useWindowDimensions();
   const tr=(key:string)=>t(("vd."+key) as never);
   const targetId=typeof venueId==="string"?venueId:"";
   const bookingDeepLink=focusAvailability==="1"||!!startsAt||!!promotionId;
@@ -35,7 +36,7 @@ export default function VenueDetailScreen(){
   const [followState,setFollowState]=useState<FollowStateDto|null>(null),[followBusy,setFollowBusy]=useState(false);
   const [reserveStartsAt,setReserveStartsAt]=useState<string|undefined>(startsAt);
   const [reservePromotionId,setReservePromotionId]=useState<string|undefined>(promotionId);
-  const scroll=useRef<ScrollView>(null),initialVenue=useRef(targetId);
+  const initialVenue=useRef(targetId);
   const mainNav=useVisibleTab<VenueMainTab>(main);
   const subNav=useVisibleTab<string>(sub[main]??venueSubtabs[main][0]!);
   const loadVenue=useCallback(async()=>{
@@ -73,10 +74,13 @@ export default function VenueDetailScreen(){
     return()=>{active=false;};
   },[session?.accessToken,targetId]);
   function chooseMain(id:VenueMainTab){
-    if(id!==main)setSub(current=>({...current,[id]:venueSubtabs[id][0]!}));
-    setMain(id);
+    // Tab changes are local state transitions, not new screen navigation.
+    // Never move the page vertically; focus only the horizontal selected tab.
+    if(id!==main){
+      setSub(current=>({...current,[id]:venueSubtabs[id][0]!}));
+      setMain(id);
+    }
     mainNav.focus(id,true);
-    requestAnimationFrame(()=>scroll.current?.scrollTo({y:0,animated:true}));
   }
   function reserve(date?:string,promo?:string){
     setReserveStartsAt(date);setReservePromotionId(promo);
@@ -105,7 +109,7 @@ export default function VenueDetailScreen(){
     <Button variant="secondary" label={t("common.retry")} onPress={()=>void loadVenue()}/>
   </Card></Screen>;
 
-  return <Screen showHeader scrollRef={scroll}>
+  return <Screen showHeader>
     <View style={styles.header}>
       <View style={styles.cover}>
         {resolveMediaImageUrl(venue.pageCoverImageUrl)?
@@ -203,16 +207,20 @@ export default function VenueDetailScreen(){
       </ScrollView>
     </View>
 
-    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-    {main==="media"?<VenueMediaContent venue={venue} sub={sub.media as VenueMediaSub}
-      onReserve={reserve}/>:null}
-    {main==="reserve"?<VenueReserveContent venue={venue} sub={sub.reserve as VenueReserveSub}
-      startsAt={reserveStartsAt} promotionId={reservePromotionId}/>:null}
-    {main==="competitions"?<VenueCompetitionsContent venue={venue}
-      sub={sub.competitions as VenueCompetitionSub}/>:null}
-    {main==="updates"?<VenueUpdatesContent venue={venue}
-      sub={sub.updates as VenueUpdatesSub} onReserve={()=>reserve()}/>:null}
-    {main==="about"?<VenueAboutContent venue={venue} sub={sub.about as VenueAboutSub}/>:null}
+    {/* Prevent native ScrollView from clamping toward the top when the user
+        chooses a much shorter tab (e.g. an empty filtered section). */}
+    <View testID="venue-tab-content" style={{minHeight:viewportHeight,gap:spacing.md}}>
+      {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
+      {main==="media"?<VenueMediaContent venue={venue} sub={sub.media as VenueMediaSub}
+        onReserve={reserve}/>:null}
+      {main==="reserve"?<VenueReserveContent venue={venue} sub={sub.reserve as VenueReserveSub}
+        startsAt={reserveStartsAt} promotionId={reservePromotionId}/>:null}
+      {main==="competitions"?<VenueCompetitionsContent venue={venue}
+        sub={sub.competitions as VenueCompetitionSub}/>:null}
+      {main==="updates"?<VenueUpdatesContent venue={venue}
+        sub={sub.updates as VenueUpdatesSub} onReserve={()=>reserve()}/>:null}
+      {main==="about"?<VenueAboutContent venue={venue} sub={sub.about as VenueAboutSub}/>:null}
+    </View>
   </Screen>;
 }
 const styles=StyleSheet.create({

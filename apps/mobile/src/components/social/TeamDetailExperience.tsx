@@ -3,7 +3,7 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {SocialFollowStateDto,TeamDto,TeamJoinRequestStatus} from "@leaguekick/contracts";
 import {router,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {Image,Modal,Pressable,ScrollView,Share,StyleSheet,View} from "react-native";
+import {Image,Modal,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions} from "react-native";
 import {marketingApi,resolveMediaImageUrl,teamApi,teamManagerApi,teamPublicApi,
   type TeamManagerProfileDetails,type TeamPublicHighlights} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
@@ -96,6 +96,7 @@ export default function TeamDetailExperience(){
   const {teamId}=useLocalSearchParams<{teamId:string}>();
   const id=typeof teamId==="string"?teamId:"";
   const {session}=useAuth(),{t,isRTL,language}=useLocale();
+  const {height:viewportHeight}=useWindowDimensions();
   const tx=(key:string)=>words[language][key]??words.en[key]??key;
   const [team,setTeam]=useState<TeamDto|null>(null);
   const [profile,setProfile]=useState<Omit<TeamManagerProfileDetails,"allowJoinRequests"|"whatsappGroupUrl">|null>(null);
@@ -114,7 +115,6 @@ export default function TeamDetailExperience(){
   const [publicBusy,setPublicBusy]=useState(false);
   const [retryCounter,setRetryCounter]=useState(0);
   const [photo,setPhoto]=useState<string|null>(null);
-  const screenScroll=useRef<ScrollView>(null);
   const mainNav=useVisibleTab<Tab>(tab);
   const subNav=useVisibleTab<string>(subs[tab]??subNavigation[tab][0]!);
   const lastId=useRef(id);
@@ -194,10 +194,12 @@ export default function TeamDetailExperience(){
     catch{/* Cancelled native share sheet. */}
   }
   function chooseTab(value:Tab){
-    setTab(value);
-    if(value!==tab)setSubs(current=>({...current,[value]:subNavigation[value][0]!}));
+    if(value!==tab){
+      setSubs(current=>({...current,[value]:subNavigation[value][0]!}));
+      setTab(value);
+    }
+    // Keep current vertical position and only reveal the selected horizontal tab.
     mainNav.focus(value,true);
-    screenScroll.current?.scrollTo({y:0,animated:true});
   }
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
     :team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
@@ -403,7 +405,7 @@ export default function TeamDetailExperience(){
     <AppText style={{color:colors.danger}}>{error??t("teams.publicTeamLoadError")}</AppText>
     <Button label={tx("retry")} onPress={()=>void load()}/>
   </Card></Screen>;
-  return <Screen showHeader scrollRef={screenScroll}>
+  return <Screen showHeader>
     <View style={styles.profileCard}>
       <View style={styles.cover}><Ionicons name="football-outline" size={58} color="#CEE0FF"/></View>
       <View style={styles.identity}>
@@ -483,9 +485,11 @@ export default function TeamDetailExperience(){
         </Pressable>)}
       </ScrollView>
     </View>
-    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
-      <Button label={tx("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
-    {content()}
+    <View testID="team-tab-content" style={{minHeight:viewportHeight,gap:spacing.md}}>
+      {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
+        <Button label={tx("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
+      {content()}
+    </View>
     <Modal visible={!!photo} transparent animationType="fade" onRequestClose={()=>setPhoto(null)}>
       <View style={styles.imageBackdrop}>
         <Button label={tx("close")} variant="secondary" onPress={()=>setPhoto(null)}/>
