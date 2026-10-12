@@ -97,8 +97,8 @@ describe.each([
 
 it("returns truthful invitation-only and membership status in the directory",async()=>{
   const ctx=setup();
-  const manager=await register(ctx,"phase1manager","0705591081");
-  const seeker=await register(ctx,"phase1seeker","0705591082");
+  const manager=await register(ctx,"phase1_mgr","0705591081");
+  const seeker=await register(ctx,"phase1_seek","0705591082");
   const created=await request(ctx.app).post("/api/v1/teams")
     .set("Authorization",`Bearer ${manager.token}`)
     .send({name:"Phase One FC",city:"Kabul",privacy:"PUBLIC"});
