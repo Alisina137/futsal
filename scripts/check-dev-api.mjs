@@ -69,8 +69,15 @@ if (shellUrl && configured && shellUrl.replace(/\/$/,"") !== configured.replace(
   console.log("[check:api] WARNING: EXPO_PUBLIC_API_URL in the environment differs from apps/mobile/.env.local, and can override it.");
 if (tunnel && configured && tunnel.replace(/\/$/,"") !== configured.replace(/\/$/,""))
   console.log("[check:api] STALE MOBILE URL: current ngrok and Expo .env.local differ. Restart pnpm dev:api to auto-sync.");
+let configuredHealthy = false;
 if (configured) {
+  try {
+    const hostname = new URL(configured).hostname;
+    if (["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname))
+      console.log("[check:api] WARNING: A physical phone cannot reach your Windows localhost. Use the current ngrok HTTPS API URL.");
+  } catch { /* already reported as invalid */ }
   const remote = await health(configured, "/health", 5000);
+  configuredHealthy = remote.good;
   console.log("[check:api] Configured mobile API /health: " +
     (remote.good ? "OK" : "FAILED") + " (" + describeEndpoint(configured) + ")");
   if (!remote.good && localHealth.good) {
@@ -79,5 +86,5 @@ if (configured) {
   }
 }
 console.log("[check:api] After any EXPO_PUBLIC_API_URL change, stop Expo and run pnpm dev:mobile again, then reload the app.");
-if (!localHealth.good || !localReady.good || (configured && !(await health(configured, "/health", 3000)).good))
+if (!localHealth.good || !localReady.good || !configured || !configuredHealthy || (tunnel && configured && tunnel !== configured))
   process.exitCode=1;
