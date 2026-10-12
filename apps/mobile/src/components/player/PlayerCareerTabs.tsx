@@ -7,6 +7,7 @@ import {ApiRequestError,playerCareerApi,type PlayerCareerData,type PlayerCareerM
   type PlayerCareerTotals,type PlayerCareerAward} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useVisibleTab} from "../../hooks/useVisibleTab";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -46,9 +47,11 @@ function kabulMonth(value:string){
 }
 function Picker({selected,onChange,options}:{selected:string;onChange:(next:string)=>void;
   options:Array<{id:string;label:string}>}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
+  const optionRail=useVisibleTab(selected);
+  return <ScrollView ref={optionRail.scrollRef} onLayout={optionRail.onViewport}
+    onContentSizeChange={optionRail.onContentSize} horizontal showsHorizontalScrollIndicator={false}
     contentContainerStyle={{gap:spacing.sm,flexDirection:"row",paddingVertical:spacing.xs}}>
-    {options.map(item=><Pressable key={item.id} accessibilityRole="button"
+    {options.map(item=><Pressable key={item.id} onLayout={e=>optionRail.cellLayout(item.id,e)} accessibilityRole="button"
       accessibilityState={{selected:selected===item.id}} onPress={()=>onChange(item.id)}
       style={[styles.pill,selected===item.id&&styles.pillActive]}>
       <AppText variant="caption" weight="semibold" style={selected===item.id?{color:colors.primary}:undefined}>
