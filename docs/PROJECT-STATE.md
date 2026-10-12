@@ -1,5 +1,12 @@
 # PROJECT STATE
 
+## Booking confirmation UI refresh (October 12, 2026)
+- Replaced the bare reserve-confirm card that printed a raw UTC ISO timestamp with a compact, RTL-aware booking summary: venue identity, separately labeled **localized date, weekday, 24-hour start/end time**, cross-midnight end date (if needed), clearly marked estimated AFN price, optional notes, and a colored live-price/availability recheck notice. The venue's configured IANA timezone controls display; invalid/missing zones safely fall back to Asia/Kabul. No GMT offsets or seconds are displayed.
+- The primary confirm button now keeps a readable white label even during loading (spinner shown alongside it), respects internet availability, and rejects missing/invalid time selection. Back-to-availability action remains available. All six new UI labels are localized for English, Dari, and Pashto.
+- Original server-side price/availability revalidation, idempotency key reuse, slot-taken/network error handling, and post-success navigation were preserved. Preview price and end time are **not** sent as authoritative booking data. Note max length matches 500-character backend validation. No API or database changes.
+- Added `pnpm verify:booking-confirm` to normal `pnpm verify` to cover Kabul and alternate IANA zones, cross-midnight fixtures, invalid inputs, locale formatting, RTL content markers, and booking safety invariants. Native Android manual visual review remains recommended.
+
+
 ## Competition match schedule and compact typography (October 12, 2026)
 - Public Competition > Matches now groups fixtures by **stage + round number** rather than by calendar day. One localized matchweek heading shows "Matchweek N of Total" in the league, and group-stage/knockout rounds are distinct. Date-specific splitting and redundant per-match round labels were removed; all fixtures for each round appear together.
 - Every scheduled match displays Kabul-local date **and** 24-hour clock with no seconds/GMT offset; for matches within seven days (past or future) the date label is replaced by the localized weekday. Completed matches also retain their played date/time alongside scores. Unscheduled fixtures remain clearly labeled.
