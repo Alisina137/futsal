@@ -985,10 +985,10 @@ export const venueReviewCreateSchema=z.object({
   body:z.string().trim().max(500).default(""),
 });
 export type VenueReviewCreate=z.infer<typeof venueReviewCreateSchema>;
+/** Public reviews prove eligibility but never reveal private booking identifiers. */
 export const venueReviewDtoSchema=z.object({
   id:z.string().uuid(),
   venueId:z.string().uuid(),
-  bookingId:z.string().uuid(),
   rating:z.number().int().min(1).max(5),
   body:z.string(),
   createdAt:isoDateTimeSchema,
@@ -1002,6 +1002,13 @@ export const venueReviewSummarySchema=z.object({
   reviews:z.array(venueReviewDtoSchema),
 });
 export type VenueReviewSummary=z.infer<typeof venueReviewSummarySchema>;
+/** Authenticated, per-user status: IDs are never present on public review pages. */
+export const myVenueReviewsSchema=z.object({
+  venueId:z.string().uuid(),
+  reviewedBookingIds:z.array(z.string().uuid()),
+});
+export type MyVenueReviews=z.infer<typeof myVenueReviewsSchema>;
+
 export const venueSavedTimeSchema=z.object({
   venueId:z.string().uuid(),
   preferredStart:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),

@@ -30,6 +30,7 @@ import type {
   VenueReviewCreate,
   VenueReviewDto,
   VenueReviewSummary,
+  MyVenueReviews,
   VenueSlotWatchCreate,
   VenueSlotWatchDto,
   BookingDto,
@@ -569,6 +570,9 @@ export const venueApi = {
 };
 
 export const bookingApi = {
+  myVenueReviews:(token:string,venueId:string)=>networkRequest<MyVenueReviews>(
+    `/api/v1/bookings/reviews/mine?venueId=${encodeURIComponent(venueId)}`,
+    {cache:"no-store"},token),
   review:(token:string,input:VenueReviewCreate)=>request<{review:VenueReviewDto}>(
     "/api/v1/bookings/reviews",{method:"POST",body:JSON.stringify(input)},token),
   savedVenueTime:(token:string,venueId:string)=>request<{venueId:string;preferredStart:string|null}>(

@@ -83,6 +83,8 @@ export type CreateBookingRecordInput = {
 export type VenueDiscoveryRecord = Pick<BookingVenueRecord, "id"|"name"|"province"|"city"|"address"|"status"|"subscription">;
 
 export interface BookingRepository {
+  /** Private review ownership, used only by the authenticated player. */
+  listReviewedBookingIds(userId:string,venueId:string):Promise<string[]>;
   listVerifiedReviews(venueId:string,limit:number):Promise<{
     averageRating:number;reviewCount:number;reviews:import("@leaguekick/contracts").VenueReviewDto[];
   }>;

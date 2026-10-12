@@ -193,6 +193,11 @@ export class BookingService {
     await this.getPublicVenue(venueId);
     return {venueId,...await this.repository.listVerifiedReviews(venueId,30)};
   }
+  async myReviewedVenueBookings(userId:string,venueId:string){
+    await this.getPublicVenue(venueId);
+    return {venueId,reviewedBookingIds:
+      await this.repository.listReviewedBookingIds(userId,venueId)};
+  }
   async submitVenueReview(userId:string,input:import("@leaguekick/contracts").VenueReviewCreate){
     const booking=await this.repository.getBooking(input.bookingId);
     if(!booking||booking.playerUserId!==userId||booking.source!=="ONLINE"||
@@ -225,6 +230,17 @@ export class BookingService {
       x.startsAt===input.startsAt&&x.status==="UNAVAILABLE");
     if(!blocked)throw errors.badRequest("SLOT_WATCH_INVALID",
       "Only currently reserved future slots can be watched.");
+    // A timetable block, competition match or overlapping longer interval is
+    // also UNAVAILABLE. Only a real booking for the identical court and exact
+    // start/end interval can produce a cancellation-based reopening notification.
+    const bounds=dayBounds(date,venue.timezone);
+    const bookings=await this.repository.listVenueBookings(venue.id,bounds.startsAt,bounds.endsAt);
+    if(!bookings.some(booking=>booking.areaId===input.areaId&&
+      booking.startsAt===blocked.startsAt&&booking.endsAt===blocked.endsAt&&
+      (booking.status==="PENDING"||booking.status==="CONFIRMED"))){
+      throw errors.badRequest("SLOT_WATCH_INVALID",
+        "Slot alerts require a reserved booking, not a venue block or match.");
+    }
     const mine=await this.repository.listPlayerBookings(userId);
     if(mine.some(x=>x.areaId===input.areaId&&x.startsAt===input.startsAt&&
       x.status!=="CANCELLED"))

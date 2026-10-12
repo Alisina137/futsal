@@ -20,6 +20,7 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
   const tr=(key:string,values?:Record<string,string|number>)=>t(("booking.community."+key) as never,values);
   const [summary,setSummary]=useState<VenueReviewSummary|null>(null);
   const [bookings,setBookings]=useState<BookingDto[]>([]);
+  const [reviewedBookingIds,setReviewedBookingIds]=useState<string[]>([]);
   const [selected,setSelected]=useState<string|null>(reviewBookingId??null);
   const [rating,setRating]=useState(5),[body,setBody]=useState("");
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -28,18 +29,25 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
   async function reload(){
     setLoading(true);setError(null);
     try{
-      const [reviews,mine]=await Promise.all([
+      const [reviews,mine,reviewed]=await Promise.all([
         venueApi.reviews(venue.id),
         actor?bookingApi.mine(actor):Promise.resolve({bookings:[] as BookingDto[]}),
+        actor?bookingApi.myVenueReviews(actor,venue.id):
+          Promise.resolve({venueId:venue.id,reviewedBookingIds:[] as string[]}),
       ]);
       setSummary(reviews);
+      setReviewedBookingIds(reviewed.reviewedBookingIds);
       setBookings(mine.bookings.filter(b=>b.venueId===venue.id&&b.playerUserId===session?.user.id));
     }catch{setError(tr("loadError"));}
     finally{setLoading(false);}
   }
-  useEffect(()=>{void reload();},[venue.id,actor]);
-  useEffect(()=>{if(reviewBookingId)setSelected(reviewBookingId);},[reviewBookingId]);
-  const reviewed=new Set(summary?.reviews.map(x=>x.bookingId)??[]);
+  useEffect(()=>{
+    // Never retain a previous account's privately scoped rating eligibility.
+    setReviewedBookingIds([]);setBookings([]);setSummary(null);
+    void reload();
+  },[venue.id,actor]);
+  useEffect(()=>{setSelected(reviewBookingId??null);},[reviewBookingId,venue.id]);
+  const reviewed=new Set(reviewedBookingIds);
   const eligible=bookings.filter(b=>b.source==="ONLINE"&&b.status==="CONFIRMED"&&
     Date.parse(b.endsAt)<=Date.now()&&!reviewed.has(b.id));
   async function submit(){
