@@ -505,8 +505,8 @@ export default function VenuesScreen(){
           <Button variant="secondary" label={t("booking.setDefaultLocation")}
             onPress={()=>router.push("/profile/account")}/>
         </View>:null}
-        {geo.source==="default"?<AppText variant="caption" muted>
-          {t("booking.nearbyDefaultExplanation")}
+        {(geo.source==="default"||(defaultPoint&&!geo.point))?<AppText variant="caption" muted>
+          {t("booking.mapProfilePosition")}
         </AppText>:null}
         {mappedVenues.length===0||!center?<Card style={styles.resultsMessage}>
           <Ionicons name="location-outline" size={26} color={colors.textMuted}/>
