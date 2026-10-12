@@ -59,6 +59,9 @@ const team=read("apps/mobile/src/components/social/TeamDetailExperience.tsx");
 assert.ok(team.includes('useState<Tab>("media")')&&team.includes('media:"posts"'),
   "Team detail should focus first main/subtab.");
 assert.ok(!team.includes("Math.max(0,index-1)*90"),"Do not guess tab width from index.");
+assert.ok(team.includes("navigationY.current-spacing.sm") &&
+  venue.includes("navigationY.current-spacing.sm"),
+  "Selecting venue/team tabs must scroll the vertical screen to the visible nav, not hide it behind a tall header.");
 const match=read("apps/mobile/src/components/competition/CompetitionMatchList.tsx");
 assert.ok(match.includes('const FILTERS:MatchFilter[]=["ALL","UPCOMING","LIVE","FINISHED"]')&&
   match.includes('initialFilter="ALL"'),"Match filters default to first unless explicitly deep linked.");
