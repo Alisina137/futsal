@@ -29,6 +29,9 @@ export function venueDirectoryRow(
   return {venue,availableCount:matches.length,
     lowestPriceAfn:matches.length?Math.min(...matches.map(slot=>slot.priceAfn)):null,
     earliestStartsAt:matches[0]?.startsAt??null,
+    // Keep exactly the same filtering and chronological order as the count/price.
+    // Never preview an occupied, notice-restricted or out-of-price-range slot.
+    nextSlots:matches.slice(0,3),
     distanceKm,followerCount};
 }
 export function rankVenueDirectory(rows:VenueDirectoryResult[],sort:VenueDirectoryFilters["sort"]){

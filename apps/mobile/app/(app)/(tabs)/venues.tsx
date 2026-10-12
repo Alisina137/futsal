@@ -36,6 +36,7 @@ export default function VenuesScreen(){
   const [suggestionsVisible,setSuggestionsVisible]=useState(false);
   const [venues,setVenues]=useState<PublicVenueDto[]>([]);
   const [metrics,setMetrics]=useState<Record<string,VenueDirectoryResult>>({});
+  const [searchSnapshotAt,setSearchSnapshotAt]=useState<string|undefined>();
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
   const [followed,setFollowed]=useState<FollowedVenueDto[]>([]);
@@ -88,6 +89,7 @@ export default function VenuesScreen(){
       if(latestRequest.current===request){
         setVenues(result.results.map(x=>x.venue));
         setMetrics(Object.fromEntries(result.results.map(x=>[x.venue.id,x])));
+        setSearchSnapshotAt(result.generatedAt);
       }
     }catch{
       if(latestRequest.current===request)setError(t("booking.loadVenuesError"));
@@ -375,6 +377,14 @@ export default function VenuesScreen(){
           availableCount={metrics[venue.id]?.availableCount}
           lowestPriceAfn={metrics[venue.id]?.lowestPriceAfn}
           distanceKm={metrics[venue.id]?.distanceKm}
+          nextSlots={metrics[venue.id]?.nextSlots}
+          availabilityDate={lastSearch.filters.date}
+          timeZone={venue.timezone}
+          snapshotAt={searchSnapshotAt}
+          onRefreshResults={()=>{
+            const {query:activeQuery,province:activeProvince,filters:activeFilters}=lastSearchRef.current;
+            void load(activeQuery,activeProvince,activeFilters);
+          }}
           twoColumn={twoColumns}
         />)}
       </View>:null}

@@ -1025,6 +1025,8 @@ export const venueDirectoryResultSchema=z.object({
   availableCount:z.number().int().nonnegative(),
   lowestPriceAfn:z.number().int().nonnegative().nullable(),
   earliestStartsAt:isoDateTimeSchema.nullable(),
+  /** Up to three exact, presently bookable slots matching all directory filters. */
+  nextSlots:z.array(availabilitySlotDtoSchema).max(3),
   distanceKm:z.number().nonnegative().nullable(),
   followerCount:z.number().int().nonnegative(),
 });

@@ -175,18 +175,29 @@ describe("Phase 3 availability and booking API", () => {
     const unavailable=all.body.results.find((v:{venue:{id:string}})=>v.venue.id===closed.id);
     expect(unavailable.availableCount).toBe(0);
     expect(unavailable.lowestPriceAfn).toBeNull();
+    expect(unavailable.nextSlots).toEqual([]);
 
     const only=await request(app).get(route).query({date:"2026-10-05",availableOnly:"true",sort:"lowestPrice"});
     expect(only.status).toBe(200);
     expect(only.body.results.map((v:{venue:{id:string}})=>v.venue.id)).toEqual([a.id,b.id]);
     expect(only.body.results[0].lowestPriceAfn).toBe(700);
     expect(only.body.results[1].lowestPriceAfn).toBe(2500);
+    // The exact preview slots must be a subset of the same live filtered result.
+    expect(only.body.results[0].nextSlots).toHaveLength(3);
+    expect(only.body.results[0].nextSlots.every((slot:{priceAfn:number;venueId:string})=>
+      slot.priceAfn===700&&slot.venueId===a.id)).toBe(true);
+    const startTimes=only.body.results[0].nextSlots.map((slot:{startsAt:string})=>slot.startsAt);
+    expect(startTimes).toEqual([...startTimes].sort());
+    expect(only.body.results[0].availableCount).toBeGreaterThan(3);
     const upper=await request(app).get(route).query({date:"2026-10-05",maxPriceAfn:1000});
     expect(upper.body.results.map((v:{venue:{id:string}})=>v.venue.id)).toEqual([a.id]);
     const morning=await request(app).get(route).query({date:"2026-10-05",startTime:"07:00",endTime:"09:00",availableOnly:"true"});
     expect(morning.status).toBe(200);
     expect(morning.body.results.length).toBe(2);
     expect(morning.body.results.every((v:{availableCount:number})=>v.availableCount>0)).toBe(true);
+    const morningPreview=morning.body.results[0].nextSlots;
+    expect(morningPreview.length).toBeGreaterThan(0);
+    expect(morningPreview.length).toBeLessThanOrEqual(3);
     const noHours=await request(app).get(route).query({date:"2026-10-05",startTime:"00:00",endTime:"05:59",availableOnly:"true"});
     expect(noHours.body.results).toEqual([]);
     const followers=await request(app).get(route).query({date:"2026-10-05",sort:"mostFollowed"});
@@ -200,6 +211,50 @@ describe("Phase 3 availability and booking API", () => {
     expect(wrongRange.status).toBe(400);
     const oldDate=await request(app).get(route).query({date:"2026-10-03"});
     expect(oldDate.status).toBe(400);
+
+    // Tapping a preview does not book. The real booking changes inventory only
+    // when a separate authenticated confirmation request is submitted.
+    expect(bookingRepository.bookings.size).toBe(0);
+    const player=await register(app,authRepository,"PLAYER","0709776675");
+    const first=only.body.results[0].nextSlots[0];
+    const booked=await request(app).post("/api/v1/bookings")
+      .set("Authorization",`Bearer ${player.body.accessToken}`).send({
+        areaId:first.areaId,startsAt:first.startsAt,
+        idempotencyKey:"preview-phase3-booking-confirm",
+      });
+    expect(booked.status).toBe(201);
+    const after=await request(app).get(route).query({date:"2026-10-05",maxPriceAfn:1000});
+    const updated=after.body.results.find((row:{venue:{id:string}})=>row.venue.id===a.id);
+    expect(updated.availableCount).toBe(only.body.results[0].availableCount-1);
+    expect(updated.nextSlots.some((slot:{areaId:string;startsAt:string})=>
+      slot.areaId===first.areaId&&slot.startsAt===first.startsAt)).toBe(false);
+  });
+
+  it("previews actual promotion prices without inventing extra slots",async()=>{
+    const {app,bookingRepository,authRepository}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0709776676");
+    const {venue}=bookingRepository.seedVenue(owner.body.user.id);
+    const live=await request(app).get(`/api/v1/venues/${venue.id}/availability`)
+      .query({date:"2026-10-05"});
+    expect(live.status).toBe(200);
+    const first=live.body.slots[0];
+    const id="44444444-4444-4444-8444-444444444444";
+    bookingRepository.promotionPrices.push({
+      id,areaId:first.areaId,startsAt:new Date(first.startsAt),
+      endsAt:new Date(first.endsAt),discountedPriceAfn:900,
+    });
+    const found=await request(app).get("/api/v1/venues/search")
+      .query({date:"2026-10-05",maxPriceAfn:900,availableOnly:"true"});
+    expect(found.status).toBe(200);
+    expect(found.body.results).toHaveLength(1);
+    expect(found.body.results[0].availableCount).toBe(1);
+    expect(found.body.results[0].lowestPriceAfn).toBe(900);
+    expect(found.body.results[0].nextSlots).toEqual([
+      expect.objectContaining({
+        venueId:venue.id,areaId:first.areaId,startsAt:first.startsAt,
+        endsAt:first.endsAt,promotionId:id,priceAfn:900,originalPriceAfn:1800,
+      }),
+    ]);
   });
 
   it("publishes live slots from opening hours and area price", async () => {

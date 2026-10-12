@@ -1,6 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { router } from "expo-router";
+import type {AvailabilitySlotDto} from "@leaguekick/contracts";
+import {VenueSlotShortcuts} from "./VenueSlotShortcuts";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { resolveMediaImageUrl } from "../../lib/api";
 import { useLocale } from "../../providers/LocaleProvider";
@@ -18,6 +20,12 @@ type Props={
   availableCount?:number|undefined;
   lowestPriceAfn?:number|null|undefined;
   distanceKm?:number|null|undefined;
+  /** Live search previews, only supplied on the main venue directory. */
+  nextSlots?:AvailabilitySlotDto[]|undefined;
+  availabilityDate?:string|undefined;
+  timeZone?:string|undefined;
+  snapshotAt?:string|undefined;
+  onRefreshResults?:()=>void;
   testID?:string;
 };
 
@@ -27,16 +35,20 @@ type Props={
  * Booking is a deep link to live availability, never an automatic reservation.
  */
 export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEnabled,twoColumn=false,
-  availableCount,lowestPriceAfn,distanceKm,testID}:Props){
+  availableCount,lowestPriceAfn,distanceKm,
+  nextSlots,availabilityDate,timeZone,snapshotAt,onRefreshResults,testID}:Props){
   const {t,isRTL}=useLocale();
   const image=resolveMediaImageUrl(imageUrl);
   const canReserve=onlineBookingEnabled!==false;
   const location=[city,province].filter(Boolean).join(", ");
   const openDetails=()=>router.push({pathname:"/venues/[venueId]",params:{venueId:id}});
-  const openBooking=()=>router.push({pathname:"/venues/[venueId]",params:{venueId:id,focusAvailability:"1"}});
+  const openBooking=()=>router.push({pathname:"/venues/[venueId]",
+    params:{venueId:id,focusAvailability:"1",
+      ...(availabilityDate?{bookingDate:availabilityDate}:{})}});
 
   return <View testID={testID??`venue-result-card-${id}`}
-    style={[styles.card,twoColumn&&styles.gridCard,{flexDirection:isRTL?"row-reverse":"row"}]}>
+    style={[styles.card,twoColumn&&styles.gridCard]}>
+    <View style={{flexDirection:isRTL?"row-reverse":"row"}}>
     <View style={styles.imageColumn}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${t("booking.venueDetails")}: ${name}`}
         onPress={openDetails} style={({pressed})=>[styles.imageButton,pressed&&styles.pressed]}>
@@ -98,13 +110,21 @@ export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEna
         </Pressable>
       </View>
     </View>
+    </View>
+    {availabilityDate&&nextSlots&&availableCount!==undefined?
+      <VenueSlotShortcuts
+        venue={{id,name,timezone:timeZone??"Asia/Kabul"}}
+        date={availabilityDate} slots={nextSlots} availableCount={availableCount}
+        snapshotAt={snapshotAt} onRefresh={onRefreshResults??openBooking}
+        onSeeAll={openBooking}
+      />:null}
   </View>;
 }
 
 const styles=StyleSheet.create({
   card:{
     width:"100%",minHeight:144,borderWidth:1,borderColor:colors.border,
-    borderRadius:radius.lg,backgroundColor:colors.surface,overflow:"hidden",
+    borderRadius:radius.lg,backgroundColor:colors.surface,overflow:"hidden",gap:spacing.xs,paddingBottom:spacing.xs,
   },
   gridCard:{width:"48%"},
   imageColumn:{

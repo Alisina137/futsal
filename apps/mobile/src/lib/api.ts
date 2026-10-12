@@ -553,6 +553,12 @@ export const venueApi = {
   get: (venueId: string) => request<{ venue: PublicVenueDto }>(`/api/v1/venues/${venueId}`),
   availability: (venueId: string, date: string) =>
     request<VenueAvailabilityResponse>(`/api/v1/venues/${venueId}/availability?date=${encodeURIComponent(date)}`),
+  /** A tapped preview must be checked against the network, not an offline snapshot. */
+  availabilityLive: (venueId:string,date:string)=>
+    networkRequest<VenueAvailabilityResponse>(
+      `/api/v1/venues/${encodeURIComponent(venueId)}/availability?date=${encodeURIComponent(date)}`,
+      {cache:"no-store"}),
+
 };
 
 export const bookingApi = {
