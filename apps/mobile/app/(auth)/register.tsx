@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import { router } from "expo-router";
-import { useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Easing, Keyboard, Modal, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { ApiRequestError } from "../../src/lib/api";
 import { AuthHero } from "../../src/components/auth/AuthHero";
 import { AppText } from "../../src/components/ui/AppText";
@@ -16,6 +16,8 @@ import { useLocale } from "../../src/providers/LocaleProvider";
 
 type RegisterField = "username" | "phone" | "password" | "confirmPassword";
 type FieldErrors = Partial<Record<RegisterField, string>>;
+const SIGNUP_SUCCESS_DURATION_MS=3_000;
+const SIGNUP_SUCCESS_FADE_OUT_MS=350;
 
 export default function RegisterScreen(){
   const {t,language,isRTL}=useLocale();
@@ -33,6 +35,35 @@ export default function RegisterScreen(){
   const [fieldErrors,setFieldErrors]=useState<FieldErrors>({});
   const [formError,setFormError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
+  const [registered,setRegistered]=useState(false);
+  const submissionRef=useRef(false);
+  const successOpacity=useRef(new Animated.Value(0)).current;
+
+  // Only a confirmed successful registration displays the overlay. Keep it
+  // visible for exactly three seconds before navigating to Sign In, with a
+  // short fade-in / fade-out and cleaned-up timers on unmount.
+  useEffect(()=>{
+    if(!registered)return;
+    successOpacity.setValue(0);
+    const intro=Animated.timing(successOpacity,{
+      toValue:1,duration:280,easing:Easing.out(Easing.cubic),useNativeDriver:true,
+    });
+    intro.start();
+    const fadeTimer=setTimeout(()=>{
+      Animated.timing(successOpacity,{
+        toValue:0,duration:SIGNUP_SUCCESS_FADE_OUT_MS,
+        easing:Easing.inOut(Easing.quad),useNativeDriver:true,
+      }).start();
+    },SIGNUP_SUCCESS_DURATION_MS-SIGNUP_SUCCESS_FADE_OUT_MS);
+    const navigationTimer=setTimeout(()=>{
+      router.replace("/login");
+    },SIGNUP_SUCCESS_DURATION_MS);
+    return ()=>{
+      clearTimeout(fadeTimer);
+      clearTimeout(navigationTimer);
+      successOpacity.stopAnimation();
+    };
+  },[registered,successOpacity]);
 
   const passwordHasLength=password.length>=8;
   const passwordHasLetter=/\p{L}/u.test(password);
@@ -120,9 +151,11 @@ export default function RegisterScreen(){
   }
 
   async function submit(){
+    if(registered||submissionRef.current)return;
     setFormError(null);
-    if(!validate()) return;
+    if(!validate())return;
 
+    submissionRef.current=true;
     setBusy(true);
     try{
       await register({
@@ -132,7 +165,10 @@ export default function RegisterScreen(){
         confirmPassword,
         preferredLanguage:language,
       });
-      router.replace("/login");
+      // Registration is not the same as login: users still authenticate on
+      // the next screen. Hide the keyboard so the celebration stays centered.
+      Keyboard.dismiss();
+      setRegistered(true);
     }catch(cause){
       if(cause instanceof ApiRequestError&&cause.code==="USERNAME_ALREADY_EXISTS"){
         applyFieldErrors({username:t("auth.usernameTaken")});
@@ -149,6 +185,7 @@ export default function RegisterScreen(){
         setFormError(t("auth.genericError"));
       }
     }finally{
+      submissionRef.current=false;
       setBusy(false);
     }
   }
@@ -255,21 +292,84 @@ export default function RegisterScreen(){
         label={t("auth.register")}
         onPress={()=>void submit()}
         loading={busy}
+        disabled={busy||registered}
         icon={<Ionicons name="arrow-forward-circle-outline" size={20} color="#FFFFFF"/>}
       />
     </Card>
 
     <View style={[styles.switchRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <AppText muted>{t("auth.haveAccount")}</AppText>
-      <Pressable accessibilityRole="button" onPress={()=>router.replace("/login")}>
+      <Pressable accessibilityRole="button" disabled={registered}
+        onPress={()=>router.replace("/login")}>
         <AppText weight="bold" style={{color:colors.primary}}>{t("auth.login")}</AppText>
       </Pressable>
     </View>
+
+    <Modal visible={registered} transparent animationType="none"
+      statusBarTranslucent onRequestClose={()=>{}}>
+      <View style={styles.successBackdrop} accessibilityViewIsModal>
+        <Animated.View testID="signup-success-popup"
+          accessibilityRole="alert" accessibilityLiveRegion="polite"
+          style={[styles.successPopup,{
+            opacity:successOpacity,
+            transform:[{translateY:successOpacity.interpolate({
+              inputRange:[0,1],outputRange:[12,0],
+            })}],
+          }]}>
+          <View style={styles.successHalo}>
+            <View style={styles.successIcon}>
+              <Ionicons name="checkmark-circle" size={42} color={colors.success}/>
+            </View>
+          </View>
+          <AppText variant="title" weight="bold" style={styles.successTitle}>
+            {t("auth.signupSuccessTitle")}
+          </AppText>
+          <AppText style={styles.successMessage}>
+            {t("auth.signupSuccessMessage")}
+          </AppText>
+          <View style={styles.successDivider}/>
+          <View style={[styles.successRedirect,{
+            flexDirection:isRTL?"row-reverse":"row",
+          }]}>
+            <ActivityIndicator size="small" color={colors.primary}/>
+            <AppText variant="caption" weight="medium" style={styles.redirectText}>
+              {t("auth.signupSuccessRedirect")}
+            </AppText>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
   </Screen>;
 }
 
 const styles=StyleSheet.create({
   screen:{paddingTop:spacing.md,gap:spacing.lg},
+  successBackdrop:{
+    flex:1,backgroundColor:"rgba(11,30,50,0.42)",
+    alignItems:"center",justifyContent:"center",
+    paddingHorizontal:spacing.lg,
+  },
+  successPopup:{
+    width:"100%",maxWidth:380,alignItems:"center",gap:spacing.md,
+    paddingHorizontal:spacing.lg,paddingVertical:spacing.xl,
+    borderRadius:radius.lg+4,backgroundColor:colors.surface,
+    borderWidth:1,borderColor:"#D6EAE0",
+    shadowColor:"#0E253A",shadowOpacity:0.18,shadowRadius:20,
+    shadowOffset:{width:0,height:10},elevation:12,
+  },
+  successHalo:{
+    width:86,height:86,borderRadius:43,
+    justifyContent:"center",alignItems:"center",
+    backgroundColor:"#E9F8EF",
+    borderWidth:1,borderColor:"#C4EBD2",
+  },
+  successIcon:{alignItems:"center",justifyContent:"center"},
+  successTitle:{textAlign:"center",color:colors.text},
+  successMessage:{textAlign:"center",color:colors.textMuted,lineHeight:24},
+  successDivider:{height:1,width:"100%",backgroundColor:colors.border},
+  successRedirect:{alignItems:"center",justifyContent:"center",gap:spacing.sm},
+  redirectText:{color:colors.primary,textAlign:"center"},
+
   formCard:{
     padding:spacing.lg,
     gap:spacing.md,
