@@ -37,7 +37,6 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
   const [query,setQuery]=useState("");
   const [search,setSearch]=useState("");
   const [suggestionsOpen,setSuggestionsOpen]=useState(false);
-  const [followedExpanded,setFollowedExpanded]=useState(false);
 
   useFocusEffect(useCallback(()=>{
     let active=true;
@@ -90,13 +89,13 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
   }
   function render(team:TeamDirectoryItemDto,index:number){
     const a=action(team);
-    return <View key={team.id} style={styles.item}>
+    return <View key={team.id} style={[styles.item,twoColumns&&styles.itemGrid]}>
       {mode==="popular"?<AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
         #{index+1} · {t("social.followers",{count:followers.get(team.id)??0})}
       </AppText>:null}
       <SocialDirectoryCard id={team.id} name={team.name} kind="TEAM" imageUrl={team.logoUrl}
         detail={team.city} badge={t("teams.members",{count:team.rosterCount})}
-        statusLabel={a.status??undefined} statusTone={a.tone} twoColumn={twoColumns}
+        statusLabel={a.status??undefined} statusTone={a.tone}
         detailsLabel={t("teams.viewTeam")} actionLabel={a.label}
         actionDisabled={a.disabled||!token||joiningId!==null} busy={joiningId===team.id}
         onDetails={()=>open(team.id)} onAction={()=>void join(team.id)}/>
@@ -275,6 +274,7 @@ const styles=StyleSheet.create({
   suggestion:{minHeight:52,justifyContent:"center",paddingHorizontal:spacing.md,
     borderBottomWidth:1,borderBottomColor:colors.border,gap:3},
   item:{gap:spacing.sm,width:"100%"},
+  itemGrid:{width:"48.5%"},
   pressed:{opacity:.75},
   back:{width:44,height:44,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft,borderRadius:22},
 });
