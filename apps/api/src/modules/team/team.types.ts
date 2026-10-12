@@ -2,6 +2,8 @@ import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
   TeamDirectoryItemDto,
+  TeamDiscoveryQuery,
+  TeamDiscoveryResponse,
   TeamDto,
   TeamInvitationDto,
   TeamJoinRequestDto,
@@ -68,6 +70,7 @@ export interface TeamRepository {
   getTeamRecord(teamId: string): Promise<TeamRecord | null>;
   getTeam(teamId: string, includeRoster: boolean): Promise<TeamDto | null>;
   listDirectoryTeams(userId: string): Promise<TeamDirectoryItemDto[]>;
+  discoverTeams(userId:string,filters:TeamDiscoveryQuery):Promise<TeamDiscoveryResponse>;
   listUserTeams(userId: string): Promise<TeamListItemDto[]>;
   allowsJoinRequests(teamId:string):Promise<boolean>;
   getJoinRequest(teamId: string, requesterUserId: string): Promise<TeamJoinRequestDto | null>;
