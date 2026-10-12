@@ -175,6 +175,19 @@ assert(schedule.includes("weekSlotGrid"),"Timetable Week view must render a slot
 assert(schedule.includes("timeRows=Array.from(new Set("),"Timetable Week view must divide the calendar into start-time rows.");
 assert(schedule.includes("rawTime(event.startsAt!)===time"),"Timetable Week view must place events into their matching start-time slot.");
 assert(schedule.includes("onSelectSlot(event,day.date)"),"Every populated Week slot must be clickable and preserve its exact calendar date.");
+assert(schedule.includes('missingWeekCellKind(day,time)')&&
+  schedule.includes('t("schedule.weekSlotContinues")')&&
+  schedule.includes('t("schedule.weekSlotNotScheduled")')&&
+  schedule.includes('testID={"owner-week-no-slot-"+day.date+"-"+time}'),
+  "Week grid gaps should be visibly labeled (ongoing/closed/unscheduled), not blank.");
+assert(schedule.includes('onOpenDay={openCalendarDay}')&&
+  schedule.includes('onPress={()=>onOpenDay(day.date)}'),
+  "Unscheduled/closed gaps may open a day but must never initiate fake bookings.");
+assert(schedule.includes('weekTimeRail:{width:72')&&
+  schedule.includes('<CompactTimeColumn value={time}/>')&&
+  schedule.includes('<CompactTimeColumn value={rawTime(event.startsAt!)}/>')&&
+  schedule.includes('const [clock,meridiem]=formatted.split(" ")'),
+  "The owner Week/Day time column must be narrower and stack AM/PM under HH:mm.");
 assert(schedule.includes("selectedSlot"),"Week/Day slot selection must open exact-slot management.");
 assert(schedule.includes("<SlotManager"),"Week/Day slot clicks must open a management panel.");
 assert(schedule.includes('t("schedule.manageSlot")'),"Week slot management panel must be clearly titled.");

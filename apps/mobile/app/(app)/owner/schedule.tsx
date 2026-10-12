@@ -27,6 +27,7 @@ import { SlotTileContent } from "../../../src/components/ui/SlotTileContent";
 import { softenSlotColor } from "../../../src/lib/slot-color";
 import { formatSlotStartTime,formatSlotTilePrice } from "../../../src/lib/slot-display";
 import {formatClock12From24Hour} from "../../../src/lib/clock-display";
+import {ownerCalendarClock,missingWeekCellKind} from "../../../src/lib/owner-week-grid";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -48,10 +49,18 @@ function localDateFromIso(value:string){
   }).format(new Date(value));
 }
 
-function rawTime(value:string){
-  return new Intl.DateTimeFormat("en-GB",{
-    timeZone:"Asia/Kabul",hour:"2-digit",minute:"2-digit",hourCycle:"h23",
-  }).format(new Date(value));
+function rawTime(value:string){return ownerCalendarClock(value);}
+
+/** Narrow pinned rail, full AM/PM under HH:mm in Week and Day. */
+function CompactTimeColumn({value}:{value:string}){
+  const formatted=formatClock12From24Hour(value);
+  const [clock,meridiem]=formatted.split(" ");
+  return <View style={styles.compactTimeLabel} accessible accessibilityLabel={formatted}>
+    <AppText variant="body" weight="bold" forceLtr numberOfLines={1}
+      style={styles.compactClock}>{clock}</AppText>
+    {meridiem?<AppText variant="caption" weight="semibold" forceLtr
+      style={styles.compactMeridiem}>{meridiem}</AppText>:null}
+  </View>;
 }
 
 function eventIcon(type:VenueCalendarEventType):keyof typeof Ionicons.glyphMap{
@@ -306,6 +315,7 @@ export default function OwnerScheduleScreen(){
                 todayDate={todayDate}
                 onTodayRowLayout={onTodayRowLayout}
                 onSelectSlot={onSelectSlot}
+                onOpenDay={openCalendarDay}
               />
               :<MemoDaySlotView
                 day={selectedDay}
@@ -408,7 +418,7 @@ function MonthView({
 }
 
 function WeekView({
-  days,language,t,todayDate,onTodayRowLayout,onSelectSlot,
+  days,language,t,todayDate,onTodayRowLayout,onSelectSlot,onOpenDay,
 }:{
   days:VenueCalendarDay[];
   language:"fa-AF"|"ps-AF"|"en";
@@ -416,6 +426,7 @@ function WeekView({
   todayDate:string;
   onTodayRowLayout:(y:number)=>void;
   onSelectSlot:(event:VenueCalendarEvent,date:string)=>void;
+  onOpenDay:(date:string)=>void;
 }){
   const [weekHeaderHeight,setWeekHeaderHeight]=useState(68);
   const [weekRowHeights,setWeekRowHeights]=useState<Record<string,number>>({});
@@ -447,9 +458,7 @@ function WeekView({
         </View>
         {timeRows.map(time=><View key={time}
           style={[styles.weekTimeCell,{height:weekRowHeights[time]??62}]}>
-          <AppText variant="caption" weight="semibold" forceLtr>
-            {formatClock12From24Hour(time)}
-          </AppText>
+          <CompactTimeColumn value={time}/>
         </View>)}
       </View>
       <ScrollView
@@ -515,7 +524,28 @@ function WeekView({
                       priceAfn={event.priceAfn} ink={palette.text}
                       marker={<SlotCornerMarker type={event.type} color={palette.text}/>}/>
                   </Pressable>;
-                }):<View style={styles.weekEmptySlot}/>}
+                }):(()=>{
+                  const kind=missingWeekCellKind(day,time);
+                  const label=kind==="CLOSED"
+                    ?t("schedule.event.CLOSED")
+                    :kind==="CONTINUES"
+                      ?t("schedule.weekSlotContinues")
+                      :t("schedule.weekSlotNotScheduled");
+                  return <Pressable accessibilityRole="button"
+                    accessibilityLabel={`${formatCalendarDate(day.date,language,{weekday:"long"})}, ${formatClock12From24Hour(time)}, ${label}. ${t("schedule.openDay")}`}
+                    testID={"owner-week-no-slot-"+day.date+"-"+time}
+                    onPress={()=>onOpenDay(day.date)}
+                    style={({pressed})=>[styles.weekMissingSlot,
+                      kind==="CLOSED"&&styles.weekMissingClosed,
+                      kind==="CONTINUES"&&styles.weekMissingContinues,
+                      pressed&&styles.weekSlotPressed]}>
+                    <Ionicons name={kind==="CLOSED"?"lock-closed-outline":
+                      kind==="CONTINUES"?"time-outline":"remove-circle-outline"}
+                      size={16} color={colors.textMuted}/>
+                    <AppText variant="caption" weight="semibold"
+                      style={styles.weekMissingLabel} numberOfLines={2}>{label}</AppText>
+                  </Pressable>;
+                })()}
               </View>;
             })}
           </View>)}
@@ -646,9 +676,7 @@ function DaySlotView({
           style={[styles.daySlotRow,{flexDirection:language==="en"?"row":"row-reverse"}]}
         >
           <View style={styles.dayTimeCell}>
-            <AppText variant="caption" weight="semibold" forceLtr>
-              {formatCalendarTime(event.startsAt!,language)}
-            </AppText>
+            <CompactTimeColumn value={rawTime(event.startsAt!)}/>
           </View>
           <View style={styles.dayStatusCell}>
             <Pressable
@@ -883,7 +911,7 @@ const styles=StyleSheet.create({
   slotGuideSwatch:{width:18,height:18,borderRadius:5,borderWidth:1},
   weekSlotFrame:{width:"100%",borderWidth:1,borderColor:colors.border,
     borderRadius:radius.lg,overflow:"hidden",backgroundColor:colors.surface},
-  weekTimeRail:{width:94,flexShrink:0,backgroundColor:colors.surfaceMuted},
+  weekTimeRail:{width:72,flexShrink:0,backgroundColor:colors.surfaceMuted},
   weekSlotHorizontal:{flex:1,minWidth:0},
   weekSlotScroll:{flexGrow:0},
   weekSlotGrid:{minWidth:938,backgroundColor:colors.surface},
@@ -894,7 +922,7 @@ const styles=StyleSheet.create({
     borderBottomColor:colors.border,
   },
   weekTimeHeader:{
-    width:94,
+    width:72,
     minHeight:68,
     alignItems:"center",
     justifyContent:"center",
@@ -928,7 +956,7 @@ const styles=StyleSheet.create({
     borderBottomColor:colors.border,
   },
   weekTimeCell:{
-    width:94,
+    width:72,
     minHeight:62,
     alignItems:"center",
     justifyContent:"center",
@@ -968,7 +996,17 @@ const styles=StyleSheet.create({
     backgroundColor:"rgba(255,255,255,0.78)",
   },
   weekSlotPressed:{opacity:.72,transform:[{scale:.98}]},
-  weekEmptySlot:{minHeight:40},
+  compactTimeLabel:{alignItems:"center",justifyContent:"center",gap:1,paddingHorizontal:2},
+  compactClock:{fontSize:14,lineHeight:19,textAlign:"center",writingDirection:"ltr"},
+  compactMeridiem:{fontSize:10,lineHeight:14,color:colors.textMuted,
+    textAlign:"center",writingDirection:"ltr"},
+  // A missing schedule interval must not use the colored bookable tile.
+  weekMissingSlot:{minHeight:54,borderRadius:radius.sm,borderWidth:1,
+    borderColor:"#CBD5E1",backgroundColor:"#F8FAFC",
+    alignItems:"center",justifyContent:"center",paddingHorizontal:3,paddingVertical:4,gap:2},
+  weekMissingClosed:{backgroundColor:"#F1F5F9"},
+  weekMissingContinues:{backgroundColor:"#EAF0F8"},
+  weekMissingLabel:{color:colors.textMuted,textAlign:"center",fontSize:11,lineHeight:15},
   daySlotSection:{gap:spacing.md},
   daySlotTable:{
     borderWidth:1,
@@ -985,7 +1023,7 @@ const styles=StyleSheet.create({
     borderBottomColor:colors.border,
   },
   dayTimeHeader:{
-    width:78,
+    width:72,
     alignItems:"center",
     justifyContent:"center",
     borderRightWidth:1,
@@ -1005,7 +1043,7 @@ const styles=StyleSheet.create({
     borderBottomColor:colors.border,
   },
   dayTimeCell:{
-    width:94,
+    width:72,
     minHeight:62,
     alignItems:"center",
     justifyContent:"center",

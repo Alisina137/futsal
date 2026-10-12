@@ -31,13 +31,16 @@ const check=(grid,prefix,frame,rail,scroll,clock,headerRow,slotRow)=>{
 check(publicGrid,"venue","weekGridFrame","weekTimeRail","weekDaysScroll",
   "formatClock12From24Hour(time)","visibleDays.map(date=>","slotsAtTime.get(date+\"|\"+time)");
 check(ownerGrid,"owner","weekSlotFrame","weekTimeRail","weekSlotHorizontal",
-  "formatClock12From24Hour(time)","days.map((day)=>","rawTime(event.startsAt!)===time");
+  "<CompactTimeColumn value={time}/>","days.map((day)=>","rawTime(event.startsAt!)===time");
 assert.ok(publicGrid.includes('weekDaysScroll:{flex:1,minWidth:0}')&&
   ownerGrid.includes('weekSlotHorizontal:{flex:1,minWidth:0}'),
   "Scrollable day viewport must take only the space outside the fixed time rail.");
 assert.ok(publicGrid.includes('weekTimeRail:{width:WEEK_TIME_COLUMN_WIDTH')&&
-  ownerGrid.includes('weekTimeRail:{width:94'),
+  ownerGrid.includes('weekTimeRail:{width:72'),
   "Time column must have a fixed width and must never scroll sideways.");
+assert.ok(ownerGrid.includes('<CompactTimeColumn value={rawTime(event.startsAt!)}/>')&&
+  ownerGrid.includes('dayTimeHeader:{')&&ownerGrid.includes('dayTimeCell:{'),
+  "Owner Day also needs the stacked clock and matching narrow column.");
 for(const grid of [publicGrid,ownerGrid]){
   assert.ok(grid.includes('flexShrink:0'),"Time rail must not shrink or disappear on narrow phones.");
 }
