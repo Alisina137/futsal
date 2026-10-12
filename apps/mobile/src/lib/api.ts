@@ -114,6 +114,7 @@ import type {
 import { fetch as expoFetch } from "expo/fetch";
 import { File, Paths } from "expo-file-system";
 import { cachedApiRead, invalidateApiCacheAfterMutation } from "./api-cache";
+import {API_PROBE_TIMEOUT_MS} from "./api-reachability";
 
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -245,7 +246,7 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   return value;
 }
 
-async function probeApi(timeoutMs = 2_500) {
+async function probeApi(timeoutMs = API_PROBE_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {

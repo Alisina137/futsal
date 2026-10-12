@@ -2,6 +2,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 import { systemApi } from "../lib/api";
+import {advanceApiProbe,initialApiProbeState,API_PROBE_INTERVAL_MS} from "../lib/api-reachability";
 
 type NetworkContextValue = {
   isOnline: boolean;
@@ -14,10 +15,6 @@ type NetworkContextValue = {
 };
 
 const NetworkContext = createContext<NetworkContextValue | null>(null);
-const API_PROBE_INTERVAL_MS = 3_000;
-const API_FAILURE_THRESHOLD = 3;
-const API_RECOVERY_THRESHOLD = 2;
-
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [isOnline, setOnline] = useState(true);
   const [hasResolved, setResolved] = useState(false);
@@ -27,8 +24,11 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const [apiReconnectVersion, setApiReconnectVersion] = useState(0);
   const probing = useRef(false);
   const apiReachableRef = useRef<boolean | null>(null);
-  const consecutiveApiFailures = useRef(0);
-  const consecutiveApiSuccesses = useRef(0);
+  const apiProbeHistory = useRef(initialApiProbeState());
+  const isOnlineRef = useRef(true);
+  // A pending health fetch from before a connectivity change must not publish
+  // a stale response after Wi-Fi/data disconnects or reconnects.
+  const probeEpoch = useRef(0);
 
   const commitApiReachability = useCallback((next: boolean | null) => {
     apiReachableRef.current = next;
@@ -36,79 +36,54 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resetApiProbeHistory = useCallback(() => {
-    consecutiveApiFailures.current = 0;
-    consecutiveApiSuccesses.current = 0;
+    apiProbeHistory.current = initialApiProbeState();
+    probeEpoch.current += 1;
   }, []);
 
   const checkApiNow = useCallback(async () => {
-    if (!isOnline) {
-      resetApiProbeHistory();
-      commitApiReachability(null);
-      setApiHasResolved(false);
-      return null;
-    }
+    if (!isOnlineRef.current) return null;
+    // One health check at a time, even if AppState and the timer fire together.
     if (probing.current) return apiReachableRef.current;
 
+    const epoch=probeEpoch.current;
     probing.current = true;
     try {
-      const probeSucceeded = await systemApi.probe();
-      const previous = apiReachableRef.current;
+      const succeeded=await systemApi.probe();
+      if (epoch!==probeEpoch.current || !isOnlineRef.current) return null;
 
-      if (probeSucceeded) {
-        consecutiveApiFailures.current = 0;
-        consecutiveApiSuccesses.current += 1;
-
-        if (previous === false) {
-          if (consecutiveApiSuccesses.current >= API_RECOVERY_THRESHOLD) {
-            commitApiReachability(true);
-            setApiHasResolved(true);
-            setApiReconnectVersion((value) => value + 1);
-            consecutiveApiSuccesses.current = 0;
-          }
-        } else {
-          // A successful first probe establishes normal operation. Recovery from a
-          // confirmed outage still requires repeated success to prevent banner flicker.
-          commitApiReachability(true);
-          setApiHasResolved(true);
-          consecutiveApiSuccesses.current = 0;
-        }
-      } else {
-        consecutiveApiSuccesses.current = 0;
-        consecutiveApiFailures.current += 1;
-
-        // Keep the last known-good state through brief tunnel/API hiccups. Only
-        // repeated failures are treated as a real server outage.
-        if (consecutiveApiFailures.current >= API_FAILURE_THRESHOLD) {
-          commitApiReachability(false);
-          setApiHasResolved(true);
-          consecutiveApiFailures.current = 0;
-        }
-      }
-
-      return probeSucceeded;
+      const result=advanceApiProbe(apiProbeHistory.current,succeeded,Date.now());
+      apiProbeHistory.current=result.state;
+      if (result.state.reachable!==apiReachableRef.current)
+        commitApiReachability(result.state.reachable);
+      if (result.state.reachable!==null) setApiHasResolved(true);
+      if (result.recovered) setApiReconnectVersion(value=>value+1);
+      return succeeded;
     } finally {
       probing.current = false;
     }
-  }, [commitApiReachability, isOnline, resetApiProbeHistory]);
+  }, [commitApiReachability]);
 
   useEffect(() => NetInfo.addEventListener((state) => {
     const next = state.isConnected !== false && state.isInternetReachable !== false;
-    setOnline((previous) => {
-      if (!previous && next) setReconnectVersion((value) => value + 1);
-      return next;
-    });
-    if (!next) {
+    const previous=isOnlineRef.current;
+    if (next!==previous) {
+      isOnlineRef.current=next;
       resetApiProbeHistory();
       commitApiReachability(null);
       setApiHasResolved(false);
+      if (!previous && next) setReconnectVersion(value=>value+1);
     }
+    setOnline(next);
     setResolved(true);
   }), [commitApiReachability, resetApiProbeHistory]);
 
   useEffect(() => {
     if (!isOnline) return;
     void checkApiNow();
-    const timer = setInterval(() => void checkApiNow(), API_PROBE_INTERVAL_MS);
+    const timer = setInterval(() => {
+      // Backgrounded apps can have throttled timers and unreliable probes.
+      if (AppState.currentState === "active") void checkApiNow();
+    }, API_PROBE_INTERVAL_MS);
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") void checkApiNow();
     });
