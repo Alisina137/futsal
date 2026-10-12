@@ -1,5 +1,11 @@
 # PROJECT STATE
 
+## QA Abdul REMOVED membership recovery (October 12, 2026)
+- User's latest real database seed correctly rolled back because Abdul already has an inactive/non-player team membership on Alisina United, which the earlier QA seed refused to overwrite; zero competitions were created by that failed transaction.
+- Fixture seeder now accepts ACTIVE CAPTAIN as a valid player team membership. For an existing `REMOVED` `PLAYER` or `CAPTAIN`, it requires a separate explicit `--restore-abdul-membership` opt-in in addition to `--confirm`; after role and owner/referee guards it converts only Abdul's Alisina-team membership to ACTIVE PLAYER, clears `left_at`, and does not restore captain privileges or change account-level roles, paid subscriptions, or ownership. `ACTIVE MANAGER` and other incompatible cases are refused.
+- PostgreSQL integration smoke tests verify the default refusal and complete rollback, opt-in restored membership, three competitions, and rerun idempotence. Run only against development/staging after checking `DATABASE_URL`: `pnpm db:seed:competition-story --confirm --restore-abdul-membership`. No changes to the user's Neon DB occur merely by pulling GitHub.
+
+
 ## Development API and QA competition seed recovery (October 12, 2026)
 - `pnpm dev:api` now launches the API first, waits for its `/health` and database-backed `/ready` response, then starts ngrok. Ngrok's interactive terminal UI is piped to prevent it hiding API startup/errors; failures, busy ports, absent ngrok, and API-only mode are displayed explicitly. Local API remains running if a tunnel fails. `pnpm verify:dev-api` exercises the real launcher against simulated healthy/failing API and ngrok commands on CI.
 - The first competition-story seed reported `QA story rolled back: Abdul must already be a player on the selected manager's team`. This is a full transaction rollback; migrations were successful and that seed inserted zero competition records. Root cause: seed wrongly required Abdul to already be a Player member of Alisina's team. It now explicitly targets Mahdi's existing subscribed venue and Alisina's managed team; if Abdul is an eligible active Player without an existing inactive/non-player record, it adds only the missing test-team membership. Existing roles/teams are preserved.

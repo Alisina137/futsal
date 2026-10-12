@@ -50,32 +50,53 @@ async function target(){
  const team=await teamBy("alisina");
  guard(venue,"Mahdi must own an ACTIVE subscribed venue with an active court.");
  guard(team,"Alisina must manage an ACTIVE claimed team.");
- const hasAbdul=async(team)=>Boolean(await get(
-  "select 1 from team_memberships where team_id=$1 and user_id=$2 and status='ACTIVE' and role='PLAYER'",
+ const hasAbdul=async()=>Boolean(await get(
+  "select 1 from team_memberships where team_id=$1 and user_id=$2 and status='ACTIVE' "+
+  "and role in ('PLAYER','CAPTAIN')",
   [team.id,users.abdul.id]));
- if(!await hasAbdul(team)){
-  // The explicit QA story asks to populate Abdul's player dashboard.
-  // Create a new membership only when it does not overwrite a previous
-  // rejection/departure or create a referee/paid-owner role conflict.
+ if(!await hasAbdul()){
+  // This fixture must not reactivate removed members silently. An explicit
+  // --restore-abdul-membership flag opts into a test-only rejoin.
   const before=await get(
-   "select status,role from team_memberships where team_id=$1 and user_id=$2",
+   "select status,role,shirt_number,left_at from team_memberships "+
+   "where team_id=$1 and user_id=$2 for update",
    [team.id,users.abdul.id]);
-  guard(!before,
-   "Abdul has an existing inactive/non-player membership on "+team.name+
-   ". Refusing to reactivate or overwrite it.");
   const eligibility=await get(
    "select (u.status='ACTIVE' and exists(select 1 from user_roles ur where ur.user_id=u.id and ur.role='PLAYER') "+
-   "and not exists(select 1 from user_roles ur where ur.user_id=u.id and ur.role in ('REFEREE','TEAM_MANAGER','VENUE_OWNER','PLATFORM_ADMIN')) "+
+   "and not exists(select 1 from user_roles ur where ur.user_id=u.id "+
+   "and ur.role in ('REFEREE','TEAM_MANAGER','VENUE_OWNER','PLATFORM_ADMIN')) "+
    "and not exists(select 1 from venue_referees vr where vr.user_id=u.id)) as eligible "+
    "from users u where u.id=$1",[users.abdul.id]);
   guard(eligibility?.eligible,
-   "Abdul is not an eligible active Player; refusing to create a test membership or change his roles.");
-  await q(
-   "insert into team_memberships(team_id,user_id,role,shirt_number,status,joined_at,updated_at) "+
-   "values($1,$2,'PLAYER',7,'ACTIVE',now(),now()) on conflict do nothing",
-   [team.id,users.abdul.id]);
-  guard(await hasAbdul(team),"Could not establish Abdul's active QA Player membership.");
-  console.log("Created the missing test-only Player membership for Abdul in "+team.name+".");
+   "Abdul is not an eligible ACTIVE PLAYER (or has conflicting owner/referee roles). "+
+   "No roles or team memberships were changed.");
+  if(before){
+   guard(before.status==='REMOVED' && (before.role==='PLAYER'||before.role==='CAPTAIN'),
+    "Abdul's existing membership on "+team.name+" is "+before.status+"/"+before.role+
+    ". Only a REMOVED Player/Captain membership can be restored for this QA fixture.");
+   guard(process.argv.includes("--restore-abdul-membership"),
+    "Abdul's existing membership on "+team.name+" is "+before.status+"/"+before.role+
+    ". To explicitly rejoin Abdul as a Player for test data, run "+
+    "pnpm db:seed:competition-story --confirm --restore-abdul-membership. "+
+    "This changes only Abdul's membership on Alisina's team.");
+   // Only this user's specific previous REMOVED membership may be restored.
+   // Captain privileges are never implicitly reinstated.
+   const restored=await q(
+    "update team_memberships set status='ACTIVE',role='PLAYER',left_at=null,"+
+    "joined_at=now(),updated_at=now() where team_id=$1 and user_id=$2 "+
+    "and status='REMOVED' and role in ('PLAYER','CAPTAIN') returning user_id",
+    [team.id,users.abdul.id]);
+   guard(restored.length===1,"Abdul's inactive membership changed during the seed; refusing to continue.");
+   console.log("Explicitly restored Abdul's REMOVED membership on "+team.name+
+    " as an ACTIVE PLAYER (previous role="+before.role+").");
+  }else{
+   await q(
+    "insert into team_memberships(team_id,user_id,role,shirt_number,status,joined_at,updated_at) "+
+    "values($1,$2,'PLAYER',7,'ACTIVE',now(),now()) on conflict do nothing",
+    [team.id,users.abdul.id]);
+   console.log("Created the missing test-only Player membership for Abdul in "+team.name+".");
+  }
+  guard(await hasAbdul(),"Abdul's active Player membership could not be established.");
  }
  console.log("Seeding "+venue.name+" (owner=mahdi) and team "+team.name+" (manager=alisina)");
  const official=await get("select user_id from venue_referees where venue_id=$1 order by assigned_at limit 1",[venue.id]);
