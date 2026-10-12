@@ -115,6 +115,7 @@ export default function TeamDetailExperience(){
   const [retryCounter,setRetryCounter]=useState(0);
   const [photo,setPhoto]=useState<string|null>(null);
   const screenScroll=useRef<ScrollView>(null);
+  const navigationY=useRef(0);
   const mainRail=useFocusedTabScroll(tab);
   const subRail=useFocusedTabScroll(tab+":"+subs[tab]);
   const lastId=useRef(id);
@@ -196,7 +197,7 @@ export default function TeamDetailExperience(){
   function chooseTab(value:Tab){
     setTab(value);
     mainRail.focus(value,true);
-    screenScroll.current?.scrollTo({y:0,animated:true});
+    screenScroll.current?.scrollTo({y:Math.max(0,navigationY.current-spacing.sm),animated:true});
   }
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
     :team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
@@ -448,7 +449,7 @@ export default function TeamDetailExperience(){
         </View>:null}
       </View>
     </View>
-    <View style={styles.tabContainer}>
+    <View style={styles.tabContainer} onLayout={e=>{navigationY.current=e.nativeEvent.layout.y;}}>
       <ScrollView ref={mainRail.scrollRef} horizontal showsHorizontalScrollIndicator={false}
         onLayout={mainRail.onLayout} onContentSizeChange={mainRail.onContentSizeChange}
         style={{flexGrow:0}} contentContainerStyle={[styles.tabs,rowDirection]}>
