@@ -1,5 +1,11 @@
 # PROJECT STATE
 
+## QA competition story (October 12, 2026)
+- New opt-in `pnpm db:seed:competition-story --confirm` fixture; 15-team/105-fixture League currently in week 4 with 21 completed results, 12-team/4-group Groups-and-Knockout, 16-team Knockout bracket. Included connected stats for Abdul, competition rosters/lineups, manager profile/activities/announcements/posts and friendly. Details: `docs/QA-COMPETITION-STORY.md`.
+- Existing role-demo source maps Mahdi to Venue Owner and Alisina to Team Manager, contrary to the latest user's wording. Seed resolves actual owned venue/team at runtime (prefers specifically named requested roles only if real) and **does not swap ownership or existing roles**.
+- No database connection is exposed to ChatGPT; the application database remains unchanged until the seed command runs on the operator's development/staging DB.
+
+
 ## QA test users (October 11, 2026)
 - Added an opt-in local 25-account authenticated fixture seeder (`pnpm db:seed:test-accounts seed --confirm`), with 5 each of Normal User, Team Owner, Venue Owner, Referee, and Player. Fixture details and cleanup: `docs/QA-TEST-ACCOUNTS.md`.
 - No passwords are stored in Git; seeder requires a separately delivered private, gitignored CSV. Seed marks email verification for QA without sending an actual email; addresses under `@futsal.test` cannot receive mail.
