@@ -318,6 +318,25 @@ async function dashboard(ctx,ids,offline,now){
  if(!await get("select id from social_posts where entity_type='TEAM' and entity_id=$1 and body=$2",
   [teamId,post]))await q("insert into social_posts(entity_type,entity_id,created_by_user_id,body,status) "+
   "values('TEAM',$1,$2,$3,'PUBLISHED')",[teamId,manager,post]);
+ const notificationRows=[
+  [player,"COMPETITION_UPDATE","Premier League week 4","Previous results and standings are ready",
+   "/competitions/"+ids[0],{competitionId:ids[0]},"abdul-league"],
+  [player,"COMPETITION_UPDATE","Groups Cup draw","Four groups and fixtures are now available",
+   "/competitions/"+ids[1],{competitionId:ids[1]},"abdul-group"],
+  [player,"COMPETITION_UPDATE","Knockout results","The first knockout winners have progressed",
+   "/competitions/"+ids[2],{competitionId:ids[2]},"abdul-ko"],
+  [player,"TEAM_ACTIVITY","Training available","Confirm your participation in this week's practice",
+   "/teams/"+teamId+"/activities",{teamId},"abdul-training"],
+  [manager,"TEAM_ANNOUNCEMENT","Week 4 briefing","Your team announcements and player attendance are updated",
+   "/dashboard",{teamId},"manager-announcement"],
+  [manager,"TEAM_CHALLENGE","Friendly challenge accepted","Your upcoming friendly has been confirmed",
+   "/dashboard",{teamId},"manager-friendly"]
+ ];
+ for(const [user,type,title,body,link,data,key] of notificationRows){
+  await q("insert into notifications(user_id,type,title,body,deep_link,data,dedupe_key,created_at) "+
+   "values($1,$2::notification_type,$3,$4,$5,$6::jsonb,$7,now()) on conflict(user_id,dedupe_key) do nothing",
+   [user,type,title,body,link,JSON.stringify({...data,qaMarker:TAG}),"qa-story-v1:"+key]);
+ }
  const rival=offline[1],msg=TAG+" Accepted demo friendly for calendar and growth views";
  if(!await get("select id from team_friendly_challenges where from_team_id=$1 and to_team_id=$2 and message=$3",
   [teamId,rival,msg]))await q("insert into team_friendly_challenges"+
