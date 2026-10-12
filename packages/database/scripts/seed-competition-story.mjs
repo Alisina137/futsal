@@ -44,21 +44,15 @@ async function target(){
  const teamBy=async(n)=>get(
   "select id,name,manager_user_id from teams "+
   "where manager_user_id=$1 and status='ACTIVE' and offline_venue_id is null limit 1",[users[n].id]);
- // Prefer the requested owners, but use actual DB ownership. Do not swap roles.
- const venue=await venueBy("alisina")||await venueBy("mahdi");
- const candidateTeams=[await teamBy("mahdi"),await teamBy("alisina")].filter(Boolean);
- guard(venue&&candidateTeams.length>0,
-  "Cannot find an active subscribed venue and managed team for Alisina or Mahdi.");
- // A team already containing Abdul takes priority. Previously we selected
- // Mahdi's team without checking Abdul's membership, causing an unnecessary rollback.
+ // Explicitly respect the known demo ownership: Mahdi runs the subscribed
+ // venue, Alisina manages one team, Abdul is the player. Never swap ownership.
+ const venue=await venueBy("mahdi");
+ const team=await teamBy("alisina");
+ guard(venue,"Mahdi must own an ACTIVE subscribed venue with an active court.");
+ guard(team,"Alisina must manage an ACTIVE claimed team.");
  const hasAbdul=async(team)=>Boolean(await get(
   "select 1 from team_memberships where team_id=$1 and user_id=$2 and status='ACTIVE' and role='PLAYER'",
   [team.id,users.abdul.id]));
- let team=null;
- for(const candidate of candidateTeams){
-  if(await hasAbdul(candidate)){team=candidate;break;}
- }
- team=team||candidateTeams[0];
  if(!await hasAbdul(team)){
   // The explicit QA story asks to populate Abdul's player dashboard.
   // Create a new membership only when it does not overwrite a previous
@@ -83,8 +77,7 @@ async function target(){
   guard(await hasAbdul(team),"Could not establish Abdul's active QA Player membership.");
   console.log("Created the missing test-only Player membership for Abdul in "+team.name+".");
  }
- console.log("Seeding "+venue.name+" (owner="+(venue.owner_user_id===users.alisina.id?"alisina":"mahdi")+
-   ") and team "+team.name+" (manager="+(team.manager_user_id===users.mahdi.id?"mahdi":"alisina")+")");
+ console.log("Seeding "+venue.name+" (owner=mahdi) and team "+team.name+" (manager=alisina)");
  const official=await get("select user_id from venue_referees where venue_id=$1 order by assigned_at limit 1",[venue.id]);
  return {users,venue,team,refereeId:official?.user_id??null};
 }
