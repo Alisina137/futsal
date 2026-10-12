@@ -5,6 +5,7 @@ import {
   playerProfileUpdateRequestSchema,
   teamCaptainRequestSchema,
   teamCreateRequestSchema,
+  teamDiscoveryQuerySchema,
   teamInviteRequestSchema,
   teamManagerTransferRequestSchema,
   teamMemberUpdateRequestSchema,
@@ -77,6 +78,13 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
       const invitationId = routeIdSchema.parse(request.params.invitationId);
       response.json({ invitation: await teams.declineInvitation(request.auth!.userId, invitationId) });
     } catch (error) { next(error); }
+  });
+
+  router.get("/teams/discover",auth,async(request,response,next)=>{
+    try{
+      const filters=teamDiscoveryQuerySchema.parse(request.query);
+      response.json(await teams.discoverTeams(request.auth!.userId,filters));
+    }catch(error){next(error);}
   });
 
   router.get("/teams", auth, async (request, response, next) => {
