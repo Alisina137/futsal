@@ -9,7 +9,7 @@ const pkg=JSON.parse(fs.readFileSync(new URL("../package.json",import.meta.url),
 const required=[
  "QA Story Premier League","QA Story Groups and Knockout Cup",
  "QA Story Knockout Championship","GROUP_KNOCKOUT","KNOCKOUT","LEAGUE",
- "roundRobin(ids)","rows.length===105","matches.played===21",
+ "roundRobin(ids)","rows.length===105","matches.played===[21,8,4]",
  "competition_groups","team_competition_roster","team_match_lineups",
  "player_match_stats","team_manager_profiles","player_dashboard_preferences",
  "team_activities","team_activity_responses","team_announcements",
