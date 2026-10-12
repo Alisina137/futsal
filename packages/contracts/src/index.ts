@@ -1807,6 +1807,8 @@ export type TeamListItemDto = z.infer<typeof teamListItemDtoSchema>;
 export const teamDirectoryItemDtoSchema = teamListItemDtoSchema.extend({
   myMembershipRole: teamMemberRoleSchema.nullable(),
   joinRequestStatus: teamJoinRequestStatusSchema.nullable(),
+  /** Team-manager-controlled join policy, for accurate directory actions. */
+  allowJoinRequests:z.boolean(),
 });
 export type TeamDirectoryItemDto = z.infer<typeof teamDirectoryItemDtoSchema>;
 
