@@ -196,12 +196,11 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
             onPress={()=>canCancel?setExpandedId(expanded?null:item.id):openVenue(item,true)}/>
         </View>
         {item.status==="CONFIRMED"&&item.source==="ONLINE"&&
-          Date.parse(item.endsAt)<=now?<Button variant="secondary"
-          testID={"booking-rate-venue-"+item.id}
+          Date.parse(item.endsAt)<=now?<View testID={"booking-rate-venue-"+item.id}><Button variant="secondary"
           label={t("booking.community.rateVenue")} onPress={()=>
           router.push({pathname:"/venues/[venueId]",params:{
             venueId:item.venueId,reviewBookingId:item.id,
-          }})}/>:null}
+          }})}/></View>:null}
         {!canCancel?<Pressable accessibilityRole="button" accessibilityState={{expanded}}
           onPress={()=>setExpandedId(expanded?null:item.id)}
           style={[styles.detailsToggle,rtlRow]}>
