@@ -26,6 +26,7 @@ import { Screen } from "../../../src/components/ui/Screen";
 import { SlotTileContent } from "../../../src/components/ui/SlotTileContent";
 import { softenSlotColor } from "../../../src/lib/slot-color";
 import { formatSlotStartTime,formatSlotTilePrice } from "../../../src/lib/slot-display";
+import {formatClock12From24Hour} from "../../../src/lib/clock-display";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -467,7 +468,7 @@ function WeekView({
           style={[styles.weekSlotTimeRow,{flexDirection:language==="en"?"row":"row-reverse"}]}
         >
           <View style={styles.weekTimeCell}>
-            <AppText variant="caption" weight="semibold" forceLtr>{time}</AppText>
+            <AppText variant="caption" weight="semibold" forceLtr>{formatClock12From24Hour(time)}</AppText>
           </View>
 
           {days.map((day)=>{
