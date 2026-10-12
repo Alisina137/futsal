@@ -1,5 +1,12 @@
 # PROJECT STATE
 
+## Persistent mobile API-disconnected banner (October 12, 2026)
+- Root cause targeted: mobile's Expo `EXPO_PUBLIC_API_URL` remains on an old ngrok hostname even after `pnpm dev:api` opens a new HTTPS tunnel. Physical devices cannot reach `localhost:4000`; Expo's own tunnel is independent from the backend API.
+- `scripts/dev-api.mjs` now validates the public HTTPS tunnel actually returns Futsal's JSON `/health` before safely updating **only** the `EXPO_PUBLIC_API_URL` entry of gitignored `apps/mobile/.env.local`, preserving other config. Disabled via `FUTSAL_SYNC_MOBILE_API_URL=false`. After changing Expo env, restart `pnpm dev:mobile` and reload Expo Go. Failure leaves previous config and prints diagnostics.
+- `pnpm dev:check-api` now checks local API `/health`, DB `/ready`, ngrok inspector, configured Expo host and current HTTPS API `/health` without exposing credentials. Mobile reachability probe validates the expected JSON service identity (not just HTTP 200 from ngrok HTML/interstitial or unrelated servers).
+- `pnpm verify:dev-api` covers mobile-env URL sync, HTTPS restriction, idempotence and preserving other keys, plus earlier process-supervisor tests. No live Neon DB or device was accessible to ChatGPT, so on-device validation still requires running commands on user's PC.
+
+
 ## QA Abdul REMOVED membership recovery (October 12, 2026)
 - User's latest real database seed correctly rolled back because Abdul already has an inactive/non-player team membership on Alisina United, which the earlier QA seed refused to overwrite; zero competitions were created by that failed transaction.
 - Fixture seeder now accepts ACTIVE CAPTAIN as a valid player team membership. For an existing `REMOVED` `PLAYER` or `CAPTAIN`, it requires a separate explicit `--restore-abdul-membership` opt-in in addition to `--confirm`; after role and owner/referee guards it converts only Abdul's Alisina-team membership to ACTIVE PLAYER, clears `left_at`, and does not restore captain privileges or change account-level roles, paid subscriptions, or ownership. `ACTIVE MANAGER` and other incompatible cases are refused.
