@@ -18,7 +18,7 @@ const kabulTime = new Intl.DateTimeFormat("en-GB", {
 const checks = [
   [kabulTime === "10:48", `UTC→Kabul conversion expected 10:48, received ${kabulTime}`],
   [formatter.includes('AFGHANISTAN_TIME_ZONE = "Asia/Kabul"'), "shared formatter uses Kabul timezone"],
-  [/calendar:\\s*"gregory"/.test(formatter), "calendar is explicitly Gregorian for current MVP"],
+  [formatter.includes('calendar:"gregory"'), "calendar is explicitly Gregorian for current MVP"],
   [!formatter.includes('timeZoneName: "short"'), "no Greenwich offset or timezone suffix in displayed expiry"],
   [formatter.includes('hour12:true'), "shared formatter uses explicit 12-hour AM/PM"],
   [onboarding.includes("formatLocalDateTimeParts(status.subscription.trialEndsAt, language)"), "onboarding splits trial end into date/time parts"],
