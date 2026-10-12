@@ -82,6 +82,11 @@ function mapHour(row: typeof venueOpeningHours.$inferSelect): VenueOpeningHourIn
 export class DrizzleBookingRepository implements BookingRepository {
   constructor(private readonly db: Database) {}
 
+  async listReviewedBookingIds(userId:string,venueId:string){
+    const rows=await this.db.select({bookingId:venueReviews.bookingId}).from(venueReviews)
+      .where(and(eq(venueReviews.userId,userId),eq(venueReviews.venueId,venueId)));
+    return rows.map(row=>row.bookingId);
+  }
   async listVerifiedReviews(venueId:string,limit:number){
     const [summary]=await this.db.select({
       average:sql<number>`coalesce(avg(${venueReviews.rating}),0)::float8`,
@@ -91,7 +96,7 @@ export class DrizzleBookingRepository implements BookingRepository {
       .orderBy(desc(venueReviews.createdAt),desc(venueReviews.id)).limit(limit);
     return {
       averageRating:Number(summary?.average??0),reviewCount:Number(summary?.total??0),
-      reviews:reviews.map(row=>({id:row.id,venueId:row.venueId,bookingId:row.bookingId,
+      reviews:reviews.map(row=>({id:row.id,venueId:row.venueId,
         rating:row.rating,body:row.body,createdAt:row.createdAt.toISOString(),verified:true as const})),
     };
   }
@@ -100,7 +105,7 @@ export class DrizzleBookingRepository implements BookingRepository {
     const [created]=await this.db.insert(venueReviews).values(input)
       .onConflictDoNothing({target:venueReviews.bookingId}).returning();
     if(!created)throw errors.badRequest("ALREADY_REVIEWED","This booking already has a review.");
-    return {id:created.id,venueId:created.venueId,bookingId:created.bookingId,
+    return {id:created.id,venueId:created.venueId,
       rating:created.rating,body:created.body,createdAt:created.createdAt.toISOString(),
       verified:true as const};
   }
