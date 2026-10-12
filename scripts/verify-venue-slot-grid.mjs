@@ -24,7 +24,7 @@ check(route.includes('router.get("/:venueId/availability"')&&
 for(const marker of ["rangeForView(view,anchor,language)","moveView(view,anchor,delta,language)",
   "venueApi.availability(venue.id,date)","readAvailabilityCache","writeAvailabilityCache",
   "visibleDays.map","timeRows.map","visibleDays.map(date=>","view===\"DAY\"",
-  "view===\"MONTH\"", 'startsAt?"DAY":"WEEK"',"statusColors","UNAVAILABLE","PROMOTION",
+  "view===\"MONTH\"", 'startsAt||initialDate?"DAY":"WEEK"',"statusColors","UNAVAILABLE","PROMOTION",
   "isRTL?\"row-reverse\":\"row\"","setSelected({date,slot","selected.fresh&&connected",
   "router.push({pathname:\"/booking/confirm\""]){
   check(grid.includes(marker),"Owner-style public slot grid invariant missing: "+marker);
