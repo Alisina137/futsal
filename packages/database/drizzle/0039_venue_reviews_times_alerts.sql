@@ -1,3 +1,4 @@
+ALTER TYPE "notification_type" ADD VALUE IF NOT EXISTS 'SLOT_AVAILABLE';--> statement-breakpoint
 -- Verified, non-anonymous booking-based reviews. One review per confirmed completed reservation.
 CREATE TABLE IF NOT EXISTS "venue_reviews" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
