@@ -8,6 +8,7 @@ import net from "node:net";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { mobileEnvFile, readMobileApiUrl, syncMobileApiUrl } from "./mobile-api-env.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const envFile = path.join(root, ".env");
@@ -228,7 +229,40 @@ async function main() {
   const url = await tunnelUrl();
   if (url) {
     console.log("[dev:api] HTTPS tunnel: " + url);
-    console.log("[dev:api] Mobile configuration: EXPO_PUBLIC_API_URL=" + url);
+    // A configured ngrok forwarding port is not proof that the HTTPS endpoint
+    // actually serves this API. Never write an unverified tunnel to Expo config.
+    let tunnelReady = false;
+    try {
+      const response = await fetch(url + "/health", {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(7000),
+      });
+      const body = await response.json().catch(() => null);
+      tunnelReady = response.ok && body?.service === "futsal-api" && body?.status === "ok";
+    } catch { /* ngrok may be misconfigured, expired or blocked */ }
+    if (!tunnelReady) {
+      console.error("[dev:api] Tunnel health check failed: " + url + "/health");
+      console.error("[dev:api] Keeping your existing Expo API URL. Check ngrok login/network and restart the tunnel.");
+    } else if (process.env.FUTSAL_SYNC_MOBILE_API_URL?.trim().toLowerCase() === "false") {
+      console.log("[dev:api] Expo API URL synchronization disabled (FUTSAL_SYNC_MOBILE_API_URL=false).");
+      console.log("[dev:api] Set apps/mobile/.env.local EXPO_PUBLIC_API_URL=" + url);
+    } else {
+      const file = mobileEnvFile(root);
+      const before = readMobileApiUrl(file);
+      try {
+        const changed = syncMobileApiUrl(file, url);
+        console.log("[dev:api] " + (changed ? "Updated" : "Verified") +
+          " ignored apps/mobile/.env.local: EXPO_PUBLIC_API_URL=" + url);
+        if (changed) {
+          console.log("[dev:api] Previous Expo URL: " + (before ?? "(unset)"));
+          console.log("[dev:api] IMPORTANT: stop and restart pnpm dev:mobile, then reload the app.");
+        }
+      } catch (error) {
+        console.error("[dev:api] Could not sync apps/mobile/.env.local: " +
+          (error instanceof Error ? error.message : String(error)));
+        console.error("[dev:api] Set EXPO_PUBLIC_API_URL=" + url + " manually and restart Expo.");
+      }
+    }
   } else {
     console.error("[dev:api] Could not read a matching ngrok HTTPS tunnel from localhost:4040.");
     console.error("[dev:api] API is still available locally: " + localUrl);
