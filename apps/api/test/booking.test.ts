@@ -148,6 +148,60 @@ describe("Phase 3 availability and booking API", () => {
     expect(searchMeta.body.suggestions.every((x:{label:string})=>!x.label.includes("Hidden"))).toBe(true);
   });
 
+  it("filters and sorts venues against real date-scoped availability",async()=>{
+    const {app,bookingRepository,authRepository}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0709776674");
+    const a=bookingRepository.seedVenue(owner.body.user.id).venue;
+    a.name="Budget Futsal";a.areas[0]!.basePriceAfn=700;
+    a.latitude=34.5200;a.longitude=69.1700;
+    const b=bookingRepository.seedVenue(owner.body.user.id).venue;
+    b.name="Premium Futsal";b.areas[0]!.basePriceAfn=2500;
+    b.latitude=34.6000;b.longitude=69.1700;
+    const closed=bookingRepository.seedVenue(owner.body.user.id).venue;
+    closed.name="Closed Futsal";
+    closed.openingHours=closed.openingHours.map(h=>({...h,isClosed:true,opensAt:null,closesAt:null}));
+    const paused=bookingRepository.seedVenue(owner.body.user.id).venue;
+    paused.name="Paused Futsal";paused.onlineBookingEnabled=false;
+    const suspended=bookingRepository.seedVenue(owner.body.user.id,{status:"SUSPENDED"}).venue;
+    suspended.name="Hidden";
+    bookingRepository.followerCounts.set(b.id,12);
+    bookingRepository.followerCounts.set(a.id,3);
+
+    const route="/api/v1/venues/search";
+    const all=await request(app).get(route).query({date:"2026-10-05"});
+    expect(all.status).toBe(200);
+    expect(all.body.results).toHaveLength(4);
+    expect(all.body.results.map((v:{venue:{id:string}})=>v.venue.id)).not.toContain(suspended.id);
+    const unavailable=all.body.results.find((v:{venue:{id:string}})=>v.venue.id===closed.id);
+    expect(unavailable.availableCount).toBe(0);
+    expect(unavailable.lowestPriceAfn).toBeNull();
+
+    const only=await request(app).get(route).query({date:"2026-10-05",availableOnly:"true",sort:"lowestPrice"});
+    expect(only.status).toBe(200);
+    expect(only.body.results.map((v:{venue:{id:string}})=>v.venue.id)).toEqual([a.id,b.id]);
+    expect(only.body.results[0].lowestPriceAfn).toBe(700);
+    expect(only.body.results[1].lowestPriceAfn).toBe(2500);
+    const upper=await request(app).get(route).query({date:"2026-10-05",maxPriceAfn:1000});
+    expect(upper.body.results.map((v:{venue:{id:string}})=>v.venue.id)).toEqual([a.id]);
+    const morning=await request(app).get(route).query({date:"2026-10-05",startTime:"07:00",endTime:"09:00",availableOnly:"true"});
+    expect(morning.status).toBe(200);
+    expect(morning.body.results.length).toBe(2);
+    expect(morning.body.results.every((v:{availableCount:number})=>v.availableCount>0)).toBe(true);
+    const noHours=await request(app).get(route).query({date:"2026-10-05",startTime:"00:00",endTime:"05:59",availableOnly:"true"});
+    expect(noHours.body.results).toEqual([]);
+    const followers=await request(app).get(route).query({date:"2026-10-05",sort:"mostFollowed"});
+    expect(followers.body.results[0].venue.id).toBe(b.id);
+    const nearest=await request(app).get(route).query({date:"2026-10-05",sort:"nearest",latitude:34.5201,longitude:69.17});
+    expect(nearest.body.results[0].venue.id).toBe(a.id);
+    expect(nearest.body.results[0].distanceKm).toBeLessThan(1);
+    const malformed=await request(app).get(route).query({date:"2026-10-05",startTime:"25:99"});
+    expect(malformed.status).toBe(400);
+    const wrongRange=await request(app).get(route).query({date:"2026-10-05",minPriceAfn:3000,maxPriceAfn:400});
+    expect(wrongRange.status).toBe(400);
+    const oldDate=await request(app).get(route).query({date:"2026-10-03"});
+    expect(oldDate.status).toBe(400);
+  });
+
   it("publishes live slots from opening hours and area price", async () => {
     const { app, bookingRepository, authRepository } = setup();
     const owner = await register(app, authRepository, "VENUE_OWNER", "0702223300");

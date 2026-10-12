@@ -14,6 +14,8 @@ import type {
   MostFollowedVenuesResponse,
   NearbyVenuesResponse,
   VenueDiscoveryResponse,
+  VenueDirectoryFilters,
+  VenueDirectoryResponse,
   PaidRole,
   RegisterRequest,
   RoleSubscriptionOfferDto,
@@ -236,7 +238,7 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   if (isSafeRead(init)) {
     // Sensitive live administration must never be served from the app's offline
     // cache, and stale page queries must obey the caller's abort signal.
-    if(path.startsWith("/api/v1/admin/"))
+    if(path.startsWith("/api/v1/admin/")||path.startsWith("/api/v1/venues/search?"))
       return networkRequest<T>(path,init,accessToken);
     return cachedApiRead(path, accessToken, () => networkRequest<T>(path, init, accessToken));
   }
@@ -512,6 +514,25 @@ export const ownerApi = {
 
 
 export const venueApi = {
+  search: (filters:VenueDirectoryFilters)=>{
+    const params=new URLSearchParams();
+    params.set("date",filters.date);
+    if(filters.province)params.set("province",filters.province);
+    if(filters.q)params.set("q",filters.q);
+    if(filters.startTime)params.set("startTime",filters.startTime);
+    if(filters.endTime)params.set("endTime",filters.endTime);
+    if(filters.minPriceAfn!==undefined)params.set("minPriceAfn",String(filters.minPriceAfn));
+    if(filters.maxPriceAfn!==undefined)params.set("maxPriceAfn",String(filters.maxPriceAfn));
+    if(filters.availableOnly)params.set("availableOnly","true");
+    params.set("sort",filters.sort);
+    if(filters.latitude!==undefined&&filters.longitude!==undefined){
+      params.set("latitude",String(filters.latitude));
+      params.set("longitude",String(filters.longitude));
+    }
+    // Dynamic availability should never be served from stale GET cache entries.
+    return request<VenueDirectoryResponse>("/api/v1/venues/search?"+params.toString(),
+      {headers:{"Cache-Control":"no-store"}});
+  },
   nearby: (latitude:number,longitude:number)=>
     request<NearbyVenuesResponse>(`/api/v1/venues/nearby?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}`),
   discovery: (filters?:{q?:string;province?:string})=>{

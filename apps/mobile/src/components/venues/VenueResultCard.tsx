@@ -15,6 +15,9 @@ type Props={
   onlineBookingEnabled?:boolean;
   /** Responsive two-column directory cards; full-width everywhere else. */
   twoColumn?:boolean;
+  availableCount?:number|undefined;
+  lowestPriceAfn?:number|null|undefined;
+  distanceKm?:number|null|undefined;
   testID?:string;
 };
 
@@ -23,7 +26,8 @@ type Props={
  * The image is always a square and is centered if translated text grows.
  * Booking is a deep link to live availability, never an automatic reservation.
  */
-export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEnabled,twoColumn=false,testID}:Props){
+export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEnabled,twoColumn=false,
+  availableCount,lowestPriceAfn,distanceKm,testID}:Props){
   const {t,isRTL}=useLocale();
   const image=resolveMediaImageUrl(imageUrl);
   const canReserve=onlineBookingEnabled!==false;
@@ -52,6 +56,20 @@ export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEna
           <Ionicons name="location-outline" size={15} color={colors.textMuted}/>
           <AppText variant="caption" muted numberOfLines={2} style={styles.locationText}>{location}</AppText>
         </View>
+        {availableCount!==undefined?<View style={styles.liveSummary}>
+          <AppText variant="caption" weight="semibold" numberOfLines={1}
+            style={{color:availableCount>0?"#15803D":colors.textMuted}}>
+            {t("booking.filter.slotsCount",{count:availableCount})}
+          </AppText>
+          {lowestPriceAfn!==null&&lowestPriceAfn!==undefined?
+            <AppText variant="caption" weight="semibold" numberOfLines={1}>
+              {t("booking.filter.fromPrice",{price:lowestPriceAfn})}
+            </AppText>:null}
+          {distanceKm!==null&&distanceKm!==undefined?
+            <AppText variant="caption" muted numberOfLines={1}>
+              {t("booking.nearbyDistance",{distance:distanceKm.toFixed(1)})}
+            </AppText>:null}
+        </View>:null}
         <View style={[styles.bookingCue,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Ionicons name={canReserve?"checkmark-circle":"pause-circle-outline"} size={13}
             color={canReserve?"#15803D":colors.textMuted}/>
@@ -105,6 +123,7 @@ const styles=StyleSheet.create({
   content:{width:"75%",minWidth:0,paddingVertical:spacing.sm,gap:spacing.sm,
     justifyContent:"space-between"},
   identity:{gap:5,minWidth:0},
+  liveSummary:{gap:2,minWidth:0},
   bookingCue:{alignItems:"center",gap:4,minWidth:0},
   bookingCueText:{flex:1,fontSize:10,lineHeight:15},
   name:{fontSize:15,lineHeight:21},

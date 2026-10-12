@@ -18,6 +18,8 @@ export class FakeBookingRepository implements BookingRepository {
   bookings = new Map<string, BookingDto>();
   blocks = new Map<string, VenueBlockDto>();
   promotionPrices: PromotionPriceRecord[] = [];
+  followerCounts=new Map<string,number>();
+  async countVenueFollowers(){return this.followerCounts;}
   private tail: Promise<void> = Promise.resolve();
 
   seedVenue(ownerUserId: string, options?: { trialEndsAt?: Date; status?: BookingVenueRecord["status"] }) {
