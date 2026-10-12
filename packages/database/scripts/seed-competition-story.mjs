@@ -353,13 +353,35 @@ async function verify(ctx,ids){
   const matches=await get("select count(*)::int as games,count(*) filter(where status='COMPLETED')::int as played "+
    "from competition_matches where competition_id=$1",[ids[i]]);
   guard(count.teams===names[i][2]&&matches.games===names[i][3],"Incomplete fixture "+names[i][0]);
-  if(i===0)guard(matches.played===21,"League should have 21 finished matches in the first 3 weeks.");
+  guard(matches.played===[21,8,4][i],"Completed results mismatch for "+names[i][0]);
+  if(i===0){
+   const week4=await get("select count(*)::int as total from competition_matches "+
+    "where competition_id=$1 and stage='LEAGUE' and round_number=4 and status='SCHEDULED'",[ids[i]]);
+   guard(week4.total===7,"League must display seven week-four upcoming fixtures.");
+  }
+  if(i===1){
+   const groups=await get("select count(*)::int as total from competition_groups where competition_id=$1",[ids[i]]);
+   guard(groups.total===4,"Group cup must have four groups.");
+  }
+  if(i===2){
+   const progress=await get("select count(*)::int as wins from competition_matches "+
+    "where competition_id=$1 and stage='KNOCKOUT' and winner_team_id is not null",[ids[i]]);
+   guard(progress.wins===4,"Four knockout first-round winners must advance.");
+  }
   console.log(names[i][0]+": "+count.teams+" teams; "+matches.games+" fixtures; "+matches.played+" completed");
  }
  const stats=await get("select count(*)::int as games,sum(s.goals)::int as goals from player_match_stats s "+
   "join competition_matches m on m.id=s.match_id where s.player_user_id=$1 and m.competition_id=any($2::uuid[])",
   [ctx.users.abdul.id,ids]);
  guard(stats.games>=2,"Abdul must have played multiple games.");
+ const leaderboard=await get("select count(distinct s.player_user_id)::int as athletes "+
+  "from player_match_stats s join competition_matches m on m.id=s.match_id "+
+  "where m.competition_id=$1",[ids[0]]);
+ guard(leaderboard.athletes>=10,"League leaderboard should include at least ten players.");
+ const notices=await get("select count(*)::int as total from notifications "+
+  "where user_id=any($1::uuid[]) and dedupe_key like 'qa-story-v1:%'",
+  [[ctx.users.abdul.id,ctx.team.manager_user_id]]);
+ guard(notices.total>=6,"Sample player and manager notifications are missing.");
  console.log("Abdul: "+stats.games+" matches, "+stats.goals+" goals, plus schedule, lineup, RSVP and career records.");
 }
 try{
