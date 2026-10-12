@@ -112,16 +112,18 @@ const Slot=memo(function Slot({item,date,own,timezone,today,limit,promotionId,st
     </View>:null}
   </Pressable>;
 });
-export function VenueSlotTimetable({venue,startsAt,promotionId}:{
+export function VenueSlotTimetable({venue,startsAt,promotionId,initialDate}:{
   venue:PublicVenueDto;startsAt?:string|undefined;promotionId?:string|undefined;
+  initialDate?:string|undefined;
 }){
   const {language,isRTL,t}=useLocale(),tr=(key:string)=>t(("vd.grid."+key) as never);
   const {session}=useAuth();
   const {isOnline,apiReachable,reconnectVersion}=useNetwork();
   const connected=isOnline&&apiReachable!==false;
   const today=todayKabul(),limit=addDays(today,venue.maximumAdvanceBookingDays);
-  const target=startsAt?dayForTime(startsAt,venue.timezone):today;
-  const [view,setView]=useState<TimetableCalendarView>(startsAt?"DAY":"WEEK");
+  const requested=initialDate&&validIso.test(initialDate)&&initialDate>=today&&initialDate<=limit?initialDate:today;
+  const target=startsAt?dayForTime(startsAt,venue.timezone):requested;
+  const [view,setView]=useState<TimetableCalendarView>(startsAt||initialDate?"DAY":"WEEK");
   const [anchor,setAnchor]=useState(validIso.test(target)?target:today);
   const [days,setDays]=useState<Record<string,DayResult>>({});
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
@@ -194,10 +196,12 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
       ?formatCalendarDate(anchor,language,{weekday:"short",day:"numeric",month:"long",year:"numeric"})
       :formatCalendarDate(range.from,language)+" – "+formatCalendarDate(range.to,language);
   useEffect(()=>{
-    if(!startsAt)return;
-    const next=dayForTime(startsAt,venue.timezone);
-    if(validIso.test(next)){setAnchor(next);setView("DAY");}
-  },[venue.id,startsAt,venue.timezone]);
+    if(!startsAt&&!initialDate)return;
+    const next=startsAt?dayForTime(startsAt,venue.timezone):requested;
+    if(validIso.test(next)&&next>=today&&next<=limit){
+      setAnchor(next);setView("DAY");
+    }
+  },[venue.id,startsAt,initialDate,venue.timezone,requested,today,limit]);
   useEffect(()=>{
     const requestId=++sequence.current;
     if(!venue.onlineBookingEnabled||view==="MONTH"){setBusy(false);setDays({});return;}
