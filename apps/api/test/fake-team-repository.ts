@@ -236,6 +236,7 @@ export class FakeTeamRepository implements TeamRepository {
         ...summary,
         myMembershipRole:membership?.status==="ACTIVE"?membership.role:null,
         joinRequestStatus:pending?.status??null,
+        allowJoinRequests:await this.allowsJoinRequests(team.id),
       });
     }
     return result.sort((a,b)=>a.name.localeCompare(b.name));

@@ -16,8 +16,9 @@ type Props={
   onAction:()=>void;
   actionDisabled?:boolean;
   busy?:boolean;
+  memberCountLabel?:string;
 };
-export function SocialFollowedTile({id,name,imageUrl,kind,detailsLabel,actionLabel,onDetails,onAction,actionDisabled=false,busy=false}:Props){
+export function SocialFollowedTile({id,name,imageUrl,kind,detailsLabel,actionLabel,onDetails,onAction,actionDisabled=false,busy=false,memberCountLabel}:Props){
   const {isRTL}=useLocale();
   const image=resolveMediaImageUrl(imageUrl);
   return <View testID={`social-followed-${id}`} style={styles.tile}>
@@ -29,6 +30,8 @@ export function SocialFollowedTile({id,name,imageUrl,kind,detailsLabel,actionLab
           <Ionicons name={kind==="TEAM"?"people-outline":"trophy-outline"} color={colors.primary} size={25}/>
         </View>}
       <AppText weight="semibold" variant="caption" numberOfLines={2} style={styles.name}>{name}</AppText>
+      {memberCountLabel?<AppText variant="caption" muted numberOfLines={1}
+        style={styles.memberLabel}>{memberCountLabel}</AppText>:null}
       <View style={[styles.cue,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <AppText variant="caption" weight="semibold" numberOfLines={2} style={styles.cueText}>{detailsLabel}</AppText>
         <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={15} color={colors.primary}/>
@@ -50,6 +53,7 @@ const styles=StyleSheet.create({
   logo:{width:64,height:64,borderRadius:32,backgroundColor:colors.surfaceMuted},
   fallback:{alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   name:{width:"100%",textAlign:"center",minHeight:35},
+  memberLabel:{width:"100%",textAlign:"center",fontSize:10},
   cue:{alignItems:"center",justifyContent:"center",gap:2,width:"100%",minHeight:28,
     marginTop:"auto",borderRadius:radius.sm,backgroundColor:colors.primarySoft,paddingHorizontal:3},
   cueText:{color:colors.primary,textAlign:"center",flexShrink:1},

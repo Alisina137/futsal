@@ -93,3 +93,42 @@ describe.each([
     expect(replay.body.error.code).toBe("TEAM_JOIN_REQUEST_UNAVAILABLE");
   });
 });
+
+
+it("returns truthful invitation-only and membership status in the directory",async()=>{
+  const ctx=setup();
+  const manager=await register(ctx,"phase1_mgr","0705591081");
+  const seeker=await register(ctx,"phase1_seek","0705591082");
+  const created=await request(ctx.app).post("/api/v1/teams")
+    .set("Authorization",`Bearer ${manager.token}`)
+    .send({name:"Phase One FC",city:"Kabul",privacy:"PUBLIC"});
+  expect(created.status).toBe(201);
+  const teamId=created.body.team.id as string;
+  const directory=async(token:string)=>request(ctx.app).get("/api/v1/teams")
+    .set("Authorization",`Bearer ${token}`);
+  const first=await directory(seeker.token);
+  expect(first.status).toBe(200);
+  expect(first.body.teams.find((team:{id:string})=>team.id===teamId)).toMatchObject({
+    allowJoinRequests:true,joinRequestStatus:null,myMembershipRole:null,
+  });
+  ctx.teamRepository.joinRequestsAllowed.set(teamId,false);
+  const invitationOnly=await directory(seeker.token);
+  expect(invitationOnly.body.teams.find((team:{id:string})=>team.id===teamId)).toMatchObject({
+    allowJoinRequests:false,joinRequestStatus:null,myMembershipRole:null,
+  });
+  const forbidden=await request(ctx.app).post(`/api/v1/teams/${teamId}/join-request`)
+    .set("Authorization",`Bearer ${seeker.token}`);
+  expect(forbidden.status).toBe(403);
+  expect(forbidden.body.error.code).toBe("TEAM_REQUESTS_DISABLED");
+  const ownerDirectory=await directory(manager.token);
+  expect(ownerDirectory.body.teams.find((team:{id:string})=>team.id===teamId)
+    .myMembershipRole).toBeTruthy();
+  ctx.teamRepository.joinRequestsAllowed.set(teamId,true);
+  const join=await request(ctx.app).post(`/api/v1/teams/${teamId}/join-request`)
+    .set("Authorization",`Bearer ${seeker.token}`);
+  expect(join.status).toBe(201);
+  const after=await directory(seeker.token);
+  expect(after.body.teams.find((team:{id:string})=>team.id===teamId)).toMatchObject({
+    allowJoinRequests:true,joinRequestStatus:"PENDING",myMembershipRole:null,
+  });
+});
