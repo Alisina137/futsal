@@ -155,7 +155,7 @@ async function createCompetition(ctx,cfg,now){
   [ctx.venue.id,ctx.venue.owner_user_id,name,TAG+" Authentic-looking demo fixtures and results",
    format,count,JSON.stringify(["POINTS","GOAL_DIFFERENCE","GOALS_FOR"]),
    JSON.stringify(rewards),format==="GROUP_KNOCKOUT"?4:null,format==="GROUP_KNOCKOUT"?2:null,
-   dateAt(start,-5,12),start,end,league?start:null]);
+   dateAt(start,-5,12),start,end,start]);
  return [created.id,false];
 }
 async function register(ctx,cid,teamIds,groupIds=null){
