@@ -14,7 +14,7 @@ type Props={
   date:string;
   slots:AvailabilitySlotDto[];
   availableCount:number;
-  snapshotAt?:string;
+  snapshotAt?:string|undefined;
   onRefresh:()=>void;
   onSeeAll:()=>void;
 };
