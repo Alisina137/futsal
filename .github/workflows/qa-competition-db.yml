@@ -1,0 +1,53 @@
+name: QA Competition Database Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/database/scripts/seed-competition-story.mjs"
+      - "scripts/test-competition-story-db.mjs"
+      - ".github/workflows/qa-competition-db.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/database/scripts/seed-competition-story.mjs"
+      - "scripts/test-competition-story-db.mjs"
+      - ".github/workflows/qa-competition-db.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  seed-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: futsal_ci
+          POSTGRES_USER: qa
+          POSTGRES_PASSWORD: qa_disposable_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qa -d futsal_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      CI: "true"
+      NODE_ENV: test
+      DATABASE_URL: postgresql://qa:qa_disposable_only@127.0.0.1:5432/futsal_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.5.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: node scripts/test-competition-story-db.mjs

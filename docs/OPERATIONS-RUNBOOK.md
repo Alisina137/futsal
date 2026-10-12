@@ -25,6 +25,40 @@ The release commit must be clean and the production environment must provide:
 
 Do not place production secrets in `EXPO_PUBLIC_*` variables, source files, CI logs, screenshots, or support tickets.
 
+## Local development: API and ngrok
+
+Run from `C:\projects\futsal`:
+
+```powershell
+pnpm dev:api
+```
+
+The launcher first starts Express on `API_PORT` (4000 by default), confirms
+`http://127.0.0.1:4000/health` and the database-backed `/ready`, then
+starts ngrok. The API's console messages remain visible; ngrok's interactive
+console is not permitted to cover them. The local API keeps running when
+ngrok is unavailable or exits. Press **Ctrl+C** to stop both processes.
+
+If you see **API never returned /health**, run the API directly to expose its
+startup error:
+
+```powershell
+pnpm --filter @leaguekick/api dev
+```
+
+Check the root `.env` (`DATABASE_URL`, `API_PORT`, token secrets), install
+dependencies and apply pending migrations. If `/health` succeeds but
+`/ready` fails, troubleshoot PostgreSQL connectivity; ngrok will not
+publish an unready API. If port 4000 is occupied, find its owner:
+
+```powershell
+Get-NetTCPConnection -LocalPort 4000
+```
+
+Use `EXPO_PUBLIC_API_URL` with the printed HTTPS ngrok URL for a mobile
+device; do not use an unrelated tunnel from a previously running ngrok.
+Do not expose test APIs or fixtures against a production database.
+
 ## Health and readiness
 
 - `GET /health` is a process liveness check. It does not query the database.

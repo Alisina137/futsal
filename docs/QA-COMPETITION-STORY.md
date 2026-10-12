@@ -6,21 +6,28 @@ roles, alter ownership, or execute automatically after pulling.
 
 ## Account / ownership resolution
 
-The user request names Alisina as venue owner and Mahdi as team manager.
-The existing six-role seed in this repository instead gives **Mahdi** the
-venue and **Alisina** the team, with **Abdul** as that team's player. The
-seed therefore first attempts the requested Alisina-venue and Mahdi-team
-targets; if absent, it uses the matching real owner venue / team without
-changing ownership or roles. It requires Abdul to already have an active
-player membership on the chosen team. The console prints the resolved
-target names. Do not interchange owners just to run tests.
+The confirmed roles are **Mahdi = Venue Owner**, **Alisina = Team Manager**,
+**Abdul = Player**. These are separate accounts. The seeder targets
+Mahdi's existing ACTIVE subscribed venue and Alisina's existing ACTIVE
+claimed team **only**; it never swaps their roles, creates subscriptions,
+or changes real account ownership.
 
-The named base demo users, a subscribed venue, a managed team and Abdul's
-active membership must already exist. The older role-demo seeder can reset
-roles/subscriptions of six named accounts; **do not run it on a database with
-real user data or user-customized role ownership**.
+Abdul's membership in Alisina's team is checked. If absent, the QA seeder
+can add an active Player membership on that team if Abdul is an active,
+eligible PLAYER account and no existing inactive/non-player team membership
+would be overwritten. It does not change his actual account roles.
+If an existing denied/left membership is found, the seed rolls back with
+an explanation rather than silently reactivating it.
+
+The old role-demo script may forcibly normalize the roles of named users.
+**Do not rerun `pnpm db:seed:roles`** to fix a missing membership on a
+database that contains real or customized account data.
 
 ## Command
+
+If a previous seed printed `QA story rolled back: Abdul must already be a
+player ...`, the transaction was rolled back, so that attempt inserted **no**
+competitions. Pull the fix and retry with the same seed command.
 
 From PowerShell in C:\projects\futsal:
 
@@ -78,7 +85,8 @@ of the league participants and Abdul's active player team.
   career goals, assists, cards, man-of-the-match flags and match history.
 - Competition rosters, team lineups, a forthcoming fixture and results.
 - Player preferences (only if blank), three training/meeting events,
-  availability responses, competition follows, a confirmed friendly and\n  several in-app notifications.
+  availability responses, competition follows, a confirmed friendly and
+  several in-app notifications.
 
 ## Team manager (existing owner of Abdul's team)
 
