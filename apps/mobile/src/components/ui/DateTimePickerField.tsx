@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing, touchTarget } from "@leaguekick/design-tokens";
 import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { AFGHANISTAN_TIME_ZONE } from "../../lib/date-time";
+import { AFGHANISTAN_TIME_ZONE,formatLocalDateTime } from "../../lib/date-time";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "./AppText";
 import { Button } from "./Button";
@@ -134,26 +134,10 @@ export function DateTimePickerField({
       .format(new Date(Date.UTC(2026,7,2+index))),
   );
   const display=value&&Number.isFinite(Date.parse(value))
-    ?new Intl.DateTimeFormat(locale,{
-      calendar:"gregory",
-      timeZone:AFGHANISTAN_TIME_ZONE,
-      year:"numeric",
-      month:"short",
-      day:"numeric",
-      hour:"2-digit",
-      minute:"2-digit",
-    }).format(new Date(value))
+    ?formatLocalDateTime(value,language)
     :t("dateTime.select");
-  const minimumDisplay=minimumDate
-    ?new Intl.DateTimeFormat(locale,{
-      calendar:"gregory",
-      timeZone:AFGHANISTAN_TIME_ZONE,
-      year:"numeric",
-      month:"short",
-      day:"numeric",
-      hour:"2-digit",
-      minute:"2-digit",
-    }).format(minimumDate)
+  const minimumDisplay=minimumDate&&Number.isFinite(minimumDate.getTime())
+    ?formatLocalDateTime(minimumDate,language)
     :null;
 
   return <View style={styles.wrapper}>
@@ -179,7 +163,7 @@ export function DateTimePickerField({
         <AppText weight={value?"semibold":"regular"} muted={!value} style={{textAlign:isRTL?"right":"left"}}>
           {display}
         </AppText>
-        {value?<AppText variant="caption" muted>{t("dateTime.afghanistanTime")}</AppText>:null}
+
       </View>
       <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={19} color={colors.textMuted}/>
     </Pressable>
@@ -256,10 +240,11 @@ export function DateTimePickerField({
               <View style={[styles.timeControls,{flexDirection:isRTL?"row-reverse":"row"}]}>
                 <TimeStepper
                   label={t("dateTime.hour")}
-                  value={draft.hour}
+                  value={(draft.hour%12)||12}
                   onMinus={()=>adjustHour(-1)}
                   onPlus={()=>adjustHour(1)}
                   locale={locale}
+                  twoDigits
                 />
                 <AppText variant="title" weight="bold">:</AppText>
                 <TimeStepper
@@ -270,6 +255,15 @@ export function DateTimePickerField({
                   locale={locale}
                   twoDigits
                 />
+                <Pressable testID="datetime-period-toggle" accessibilityRole="button"
+                  accessibilityLabel={draft.hour>=12?"PM":"AM"}
+                  accessibilityHint="Switch between AM and PM"
+                  onPress={()=>setDraft(current=>({...current,hour:(current.hour+12)%24}))}
+                  style={styles.periodToggle}>
+                  <AppText weight="bold" forceLtr style={styles.periodText}>
+                    {draft.hour>=12?"PM":"AM"}
+                  </AppText>
+                </Pressable>
               </View>
             </View>
 
@@ -395,14 +389,16 @@ const styles=StyleSheet.create({
     backgroundColor:colors.surface,
   },
   timeHeader:{alignItems:"center",gap:spacing.sm},
-  timeControls:{alignItems:"flex-end",justifyContent:"center",gap:spacing.md},
+  timeControls:{alignItems:"center",justifyContent:"center",gap:spacing.xs,flexWrap:"wrap"},
+  periodToggle:{minHeight:42,minWidth:52,paddingHorizontal:8,borderRadius:13,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  periodText:{color:colors.primary},
   stepper:{alignItems:"center",gap:spacing.xs},
   stepperRow:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
   stepperButton:{
-    width:42,height:42,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft,
+    width:38,height:42,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft,
   },
   stepperValue:{
-    minWidth:54,height:42,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:colors.surfaceMuted,
+    minWidth:44,height:42,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:colors.surfaceMuted,
   },
   minimumNotice:{
     alignItems:"flex-start",
