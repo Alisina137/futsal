@@ -12,12 +12,24 @@ Mahdi's existing ACTIVE subscribed venue and Alisina's existing ACTIVE
 claimed team **only**; it never swaps their roles, creates subscriptions,
 or changes real account ownership.
 
-Abdul's membership in Alisina's team is checked. If absent, the QA seeder
-can add an active Player membership on that team if Abdul is an active,
-eligible PLAYER account and no existing inactive/non-player team membership
-would be overwritten. It does not change his actual account roles.
-If an existing denied/left membership is found, the seed rolls back with
-an explanation rather than silently reactivating it.
+The QA seeder checks Abdul's membership in Alisina's team. It accepts an
+existing ACTIVE PLAYER or CAPTAIN membership, or creates a PLAYER membership
+if there is no record and Abdul is an eligible active Player account.
+
+If Abdul has a previously REMOVED PLAYER or CAPTAIN membership, the normal
+command intentionally refuses to override that history. To explicitly
+restore his membership **for this requested QA story only**, use:
+
+    pnpm db:seed:competition-story --confirm --restore-abdul-membership
+
+The flag allows restoring only Abdul's REMOVED membership on Alisina's team.
+The membership becomes ACTIVE PLAYER, previously removed captain privileges
+are not reinstated, and `left_at` is cleared. It does not change either
+user's account roles, team ownership, passwords, or subscriptions. The
+operation is rolled back if subsequent fixture creation fails.
+
+Any existing ACTIVE MANAGER or other invalid record still causes a safe
+error. Keep this operation limited to your test/staging database.
 
 The old role-demo script may forcibly normalize the roles of named users.
 **Do not rerun `pnpm db:seed:roles`** to fix a missing membership on a
@@ -25,9 +37,11 @@ database that contains real or customized account data.
 
 ## Command
 
-If a previous seed printed `QA story rolled back: Abdul must already be a
-player ...`, the transaction was rolled back, so that attempt inserted **no**
-competitions. Pull the fix and retry with the same seed command.
+If a previous seed printed `QA story rolled back: Abdul has an existing
+inactive/non-player membership ...`, the transaction was rolled back: it
+did **not** insert competitions or change Abdul. This usually means his
+membership is `REMOVED`. Pull this fix and use the explicit restore flag
+shown above **only** if you want to rejoin him to Alisina's team for QA.
 
 From PowerShell in C:\projects\futsal:
 
