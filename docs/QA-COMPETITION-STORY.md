@@ -15,8 +15,10 @@ changing ownership or roles. It requires Abdul to already have an active
 player membership on the chosen team. The console prints the resolved
 target names. Do not interchange owners just to run tests.
 
-Create the base demo accounts first, and run the existing role demo seeder
-if the original accounts lack venues, teams or paid entitlements.
+The named base demo users, a subscribed venue, a managed team and Abdul's
+active membership must already exist. The older role-demo seeder can reset
+roles/subscriptions of six named accounts; **do not run it on a database with
+real user data or user-customized role ownership**.
 
 ## Command
 
