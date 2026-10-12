@@ -5,10 +5,11 @@ import type {
   VenueCalendarEvent,
   VenueCalendarEventType,
 } from "@leaguekick/contracts";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
+import { OwnerPendingBookings } from "../../../src/components/owner/OwnerPendingBookings";
 import {
   formatCalendarDate,
   formatCalendarTime,
@@ -83,15 +84,21 @@ const slotPalette:Record<VenueCalendarEventType,{background:string;border:string
   CLOSED:{background:"#F1F5F9",border:"#CBD5E1",text:"#475569"},
 };
 
+const pendingSlotPalette={background:"#FEF3C7",border:"#FBBF24",text:"#92400E"};
+function slotPaletteFor(event:VenueCalendarEvent){
+  return event.type==="ONLINE_BOOKING"&&event.bookingStatus==="PENDING"
+    ?pendingSlotPalette:slotPalette[event.type];
+}
 function statusColor(type:VenueCalendarEventType){
   return slotPalette[type].text;
 }
 
 function SlotCornerMarker({
-  type,color,
+  type,color,pending=false,
 }:{
   type:VenueCalendarEventType;
   color:string;
+  pending?:boolean;
 }){
   const checked=type==="ONLINE_BOOKING"||type==="MANUAL_BOOKING"||type==="COMPETITION";
   const discounted=type==="PROMOTION";
@@ -99,7 +106,7 @@ function SlotCornerMarker({
 
   return <View pointerEvents="none" style={styles.slotCornerMarker}>
     {checked
-      ?<Ionicons name="checkmark" size={13} color={color}/>
+      ?<Ionicons name={pending?"hourglass-outline":"checkmark"} size={13} color={color}/>
       :<AppText variant="caption" weight="bold" style={{color,lineHeight:14}}>%</AppText>}
   </View>;
 }
@@ -193,9 +200,12 @@ export default function OwnerScheduleScreen(){
     setLoading(false);
   },[token]); // Initial page shell only; calendar changes stay in-place.
 
-  useEffect(()=>{
+  // Refetch on every return from another tab. Online reservations arrive
+  // while this screen is blurred, so mounting once is insufficient.
+  useFocusEffect(useCallback(()=>{
     void loadCalendar().catch(()=>setError(t("schedule.calendarError")));
-  },[loadCalendar,t]);
+    return ()=>{calendarRequestId.current+=1;};
+  },[loadCalendar,t]));
 
   const onTodayRowLayout=useCallback((y:number)=>{
     todayWeekRowY.current=y;
@@ -242,6 +252,7 @@ export default function OwnerScheduleScreen(){
       <Button label={t("common.retry")} onPress={()=>void refresh()} variant="secondary"/>
     </Card>:null}
 
+    <OwnerPendingBookings token={token} onChanged={()=>void refresh()}/>
     <Card>
       <View style={styles.toolbar}>
         <View style={[styles.todayRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -508,11 +519,11 @@ function WeekView({
               );
               return <View key={`${day.date}-${time}`} style={styles.weekSlotCell}>
                 {cellEvents.length?cellEvents.map((event)=>{
-                  const palette=slotPalette[event.type];
+                  const palette=slotPaletteFor(event);
                   return <Pressable
                     key={event.id}
                     accessibilityRole="button"
-                    accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatSlotStartTime(event.startsAt!,"Asia/Kabul")}, ${formatSlotTilePrice(event.priceAfn)}`}
+                    accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}${event.bookingStatus==="PENDING"?`, ${t("schedule.pendingApproval")}`:""}, ${formatSlotStartTime(event.startsAt!,"Asia/Kabul")}, ${formatSlotTilePrice(event.priceAfn)}`}
                     onPress={()=>onSelectSlot(event,day.date)}
                     style={({pressed})=>[
                       styles.weekSlot,
@@ -522,7 +533,8 @@ function WeekView({
                   >
                     <SlotTileContent startsAt={event.startsAt!} timeZone="Asia/Kabul"
                       priceAfn={event.priceAfn} ink={palette.text}
-                      marker={<SlotCornerMarker type={event.type} color={palette.text}/>}/>
+                      marker={<SlotCornerMarker type={event.type} color={palette.text}
+                    pending={event.bookingStatus==="PENDING"}/>}/>
                   </Pressable>;
                 }):(()=>{
                   const kind=missingWeekCellKind(day,time);
@@ -593,7 +605,7 @@ function SlotManager({
   onCancelBooking:(id:string)=>void;
   onUnblock:(id:string)=>void;
 }){
-  const palette=slotPalette[event.type];
+  const palette=slotPaletteFor(event);
   const navigateFromSlot=(navigate:()=>void)=>{
     onClose();
     setTimeout(navigate,0);
@@ -670,7 +682,7 @@ function DaySlotView({
       </View>
 
       {timed.map((event)=>{
-        const palette=slotPalette[event.type];
+        const palette=slotPaletteFor(event);
         return <View
           key={event.id}
           style={[styles.daySlotRow,{flexDirection:language==="en"?"row":"row-reverse"}]}
@@ -681,7 +693,7 @@ function DaySlotView({
           <View style={styles.dayStatusCell}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatSlotStartTime(event.startsAt!,"Asia/Kabul")}, ${formatSlotTilePrice(event.priceAfn)}`}
+              accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}${event.bookingStatus==="PENDING"?`, ${t("schedule.pendingApproval")}`:""}, ${formatSlotStartTime(event.startsAt!,"Asia/Kabul")}, ${formatSlotTilePrice(event.priceAfn)}`}
               onPress={()=>onSelectSlot(event,day.date)}
               style={({pressed})=>[
                 styles.daySlotButton,
@@ -691,7 +703,8 @@ function DaySlotView({
             >
               <SlotTileContent startsAt={event.startsAt!} timeZone="Asia/Kabul"
                 priceAfn={event.priceAfn} ink={palette.text}
-                marker={<SlotCornerMarker type={event.type} color={palette.text}/>}/>
+                marker={<SlotCornerMarker type={event.type} color={palette.text}
+                    pending={event.bookingStatus==="PENDING"}/>}/>
             </Pressable>
           </View>
         </View>;

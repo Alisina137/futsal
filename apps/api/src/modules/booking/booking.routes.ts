@@ -101,6 +101,11 @@ export function createOwnerScheduleRouter(booking: BookingService, tokens: Token
     } catch (error) { next(error); }
   });
 
+  router.get("/bookings/pending",async(request,response,next)=>{
+    try{response.json(await booking.getOwnerPendingBookings(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+
   router.post("/bookings/manual", writeLimiter, async (request, response, next) => {
     try {
       const input = manualBookingRequestSchema.parse(request.body);

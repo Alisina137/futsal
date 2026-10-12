@@ -432,6 +432,8 @@ export const ownerApi = {
   preview: (accessToken: string) => request<OwnerOnboardingStatus>("/api/v1/owner/venue/preview", {}, accessToken),
   startTrial: (accessToken: string) =>
     request<OwnerOnboardingStatus>("/api/v1/owner/trial/start", { method: "POST" }, accessToken),
+  pendingBookings: (accessToken:string) =>
+    request<{bookings:BookingDto[];generatedAt:string}>("/api/v1/owner/bookings/pending",{},accessToken),
   schedule: (accessToken: string, date: string) =>
     request<OwnerScheduleResponse>(`/api/v1/owner/schedule?date=${encodeURIComponent(date)}`, {}, accessToken),
   timetables: (accessToken: string) =>

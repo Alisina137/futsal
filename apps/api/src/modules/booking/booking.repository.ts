@@ -541,6 +541,17 @@ export class DrizzleBookingRepository implements BookingRepository {
     return rows.map(bookingDto).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   }
 
+  async listPendingOnlineVenueBookings(venueId: string) {
+    // Never filter by a selected calendar range. Pending requests across
+    // future dates (and overdue items that require rejection) must be visible.
+    const rows = await this.bookingProjectionQuery().where(and(
+      eq(bookings.venueId, venueId),
+      eq(bookings.source, "ONLINE"),
+      eq(bookings.status, "PENDING"),
+    ));
+    return rows.map(bookingDto).sort((a,b)=>a.startsAt.localeCompare(b.startsAt));
+  }
+
   async listVenueBlocks(venueId: string, startsAt: Date, endsAt: Date) {
     const rows = await this.db.select({
       id: venueBlocks.id,

@@ -48,6 +48,11 @@ function cachePolicy(path: string, accessToken?: string): CachePolicy | null {
   if (pathname.includes("/availability")) return null;
   // User booking ownership/cancellation must never rely on stale cached data.
   if (pathname === "/api/v1/bookings/me") return null;
+  // Approval requests and live owner calendar are changed by other accounts.
+  // An in-memory 20s cache here hid newly requested slots from the owner.
+  if(pathname==="/api/v1/owner/bookings/pending"
+    ||pathname==="/api/v1/owner/timetable-calendar"
+    ||pathname==="/api/v1/owner/schedule")return null;
 
   // Public/read-mostly data can survive app restarts.
   if (pathname === "/api/v1/venues") return { ttlMs: 5 * 60_000, persist: true };

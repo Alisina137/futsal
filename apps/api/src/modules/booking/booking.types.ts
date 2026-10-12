@@ -113,6 +113,9 @@ export interface BookingRepository {
   getBookingByIdempotency(createdByUserId: string, idempotencyKey: string): Promise<BookingDto | null>;
   listPlayerBookings(playerUserId: string): Promise<BookingDto[]>;
   listVenueBookings(venueId: string, startsAt: Date, endsAt: Date): Promise<BookingDto[]>;
+  /** Approval inbox: includes pending requests across all dates, not just
+   * the owner calendar's currently selected day/week/month. */
+  listPendingOnlineVenueBookings(venueId: string): Promise<BookingDto[]>;
   listVenueBlocks(venueId: string, startsAt: Date, endsAt: Date): Promise<VenueBlockDto[]>;
   confirmBooking(bookingId: string, confirmedAt: Date): Promise<BookingDto>;
   cancelBooking(input: { bookingId: string; cancelledByUserId: string; reason: string | null; cancelledAt: Date }): Promise<BookingDto>;

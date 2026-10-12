@@ -434,6 +434,58 @@ describe("Phase 3 availability and booking API", () => {
     expect(tooFar.body.slots).toHaveLength(0);
   });
 
+  it("shows all pending online reservations in the correct owner's inbox, and resolves approvals/rejections",async()=>{
+    const {app,bookingRepository,authRepository}=setup();
+    const ownerA=await register(app,authRepository,"VENUE_OWNER","0702223451");
+    const ownerB=await register(app,authRepository,"VENUE_OWNER","0702223452");
+    const player=await register(app,authRepository,"PLAYER","0702223453");
+    const {venue}=bookingRepository.seedVenue(ownerA.body.user.id);
+    const other=bookingRepository.seedVenue(ownerB.body.user.id).venue;
+    venue.bookingMode="APPROVAL";
+    other.bookingMode="APPROVAL";
+    const aAuth={Authorization:`Bearer ${ownerA.body.accessToken}`};
+    const bAuth={Authorization:`Bearer ${ownerB.body.accessToken}`};
+    const pAuth={Authorization:`Bearer ${player.body.accessToken}`};
+    const slots=await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-05`);
+    const later=await request(app).get(`/api/v1/venues/${venue.id}/availability?date=2026-10-09`);
+    const otherSlots=await request(app).get(`/api/v1/venues/${other.id}/availability?date=2026-10-06`);
+    const make=async(slot:{areaId:string;startsAt:string},key:string)=>
+      request(app).post("/api/v1/bookings").set(pAuth).send({
+        areaId:slot.areaId,startsAt:slot.startsAt,idempotencyKey:key,
+      });
+    const first=await make(slots.body.slots[0],"pending-inbox-one");
+    const second=await make(later.body.slots[0],"pending-inbox-later");
+    const crossVenue=await make(otherSlots.body.slots[0],"pending-inbox-other");
+    expect([first.status,second.status,crossVenue.status]).toEqual([201,201,201]);
+    expect(first.body.booking.status).toBe("PENDING");
+    const withoutAuth=await request(app).get("/api/v1/owner/bookings/pending");
+    expect(withoutAuth.status).toBe(401);
+    const cannotRead=await request(app).get("/api/v1/owner/bookings/pending").set(pAuth);
+    expect(cannotRead.status).toBe(403);
+    const inboxA=await request(app).get("/api/v1/owner/bookings/pending").set(aAuth);
+    expect(inboxA.status).toBe(200);
+    expect(inboxA.body.bookings.map((b:{id:string})=>b.id)).toEqual([
+      first.body.booking.id,second.body.booking.id,
+    ]);
+    expect(inboxA.body.bookings.every((b:{status:string;source:string})=>
+      b.status==="PENDING"&&b.source==="ONLINE")).toBe(true);
+    const inboxB=await request(app).get("/api/v1/owner/bookings/pending").set(bAuth);
+    expect(inboxB.body.bookings.map((b:{id:string})=>b.id)).toEqual([crossVenue.body.booking.id]);
+    expect((await request(app).post(`/api/v1/owner/bookings/${first.body.booking.id}/confirm`).set(bAuth)).status).toBe(403);
+    const approved=await request(app).post(`/api/v1/owner/bookings/${first.body.booking.id}/confirm`).set(aAuth);
+    expect(approved.status).toBe(200);
+    expect(approved.body.booking.status).toBe("CONFIRMED");
+    const rejected=await request(app).post(`/api/v1/owner/bookings/${second.body.booking.id}/cancel`)
+      .set(aAuth).send({reason:"Venue declined the request"});
+    expect(rejected.status).toBe(200);
+    expect(rejected.body.booking.status).toBe("CANCELLED");
+    const empty=await request(app).get("/api/v1/owner/bookings/pending").set(aAuth);
+    expect(empty.status).toBe(200);
+    expect(empty.body.bookings).toEqual([]);
+    expect((await request(app).get("/api/v1/owner/bookings/pending").set(bAuth)).body.bookings)
+      .toHaveLength(1);
+  });
+
   it("supports owner approval mode from pending online booking to confirmed booking", async () => {
     const { app, bookingRepository, authRepository } = setup();
     const owner = await register(app, authRepository, "VENUE_OWNER", "0702223404");

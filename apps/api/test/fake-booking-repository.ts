@@ -262,6 +262,12 @@ export class FakeBookingRepository implements BookingRepository {
     return [...this.bookings.values()].filter((booking) => booking.playerUserId === playerUserId);
   }
 
+  async listPendingOnlineVenueBookings(venueId:string):Promise<BookingDto[]>{
+    return [...this.bookings.values()]
+      .filter(booking=>booking.venueId===venueId&&booking.source==="ONLINE"&&booking.status==="PENDING")
+      .sort((a,b)=>a.startsAt.localeCompare(b.startsAt));
+  }
+
   async listVenueBookings(venueId: string, startsAt: Date, endsAt: Date) {
     return [...this.bookings.values()].filter((booking) =>
       booking.venueId === venueId && overlap(new Date(booking.startsAt), new Date(booking.endsAt), startsAt, endsAt));

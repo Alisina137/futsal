@@ -356,6 +356,17 @@ export class BookingService {
     return cancelled;
   }
 
+  /** An owner-specific approvals inbox separate from calendar-range queries.
+   * A successful PENDING reservation remains here until approved or declined. */
+  async getOwnerPendingBookings(ownerUserId:string) {
+    const venue=await this.repository.getOwnerVenueRecord(ownerUserId);
+    if(!venue)throw errors.badRequest("VENUE_REQUIRED","Complete venue setup first.");
+    return {
+      bookings:await this.repository.listPendingOnlineVenueBookings(venue.id),
+      generatedAt:this.now().toISOString(),
+    };
+  }
+
   async getOwnerSchedule(ownerUserId: string, date: string): Promise<OwnerScheduleResponse> {
     dateParts(date);
     const venue = await this.repository.getOwnerVenueRecord(ownerUserId);

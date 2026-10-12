@@ -6,6 +6,7 @@ import { ownerApi, ApiRequestError } from "../../lib/api";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
 import { OwnerTopNav } from "./OwnerTopNav";
+import { OwnerPendingBookings } from "./OwnerPendingBookings";
 import { AppText } from "../ui/AppText";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -45,6 +46,8 @@ export function OwnerDashboard() {
 
   return <Screen showHeader>
     <OwnerTopNav/>
+
+    {status?.venue?<OwnerPendingBookings token={token} compact/>:null}
 
     {error ? <Card>
       <AppText style={{ color: colors.danger }}>{error}</AppText>
