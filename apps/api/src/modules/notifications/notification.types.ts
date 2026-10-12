@@ -38,6 +38,9 @@ export interface NotificationRepository {
 }
 
 export interface NotificationPublisher {
+  slotAvailable(input:{userId:string;watchId:string;venueId:string;areaId:string;
+    venueName:string;startsAt:string}):Promise<void>;
+
   bookingConfirmed(input: {
     userId: string;
     bookingId: string;
