@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     color: colors.text,
     backgroundColor: colors.surface,
-    fontSize: 16,
+    fontSize: 15,
   },
   passwordInputLtr: {
     paddingRight: 50,
