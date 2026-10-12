@@ -13,11 +13,11 @@ const publicCheck=read("scripts/verify-venue-slot-grid.mjs");
 
 // Explicit examples: Kabul local 06:00, 13:30 and noon, independent of
 // the device's time zone or whether the user selected RTL language.
-assert.equal(formatSlotStartTime("2026-10-12T01:30:00.000Z","Asia/Kabul"),"6:00 AM");
-assert.equal(formatSlotStartTime("2026-10-12T09:00:00.000Z","Asia/Kabul"),"1:30 PM");
+assert.equal(formatSlotStartTime("2026-10-12T01:30:00.000Z","Asia/Kabul"),"06:00 AM");
+assert.equal(formatSlotStartTime("2026-10-12T09:00:00.000Z","Asia/Kabul"),"01:30 PM");
 assert.equal(formatSlotStartTime("2026-10-12T07:30:00.000Z","Asia/Kabul"),"12:00 PM");
 assert.equal(formatSlotStartTime("2026-10-11T19:30:00.000Z","Asia/Kabul"),"12:00 AM");
-assert.equal(formatSlotStartTime("2026-10-12T01:30:00.000Z","UTC"),"1:30 AM");
+assert.equal(formatSlotStartTime("2026-10-12T01:30:00.000Z","UTC"),"01:30 AM");
 assert.equal(formatSlotStartTime("not-a-date","Asia/Kabul"),"—");
 assert.equal(formatSlotTilePrice(500),"500 AF");
 assert.equal(formatSlotTilePrice(0),"0 AF");
