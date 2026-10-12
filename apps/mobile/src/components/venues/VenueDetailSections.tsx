@@ -202,12 +202,13 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   </>;
 }
 
-export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
+export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}:{
   venue:PublicVenueDto;sub:VenueReserveSub;startsAt?:string|undefined;promotionId?:string|undefined;
+  bookingDate?:string|undefined;
 }){
   const {session}=useAuth(),{isOnline,reconnectVersion}=useNetwork();
   const {t,language,isRTL}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
-  const [date,setDate]=useState(todayAtKabul());
+  const [date,setDate]=useState(bookingDate??todayAtKabul());
   const [availability,setAvailability]=useState<VenueAvailabilityResponse|null>(null);
   const [availabilityDate,setAvailabilityDate]=useState<string|null>(null);
   const [loading,setLoading]=useState(false),[error,setError]=useState<string|null>(null);
@@ -221,13 +222,13 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
   const dateValid=/^\d{4}-\d{2}-\d{2}$/.test(date)&&!Number.isNaN(Date.parse(date+"T12:00:00Z"))
     &&date>=today&&date<=maximum;
   useEffect(()=>{
-    if(!startsAt)return;
+    if(!startsAt){if(bookingDate&&/^\\d{4}-\\d{2}-\\d{2}$/.test(bookingDate))setDate(bookingDate);return;}
     const parts=new Intl.DateTimeFormat("en-GB",{timeZone:venue.timezone,year:"numeric",
       month:"2-digit",day:"2-digit"}).formatToParts(new Date(startsAt));
     const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));
     const next=v.year+"-"+v.month+"-"+v.day;
     if(/^\d{4}-\d{2}-\d{2}$/.test(next))setDate(next);
-  },[venue.id,startsAt]);
+  },[venue.id,startsAt,bookingDate]);
   const load=useCallback(async()=>{
     if(!dateValid||!venue.onlineBookingEnabled)return;
     setLoading(true);setError(null);
@@ -285,7 +286,8 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId}:{
       timeZone:venue.timezone,
     }});
   }
-  if(sub==="slots")return <VenueSlotTimetable venue={venue} startsAt={startsAt} promotionId={promotionId}/>;
+  if(sub==="slots")return <VenueSlotTimetable venue={venue} startsAt={startsAt}
+    promotionId={promotionId} initialDate={bookingDate}/>;
   const usable=availabilityDate===date?availability?.slots??[]:[];
   const slots=sub==="offers"?usable.filter(slot=>slot.promotionId!==null):usable;
   if(sub==="bookings")return !session
