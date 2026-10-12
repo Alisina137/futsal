@@ -41,9 +41,9 @@ export function formatBookingSlot(
   const day=new Intl.DateTimeFormat(locale,{
     ...common,weekday:"long",
   }).format(instant);
-  const time=new Intl.DateTimeFormat(locale,{
-    ...common,hour:"2-digit",minute:"2-digit",hourCycle:"h23",
-  }).format(instant);
+  const time=new Intl.DateTimeFormat("en-US",{
+    ...common,hour:"2-digit",minute:"2-digit",hour12:true,
+  }).format(instant).replace(/[\u00a0\u202f]/g," ");
   const parts=new Intl.DateTimeFormat("en-GB",{
     ...common,year:"numeric",month:"2-digit",day:"2-digit",
   }).formatToParts(instant);
