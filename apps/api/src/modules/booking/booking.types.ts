@@ -92,7 +92,7 @@ export interface BookingRepository {
   setSavedVenueTime(userId:string,venueId:string,time:string|null,now:Date):Promise<void>;
   watchVenueSlot(input:{userId:string;venueId:string;areaId:string;startsAt:Date;
     expiresAt:Date}):Promise<import("@leaguekick/contracts").VenueSlotWatchDto>;
-  listVenueSlotWatches(areaId:string,startsAt:Date,now:Date):Promise<import("@leaguekick/contracts").VenueSlotWatchDto[]&{userId:string}[]>;
+  listVenueSlotWatches(areaId:string,startsAt:Date,now:Date):Promise<Array<import("@leaguekick/contracts").VenueSlotWatchDto & {userId:string}>>;
   removeVenueSlotWatch(userId:string,watchId:string):Promise<boolean>;
   listMyVenueSlotWatches(userId:string,venueId:string,now:Date):Promise<import("@leaguekick/contracts").VenueSlotWatchDto[]>;
 
