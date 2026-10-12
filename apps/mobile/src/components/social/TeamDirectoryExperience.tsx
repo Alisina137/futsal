@@ -95,7 +95,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
       </AppText>:null}
       <SocialDirectoryCard id={team.id} name={team.name} kind="TEAM" imageUrl={team.logoUrl}
         detail={team.city} badge={t("teams.members",{count:team.rosterCount})}
-        statusLabel={a.status??undefined} statusTone={a.tone}
+        statusLabel={a.status??""} statusTone={a.tone}
         detailsLabel={t("teams.viewTeam")} actionLabel={a.label}
         actionDisabled={a.disabled||!token||joiningId!==null} busy={joiningId===team.id}
         onDetails={()=>open(team.id)} onAction={()=>void join(team.id)}/>
