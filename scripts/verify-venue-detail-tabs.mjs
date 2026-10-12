@@ -13,7 +13,7 @@ for(const tab of ["media","reserve","competitions","updates","about"]){
   check(detail.includes('main==="'+tab+'"'),"Venue content not gated by selected tab: "+tab);
 }
 check(detail.includes('bookingDeepLink=focusAvailability==="1"')&&
-  detail.includes('bookingDeepLink?"reserve":"media"')&&
+  detail.includes('bookingDeepLink?"reserve":reviewBookingId?"about":"media"')&&
   detail.includes('setMain("reserve")')&&
   detail.includes('reserve:"slots"')&&
   detail.includes('onPress={()=>reserve()}'),
@@ -25,7 +25,7 @@ check(components.includes('export const venueSubtabs')&&
   components.includes('reserve:["slots","offers","bookings"]')&&
   components.includes('competitions:["upcoming","live","completed"]')&&
   components.includes('updates:["announcements","alerts"]')&&
-  components.includes('about:["overview","facilities","location"]'),
+  components.includes('about:["overview","facilities","location","reviews","preferences"]'),
   "Venue tab/subtab structure is incomplete.");
 for(const fragment of [
   "marketingApi.venuePosts","post.socialPostId","post.ctaTargetId",
