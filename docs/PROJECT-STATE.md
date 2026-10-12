@@ -1,5 +1,12 @@
 # PROJECT STATE
 
+## Development API and QA competition seed recovery (October 12, 2026)
+- `pnpm dev:api` now launches the API first, waits for its `/health` and database-backed `/ready` response, then starts ngrok. Ngrok's interactive terminal UI is piped to prevent it hiding API startup/errors; failures, busy ports, absent ngrok, and API-only mode are displayed explicitly. Local API remains running if a tunnel fails. `pnpm verify:dev-api` exercises the real launcher against simulated healthy/failing API and ngrok commands on CI.
+- The first competition-story seed reported `QA story rolled back: Abdul must already be a player on the selected manager's team`. This is a full transaction rollback; migrations were successful and that seed inserted zero competition records. Root cause: seed chose a preferred manager team before checking Abdul's team membership. It now selects an eligible already-membership team first, otherwise safely inserts a new test-only membership if Abdul is an active, non-referee/non-owner Player and has no existing departed/inactive membership. Existing roles/teams are preserved.
+- A PostgreSQL-18 disposable CI job applies migrations, exercises the missing-membership seeding flow and reruns the fixture to check idempotence; never uses the user's Neon database.
+- No actual database changes are made by pulling code. After pulling, rerun `pnpm db:seed:competition-story --confirm` against the intended development/staging database; never run the role-normalization seed to solve this membership bug.
+
+
 ## QA competition story (October 12, 2026)
 - New opt-in `pnpm db:seed:competition-story --confirm` fixture; 15-team/105-fixture League currently in week 4 with 21 completed results, 12-team/4-group Groups-and-Knockout, 16-team Knockout bracket. Included connected stats for Abdul, an eight-person manager-team roster (five starters and three substitutes), 22 no-login suspended athlete fixtures for stat leaderboards, venue-scoped referee match assignments, competition rosters/lineups, in-app notifications, manager profile/activities/announcements/posts and friendly. Details: `docs/QA-COMPETITION-STORY.md`.
 - Existing role-demo source maps Mahdi to Venue Owner and Alisina to Team Manager, contrary to the latest user's wording. Seed resolves actual owned venue/team at runtime (prefers specifically named requested roles only if real) and **does not swap ownership or existing roles**.
