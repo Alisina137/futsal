@@ -28,7 +28,7 @@ const statePalette={
   UPCOMING:{background:"#E7F0FF",ink:"#1D4ED8",border:"#BFDBFE",icon:"calendar-outline"},
   PENDING:{background:"#FEF3C7",ink:"#92400E",border:"#FDE68A",icon:"hourglass-outline"},
   COMPLETED:{background:"#DCFCE7",ink:"#166534",border:"#BBF7D0",icon:"checkmark-circle-outline"},
-  CANCELLED:{background:"#F1F5F9",ink:"#475569",border:"#CBD5E1",icon:"close-circle-outline"},
+  CANCELLED:{background:"#FFE4E6",ink:"#B42318",border:"#FDA4AF",icon:"close-circle-outline"},
 } as const;
 
 const iconSize=19;
@@ -150,7 +150,10 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
       const palette=statePalette[group];
       const expanded=expandedId===item.id;
       const canCancel=item.status!=="CANCELLED"&&Date.parse(item.startsAt)>now;
-      return <Card key={item.id} style={[styles.bookingCard,{borderLeftColor:palette.ink}]}>
+      return <Card key={item.id}
+        testID={group==="CANCELLED"?`reservation-cancelled-card-${item.id}`:undefined}
+        style={[styles.bookingCard,{borderLeftColor:palette.ink},
+          group==="CANCELLED"&&styles.cancelledCard]}>
         <View style={[styles.identity,rtlRow]}>
           <View style={[styles.venueIcon,{backgroundColor:palette.background}]}>
             <Ionicons name="football-outline" size={25} color={palette.ink}/>
@@ -163,7 +166,8 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
             <AppText variant="caption" weight="bold" style={{color:palette.ink}}>{tr(group)}</AppText>
           </View>
         </View>
-        <View style={[styles.bookingDetails,rtlRow]}>
+        <View style={[styles.bookingDetails,rtlRow,
+          group==="CANCELLED"&&styles.cancelledDetails]}>
           <View style={styles.dateArea}>
             <View style={[styles.infoRow,rtlRow]}>
               <Ionicons name="calendar-outline" size={18} color={colors.textMuted}/>
@@ -220,7 +224,7 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
           {item.note?<AppText variant="caption">{tr("note")}: {item.note}</AppText>:null}
           <AppText variant="caption" weight="semibold">{tr("policy")}</AppText>
           <AppText variant="caption" muted>{item.cancellationPolicySnapshot||tr("noPolicy")}</AppText>
-          {canCancel?<Button label={tr("cancelBooking")} variant="secondary"
+          {canCancel?<Button label={tr("cancelBooking")} variant="danger"
             disabled={!canNetwork} onPress={()=>requestCancel(item)}/>:null}
         </View>:null}
       </Card>;
@@ -236,7 +240,7 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
           <View style={styles.modalIcon}>
             <Ionicons name="warning-outline" size={28} color={colors.danger}/>
           </View>
-          <AppText variant="bodyLarge" weight="bold" style={styles.centerText}>
+          <AppText variant="bodyLarge" weight="bold" style={[styles.centerText,styles.cancelHeading]}>
             {tr("cancelTitle")}
           </AppText>
           <AppText style={styles.centerText}>
@@ -290,6 +294,8 @@ const styles=StyleSheet.create({
     justifyContent:"center",alignItems:"center"},
   centerText:{textAlign:"center"},
   bookingCard:{padding:spacing.md,borderLeftWidth:4,gap:spacing.md},
+  cancelledCard:{backgroundColor:"#FFF1F2",borderColor:"#FDA4AF",borderWidth:1},
+  cancelledDetails:{backgroundColor:"#FFE4E6"},
   identity:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
   venueIcon:{width:48,height:48,borderRadius:radius.md,alignItems:"center",justifyContent:"center"},
   identityText:{flex:1,minWidth:0,gap:2},
@@ -311,10 +317,12 @@ const styles=StyleSheet.create({
   footer:{textAlign:"center"},
   modalOverlay:{flex:1,backgroundColor:"rgba(15,23,42,.66)",padding:spacing.md,
     alignItems:"center",justifyContent:"center"},
-  modalCard:{backgroundColor:colors.surface,borderRadius:radius.lg,padding:spacing.lg,
+  modalCard:{backgroundColor:"#FFF8F8",borderColor:"#FDA4AF",borderWidth:2,
+    borderRadius:radius.lg,padding:spacing.lg,
     gap:spacing.md,width:"100%",maxWidth:480,maxHeight:"90%"},
+  cancelHeading:{color:colors.danger},
   modalIcon:{alignSelf:"center",height:56,width:56,borderRadius:28,backgroundColor:"#FEE2E2",
     alignItems:"center",justifyContent:"center"},
-  policyBox:{gap:spacing.xs,padding:spacing.sm,backgroundColor:colors.surfaceMuted,
-    borderRadius:radius.md},
+  policyBox:{gap:spacing.xs,padding:spacing.sm,backgroundColor:"#FFE4E6",
+    borderColor:"#FECDD3",borderWidth:1,borderRadius:radius.md},
 });
