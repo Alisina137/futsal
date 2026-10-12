@@ -5,7 +5,7 @@ import {router} from "expo-router";
 import {useMemo,useState} from "react";
 import {Image,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
-import {formatLocalDateTimeParts} from "../../lib/date-time";
+import {formatFixtureSchedule,groupMatchesByRound} from "../../lib/competition-match-schedule";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Card} from "../ui/Card";
@@ -27,15 +27,6 @@ function order(matches:CompetitionMatchDto[]){
     return date||a.roundNumber-b.roundNumber||a.slotNumber-b.slotNumber||a.id.localeCompare(b.id);
   });
 }
-function dateGroup(iso:string|null){
-  if(!iso)return "unscheduled";
-  const date=new Date(iso);
-  if(!Number.isFinite(date.getTime()))return "unscheduled";
-  const pieces=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",
-    year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
-  const part=(type:string)=>pieces.find(x=>x.type===type)?.value??"";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
 function TeamLogo({uri}:{uri:string|null|undefined}){
   const url=resolveMediaImageUrl(uri);
   return <View style={styles.crest}>
@@ -54,18 +45,14 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
       filter==="FINISHED"?done(match):
       filter==="LIVE"?match.status==="IN_PROGRESS":upcoming(match)
   )),[competition.matches,filter]);
-  const groups=useMemo(()=>{
-    const result:Array<{key:string;date:string;matches:CompetitionMatchDto[]}>= [];
-    for(const match of matches){
-      const key=dateGroup(match.startsAt);
-      const label=match.startsAt?formatLocalDateTimeParts(match.startsAt,language).date:
-        t("competition.matchList.unscheduled");
-      const last=result[result.length-1];
-      if(last?.key===key)last.matches.push(match);
-      else result.push({key,date:label,matches:[match]});
+  const groups=useMemo(()=>groupMatchesByRound(matches),[matches]);
+  const roundsInStage=useMemo(()=>{
+    const maximum=new Map<CompetitionMatchDto["stage"],number>();
+    for(const match of competition.matches){
+      maximum.set(match.stage,Math.max(maximum.get(match.stage)??0,match.roundNumber));
     }
-    return result;
-  },[matches,language,t]);
+    return maximum;
+  },[competition.matches]);
   const open=(match:CompetitionMatchDto)=>router.push({
     pathname:"/competitions/[competitionId]/matches/[matchId]",
     params:{competitionId:competition.id,matchId:match.id},
@@ -90,10 +77,19 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
         {t("competition.matchList.empty")}
       </AppText>
     </Card>:null}
-    {groups.map((group,index)=><View key={`${group.key}-${index}`} style={styles.dayGroup}>
-      <View style={[styles.dayHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Ionicons name="calendar-clear-outline" size={17} color={colors.primary}/>
-        <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>{group.date}</AppText>
+    {groups.map(group=><View key={group.key} style={styles.roundGroup}
+        testID={`match-round-${group.stage}-${group.roundNumber}`}>
+      <View style={[styles.roundHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="layers-outline" size={17} color={colors.primary}/>
+        <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>
+          {group.stage==="LEAGUE"
+            ?t("competition.matchList.roundOf",{
+              number:group.roundNumber,total:roundsInStage.get(group.stage)??group.roundNumber,
+            })
+            :group.stage==="GROUP"
+              ?`${t("competition.profile.groupStage")} · ${t("competition.round",{number:group.roundNumber})}`
+              :`${t("competition.profile.knockoutStage")} · ${t("competition.round",{number:group.roundNumber})}`}
+        </AppText>
         <View style={styles.dayCount}>
           <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
             {group.matches.length}
@@ -103,8 +99,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
       {group.matches.map(match=>{
         const home=teams.get(match.homeTeamId??"");
         const away=teams.get(match.awayTeamId??"");
-        const time=match.startsAt?formatLocalDateTimeParts(match.startsAt,language).time:
-          t("competition.matchList.unscheduled");
+        const fixtureTime=formatFixtureSchedule(match.startsAt,language);
         const score=match.homeScore!==null&&match.awayScore!==null;
         return <Pressable key={match.id} testID={`competition-match-${match.id}`}
           accessibilityRole="button"
@@ -128,15 +123,23 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
                 {score?<AppText weight="bold" style={styles.score}>{match.awayScore}</AppText>:null}
               </View>
             </View>
-            <View style={styles.detailSide}>
-              <AppText variant="caption" weight="semibold" numberOfLines={1} style={styles.time}>
-                {done(match)?t("competition.matchList.fullTime"):match.status==="IN_PROGRESS"
-                  ?t("competition.profile.liveBadge"):time}
+            <View style={[styles.detailSide,isRTL?styles.detailSideRtl:styles.detailSideLtr]}>
+              <AppText variant="caption" weight="semibold" numberOfLines={2}
+                style={styles.fixtureDate}>
+                {fixtureTime?.date??t("competition.matchList.unscheduled")}
               </AppText>
-              <AppText variant="caption" muted numberOfLines={2} style={styles.sideText}>
-                {match.groupName??t("competition.round",{number:match.roundNumber})}
-              </AppText>
-              <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={17} color={colors.primary}/>
+              {fixtureTime?<AppText variant="caption" weight="medium" style={styles.fixtureClock}
+                numberOfLines={1} forceLtr>{fixtureTime.time}</AppText>:null}
+              {match.status==="IN_PROGRESS"
+                ?<AppText variant="caption" weight="bold" style={styles.liveTag}>
+                  {t("competition.profile.liveBadge")}
+                </AppText>
+                :null}
+              {match.groupName&&group.stage==="GROUP"
+                ?<AppText variant="caption" muted numberOfLines={1} style={styles.groupName}>
+                  {match.groupName}
+                </AppText>
+                :null}
             </View>
           </View>
           {match.status==="POSTPONED"||match.status==="CANCELLED"?
@@ -156,8 +159,8 @@ const styles=StyleSheet.create({
     borderRadius:radius.pill,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border},
   selected:{backgroundColor:colors.primary,borderColor:colors.primary},
   empty:{alignItems:"center",gap:spacing.md,padding:spacing.lg},
-  dayGroup:{gap:spacing.xs},
-  dayHeader:{minHeight:46,gap:spacing.sm,alignItems:"center",paddingHorizontal:spacing.sm,
+  roundGroup:{gap:spacing.xs},
+  roundHeader:{minHeight:42,gap:spacing.sm,alignItems:"center",paddingHorizontal:spacing.sm,
     backgroundColor:colors.primarySoft,borderRadius:radius.md},
   dayCount:{minWidth:27,height:27,borderRadius:14,alignItems:"center",justifyContent:"center",
     backgroundColor:colors.surface,paddingHorizontal:5},
@@ -165,15 +168,18 @@ const styles=StyleSheet.create({
     borderColor:colors.border,padding:spacing.sm,gap:spacing.xs},
   rowInner:{gap:spacing.sm,alignItems:"stretch"},
   teams:{flex:1,gap:spacing.xs,minWidth:0},
-  teamLine:{alignItems:"center",gap:spacing.sm,minHeight:43},
+  teamLine:{alignItems:"center",gap:spacing.sm,minHeight:37},
   teamText:{flex:1,minWidth:0},
-  crest:{width:36,height:36,borderRadius:18,backgroundColor:colors.primarySoft,
+  crest:{width:32,height:32,borderRadius:16,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",overflow:"hidden"},
   crestImage:{width:"100%",height:"100%"},
   score:{width:25,textAlign:"center",color:colors.primary},
-  detailSide:{width:108,borderLeftWidth:1,borderLeftColor:colors.border,
-    alignItems:"center",justifyContent:"center",gap:5,paddingHorizontal:4},
-  time:{textAlign:"center",color:colors.primary},
-  sideText:{textAlign:"center"},
+  detailSide:{width:112,alignItems:"center",justifyContent:"center",gap:3,paddingHorizontal:4},
+  detailSideLtr:{borderLeftWidth:1,borderLeftColor:colors.border},
+  detailSideRtl:{borderRightWidth:1,borderRightColor:colors.border},
+  fixtureDate:{textAlign:"center",color:colors.primary,lineHeight:17},
+  fixtureClock:{textAlign:"center",color:colors.text,lineHeight:17},
+  liveTag:{textAlign:"center",color:colors.danger},
+  groupName:{textAlign:"center",lineHeight:16},
   pressed:{backgroundColor:colors.primarySoft},
 });
