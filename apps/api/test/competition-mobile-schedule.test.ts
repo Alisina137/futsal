@@ -36,16 +36,16 @@ describe("competition schedule round grouping",()=>{
 
 describe("competition fixture day and date",()=>{
   const now=new Date("2026-10-12T05:00:00Z");
-  it("shows weekday and 24-hour Kabul clock within seven days",()=>{
+  it("shows weekday and 12-hour AM/PM Kabul clock within seven days",()=>{
     const fmt=formatFixtureSchedule("2026-10-12T15:30:00Z","en",now);
-    expect(fmt).toEqual({date:"Monday",time:"20:00",nearby:true});
+    expect(fmt).toEqual({date:"Monday",time:"08:00 PM",nearby:true});
     expect(fmt?.date).not.toMatch(/[0-9]/);
   });
   it("shows calendar date plus clock for distant future and previous games",()=>{
     const later=formatFixtureSchedule("2026-11-01T13:30:00Z","en",now);
     const earlier=formatFixtureSchedule("2026-09-01T13:30:00Z","en",now);
     expect(later?.date).toMatch(/1 Nov 2026/);
-    expect(later?.time).toBe("18:00");
+    expect(later?.time).toBe("06:00 PM");
     expect(later?.nearby).toBe(false);
     expect(earlier?.date).toContain("2026");
     expect(earlier?.nearby).toBe(false);
