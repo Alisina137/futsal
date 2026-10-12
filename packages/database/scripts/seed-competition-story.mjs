@@ -53,7 +53,8 @@ async function target(){
  guard(member,"Abdul must already be a player on the selected manager's team; no real memberships will be altered.");
  console.log("Seeding "+venue.name+" (owner="+(venue.owner_user_id===users.alisina.id?"alisina":"mahdi")+
    ") and team "+team.name+" (manager="+(team.manager_user_id===users.mahdi.id?"mahdi":"alisina")+")");
- return {users,venue,team};
+ const official=await get("select user_id from venue_referees where venue_id=$1 order by assigned_at limit 1",[venue.id]);
+ return {users,venue,team,refereeId:official?.user_id??null};
 }
 async function participants(ctx){
  const ids=[ctx.team.id];
@@ -146,12 +147,17 @@ async function match(ctx,cid,stage,round,slot,home,away,when,completed=false,gro
  const inserted=await get(
   "insert into competition_matches(competition_id,group_id,stage,round_number,slot_number,"+
   "home_team_id,away_team_id,venue_id,area_id,starts_at,ends_at,status,home_score,away_score,"+
-  "winner_team_id,result_entered_by_user_id,result_entered_at,created_at,updated_at) "+
+  "winner_team_id,referee_user_id,result_entered_by_user_id,result_entered_at,created_at,updated_at) "+
   "values($1,$2,$3::competition_match_stage,$4,$5,$6,$7,$8,$9,$10,$11,$12::competition_match_status,"+
-  "$13,$14,$15,$16,$17,now(),now()) returning id",
+  "$13,$14,$15,$16,$17,$18,now(),now()) returning id",
   [cid,group,stage,round,slot,home,away,ctx.venue.id,ctx.venue.area_id,when,
    new Date(when.getTime()+60*60000),completed?"COMPLETED":"SCHEDULED",
-   hs,as,win,completed?ctx.venue.owner_user_id:null,completed?when:null]);
+   hs,as,win,ctx.refereeId,completed?ctx.venue.owner_user_id:null,completed?when:null]);
+ if(ctx.refereeId&&home&&away){
+  await q("insert into referee_match_responses(match_id,referee_user_id,status,responded_at,updated_at) "+
+   "values($1,$2,$3,$4,now()) on conflict do nothing",
+   [inserted.id,ctx.refereeId,completed?"ACCEPTED":"PENDING",completed?when:null]);
+ }
  if(home===ctx.team.id||away===ctx.team.id){
   await q(
    "insert into team_match_lineups(match_id,team_id,starters,substitutes,captain_user_id,updated_at) "+
