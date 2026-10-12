@@ -46,6 +46,19 @@ export default function VenuesScreen(){
   const [filters,setFilters]=useState<VenueFilterDraft>(newVenueFilters);
   const [filterError,setFilterError]=useState<string|null>(null);
   const filtersRef=useRef<VenueFilterDraft>(filters);
+  // Venue/name/location edits wait exactly two seconds; chip selections search
+  // immediately. A separate short delay coalesces numeric price keystrokes.
+  const nameSearchTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const priceSearchTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const cancelScheduledSearch=useCallback(()=>{
+    if(nameSearchTimer.current!==null){
+      clearTimeout(nameSearchTimer.current);nameSearchTimer.current=null;
+    }
+    if(priceSearchTimer.current!==null){
+      clearTimeout(priceSearchTimer.current);priceSearchTimer.current=null;
+    }
+  },[]);
+  useEffect(()=>()=>cancelScheduledSearch(),[cancelScheduledSearch]);
   const latestRequest=useRef(0);
   const lastSearchRef=useRef({query:"",province:DEFAULT_PROVINCE,filters});
   const [lastSearch,setLastSearch]=useState({query:"",province:DEFAULT_PROVINCE,filters});
@@ -137,10 +150,27 @@ export default function VenuesScreen(){
     return ()=>{active=false;clearTimeout(timer);};
   },[query,province,suggestionsVisible]);
 
-  function applySearch(nextQuery=query,nextProvince=province){
+  function applySearch(nextQuery=query,nextProvince=province,
+    nextFilters:VenueFilterDraft=filtersRef.current){
+    cancelScheduledSearch();
     setSuggestionsVisible(false);
     setSuggestions([]);
-    void load(nextQuery,nextProvince,filtersRef.current);
+    void load(nextQuery,nextProvince,nextFilters);
+  }
+
+  function changeVenueQuery(nextQuery:string){
+    setQuery(nextQuery);
+    setSuggestionsVisible(true);
+    setSuggestions([]);
+    cancelScheduledSearch();
+    // A previous search for older text must not replace newer typed criteria.
+    ++latestRequest.current;
+    setLoading(false);
+    setError(null);
+    nameSearchTimer.current=setTimeout(()=>{
+      nameSearchTimer.current=null;
+      applySearch(nextQuery,province,filtersRef.current);
+    },2000);
   }
 
   function selectSuggestion(suggestion:VenueSearchSuggestion){
@@ -177,11 +207,28 @@ export default function VenuesScreen(){
     const fresh=newVenueFilters();
     filtersRef.current=fresh;setFilters(fresh);
     setQuery("");setProvince(DEFAULT_PROVINCE);
-    setSuggestionsVisible(false);setSuggestions([]);
-    void load("",DEFAULT_PROVINCE,fresh);
+    applySearch("",DEFAULT_PROVINCE,fresh);
   }
   function editFilters(next:VenueFilterDraft){
+    const previous=filtersRef.current;
+    if((Object.keys(next) as Array<keyof VenueFilterDraft>).every(key=>
+      next[key]===previous[key]))return;
     filtersRef.current=next;setFilters(next);setFilterError(null);
+    // Today/Tomorrow/selected calendar day, Any/Morning/Afternoon/Evening,
+    // availability switches and sort chips should refilter with one tap.
+    // Price TextInput edits coalesce rather than querying on every digit.
+    const priceChanged=next.minPrice!==previous.minPrice||next.maxPrice!==previous.maxPrice;
+    if(priceChanged){
+      cancelScheduledSearch();
+      ++latestRequest.current;
+      setLoading(false);
+      priceSearchTimer.current=setTimeout(()=>{
+        priceSearchTimer.current=null;
+        applySearch(query,province,next);
+      },500);
+    }else{
+      applySearch(query,province,next);
+    }
   }
 
   return <Screen showHeader publicNav style={styles.page}>
@@ -280,7 +327,7 @@ export default function VenuesScreen(){
         returnKeyType="search"
         onFocus={()=>setSuggestionsVisible(true)}
         onSubmitEditing={()=>applySearch()}
-        onChangeText={text=>{setQuery(text);setSuggestionsVisible(true);setSuggestions([]);}}
+        onChangeText={changeVenueQuery}
       />
 
       {suggestionsVisible&&query.trim().length>0&&suggestions.length>0?
@@ -349,7 +396,7 @@ export default function VenuesScreen(){
         </View>
         <Pressable testID="venue-refresh-results" accessibilityRole="button"
           accessibilityLabel={t("common.retry")} disabled={loading}
-          onPress={()=>void load(lastSearch.query,lastSearch.province)}
+          onPress={()=>applySearch(query,province,filtersRef.current)}
           style={({pressed})=>[styles.refreshButton,pressed&&styles.pressed]}>
           <Ionicons name="refresh-outline" color={colors.primary} size={21}/>
         </Pressable>
@@ -357,7 +404,7 @@ export default function VenuesScreen(){
       {error?<Card style={styles.resultsMessage}>
         <Ionicons name="cloud-offline-outline" size={28} color={colors.danger}/>
         <AppText style={{color:colors.danger}}>{error}</AppText>
-        <Button label={t("common.retry")} onPress={()=>void load(lastSearch.query,lastSearch.province)}/>
+        <Button label={t("common.retry")} onPress={()=>applySearch(query,province,filtersRef.current)}/>
       </Card>:null}
       {loading?<DataLoadingState variant="list" minHeight={370}/>:null}
       {!loading&&!error&&venues.length===0?<Card style={styles.resultsMessage}>
