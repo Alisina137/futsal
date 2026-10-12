@@ -100,6 +100,33 @@ async function sampleAthletes(ctx,teams){
  }
  return athleteIds;
 }
+async function sampleSquad(ctx){
+ const ids=[ctx.users.abdul.id];
+ const positions=["FIXO","ALA","PIVO","GOALKEEPER","ALA","FIXO","PIVO"];
+ for(let i=1;i<=7;i++){
+  const display="QA Story Squadmate "+String(i).padStart(2,"0");
+  let person=await get("select id,status,username_normalized,email_normalized from users "+
+   "where display_name=$1 and bio=$2",[display,TAG]);
+  if(person){
+   guard(person.status==="SUSPENDED"&&!person.username_normalized&&!person.email_normalized,
+    "Claimed or active fixture identity: "+display);
+  }else{
+   person=await get(
+    "insert into users(display_name,username,username_normalized,email_normalized,phone_e164,"+
+    "password_hash,preferred_language,status,bio,city) "+
+    "values($1,null,null,null,null,'!DISABLED_QA_NO_LOGIN','en','SUSPENDED',$2,'Kabul') returning id",
+    [display,TAG]);
+  }
+  ids.push(person.id);
+  await q("insert into player_profiles(user_id,public_display_name,position,visibility) "+
+   "values($1,$2,$3::player_position,'PUBLIC') on conflict do nothing",
+   [person.id,display,positions[i-1]]);
+  await q("insert into team_memberships(team_id,user_id,role,status,shirt_number,joined_at,updated_at) "+
+   "values($1,$2,'PLAYER','ACTIVE',$3,now(),now()) on conflict(team_id,user_id) do nothing",
+   [ctx.team.id,person.id,30+i]);
+ }
+ return ids;
+}
 async function createCompetition(ctx,cfg,now){
  const [name,format,count]=cfg;
  const prev=await get("select id,format,max_teams,description from competitions where venue_id=$1 and name=$2",
@@ -139,8 +166,10 @@ async function register(ctx,cid,teamIds,groupIds=null){
    "values($1,$2,'ACCEPTED',$3,$4,'WAIVED',$5,$5,now(),now(),now()) on conflict do nothing",
    [cid,teamIds[i],i+1,groupIds?groupIds[Math.floor(i/3)]:null,ctx.venue.owner_user_id]);
  }
- await q("insert into team_competition_roster(competition_id,team_id,user_id) values($1,$2,$3) on conflict do nothing",
-  [cid,ctx.team.id,ctx.users.abdul.id]);
+ for(const playerId of ctx.squad){
+  await q("insert into team_competition_roster(competition_id,team_id,user_id) "+
+   "values($1,$2,$3) on conflict do nothing",[cid,ctx.team.id,playerId]);
+ }
 }
 async function match(ctx,cid,stage,round,slot,home,away,when,completed=false,group=null,scores=[null,null]){
  const [hs,as]=scores,win=completed&&hs!==as?(hs>as?home:away):null;
@@ -161,8 +190,9 @@ async function match(ctx,cid,stage,round,slot,home,away,when,completed=false,gro
  if(home===ctx.team.id||away===ctx.team.id){
   await q(
    "insert into team_match_lineups(match_id,team_id,starters,substitutes,captain_user_id,updated_at) "+
-   "values($1,$2,$3::jsonb,'[]'::jsonb,$4,now()) on conflict do nothing",
-   [inserted.id,ctx.team.id,JSON.stringify([ctx.users.abdul.id]),ctx.users.abdul.id]);
+   "values($1,$2,$3::jsonb,$4::jsonb,$5,now()) on conflict do nothing",
+   [inserted.id,ctx.team.id,JSON.stringify(ctx.squad.slice(0,5)),
+    JSON.stringify(ctx.squad.slice(5)),ctx.users.abdul.id]);
   if(completed){
    const own=home===ctx.team.id?hs:as,conceded=home===ctx.team.id?as:hs;
    const goals=Math.min(own,round%3===0?2:1),assists=Math.min(own-goals,round%2?0:1);
@@ -170,7 +200,17 @@ async function match(ctx,cid,stage,round,slot,home,away,when,completed=false,gro
     "yellow_cards,red_cards,clean_sheet,player_of_match) "+
     "values($1,$2,$3,true,$4,$5,$6,0,$7,$8) on conflict do nothing",
     [inserted.id,ctx.users.abdul.id,ctx.team.id,goals,assists,
-     round%6===0?1:0,conceded===0,own>conceded&&goals>0]);
+     round%3===0?1:0,conceded===0,own>conceded&&goals>0]);
+   let remaining=Math.max(0,own-goals);
+   for(let p=1;p<=4;p++){
+    const scored=Math.min(remaining,p===1?2:1);
+    remaining-=scored;
+    await q("insert into player_match_stats(match_id,player_user_id,team_id,appeared,goals,assists,"+
+     "yellow_cards,red_cards,clean_sheet,player_of_match) "+
+     "values($1,$2,$3,true,$4,$5,$6,0,$7,false) on conflict do nothing",
+     [inserted.id,ctx.squad[p],ctx.team.id,scored,p===2&&goals>0?1:0,p===4&&round%4===0?1:0,
+      conceded===0]);
+   }
   }
  }
  if(completed&&ctx.athletes){
@@ -391,6 +431,7 @@ try{
  await q("select pg_advisory_xact_lock(hashtext('futsal-qa-story-v1'))");
  const now=new Date(),ctx=await target(),all=await participants(ctx),ids=[];
  ctx.athletes=await sampleAthletes(ctx,all);
+ ctx.squad=await sampleSquad(ctx);
  // Idempotent: no partial existing tournament set, and existing full seed is checked not overwritten.
  const exists=await Promise.all(names.map(x=>get(
   "select id from competitions where venue_id=$1 and name=$2",[ctx.venue.id,x[0]])));
