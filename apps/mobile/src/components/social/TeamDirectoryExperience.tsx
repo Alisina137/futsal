@@ -3,7 +3,7 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {SocialDirectoryDiscoveryResponse,TeamDirectoryItemDto} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
 import {useCallback,useMemo,useState} from "react";
-import {Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {Pressable,ScrollView,StyleSheet,View,useWindowDimensions} from "react-native";
 import {marketingApi,teamApi} from "../../lib/api";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -24,6 +24,8 @@ const open=(id:string)=>router.push({pathname:"/teams/[teamId]",params:{teamId:i
 export function TeamDirectoryExperience({mode}:{mode:Mode}){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
+  const {width:windowWidth}=useWindowDimensions();
+  const twoColumns=windowWidth>=720;
   const token=session?.accessToken;
   const [teams,setTeams]=useState<TeamDirectoryItemDto[]>([]);
   const [meta,setMeta]=useState(empty);
@@ -35,6 +37,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
   const [query,setQuery]=useState("");
   const [search,setSearch]=useState("");
   const [suggestionsOpen,setSuggestionsOpen]=useState(false);
+  const [followedExpanded,setFollowedExpanded]=useState(false);
 
   useFocusEffect(useCallback(()=>{
     let active=true;
@@ -70,9 +73,20 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
     finally{setJoiningId(null);}
   }
   function action(team:TeamDirectoryItemDto){
-    return team.myMembershipRole?{label:t("teams.alreadyMemberSelf"),disabled:true}
-      :team.joinRequestStatus==="PENDING"?{label:t("teams.joinRequestPending"),disabled:true}
-      :{label:t("teams.requestToJoin"),disabled:false};
+    return team.myMembershipRole?{
+      label:t("teams.alreadyMemberSelf"),disabled:true,
+      status:t(`teams.role.${team.myMembershipRole}` as never),
+      tone:"success" as const,
+    }:team.joinRequestStatus==="PENDING"?{
+      label:t("teams.joinRequestPending"),disabled:true,
+      status:t("teams.joinRequestPending"),tone:"warning" as const,
+    }:!team.allowJoinRequests?{
+      label:t("teams.invitationOnly"),disabled:true,
+      status:t("teams.invitationOnly"),tone:"muted" as const,
+    }:{
+      label:t("teams.requestToJoin"),disabled:false,
+      status:null,tone:"muted" as const,
+    };
   }
   function render(team:TeamDirectoryItemDto,index:number){
     const a=action(team);
@@ -82,6 +96,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
       </AppText>:null}
       <SocialDirectoryCard id={team.id} name={team.name} kind="TEAM" imageUrl={team.logoUrl}
         detail={team.city} badge={t("teams.members",{count:team.rosterCount})}
+        statusLabel={a.status??undefined} statusTone={a.tone} twoColumn={twoColumns}
         detailsLabel={t("teams.viewTeam")} actionLabel={a.label}
         actionDisabled={a.disabled||!token||joiningId!==null} busy={joiningId===team.id}
         onDetails={()=>open(team.id)} onAction={()=>void join(team.id)}/>
@@ -99,7 +114,20 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
     </View>:null}
     {mode==="directory"?<>
       <View testID="teams-followed-strip" style={styles.panel}>
-        <AppText weight="bold">{t("teams.followedTeams")}</AppText>
+        <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.titleCopy}>
+            <AppText variant="bodyLarge" weight="bold">{t("teams.followedTeams")}</AppText>
+            <AppText variant="caption" muted>{t("teams.phase1.followedSubtitle")}</AppText>
+          </View>
+          {followed.length>0?<Pressable accessibilityRole="button"
+            accessibilityLabel={t("teams.phase1.viewFollowing")} testID="teams-followed-all"
+            onPress={()=>router.push("/teams/following")} style={styles.headerAction}>
+            <AppText variant="caption" weight="semibold" style={styles.accent}>
+              {t("teams.phase1.viewFollowing")}
+            </AppText>
+            <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={17} color={colors.primary}/>
+          </Pressable>:null}
+        </View>
         {loading?<DataLoadingState variant="list" minHeight={120}/>:followed.length===0?
           <AppText variant="caption" muted>{t("teams.followedEmpty")}</AppText>:
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -109,6 +137,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
               const a=action(team);
               return <SocialFollowedTile key={team.id} id={team.id} name={team.name}
                 imageUrl={team.logoUrl} kind="TEAM" detailsLabel={t("teams.viewTeam")}
+                memberCountLabel={t("teams.members",{count:team.rosterCount})}
                 actionLabel={a.label} actionDisabled={a.disabled||joiningId!==null}
                 busy={joiningId===team.id} onDetails={()=>open(team.id)} onAction={()=>void join(team.id)}/>;
             })}
@@ -119,7 +148,13 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
               <AppText variant="caption" muted>+{followed.length-10}</AppText>
             </Pressable>:null}
           </ScrollView>}
-        <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      </View>
+      <View testID="teams-quick-access" style={styles.quickSection}>
+        <View style={styles.titleCopy}>
+          <AppText variant="bodyLarge" weight="bold">{t("teams.phase1.quickAccess")}</AppText>
+          <AppText variant="caption" muted>{t("teams.phase1.quickSubtitle")}</AppText>
+        </View>
+        <View style={[styles.quickRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Pressable testID="teams-most-followed-button" accessibilityRole="button"
             onPress={()=>router.push("/teams/popular")} style={styles.shortcut}>
             <Ionicons name="trending-up-outline" size={19} color={colors.primary}/>
@@ -134,9 +169,20 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
               {t("teams.myTeams")}
             </AppText>
           </Pressable>
+          <Pressable testID="teams-invitations-shortcut" accessibilityRole="button"
+            onPress={()=>router.push("/teams/invitations")} style={styles.shortcut}>
+            <Ionicons name="mail-unread-outline" size={19} color={colors.primary}/>
+            <AppText variant="caption" weight="semibold" numberOfLines={2} style={styles.accent}>
+              {t("teams.invitationsTitle")}
+            </AppText>
+          </Pressable>
         </View>
       </View>
-      <View style={styles.filters}>
+      <View testID="teams-search-panel" style={styles.filters}>
+        <View style={styles.titleCopy}>
+          <AppText variant="bodyLarge" weight="bold">{t("teams.phase1.findTeams")}</AppText>
+          <AppText variant="caption" muted>{t("teams.phase1.searchSubtitle")}</AppText>
+        </View>
         <DirectoryFilterSelect testID="teams-city-select" label={t("teams.filterCity")}
           value={city} allLabel={t("teams.allCities")}
           options={cities.map(name=>({value:name,label:name}))} onSelect={setCity}/>
@@ -154,35 +200,81 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
         </View>:null}
         <Button label={t("teams.search")} onPress={()=>submit()} loading={loading}/>
       </View>
-      <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Button label={t("teams.invitationsTitle")} onPress={()=>router.push("/teams/invitations")}
-          variant="secondary" style={{flex:1}}/>
-        {session?.user.roles.includes("TEAM_MANAGER")?<Button label={t("teams.create")}
-          onPress={()=>router.push("/teams/create")} style={{flex:1}}/>:null}
-      </View>
+      {session?.user.roles.includes("TEAM_MANAGER")?<View style={styles.managerShortcut}>
+        <AppText variant="caption" muted style={{flex:1}}>{t("teams.phase1.managerHint")}</AppText>
+        <Button label={t("teams.create")} variant="secondary"
+          onPress={()=>router.push("/teams/create")}/>
+      </View>:null}
     </>:null}
-    {loading&&mode!=="directory"?<DataLoadingState variant="list" minHeight={350}/>:null}
-    {error?<Card style={styles.item}><AppText style={{color:colors.danger}}>{error}</AppText>
-      <Button label={t("common.retry")} onPress={()=>setRetry(n=>n+1)} variant="secondary"/></Card>:null}
-    {!loading&&!error&&results.length===0?<Card><AppText>{t("teams.noMatches")}</AppText></Card>:null}
-    {!loading&&!error?results.map(render):null}
+    <View testID="teams-results-section" style={styles.resultsSection}>
+      <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.titleCopy}>
+          <AppText variant="bodyLarge" weight="bold">{mode==="directory"?
+            t("teams.phase1.exploreTeams"):title}</AppText>
+          {!loading&&!error?<AppText variant="caption" muted>
+            {t("teams.phase1.resultsCount",{count:results.length})}
+          </AppText>:<AppText variant="caption" muted>{t("teams.phase1.browseSubtitle")}</AppText>}
+        </View>
+        <Pressable testID="teams-refresh-results" accessibilityRole="button"
+          accessibilityLabel={t("teams.phase1.refresh")} disabled={loading}
+          onPress={()=>setRetry(v=>v+1)}
+          style={({pressed})=>[styles.refresh,pressed&&styles.pressed]}>
+          <Ionicons name="refresh-outline" size={20} color={colors.primary}/>
+        </Pressable>
+      </View>
+      {loading?<DataLoadingState variant="list" minHeight={330}/>:null}
+      {error?<Card style={styles.message}>
+        <Ionicons name="alert-circle-outline" size={25} color={colors.danger}/>
+        <AppText style={{color:colors.danger,textAlign:"center"}}>{error}</AppText>
+        <Button label={t("common.retry")} onPress={()=>setRetry(n=>n+1)}
+          variant="secondary"/>
+      </Card>:null}
+      {!loading&&!error&&results.length===0?<Card style={styles.message}>
+        <Ionicons name="people-outline" size={30} color={colors.primary}/>
+        <AppText weight="medium" style={{textAlign:"center"}}>{t("teams.noMatches")}</AppText>
+        {mode==="directory"&&(city||search)?<Button
+          label={t("teams.phase1.clearFilters")} variant="secondary"
+          onPress={()=>{setCity("");setQuery("");submit("");}}/>:null}
+      </Card>:null}
+      {!loading&&!error?<View testID="teams-results-grid" style={[styles.resultsGrid,{
+        flexDirection:isRTL?"row-reverse":"row",
+      }]}>{results.map(render)}</View>:null}
+    </View>
   </Screen>;
 }
 const styles=StyleSheet.create({
   page:{paddingTop:spacing.sm,gap:spacing.md},
   row:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
-  panel:{gap:spacing.sm,backgroundColor:colors.surface,borderRadius:radius.lg,padding:spacing.sm,
+  panel:{gap:spacing.sm,backgroundColor:colors.surface,borderRadius:radius.lg,padding:spacing.md,
     borderWidth:1,borderColor:colors.border},
-  shortcut:{flex:1,minHeight:56,borderRadius:radius.md,padding:6,gap:5,
+  sectionHeading:{alignItems:"center",gap:spacing.sm,justifyContent:"space-between"},
+  titleCopy:{flex:1,minWidth:0,gap:2},
+  headerAction:{flexDirection:"row",gap:spacing.xs,alignItems:"center",
+    minHeight:44,paddingHorizontal:spacing.sm},
+  quickSection:{gap:spacing.sm},
+  quickRow:{gap:spacing.sm,alignItems:"stretch"},
+  resultsSection:{gap:spacing.md},
+  resultsGrid:{flexWrap:"wrap",gap:spacing.sm,alignItems:"stretch"},
+  refresh:{height:44,width:44,alignItems:"center",justifyContent:"center",
+    borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+    backgroundColor:colors.surface},
+  message:{gap:spacing.md,alignItems:"center",padding:spacing.lg},
+  managerShortcut:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
+    borderRadius:radius.md,borderColor:colors.border,borderWidth:1,
+    padding:spacing.sm,backgroundColor:colors.surface},
+  shortcut:{flex:1,minWidth:0,minHeight:66,borderRadius:radius.md,
+    paddingHorizontal:4,paddingVertical:spacing.sm,gap:4,
     backgroundColor:colors.primarySoft,borderColor:colors.primary,borderWidth:1,
-    flexDirection:"row",alignItems:"center",justifyContent:"center"},
+    flexDirection:"column",alignItems:"center",justifyContent:"center"},
   accent:{color:colors.primary,textAlign:"center",flexShrink:1},
   more:{width:148,minHeight:208,backgroundColor:colors.primarySoft,alignItems:"center",
     justifyContent:"center",borderRadius:radius.md,gap:spacing.sm},
-  filters:{gap:spacing.sm},
+  filters:{gap:spacing.sm,backgroundColor:colors.surface,borderWidth:1,
+    borderColor:colors.border,borderRadius:radius.lg,padding:spacing.md},
   suggestions:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   suggestion:{minHeight:52,justifyContent:"center",paddingHorizontal:spacing.md,
     borderBottomWidth:1,borderBottomColor:colors.border,gap:3},
-  item:{gap:spacing.sm},
+  item:{gap:spacing.sm,width:"100%"},
+  pressed:{opacity:.75},
   back:{width:44,height:44,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft,borderRadius:22},
 });
