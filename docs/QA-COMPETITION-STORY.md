@@ -6,24 +6,22 @@ roles, alter ownership, or execute automatically after pulling.
 
 ## Account / ownership resolution
 
-The user request names Alisina as venue owner and Mahdi as team manager.
-The existing six-role seed in this repository instead gives **Mahdi** the
-venue and **Alisina** the team, with **Abdul** as that team's player. The
-seed therefore first attempts the requested Alisina-venue and Mahdi-team
-targets; if absent, it uses the matching real owner venue / team without
-changing ownership or roles. It requires Abdul to already have an active
-player membership on the chosen team. The console prints the resolved
-target names. Do not interchange owners just to run tests.
+The confirmed roles are **Mahdi = Venue Owner**, **Alisina = Team Manager**,
+**Abdul = Player**. These are separate accounts. The seeder targets
+Mahdi's existing ACTIVE subscribed venue and Alisina's existing ACTIVE
+claimed team **only**; it never swaps their roles, creates subscriptions,
+or changes real account ownership.
 
-The named base demo accounts, a subscribed venue, and a real managed team
-must exist. The seeder now checks **both** named manager teams for Abdul's
-existing active Player membership before choosing a team. If neither has
-one, it may add a new ACTIVE PLAYER membership to the selected team,
-**only** if Abdul is an ACTIVE account with an explicit PLAYER role,
-without a Referee/paid-owner conflict or pre-existing inactive membership.
-This is deliberate test data, not a change to account roles. The original
-role-demo seeder can reset roles/subscriptions of six named users: **do not
-run it on a database with user-customized role ownership or real data**.
+Abdul's membership in Alisina's team is checked. If absent, the QA seeder
+can add an active Player membership on that team if Abdul is an active,
+eligible PLAYER account and no existing inactive/non-player team membership
+would be overwritten. It does not change his actual account roles.
+If an existing denied/left membership is found, the seed rolls back with
+an explanation rather than silently reactivating it.
+
+The old role-demo script may forcibly normalize the roles of named users.
+**Do not rerun `pnpm db:seed:roles`** to fix a missing membership on a
+database that contains real or customized account data.
 
 ## Command
 
