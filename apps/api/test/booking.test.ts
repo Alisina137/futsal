@@ -257,6 +257,99 @@ describe("Phase 3 availability and booking API", () => {
     ]);
   });
 
+  it("accepts one verified review after a confirmed online booking ends and keeps identities private",async()=>{
+    const {app,bookingRepository,authRepository,clock}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0709980021");
+    const player=await register(app,authRepository,"PLAYER","0709980022");
+    const outsider=await register(app,authRepository,"PLAYER","0709980023");
+    const venue=bookingRepository.seedVenue(owner.body.user.id).venue;
+    const date="2026-10-05";
+    const available=await request(app).get(`/api/v1/venues/${venue.id}/availability`).query({date});
+    const first=available.body.slots[0];
+    const booking=await request(app).post("/api/v1/bookings")
+      .set("Authorization",`Bearer ${player.body.accessToken}`)
+      .send({areaId:first.areaId,startsAt:first.startsAt,idempotencyKey:"review-proof-01"});
+    expect(booking.status).toBe(201);
+    const input={bookingId:booking.body.booking.id,rating:5,body:"Reliable court"};
+    const early=await request(app).post("/api/v1/bookings/reviews")
+      .set("Authorization",`Bearer ${player.body.accessToken}`).send(input);
+    expect(early.status).toBe(403);
+    clock.now=new Date("2026-10-06T08:00:00.000Z");
+    const fake=await request(app).post("/api/v1/bookings/reviews")
+      .set("Authorization",`Bearer ${outsider.body.accessToken}`).send(input);
+    expect(fake.status).toBe(403);
+    const created=await request(app).post("/api/v1/bookings/reviews")
+      .set("Authorization",`Bearer ${player.body.accessToken}`).send(input);
+    expect(created.status).toBe(201);
+    expect(created.body.review).toEqual(expect.objectContaining({
+      venueId:venue.id,rating:5,verified:true,body:"Reliable court",
+    }));
+    const duplicate=await request(app).post("/api/v1/bookings/reviews")
+      .set("Authorization",`Bearer ${player.body.accessToken}`).send(input);
+    expect(duplicate.status).toBe(400);
+    const listing=await request(app).get(`/api/v1/venues/${venue.id}/reviews`);
+    expect(listing.status).toBe(200);
+    expect(listing.body.averageRating).toBe(5);
+    expect(listing.body.reviewCount).toBe(1);
+    expect(listing.body.reviews).toHaveLength(1);
+    expect(JSON.stringify(listing.body)).not.toContain(player.body.user.id);
+    expect(JSON.stringify(listing.body)).not.toContain(player.body.user.phone);
+  });
+
+  it("persists per-user favorite times and guards exact reserved-slot alerts",async()=>{
+    const {app,bookingRepository,authRepository,clock}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0709980031");
+    const player=await register(app,authRepository,"PLAYER","0709980032");
+    const watcher=await register(app,authRepository,"PLAYER","0709980033");
+    const {venue}=bookingRepository.seedVenue(owner.body.user.id);
+    const pref=`/api/v1/bookings/venue-preferences/${venue.id}`;
+    const token=watcher.body.accessToken;
+    expect((await request(app).get(pref).set("Authorization",`Bearer ${token}`)).body.preferredStart).toBeNull();
+    expect((await request(app).put(pref).set("Authorization",`Bearer ${token}`)
+      .send({preferredStart:"18:30"})).status).toBe(200);
+    expect((await request(app).get(pref).set("Authorization",`Bearer ${token}`)).body.preferredStart).toBe("18:30");
+    expect((await request(app).get(pref)
+      .set("Authorization",`Bearer ${player.body.accessToken}`)).body.preferredStart).toBeNull();
+    expect((await request(app).put(pref).set("Authorization",`Bearer ${token}`)
+      .send({preferredStart:"27:40"})).status).toBe(400);
+    const slot=(await request(app).get(`/api/v1/venues/${venue.id}/availability`)
+      .query({date:"2026-10-05"})).body.slots[0];
+    const watchRoute="/api/v1/bookings/slot-watches";
+    const slotInput={venueId:venue.id,areaId:slot.areaId,startsAt:slot.startsAt};
+    expect((await request(app).post(watchRoute).set("Authorization",`Bearer ${token}`)
+      .send(slotInput)).status).toBe(400); // Still free: watching is not permitted
+    const booked=await request(app).post("/api/v1/bookings")
+      .set("Authorization",`Bearer ${player.body.accessToken}`)
+      .send({areaId:slot.areaId,startsAt:slot.startsAt,idempotencyKey:"watch-booking-001"});
+    expect(booked.status).toBe(201);
+    const watched=await request(app).post(watchRoute)
+      .set("Authorization",`Bearer ${token}`).send(slotInput);
+    expect(watched.status).toBe(201);
+    expect(watched.body.watch).toEqual(expect.objectContaining(slotInput));
+    const repeat=await request(app).post(watchRoute)
+      .set("Authorization",`Bearer ${token}`).send(slotInput);
+    expect(repeat.body.watch.id).toBe(watched.body.watch.id);
+    const mine=await request(app).get(watchRoute).query({venueId:venue.id})
+      .set("Authorization",`Bearer ${token}`);
+    expect(mine.body.watches).toHaveLength(1);
+    const other=await request(app).delete(watchRoute+"/"+watched.body.watch.id)
+      .set("Authorization",`Bearer ${player.body.accessToken}`);
+    expect(other.body.removed).toBe(false);
+
+    // Inject a real publisher into the same repository to simulate cancellation.
+    const sent:Array<{userId:string;watchId:string}>=[];
+    const svc=new BookingService(bookingRepository,()=>clock.now,{
+      slotAvailable:async(input)=>{sent.push({userId:input.userId,watchId:input.watchId});},
+    } as unknown as import("../src/modules/notifications/notification.types.js").NotificationPublisher);
+    const cancelled=await svc.cancelOwnerBooking(owner.body.user.id,booked.body.booking.id);
+    expect(cancelled.status).toBe("CANCELLED");
+    expect(sent).toEqual([{userId:watcher.body.user.id,watchId:watched.body.watch.id}]);
+    expect((await request(app).get(watchRoute).query({venueId:venue.id})
+      .set("Authorization",`Bearer ${token}`)).body.watches).toEqual([]);
+    expect((await request(app).put(pref).set("Authorization",`Bearer ${token}`)
+      .send({preferredStart:null})).body.preferredStart).toBeNull();
+  });
+
   it("publishes live slots from opening hours and area price", async () => {
     const { app, bookingRepository, authRepository } = setup();
     const owner = await register(app, authRepository, "VENUE_OWNER", "0702223300");
