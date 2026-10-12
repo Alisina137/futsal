@@ -977,6 +977,28 @@ export const venueDiscoveryResponseSchema=z.object({
 });
 export type VenueDiscoveryResponse=z.infer<typeof venueDiscoveryResponseSchema>;
 
+/** Directory filters use venue-local date and AM/PM presentation; server keeps HH:mm. */
+export const venueDirectorySortSchema=z.enum(["recommended","nearest","lowestPrice","mostFollowed","availableSoonest"]);
+export const venueDirectoryFiltersSchema=z.object({
+  date:dateOnlySchema,
+  province:z.string().trim().max(80).optional(),
+  q:z.string().trim().max(120).optional(),
+  startTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  endTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  minPriceAfn:z.number().int().nonnegative().max(1_000_000).optional(),
+  maxPriceAfn:z.number().int().nonnegative().max(1_000_000).optional(),
+  availableOnly:z.boolean().default(false),
+  sort:venueDirectorySortSchema.default("recommended"),
+  latitude:z.number().finite().min(-90).max(90).optional(),
+  longitude:z.number().finite().min(-180).max(180).optional(),
+}).refine(v=>v.minPriceAfn===undefined||v.maxPriceAfn===undefined||v.minPriceAfn<=v.maxPriceAfn,{
+  message:"Minimum price exceeds maximum price.",path:["maxPriceAfn"],
+}).refine(v=>!v.startTime||!v.endTime||v.startTime<=v.endTime,{
+  message:"Start time must be before end time.",path:["endTime"],
+});
+export type VenueDirectoryFilters=z.infer<typeof venueDirectoryFiltersSchema>;
+export type VenueDirectorySort=z.infer<typeof venueDirectorySortSchema>;
+
 export const publicVenueListResponseSchema = z.object({
   generatedAt: isoDateTimeSchema,
   venues: z.array(publicVenueDtoSchema),
@@ -996,6 +1018,24 @@ export const availabilitySlotDtoSchema = z.object({
   status: z.literal("AVAILABLE"),
 });
 export type AvailabilitySlotDto = z.infer<typeof availabilitySlotDtoSchema>;
+
+/** Counts/prices come only from genuinely available matching slots. */
+export const venueDirectoryResultSchema=z.object({
+  venue:publicVenueDtoSchema,
+  availableCount:z.number().int().nonnegative(),
+  lowestPriceAfn:z.number().int().nonnegative().nullable(),
+  earliestStartsAt:isoDateTimeSchema.nullable(),
+  distanceKm:z.number().nonnegative().nullable(),
+  followerCount:z.number().int().nonnegative(),
+});
+export type VenueDirectoryResult=z.infer<typeof venueDirectoryResultSchema>;
+export const venueDirectoryResponseSchema=z.object({
+  date:dateOnlySchema,
+  results:z.array(venueDirectoryResultSchema),
+  generatedAt:isoDateTimeSchema,
+});
+export type VenueDirectoryResponse=z.infer<typeof venueDirectoryResponseSchema>;
+
 
 /** Public status only: never expose player names, phone numbers, block reasons or booking sources. */
 export const venueTimelineSlotDtoSchema = z.object({
