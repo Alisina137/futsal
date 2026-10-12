@@ -24,7 +24,7 @@ const FILTER_ICONS:Record<NotificationListFilter,IconName>={
 };
 const ICONS:Record<NotificationDto["type"],IconName>={
   BOOKING_CONFIRMED:"checkmark-circle-outline",BOOKING_CANCELLED:"close-circle-outline",
-  SLOT_PROMOTION:"pricetag-outline",VENUE_POST:"megaphone-outline",
+  SLOT_PROMOTION:"pricetag-outline",SLOT_AVAILABLE:"notifications-circle-outline",VENUE_POST:"megaphone-outline",
   TEAM_INVITATION:"people-outline",COMPETITION_UPDATE:"trophy-outline",
   TEAM_ACTIVITY:"calendar-outline",TEAM_CHALLENGE:"football-outline",TEAM_ANNOUNCEMENT:"megaphone-outline",
   ADMIN_ANNOUNCEMENT:"shield-checkmark-outline",
@@ -56,6 +56,12 @@ function target(item:NotificationDto):()=>void{
       const postId=id("postId");
       if(postId)router.push({pathname:"/posts/[postId]",params:{postId}});
       else router.push("/venues");
+    };
+    case "SLOT_AVAILABLE":return ()=>{
+      const venueId=id("venueId"),startsAt=id("startsAt");
+      if(venueId)router.push({pathname:"/venues/[venueId]",params:{
+        venueId,...(startsAt?{startsAt}:{}),focusAvailability:"1",
+      }});else router.push("/venues");
     };
     case "SLOT_PROMOTION":return ()=>{
       const venueId=id("venueId"),promotionId=id("promotionId");

@@ -27,6 +27,11 @@ import type {
   PasswordResetCompleteRequest,
   UserDto,
   VenueAvailabilityResponse,
+  VenueReviewCreate,
+  VenueReviewDto,
+  VenueReviewSummary,
+  VenueSlotWatchCreate,
+  VenueSlotWatchDto,
   BookingDto,
   OnlineBookingRequest,
   ManualBookingRequest,
@@ -514,6 +519,8 @@ export const ownerApi = {
 
 
 export const venueApi = {
+  reviews:(venueId:string)=>networkRequest<VenueReviewSummary>(
+    `/api/v1/venues/${encodeURIComponent(venueId)}/reviews`),
   search: (filters:VenueDirectoryFilters)=>{
     const params=new URLSearchParams();
     params.set("date",filters.date);
@@ -562,6 +569,20 @@ export const venueApi = {
 };
 
 export const bookingApi = {
+  review:(token:string,input:VenueReviewCreate)=>request<{review:VenueReviewDto}>(
+    "/api/v1/bookings/reviews",{method:"POST",body:JSON.stringify(input)},token),
+  savedVenueTime:(token:string,venueId:string)=>request<{venueId:string;preferredStart:string|null}>(
+    `/api/v1/bookings/venue-preferences/${encodeURIComponent(venueId)}`,{},token),
+  saveVenueTime:(token:string,venueId:string,preferredStart:string|null)=>
+    request<{venueId:string;preferredStart:string|null}>(
+      `/api/v1/bookings/venue-preferences/${encodeURIComponent(venueId)}`,
+      {method:"PUT",body:JSON.stringify({preferredStart})},token),
+  slotWatches:(token:string,venueId:string)=>networkRequest<{watches:VenueSlotWatchDto[]}>(
+    `/api/v1/bookings/slot-watches?venueId=${encodeURIComponent(venueId)}`,{cache:"no-store"},token),
+  watchSlot:(token:string,input:VenueSlotWatchCreate)=>request<{watch:VenueSlotWatchDto}>(
+    "/api/v1/bookings/slot-watches",{method:"POST",body:JSON.stringify(input)},token),
+  unwatchSlot:(token:string,watchId:string)=>request<{removed:boolean}>(
+    `/api/v1/bookings/slot-watches/${encodeURIComponent(watchId)}`,{method:"DELETE"},token),
   create: (accessToken: string, input: OnlineBookingRequest) =>
     request<{ booking: BookingDto }>("/api/v1/bookings", { method: "POST", body: JSON.stringify(input) }, accessToken),
   mine: (accessToken: string) =>

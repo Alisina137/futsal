@@ -8,6 +8,9 @@ import {
   onlineBookingRequestSchema,
   venueBlockRequestSchema,
   venueDirectoryFiltersSchema,
+  venueReviewCreateSchema,
+  venueSlotWatchCreateSchema,
+  venueSavedTimeSchema,
 } from "@leaguekick/contracts";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
@@ -77,6 +80,11 @@ export function createPublicVenueRouter(booking: BookingService) {
     catch (error) { next(error); }
   });
 
+  router.get("/:venueId/reviews",async(request,response,next)=>{
+    try{response.json(await booking.venueReviews(routeIdSchema.parse(request.params.venueId)));}
+    catch(error){next(error);}
+  });
+
   router.get("/:venueId/availability", async (request, response, next) => {
     try {
       const date = dateOnlySchema.parse(request.query.date);
@@ -95,6 +103,40 @@ export function createPlayerBookingRouter(booking: BookingService, tokens: Token
   router.get("/me", async (request, response, next) => {
     try { response.json(await booking.listPlayerBookings(request.auth!.userId)); }
     catch (error) { next(error); }
+  });
+
+  router.post("/reviews",writeLimiter,async(request,response,next)=>{
+    try{const input=venueReviewCreateSchema.parse(request.body);
+      response.status(201).json({review:await booking.submitVenueReview(request.auth!.userId,input)});
+    }catch(error){next(error);}
+  });
+  router.get("/venue-preferences/:venueId",async(request,response,next)=>{
+    try{response.json(await booking.savedVenueTime(request.auth!.userId,
+      routeIdSchema.parse(request.params.venueId)));
+    }catch(error){next(error);}
+  });
+  router.put("/venue-preferences/:venueId",writeLimiter,async(request,response,next)=>{
+    try{
+      const value=request.body?.preferredStart===null?null:
+        venueSavedTimeSchema.pick({preferredStart:true}).parse(request.body).preferredStart;
+      response.json(await booking.updateSavedVenueTime(request.auth!.userId,
+        routeIdSchema.parse(request.params.venueId),value));
+    }catch(error){next(error);}
+  });
+  router.get("/slot-watches",async(request,response,next)=>{
+    try{response.json(await booking.myVenueSlotWatches(request.auth!.userId,
+      routeIdSchema.parse(request.query.venueId)));
+    }catch(error){next(error);}
+  });
+  router.post("/slot-watches",writeLimiter,async(request,response,next)=>{
+    try{response.status(201).json({watch:await booking.watchUnavailableSlot(request.auth!.userId,
+      venueSlotWatchCreateSchema.parse(request.body))});
+    }catch(error){next(error);}
+  });
+  router.delete("/slot-watches/:watchId",writeLimiter,async(request,response,next)=>{
+    try{response.json(await booking.removeVenueSlotWatch(request.auth!.userId,
+      routeIdSchema.parse(request.params.watchId)));
+    }catch(error){next(error);}
   });
 
   router.post("/", writeLimiter, async (request, response, next) => {

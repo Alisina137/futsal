@@ -19,17 +19,18 @@ import {VenueAboutContent,VenueCompetitionsContent,VenueMediaContent,
   type VenueUpdatesSub,type VenueAboutSub} from "../../../src/components/venues/VenueDetailSections";
 
 export default function VenueDetailScreen(){
-  const {venueId,focusAvailability,startsAt,promotionId,bookingDate}=useLocalSearchParams<{
+  const {venueId,focusAvailability,startsAt,promotionId,bookingDate,reviewBookingId}=useLocalSearchParams<{
     venueId:string;focusAvailability?:string;startsAt?:string;promotionId?:string;bookingDate?:string;
+    reviewBookingId?:string;
   }>();
   const {session}=useAuth(),{t,isRTL}=useLocale();
   const {height:viewportHeight}=useWindowDimensions();
   const tr=(key:string)=>t(("vd."+key) as never);
   const targetId=typeof venueId==="string"?venueId:"";
   const bookingDeepLink=focusAvailability==="1"||!!startsAt||!!promotionId||!!bookingDate;
-  const [main,setMain]=useState<VenueMainTab>(bookingDeepLink?"reserve":"media");
+  const [main,setMain]=useState<VenueMainTab>(bookingDeepLink?"reserve":reviewBookingId?"about":"media");
   const [sub,setSub]=useState<Record<VenueMainTab,string>>({
-    media:"posts",reserve:"slots",competitions:"upcoming",updates:"announcements",about:"overview",
+    media:"posts",reserve:"slots",competitions:"upcoming",updates:"announcements",about:reviewBookingId?"reviews":"overview",
   });
   const [venue,setVenue]=useState<PublicVenueDto|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);
@@ -53,9 +54,9 @@ export default function VenueDetailScreen(){
   useEffect(()=>{
     if(initialVenue.current!==targetId){
       initialVenue.current=targetId;
-      setMain(bookingDeepLink?"reserve":"media");
+      setMain(bookingDeepLink?"reserve":reviewBookingId?"about":"media");
       setSub({media:"posts",reserve:"slots",competitions:"upcoming",
-        updates:"announcements",about:"overview"});
+        updates:"announcements",about:reviewBookingId?"reviews":"overview"});
       setVenue(null);setFollowState(null);
     }
   },[targetId]);
@@ -67,6 +68,10 @@ export default function VenueDetailScreen(){
     setReserveDate(bookingDate);
     setMain("reserve");setSub(value=>({...value,reserve:"slots"}));
   },[targetId,focusAvailability,startsAt,promotionId,bookingDate]);
+  useEffect(()=>{
+    if(!reviewBookingId||bookingDeepLink)return;
+    setMain("about");setSub(value=>({...value,about:"reviews"}));
+  },[targetId,reviewBookingId,bookingDeepLink]);
   useEffect(()=>{
     if(!session||!targetId)return;
     let active=true;
@@ -222,7 +227,8 @@ export default function VenueDetailScreen(){
         sub={sub.competitions as VenueCompetitionSub}/>:null}
       {main==="updates"?<VenueUpdatesContent venue={venue}
         sub={sub.updates as VenueUpdatesSub} onReserve={()=>reserve()}/>:null}
-      {main==="about"?<VenueAboutContent venue={venue} sub={sub.about as VenueAboutSub}/>:null}
+      {main==="about"?<VenueAboutContent venue={venue} sub={sub.about as VenueAboutSub}
+        reviewBookingId={reviewBookingId}/>:null}
     </View>
   </Screen>;
 }

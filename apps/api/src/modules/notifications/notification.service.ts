@@ -90,6 +90,18 @@ export class NotificationService implements NotificationPublisher {
     await this.repository.ensureDeliveries(notification.id, channels);
   }
 
+  async slotAvailable(input:{userId:string;watchId:string;venueId:string;areaId:string;
+    venueName:string;startsAt:string}){
+    await this.publish({
+      userId:input.userId,type:"SLOT_AVAILABLE",title:"Your watched slot is available",
+      body:input.venueName+" · "+input.startsAt,
+      deepLink:"/venues/"+input.venueId+"?startsAt="+encodeURIComponent(input.startsAt),
+      data:{venueId:input.venueId,startsAt:input.startsAt,areaId:input.areaId,
+        venueName:input.venueName},dedupeKey:"slot-available:"+input.watchId,
+      marketing:false,
+    });
+  }
+
   async bookingConfirmed(input: {
     userId: string;
     bookingId: string;

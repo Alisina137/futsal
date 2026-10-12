@@ -12,7 +12,7 @@ const venue=read("apps/mobile/app/(app)/venues/[venueId].tsx");
 for(const word of ["useVisibleTab<VenueMainTab>(main)","useVisibleTab<string>(sub[main]",
   "mainNav.scrollRef","subNav.scrollRef","mainNav.cellLayout(item.id,event)",
   "subNav.cellLayout(item,event)","venueSubtabs[id][0]!",
-  "bookingDeepLink?\"reserve\":\"media\""]){
+  "bookingDeepLink?\"reserve\":reviewBookingId?\"about\":\"media\""]){
   assert.ok(venue.includes(word),"Venue navigation invariant missing: "+word);
 }
 // Sub-navigation bars fill the available width instead of clustering at an

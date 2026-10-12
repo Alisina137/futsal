@@ -188,6 +188,81 @@ export class BookingService {
     };
   }
 
+  /** Only real customers with ended CONFIRMED ONLINE bookings can review. */
+  async venueReviews(venueId:string){
+    await this.getPublicVenue(venueId);
+    return {venueId,...await this.repository.listVerifiedReviews(venueId,30)};
+  }
+  async submitVenueReview(userId:string,input:import("@leaguekick/contracts").VenueReviewCreate){
+    const booking=await this.repository.getBooking(input.bookingId);
+    if(!booking||booking.playerUserId!==userId||booking.source!=="ONLINE"||
+      booking.status!=="CONFIRMED"||Date.parse(booking.endsAt)>this.now().getTime())
+      throw errors.forbidden("REVIEW_NOT_ELIGIBLE",
+        "You can only review a venue after your completed, confirmed online reservation.");
+    await this.getPublicVenue(booking.venueId);
+    return this.repository.createVerifiedReview({
+      venueId:booking.venueId,bookingId:booking.id,userId,
+      rating:input.rating,body:input.body,createdAt:this.now(),
+    });
+  }
+  async savedVenueTime(userId:string,venueId:string){
+    await this.getPublicVenue(venueId);
+    return {venueId,preferredStart:await this.repository.getSavedVenueTime(userId,venueId)};
+  }
+  async updateSavedVenueTime(userId:string,venueId:string,preferredStart:string|null){
+    await this.getPublicVenue(venueId);
+    await this.repository.setSavedVenueTime(userId,venueId,preferredStart,this.now());
+    return {venueId,preferredStart};
+  }
+  async watchUnavailableSlot(userId:string,input:import("@leaguekick/contracts").VenueSlotWatchCreate){
+    const venue=await this.getPublicVenue(input.venueId);
+    const start=new Date(input.startsAt);
+    if(start.getTime()<=this.now().getTime()||!venue.onlineBookingEnabled)
+      throw errors.badRequest("SLOT_WATCH_INVALID","This slot cannot be watched.");
+    const date=localDateForInstant(start,venue.timezone);
+    const {timeline}=await this.getAvailability(input.venueId,date);
+    const blocked=timeline?.find(x=>x.areaId===input.areaId&&
+      x.startsAt===input.startsAt&&x.status==="UNAVAILABLE");
+    if(!blocked)throw errors.badRequest("SLOT_WATCH_INVALID",
+      "Only currently reserved future slots can be watched.");
+    const mine=await this.repository.listPlayerBookings(userId);
+    if(mine.some(x=>x.areaId===input.areaId&&x.startsAt===input.startsAt&&
+      x.status!=="CANCELLED"))
+      throw errors.badRequest("SLOT_WATCH_OWN_BOOKING","You already hold this slot.");
+    return this.repository.watchVenueSlot({userId,venueId:input.venueId,areaId:input.areaId,
+      startsAt:start,expiresAt:new Date(blocked.endsAt)});
+  }
+  async myVenueSlotWatches(userId:string,venueId:string){
+    await this.getPublicVenue(venueId);
+    return {watches:await this.repository.listMyVenueSlotWatches(userId,venueId,this.now())};
+  }
+  async removeVenueSlotWatch(userId:string,watchId:string){
+    return {removed:await this.repository.removeVenueSlotWatch(userId,watchId)};
+  }
+  private async announceReopenedSlot(booking:BookingDto){
+    if(!this.notifications||Date.parse(booking.startsAt)<=this.now().getTime())return;
+    try{
+      const watches=await this.repository.listVenueSlotWatches(booking.areaId,
+        new Date(booking.startsAt),this.now());
+      if(!watches.length)return;
+      const venue=await this.repository.getVenueRecord(booking.venueId);
+      if(!venue)return;
+      const date=localDateForInstant(new Date(booking.startsAt),venue.timezone);
+      const current=await this.getAvailability(booking.venueId,date);
+      if(!current.slots.some(slot=>slot.areaId===booking.areaId&&
+        slot.startsAt===booking.startsAt))return;
+      for(const watch of watches){
+        try{
+          await this.notifications.slotAvailable({
+            userId:watch.userId,watchId:watch.id,venueId:booking.venueId,
+            areaId:booking.areaId,venueName:booking.venueName,startsAt:booking.startsAt,
+          });
+          await this.repository.removeVenueSlotWatch(watch.userId,watch.id);
+        }catch{/* Retain the one-shot watch if persistence/delivery fails. */}
+      }
+    }catch{/* Cancellation must remain successful even if alert queries fail. */}
+  }
+
   /** Ten closest subscribed and active venues with owner-confirmed map coordinates. */
   async nearbyVenues(latitude:number,longitude:number){
     const result=await this.listPublicVenues({});
@@ -386,6 +461,7 @@ export class BookingService {
     } catch {
       // Cancellation is authoritative even when notification persistence/delivery fails.
     }
+    await this.announceReopenedSlot(cancelled);
     return cancelled;
   }
 
@@ -593,6 +669,7 @@ export class BookingService {
         // Owner cancellation remains successful independently of notification delivery.
       }
     }
+    await this.announceReopenedSlot(cancelled);
     return cancelled;
   }
 }

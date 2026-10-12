@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {BookingDto,PublicVenueDto,VenueAvailabilityResponse,VenueTimelineSlotDto} from "@leaguekick/contracts";
+import type {BookingDto,PublicVenueDto,VenueAvailabilityResponse,VenueTimelineSlotDto,VenueSlotWatchDto} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
 import {memo,useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {ActivityIndicator,Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
@@ -79,8 +79,9 @@ const Slot=memo(function Slot({item,date,own,timezone,today,limit,promotionId,st
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   useEffect(()=>()=>{if(timer.current!==null)clearTimeout(timer.current);},[]);
   const palette=own?{bg:"#DBEAFE",border:"#60A5FA",ink:"#1D4ED8"}:statusColors[item.status];
-  const disabled=!own&&!((item.status==="AVAILABLE"||item.status==="PROMOTION")
-    &&date>=today&&date<=limit);
+  const disabled=!own&&!((item.status==="AVAILABLE"||item.status==="PROMOTION"||
+    item.status==="UNAVAILABLE")&&date>=today&&date<=limit&&
+    Date.parse(item.startsAt)>Date.now());
   const isTarget=(!!promotionId&&item.promotionId===promotionId)||
     (!!startsAt&&item.startsAt===startsAt);
   function press(){
@@ -133,6 +134,12 @@ export function VenueSlotTimetable({venue,startsAt,promotionId,initialDate}:{
   const [mineError,setMineError]=useState(false);
   const [cancelConfirm,setCancelConfirm]=useState(false),[cancelBusy,setCancelBusy]=useState(false);
   const [contactError,setContactError]=useState(false);
+  const [watches,setWatches]=useState<VenueSlotWatchDto[]>([]);
+  const [watchBusy,setWatchBusy]=useState(false);
+  const [watchError,setWatchError]=useState(false);
+  const [favorite,setFavorite]=useState<string|null>(null);
+  const [favoriteBusy,setFavoriteBusy]=useState(false);
+  const [favoriteError,setFavoriteError]=useState(false);
   const [weekHeaderHeight,setWeekHeaderHeight]=useState(80);
   const [weekRowHeights,setWeekRowHeights]=useState<Record<string,number>>({});
   // Match the actual height of every scrollable slot row (including large
@@ -146,6 +153,17 @@ export function VenueSlotTimetable({venue,startsAt,promotionId,initialDate}:{
   const callLink=callVenueUrl(venue.publicPhone);
   const whatsappLink=venueWhatsAppUrl(venue,language);
   const sequence=useRef(0);
+  useFocusEffect(useCallback(()=>{
+    let active=true;
+    if(!session){setWatches([]);setFavorite(null);return()=>{active=false;};}
+    void Promise.all([
+      bookingApi.slotWatches(session.accessToken,venue.id),
+      bookingApi.savedVenueTime(session.accessToken,venue.id),
+    ]).then(([w,preference])=>{
+      if(active){setWatches(w.watches);setFavorite(preference.preferredStart);}
+    }).catch(()=>{if(active){setWatches([]);setFavorite(null);}});
+    return()=>{active=false;};
+  },[session?.accessToken,venue.id,reload]));
   // Reload account-owned bookings each time the venue screen regains focus.
   useFocusEffect(useCallback(()=>{
     let live=true;
@@ -261,12 +279,14 @@ export function VenueSlotTimetable({venue,startsAt,promotionId,initialDate}:{
     setAnchor(next);setSelected(null);
   }
   const tap=useCallback((slot:VenueTimelineSlotDto,date:string)=>{
-    const bookable=(slot.status==="AVAILABLE"||slot.status==="PROMOTION")
-      &&date>=today&&date<=limit;
+    const bookable=(slot.status==="AVAILABLE"||slot.status==="PROMOTION"||
+      slot.status==="UNAVAILABLE")&&date>=today&&date<=limit&&
+      Date.parse(slot.startsAt)>Date.now();
     const mine=ownBooking(slot);
     // Public unavailable slots never reveal someone else's reservation.
     if(!bookable&&!mine)return;
     setContactError(false);setCancelConfirm(false);
+    setWatchError(false);setFavoriteError(false);
     setSelected({date,slot,fresh:days[date]?.fresh===true});
   },[today,limit,days,ownBooking]);
   function book(){
@@ -280,6 +300,34 @@ export function VenueSlotTimetable({venue,startsAt,promotionId,initialDate}:{
       startsAt:slot.startsAt,endsAt:slot.endsAt,
       priceAfn:String(slot.priceAfn),timeZone:venue.timezone,
     }});
+  }
+  const selectedWatch=selected?watches.find(x=>x.areaId===selected.slot.areaId&&
+    x.startsAt===selected.slot.startsAt):undefined;
+  async function toggleWatch(){
+    if(!selected||!session||watchBusy||!connected||!selected.fresh)return;
+    setWatchBusy(true);setWatchError(false);
+    try{
+      if(selectedWatch){
+        await bookingApi.unwatchSlot(session.accessToken,selectedWatch.id);
+        setWatches(all=>all.filter(x=>x.id!==selectedWatch.id));
+      }else{
+        const {watch}=await bookingApi.watchSlot(session.accessToken,{
+          venueId:venue.id,areaId:selected.slot.areaId,startsAt:selected.slot.startsAt,
+        });
+        setWatches(all=>[...all.filter(x=>x.id!==watch.id),watch]);
+      }
+    }catch{setWatchError(true);}
+    finally{setWatchBusy(false);}
+  }
+  async function saveFavorite(){
+    if(!selected||!session||!connected||favoriteBusy)return;
+    const time=clock(selected.slot.startsAt,venue.timezone);
+    setFavoriteBusy(true);setFavoriteError(false);
+    try{
+      const response=await bookingApi.saveVenueTime(session.accessToken,venue.id,time);
+      setFavorite(response.preferredStart);
+    }catch{setFavoriteError(true);}
+    finally{setFavoriteBusy(false);}
   }
   const selectedOwn=selected?ownBooking(selected.slot):undefined;
   const selectedWhatsapp=selected?venueWhatsAppUrl(venue,language,selected.slot,!!selectedOwn):null;
@@ -298,6 +346,9 @@ export function VenueSlotTimetable({venue,startsAt,promotionId,initialDate}:{
       <AppText variant="caption" muted>{tr("contactDisclaimer")}</AppText>
       {contactError?<AppText style={{color:colors.danger}}>{tr("contactFailed")}</AppText>:null}
     </Card>
+    {favorite&&session?<AppText variant="caption" muted>
+      {t("booking.community.savedTime")}: {formatClock12From24Hour(favorite)}
+    </AppText>:null}
     {!venue.onlineBookingEnabled?<Card style={{gap:spacing.sm}}>
       <AppText weight="bold">{t("vd.bookingPaused")}</AppText>
       <AppText muted>{t("vd.bookingPausedBody")}</AppText>
@@ -480,9 +531,25 @@ export function VenueSlotTimetable({venue,startsAt,promotionId,initialDate}:{
                   disabled={cancelBusy} onPress={()=>setCancelConfirm(false)}/>
               </Card>:<Button label={tr("cancelReservation")} variant="danger"
                 disabled={!connected} onPress={()=>setCancelConfirm(true)}/>:null}
+          </>:selected.slot.status==="UNAVAILABLE"?<>
+            <AppText variant="caption" muted>{t("booking.community.watchExplanation")}</AppText>
+            {session?<Button label={t(selectedWatch?
+              "booking.community.stopWatch":"booking.community.watchSlot")}
+              disabled={!selected.fresh||!connected||watchBusy} loading={watchBusy}
+              onPress={()=>void toggleWatch()}/>:
+              <AppText variant="caption" muted>{t("booking.community.signInWatch")}</AppText>}
+            {watchError?<AppText style={{color:colors.danger}}>{t("booking.community.watchError")}</AppText>:null}
           </>:selected.fresh&&connected&&["AVAILABLE","PROMOTION"].includes(selected.slot.status)?
             <Button label={t("booking.bookNow")} onPress={book}/>:
             <AppText variant="caption" muted>{tr("notBookable")}</AppText>}
+          {selected.slot.status!=="PAST"&&session?<>
+            <Button label={favorite===clock(selected.slot.startsAt,venue.timezone)?
+              t("booking.community.saved"):t("booking.community.saveFavorite")}
+              variant="secondary" onPress={()=>void saveFavorite()}
+              disabled={!connected||favoriteBusy} loading={favoriteBusy}/>
+            {favoriteError?<AppText style={{color:colors.danger}}>
+              {t("booking.community.saveError")}</AppText>:null}
+          </>:null}
           <View style={[styles.contactRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             {callLink?<Button style={styles.contactButton} variant="secondary"
               label={tr("callVenue")} onPress={()=>void openContact(callLink)}/>:null}
