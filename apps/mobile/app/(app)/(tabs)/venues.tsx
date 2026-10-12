@@ -1,12 +1,14 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, colors, radius } from "@leaguekick/design-tokens";
-import type { FollowedVenueDto, PublicVenueDto, VenueSearchSuggestion } from "@leaguekick/contracts";
+import type { FollowedVenueDto, PublicVenueDto, VenueSearchSuggestion, VenueDirectoryResult, VenueDirectoryFilters } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { marketingApi, venueApi } from "../../../src/lib/api";
 import { FollowedVenueTile } from "../../../src/components/venues/FollowedVenueTile";
 import { VenueResultCard } from "../../../src/components/venues/VenueResultCard";
+import { VenueAdvancedFilters,newVenueFilters,venueToday,
+  type VenueFilterDraft } from "../../../src/components/venues/VenueAdvancedFilters";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Card } from "../../../src/components/ui/Card";
 import { DataLoadingState } from "../../../src/components/ui/DataLoadingState";
@@ -33,35 +35,66 @@ export default function VenuesScreen(){
   const [suggestions,setSuggestions]=useState<VenueSearchSuggestion[]>([]);
   const [suggestionsVisible,setSuggestionsVisible]=useState(false);
   const [venues,setVenues]=useState<PublicVenueDto[]>([]);
+  const [metrics,setMetrics]=useState<Record<string,VenueDirectoryResult>>({});
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
   const [followed,setFollowed]=useState<FollowedVenueDto[]>([]);
   const [followsLoading,setFollowsLoading]=useState(true);
   const [followsError,setFollowsError]=useState<string|null>(null);
   const [followRefresh,setFollowRefresh]=useState(0);
+  const [filters,setFilters]=useState<VenueFilterDraft>(newVenueFilters);
+  const [filterError,setFilterError]=useState<string|null>(null);
+  const filtersRef=useRef<VenueFilterDraft>(filters);
   const latestRequest=useRef(0);
-  const lastSearchRef=useRef({query:"",province:DEFAULT_PROVINCE});
-  const [lastSearch,setLastSearch]=useState({query:"",province:DEFAULT_PROVINCE});
+  const lastSearchRef=useRef({query:"",province:DEFAULT_PROVINCE,filters});
+  const [lastSearch,setLastSearch]=useState({query:"",province:DEFAULT_PROVINCE,filters});
 
   // Search requests can overlap when filters change quickly. Only the newest
   // response is allowed to replace the visible directory or its loading state.
-  const load=useCallback(async(nextQuery:string,nextProvince:string)=>{
+  const load=useCallback(async(nextQuery:string,nextProvince:string,
+    nextFilters:VenueFilterDraft=filtersRef.current)=>{
     const request=++latestRequest.current;
-    lastSearchRef.current={query:nextQuery,province:nextProvince};
+    const activeFilters={...nextFilters};
+    lastSearchRef.current={query:nextQuery,province:nextProvince,filters:activeFilters};
     setLastSearch(lastSearchRef.current);
-    setLoading(true);setError(null);
+    setLoading(true);setError(null);setFilterError(null);
+    const min=activeFilters.minPrice?Number(activeFilters.minPrice):undefined;
+    const max=activeFilters.maxPrice?Number(activeFilters.maxPrice):undefined;
+    const times:Partial<Pick<VenueDirectoryFilters,"startTime"|"endTime">>=
+      activeFilters.period==="morning"?{startTime:"06:00",endTime:"11:59"}:
+      activeFilters.period==="afternoon"?{startTime:"12:00",endTime:"17:59"}:
+      activeFilters.period==="evening"?{startTime:"18:00",endTime:"23:59"}:
+      activeFilters.period==="custom"?{startTime:activeFilters.startTime,endTime:activeFilters.endTime}:{};
+    if((min!==undefined&&max!==undefined&&min>max)||
+      (activeFilters.period==="custom"&&activeFilters.startTime>activeFilters.endTime)){
+      if(latestRequest.current===request){
+        setFilterError(t("booking.filter.invalidRange"));setLoading(false);
+      }
+      return;
+    }
     try{
-      const result=await venueApi.list({
+      const latitude=session?.user.defaultLatitude,longitude=session?.user.defaultLongitude;
+      const location=typeof latitude==="number"&&typeof longitude==="number"
+        ?{latitude,longitude}:{};
+      const result=await venueApi.search({
+        date:activeFilters.date,
         ...(nextQuery.trim()?{q:nextQuery.trim()}:{}),
-        ...(nextProvince?{province:nextProvince}:{})
+        ...(nextProvince?{province:nextProvince}:{}),
+        ...times,
+        ...(min!==undefined?{minPriceAfn:min}:{}),
+        ...(max!==undefined?{maxPriceAfn:max}:{}),
+        availableOnly:activeFilters.availableOnly,sort:activeFilters.sort,...location,
       });
-      if(latestRequest.current===request)setVenues(result.venues);
+      if(latestRequest.current===request){
+        setVenues(result.results.map(x=>x.venue));
+        setMetrics(Object.fromEntries(result.results.map(x=>[x.venue.id,x])));
+      }
     }catch{
       if(latestRequest.current===request)setError(t("booking.loadVenuesError"));
     }finally{
       if(latestRequest.current===request)setLoading(false);
     }
-  },[t]);
+  },[t,session?.user.defaultLatitude,session?.user.defaultLongitude]);
 
   useEffect(()=>{void load("",DEFAULT_PROVINCE);},[load]);
 
@@ -70,8 +103,10 @@ export default function VenuesScreen(){
   const initialFocus=useRef(true);
   useFocusEffect(useCallback(()=>{
     if(initialFocus.current){initialFocus.current=false;return;}
-    const {query:activeQuery,province:activeProvince}=lastSearchRef.current;
-    void load(activeQuery,activeProvince);
+    const {query:activeQuery,province:activeProvince,filters:applied}=lastSearchRef.current;
+    const updated=applied.date<venueToday()?{...applied,date:venueToday()}:applied;
+    if(updated!==applied)setFilters(updated);
+    void load(activeQuery,activeProvince,updated);
   },[load]));
 
   // Provinces are provided by subscribed, currently discoverable venue pages;
@@ -103,7 +138,7 @@ export default function VenuesScreen(){
   function applySearch(nextQuery=query,nextProvince=province){
     setSuggestionsVisible(false);
     setSuggestions([]);
-    void load(nextQuery,nextProvince);
+    void load(nextQuery,nextProvince,filtersRef.current);
   }
 
   function selectSuggestion(suggestion:VenueSearchSuggestion){
@@ -137,9 +172,14 @@ export default function VenuesScreen(){
   const additionalCount=followed.length-MAX_VISIBLE_FOLLOWS;
 
   function resetSearch(){
+    const fresh=newVenueFilters();
+    filtersRef.current=fresh;setFilters(fresh);
     setQuery("");setProvince(DEFAULT_PROVINCE);
     setSuggestionsVisible(false);setSuggestions([]);
-    void load("",DEFAULT_PROVINCE);
+    void load("",DEFAULT_PROVINCE,fresh);
+  }
+  function editFilters(next:VenueFilterDraft){
+    filtersRef.current=next;setFilters(next);setFilterError(null);
   }
 
   return <Screen showHeader publicNav style={styles.page}>
@@ -261,6 +301,9 @@ export default function VenuesScreen(){
         </View>:null}
 
 
+      <VenueAdvancedFilters value={filters} onChange={editFilters}
+        hasSavedLocation={typeof session?.user.defaultLatitude==="number"&&
+          typeof session?.user.defaultLongitude==="number"} error={filterError}/>
       <Button label={t("booking.search")} onPress={()=>applySearch()} loading={loading}/>
     </View>
 
@@ -329,6 +372,9 @@ export default function VenuesScreen(){
           province={venue.province}
           imageUrl={venue.pageCoverImageUrl??venue.pageProfileImageUrl}
           onlineBookingEnabled={venue.onlineBookingEnabled}
+          availableCount={metrics[venue.id]?.availableCount}
+          lowestPriceAfn={metrics[venue.id]?.lowestPriceAfn}
+          distanceKm={metrics[venue.id]?.distanceKm}
           twoColumn={twoColumns}
         />)}
       </View>:null}
