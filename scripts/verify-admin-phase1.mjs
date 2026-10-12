@@ -45,10 +45,10 @@ for(const marker of [
   'section==="audit"',
   'setQueryDraft',
   'function updateSort(',
-  'futsal.admin.section',
   'function submitSearch()',
   'onPage={setPage}',
 ])assert.ok(root.includes(marker),"Missing independent, paged admin data load: "+marker);
+assert.ok(root.includes('useState<SectionKey>("dashboard")'),"Admin defaults to first tab.");
 assert.ok(!root.includes('loadPart("users", () => adminApi.users(token, query)'),
   "Global eager loading must not return.");
 for(const marker of [
