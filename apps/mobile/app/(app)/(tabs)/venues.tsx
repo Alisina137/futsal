@@ -1,11 +1,14 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, colors, radius } from "@leaguekick/design-tokens";
-import type { FollowedVenueDto, PublicVenueDto, VenueSearchSuggestion, VenueDirectoryResult, VenueDirectoryFilters } from "@leaguekick/contracts";
+import type { FollowedVenueDto, PublicVenueDto, NearbyVenueDto, VenueSearchSuggestion, VenueDirectoryResult, VenueDirectoryFilters } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { marketingApi, venueApi } from "../../../src/lib/api";
 import { FollowedVenueTile } from "../../../src/components/venues/FollowedVenueTile";
+import { NearbyVenuesMap } from "../../../src/components/venues/NearbyVenuesMap";
+import { NearbyDeviceLocation } from "../../../src/components/venues/NearbyDeviceLocation";
+import { useVenueMapLocation, type VenueMapPoint } from "../../../src/components/venues/useVenueMapLocation";
 import { VenueResultCard } from "../../../src/components/venues/VenueResultCard";
 import { VenueAdvancedFilters,newVenueFilters,venueToday,
   type VenueFilterDraft } from "../../../src/components/venues/VenueAdvancedFilters";
@@ -27,6 +30,18 @@ export default function VenuesScreen(){
   const token=session?.accessToken;
   const {width:windowWidth}=useWindowDimensions();
   const twoColumns=windowWidth>=670;
+  const [viewMode,setViewMode]=useState<"list"|"map">("list");
+  const [mapSelectedId,setMapSelectedId]=useState<string|null>(null);
+  const [mapFailed,setMapFailed]=useState(false);
+  const [directionsError,setDirectionsError]=useState(false);
+  const defaultPoint=useMemo<VenueMapPoint|null>(()=>{
+    const latitude=session?.user.defaultLatitude,longitude=session?.user.defaultLongitude;
+    return typeof latitude==="number"&&typeof longitude==="number"&&
+      Number.isFinite(latitude)&&Number.isFinite(longitude)&&
+      Math.abs(latitude)<=90&&Math.abs(longitude)<=180?{latitude,longitude}:null;
+  },[session?.user.defaultLatitude,session?.user.defaultLongitude]);
+  const geo=useVenueMapLocation(defaultPoint);
+  const activePoint=useRef<VenueMapPoint|null>(null);
   const [query,setQuery]=useState("");
   const [province,setProvince]=useState(DEFAULT_PROVINCE);
   const [provinceOptions,setProvinceOptions]=useState<string[]>([]);
@@ -87,9 +102,9 @@ export default function VenuesScreen(){
       return;
     }
     try{
-      const latitude=session?.user.defaultLatitude,longitude=session?.user.defaultLongitude;
-      const location=typeof latitude==="number"&&typeof longitude==="number"
-        ?{latitude,longitude}:{};
+      // Use GPS only after explicit permission; otherwise use actual saved
+      // profile coordinates. Never pass a venue map center as user location.
+      const location=activePoint.current??defaultPoint??{};
       const result=await venueApi.search({
         date:activeFilters.date,
         ...(nextQuery.trim()?{q:nextQuery.trim()}:{}),
@@ -103,15 +118,25 @@ export default function VenuesScreen(){
         setVenues(result.results.map(x=>x.venue));
         setMetrics(Object.fromEntries(result.results.map(x=>[x.venue.id,x])));
         setSearchSnapshotAt(result.generatedAt);
+        setMapSelectedId(null);setDirectionsError(false);
       }
     }catch{
       if(latestRequest.current===request)setError(t("booking.loadVenuesError"));
     }finally{
       if(latestRequest.current===request)setLoading(false);
     }
-  },[t,session?.user.defaultLatitude,session?.user.defaultLongitude]);
+  },[t,defaultPoint]);
 
   useEffect(()=>{void load("",DEFAULT_PROVINCE);},[load]);
+
+  // A successful foreground-only location lookup also updates distance sorting
+  // for the exact same applied query, date and price filters.
+  useEffect(()=>{
+    if(!geo.point)return;
+    activePoint.current=geo.point;
+    const {query:activeQuery,province:activeProvince,filters:applied}=lastSearchRef.current;
+    void load(activeQuery,activeProvince,applied);
+  },[geo.point,load]);
 
   // Screen state remains mounted while opening a venue profile. Refresh real
   // results on return without resetting the selected province/query or scroll.
@@ -199,6 +224,29 @@ export default function VenuesScreen(){
     });
     return ()=>{active=false;};
   },[token,t,followRefresh]));
+
+  // Map pins derive exclusively from the SAME server-filtered result list.
+  // Missing/invalid venue coordinates never produce invented markers.
+  const mappedVenues=useMemo<NearbyVenueDto[]>(()=>venues.flatMap(venue=>{
+    if(venue.latitude===null||venue.longitude===null||
+      !Number.isFinite(venue.latitude)||!Number.isFinite(venue.longitude)||
+      Math.abs(venue.latitude)>90||Math.abs(venue.longitude)>180)return [];
+    return [{id:venue.id,name:venue.name,city:venue.city,province:venue.province,
+      imageUrl:venue.pageProfileImageUrl??venue.pageCoverImageUrl,
+      onlineBookingEnabled:venue.onlineBookingEnabled,
+      latitude:venue.latitude,longitude:venue.longitude,
+      distanceKm:metrics[venue.id]?.distanceKm??0}];
+  }),[venues,metrics]);
+  const center=geo.point??defaultPoint??(mappedVenues[0]?
+    {latitude:mappedVenues[0].latitude,longitude:mappedVenues[0].longitude}:null);
+  const mapSelected=venues.find(venue=>venue.id===mapSelectedId);
+  async function openDirections(latitude:number,longitude:number){
+    setDirectionsError(false);
+    try{
+      await Linking.openURL("https://www.google.com/maps/dir/?api=1&destination="+
+        encodeURIComponent(latitude+","+longitude));
+    }catch{setDirectionsError(true);}
+  }
 
   const preview=followed.slice(0,MAX_VISIBLE_FOLLOWS);
   const additionalCount=followed.length-MAX_VISIBLE_FOLLOWS;
