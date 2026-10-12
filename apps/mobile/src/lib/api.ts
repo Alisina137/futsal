@@ -519,7 +519,7 @@ export const ownerApi = {
 
 
 export const venueApi = {
-  reviews:(venueId:string)=>request<VenueReviewSummary>(
+  reviews:(venueId:string)=>networkRequest<VenueReviewSummary>(
     `/api/v1/venues/${encodeURIComponent(venueId)}/reviews`),
   search: (filters:VenueDirectoryFilters)=>{
     const params=new URLSearchParams();
@@ -577,8 +577,8 @@ export const bookingApi = {
     request<{venueId:string;preferredStart:string|null}>(
       `/api/v1/bookings/venue-preferences/${encodeURIComponent(venueId)}`,
       {method:"PUT",body:JSON.stringify({preferredStart})},token),
-  slotWatches:(token:string,venueId:string)=>request<{watches:VenueSlotWatchDto[]}>(
-    `/api/v1/bookings/slot-watches?venueId=${encodeURIComponent(venueId)}`,{},token),
+  slotWatches:(token:string,venueId:string)=>networkRequest<{watches:VenueSlotWatchDto[]}>(
+    `/api/v1/bookings/slot-watches?venueId=${encodeURIComponent(venueId)}`,{cache:"no-store"},token),
   watchSlot:(token:string,input:VenueSlotWatchCreate)=>request<{watch:VenueSlotWatchDto}>(
     "/api/v1/bookings/slot-watches",{method:"POST",body:JSON.stringify(input)},token),
   unwatchSlot:(token:string,watchId:string)=>request<{removed:boolean}>(
