@@ -476,7 +476,7 @@ const styles=StyleSheet.create({
   dayHeading:{width:124,minHeight:80,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",gap:3,borderWidth:1,borderColor:colors.border},
   todayHeading:{backgroundColor:"#DBEAFE"},
-  timeCell:{width:67,minHeight:62,justifyContent:"center",alignItems:"center",
+  timeCell:{width:94,minHeight:62,justifyContent:"center",alignItems:"center",
     backgroundColor:"#EFF6FF",borderWidth:1,borderColor:colors.border},
   weekCell:{width:124,minHeight:62,padding:3,borderWidth:1,borderColor:colors.border,
     gap:2,justifyContent:"center",backgroundColor:colors.surface},
