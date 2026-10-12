@@ -216,8 +216,14 @@ export default function ProfileScreen(){
         <Divider/>
         <ActionRow icon="trophy-outline" title={t("competition.title")} subtitle={t("competition.quickAccessBody")} rtl={isRTL} onPress={()=>router.push("/competitions")}/>
         <Divider/>
-        <ActionRow icon="football-outline" title={t("teams.profileTitle")} subtitle={t("teams.profileSubtitle")} rtl={isRTL} onPress={()=>router.push("/profile/player")}/>
-        <Divider/>
+        {/* Player profile belongs only to an assigned PLAYER account. Basic users
+            such as shams must not be offered a role-only profile action. */}
+        {user?.roles.includes("PLAYER")&&!user?.roles.includes("REFEREE")?<>
+          <ActionRow icon="football-outline" title={t("teams.profileTitle")}
+            subtitle={t("teams.profileSubtitle")} rtl={isRTL}
+            onPress={()=>router.push("/profile/player")}/>
+          <Divider/>
+        </>:null}
         <ActionRow icon="business-outline" title={t("booking.venuesTitle")} subtitle={t("settings.playerVenuesBody")} rtl={isRTL} onPress={()=>router.push("/venues")}/>
         <Divider/>
         <ActionRow icon="calendar-outline" title={t("booking.myBookings")} subtitle={t("settings.playerBookingsBody")} rtl={isRTL} onPress={()=>router.push("/bookings")}/>
