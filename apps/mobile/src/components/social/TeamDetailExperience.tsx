@@ -14,6 +14,7 @@ import {DataLoadingState} from "../ui/DataLoadingState";
 import {Screen} from "../ui/Screen";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useVisibleTab} from "../../hooks/useVisibleTab";
 
 type Tab="media"|"squad"|"matches"|"competitions"|"stats"|"about";
 const navigation:{id:Tab;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -113,7 +114,9 @@ export default function TeamDetailExperience(){
   const [publicBusy,setPublicBusy]=useState(false);
   const [retryCounter,setRetryCounter]=useState(0);
   const [photo,setPhoto]=useState<string|null>(null);
-  const screenScroll=useRef<ScrollView>(null),navScroll=useRef<ScrollView>(null);
+  const screenScroll=useRef<ScrollView>(null);
+  const mainNav=useVisibleTab<Tab>(tab);
+  const subNav=useVisibleTab<string>(subs[tab]??subNavigation[tab][0]!);
   const lastId=useRef(id);
 
   const load=useCallback(async()=>{
@@ -192,8 +195,8 @@ export default function TeamDetailExperience(){
   }
   function chooseTab(value:Tab){
     setTab(value);
-    const index=navigation.findIndex(item=>item.id===value);
-    navScroll.current?.scrollTo({x:Math.max(0,index-1)*90,animated:true});
+    if(value!==tab)setSubs(current=>({...current,[value]:subNavigation[value][0]!}));
+    mainNav.focus(value,true);
     screenScroll.current?.scrollTo({y:0,animated:true});
   }
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
@@ -447,9 +450,11 @@ export default function TeamDetailExperience(){
       </View>
     </View>
     <View style={styles.tabContainer}>
-      <ScrollView ref={navScroll} horizontal showsHorizontalScrollIndicator={false}
+      <ScrollView ref={mainNav.scrollRef} onLayout={mainNav.onViewport}
+        onContentSizeChange={mainNav.onContentSize} horizontal showsHorizontalScrollIndicator={false}
         style={{flexGrow:0}} contentContainerStyle={[styles.tabs,rowDirection]}>
         {navigation.map(item=><Pressable key={item.id} accessibilityRole="tab"
+          onLayout={event=>mainNav.cellLayout(item.id,event)}
           accessibilityState={{selected:tab===item.id}}
           style={[styles.tab,tab===item.id&&styles.tabSelected]} onPress={()=>chooseTab(item.id)}>
           <Ionicons name={item.icon} size={20} color={tab===item.id?colors.primary:colors.textMuted}/>
@@ -458,12 +463,15 @@ export default function TeamDetailExperience(){
         </Pressable>)}
       </ScrollView>
     </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
+    <ScrollView ref={subNav.scrollRef} onLayout={subNav.onViewport}
+      onContentSizeChange={subNav.onContentSize}
+      horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
       contentContainerStyle={[styles.subRow,rowDirection]}>
       {subNavigation[tab].map(key=><Pressable key={key} accessibilityRole="tab"
+        onLayout={event=>subNav.cellLayout(key,event)}
         accessibilityState={{selected:subs[tab]===key}}
         style={[styles.sub,subs[tab]===key&&styles.subSelected]}
-        onPress={()=>setSubs(current=>({...current,[tab]:key}))}>
+        onPress={()=>{setSubs(current=>({...current,[tab]:key}));subNav.focus(key,true);}}>
         <AppText variant="caption" weight="semibold"
           style={{color:subs[tab]===key?"#FFFFFF":colors.primary}}>{tx(key)}</AppText>
       </Pressable>)}
