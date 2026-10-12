@@ -5,6 +5,7 @@ import type {
   TeamCaptainRequest,
   TeamCreateRequest,
   TeamDto,
+  TeamDiscoveryQuery,
   TeamInviteRequest,
   TeamManagerTransferRequest,
   TeamMemberUpdateRequest,
@@ -105,6 +106,11 @@ export class TeamService {
   async listTeamsDirectory(userId: string) {
     await this.identity(userId);
     return { teams: await this.repository.listDirectoryTeams(userId) };
+  }
+
+  async discoverTeams(userId:string,filters:TeamDiscoveryQuery){
+    await this.identity(userId);
+    return this.repository.discoverTeams(userId,filters);
   }
 
   async getMyJoinRequest(userId: string, teamId: string) {
