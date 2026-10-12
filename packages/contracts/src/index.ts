@@ -2165,7 +2165,7 @@ export const competitionListItemDtoSchema = competitionDtoSchema.omit({
 });
 export type CompetitionListItemDto = z.infer<typeof competitionListItemDtoSchema>;
 
-export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT", "ADMIN_ANNOUNCEMENT"]);
+export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_AVAILABLE", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT", "ADMIN_ANNOUNCEMENT"]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
 export const notificationDtoSchema = z.object({
