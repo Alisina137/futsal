@@ -39,8 +39,8 @@ const focused=[
   ["apps/mobile/src/components/player/PlayerDashboard.tsx",["optionRail"]],
   ["apps/mobile/src/components/player/PlayerActivityTabs.tsx",["optionRail"]],
   ["apps/mobile/src/components/player/PlayerCareerTabs.tsx",["optionRail"]],
-  ["apps/mobile/src/components/team-manager/TeamManagerDashboard.tsx",["optionRail"]],
-  ["apps/mobile/src/components/team-manager/TeamCompetitionOps.tsx",["optionRail"]],
+  ["apps/mobile/src/components/team-manager/TeamManagerDashboard.tsx",["rail"]],
+  ["apps/mobile/src/components/team-manager/TeamCompetitionOps.tsx",["rail"]],
 ];
 for(const [path,markers] of focused){
   const source=read(path);
