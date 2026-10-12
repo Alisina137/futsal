@@ -75,7 +75,7 @@ of the league participants and Abdul's active player team.
   career goals, assists, cards, man-of-the-match flags and match history.
 - Competition rosters, team lineups, a forthcoming fixture and results.
 - Player preferences (only if blank), three training/meeting events,
-  availability responses, competition follows and a confirmed friendly.
+  availability responses, competition follows, a confirmed friendly and\n  several in-app notifications.
 
 ## Team manager (existing owner of Abdul's team)
 
