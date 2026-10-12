@@ -44,13 +44,45 @@ async function target(){
  const teamBy=async(n)=>get(
   "select id,name,manager_user_id from teams "+
   "where manager_user_id=$1 and status='ACTIVE' and offline_venue_id is null limit 1",[users[n].id]);
- // Prefer requested owner assignments if present. Never swap or grant roles.
+ // Prefer the requested owners, but use actual DB ownership. Do not swap roles.
  const venue=await venueBy("alisina")||await venueBy("mahdi");
- const team=await teamBy("mahdi")||await teamBy("alisina");
- guard(venue&&team,"Cannot find an active subscribed venue and independently managed team for named demo users.");
- const member=await get("select 1 from team_memberships where team_id=$1 and user_id=$2 and status='ACTIVE' and role='PLAYER'",
-  [team.id,users.abdul.id]);
- guard(member,"Abdul must already be a player on the selected manager's team; no real memberships will be altered.");
+ const candidateTeams=[await teamBy("mahdi"),await teamBy("alisina")].filter(Boolean);
+ guard(venue&&candidateTeams.length>0,
+  "Cannot find an active subscribed venue and managed team for Alisina or Mahdi.");
+ // A team already containing Abdul takes priority. Previously we selected
+ // Mahdi's team without checking Abdul's membership, causing an unnecessary rollback.
+ const hasAbdul=async(team)=>Boolean(await get(
+  "select 1 from team_memberships where team_id=$1 and user_id=$2 and status='ACTIVE' and role='PLAYER'",
+  [team.id,users.abdul.id]));
+ let team=null;
+ for(const candidate of candidateTeams){
+  if(await hasAbdul(candidate)){team=candidate;break;}
+ }
+ team=team||candidateTeams[0];
+ if(!await hasAbdul(team)){
+  // The explicit QA story asks to populate Abdul's player dashboard.
+  // Create a new membership only when it does not overwrite a previous
+  // rejection/departure or create a referee/paid-owner role conflict.
+  const before=await get(
+   "select status,role from team_memberships where team_id=$1 and user_id=$2",
+   [team.id,users.abdul.id]);
+  guard(!before,
+   "Abdul has an existing inactive/non-player membership on "+team.name+
+   ". Refusing to reactivate or overwrite it.");
+  const eligibility=await get(
+   "select (u.status='ACTIVE' and exists(select 1 from user_roles ur where ur.user_id=u.id and ur.role='PLAYER') "+
+   "and not exists(select 1 from user_roles ur where ur.user_id=u.id and ur.role in ('REFEREE','TEAM_MANAGER','VENUE_OWNER','PLATFORM_ADMIN')) "+
+   "and not exists(select 1 from venue_referees vr where vr.user_id=u.id)) as eligible "+
+   "from users u where u.id=$1",[users.abdul.id]);
+  guard(eligibility?.eligible,
+   "Abdul is not an eligible active Player; refusing to create a test membership or change his roles.");
+  await q(
+   "insert into team_memberships(team_id,user_id,role,shirt_number,status,joined_at,updated_at) "+
+   "values($1,$2,'PLAYER',7,'ACTIVE',now(),now()) on conflict do nothing",
+   [team.id,users.abdul.id]);
+  guard(await hasAbdul(team),"Could not establish Abdul's active QA Player membership.");
+  console.log("Created the missing test-only Player membership for Abdul in "+team.name+".");
+ }
  console.log("Seeding "+venue.name+" (owner="+(venue.owner_user_id===users.alisina.id?"alisina":"mahdi")+
    ") and team "+team.name+" (manager="+(team.manager_user_id===users.mahdi.id?"mahdi":"alisina")+")");
  const official=await get("select user_id from venue_referees where venue_id=$1 order by assigned_at limit 1",[venue.id]);
