@@ -115,6 +115,7 @@ export default function TeamDetailExperience(){
   const [retryCounter,setRetryCounter]=useState(0);
   const [photo,setPhoto]=useState<string|null>(null);
   const screenScroll=useRef<ScrollView>(null);
+  const navVerticalY=useRef(0);
   const mainNav=useVisibleTab<Tab>(tab);
   const subNav=useVisibleTab<string>(subs[tab]??subNavigation[tab][0]!);
   const lastId=useRef(id);
@@ -197,7 +198,7 @@ export default function TeamDetailExperience(){
     setTab(value);
     if(value!==tab)setSubs(current=>({...current,[value]:subNavigation[value][0]!}));
     mainNav.focus(value,true);
-    screenScroll.current?.scrollTo({y:0,animated:true});
+    screenScroll.current?.scrollTo({y:Math.max(0,navVerticalY.current-spacing.sm),animated:true});
   }
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
     :team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
@@ -449,7 +450,7 @@ export default function TeamDetailExperience(){
         </View>:null}
       </View>
     </View>
-    <View style={styles.tabContainer}>
+    <View style={styles.tabContainer} onLayout={e=>{navVerticalY.current=e.nativeEvent.layout.y;}}>
       <ScrollView ref={mainNav.scrollRef} onLayout={mainNav.onViewport}
         onContentSizeChange={mainNav.onContentSize} horizontal showsHorizontalScrollIndicator={false}
         style={{flexGrow:0}} contentContainerStyle={[styles.tabs,rowDirection]}>
