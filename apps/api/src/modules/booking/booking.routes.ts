@@ -105,6 +105,13 @@ export function createPlayerBookingRouter(booking: BookingService, tokens: Token
     catch (error) { next(error); }
   });
 
+  router.get("/reviews/mine",async(request,response,next)=>{
+    try{
+      const venueId=routeIdSchema.parse(request.query.venueId);
+      response.json(await booking.myReviewedVenueBookings(request.auth!.userId,venueId));
+    }catch(error){next(error);}
+  });
+
   router.post("/reviews",writeLimiter,async(request,response,next)=>{
     try{const input=venueReviewCreateSchema.parse(request.body);
       response.status(201).json({review:await booking.submitVenueReview(request.auth!.userId,input)});
