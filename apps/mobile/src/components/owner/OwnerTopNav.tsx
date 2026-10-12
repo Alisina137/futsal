@@ -41,7 +41,7 @@ function activeSection(pathname:string):OwnerSection|null{
 export function OwnerTopNav(){
   const pathname=usePathname();
   const {t,isRTL}=useLocale();
-  const active=activeSection(pathname);
+  const active=activeSection(pathname)??items[0]!.key;
   const scrollRef=useRef<ScrollView|null>(null);
   const viewportWidth=useRef(0);
   const contentWidth=useRef(0);

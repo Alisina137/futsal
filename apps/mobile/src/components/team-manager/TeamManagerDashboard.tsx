@@ -143,7 +143,7 @@ export function TeamManagerDashboard(){
     if(isAboutTeamSection(section))focusSubTab(section,true);
   };
   const chooseMainTab=(section:MainSection)=>{
-    chooseTab(section==="aboutTeam"?lastAboutTeamTab:section);
+    chooseTab(section==="aboutTeam"?aboutTeamTabs[0].id:section);
   };
   const date=(value:string|null)=>value?formatCompetitionDateTime(value,language):t("tm1.notScheduled");
 

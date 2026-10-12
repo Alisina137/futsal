@@ -12,6 +12,7 @@ import {DataLoadingState} from "../../../src/components/ui/DataLoadingState";
 import {Screen} from "../../../src/components/ui/Screen";
 import {useAuth} from "../../../src/providers/AuthProvider";
 import {useLocale} from "../../../src/providers/LocaleProvider";
+import {useVisibleTab} from "../../../src/hooks/useVisibleTab";
 import {VenueAboutContent,VenueCompetitionsContent,VenueMediaContent,
   VenueReserveContent,VenueUpdatesContent,venueNavItems,venueSubtabs,
   type VenueMainTab,type VenueMediaSub,type VenueReserveSub,type VenueCompetitionSub,
@@ -35,6 +36,8 @@ export default function VenueDetailScreen(){
   const [reserveStartsAt,setReserveStartsAt]=useState<string|undefined>(startsAt);
   const [reservePromotionId,setReservePromotionId]=useState<string|undefined>(promotionId);
   const scroll=useRef<ScrollView>(null),initialVenue=useRef(targetId);
+  const mainNav=useVisibleTab<VenueMainTab>(main);
+  const subNav=useVisibleTab<string>(sub[main]??venueSubtabs[main][0]!);
   const loadVenue=useCallback(async()=>{
     if(!targetId)return;
     setLoading(true);setError(null);
@@ -70,7 +73,9 @@ export default function VenueDetailScreen(){
     return()=>{active=false;};
   },[session?.accessToken,targetId]);
   function chooseMain(id:VenueMainTab){
+    if(id!==main)setSub(current=>({...current,[id]:venueSubtabs[id][0]!}));
     setMain(id);
+    mainNav.focus(id,true);
     requestAnimationFrame(()=>scroll.current?.scrollTo({y:0,animated:true}));
   }
   function reserve(date?:string,promo?:string){
@@ -157,11 +162,14 @@ export default function VenueDetailScreen(){
     </View>
 
     <View style={styles.navContainer}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
+      <ScrollView ref={mainNav.scrollRef} onLayout={mainNav.onViewport}
+        onContentSizeChange={mainNav.onContentSize}
+        horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
         contentContainerStyle={[styles.navRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
         {venueNavItems.map(item=>{
           const active=main===item.id;
           return <Pressable key={item.id} accessibilityRole="tab"
+            onLayout={event=>mainNav.cellLayout(item.id,event)}
             accessibilityState={{selected:active}}
             onPress={()=>chooseMain(item.id)}
             style={[styles.navItem,active&&styles.navActive]}>
@@ -174,17 +182,21 @@ export default function VenueDetailScreen(){
         })}
       </ScrollView>
     </View>
-    <View style={[styles.subNav,{flexDirection:isRTL?"row-reverse":"row"}]}>
+    <ScrollView ref={subNav.scrollRef} onLayout={subNav.onViewport}
+      onContentSizeChange={subNav.onContentSize}
+      horizontal showsHorizontalScrollIndicator={false}
+      style={{flexGrow:0}} contentContainerStyle={[styles.subNav,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {venueSubtabs[main].map(item=><Pressable key={item} accessibilityRole="tab"
+        onLayout={event=>subNav.cellLayout(item,event)}
         accessibilityState={{selected:sub[main]===item}}
         style={[styles.subItem,sub[main]===item&&styles.subActive]}
-        onPress={()=>setSub(current=>({...current,[main]:item}))}>
+        onPress={()=>{setSub(current=>({...current,[main]:item}));subNav.focus(item,true);}}>
         <AppText variant="caption" weight="semibold"
           style={{color:sub[main]===item?colors.primary:colors.textMuted,textAlign:"center"}}>
           {tr("sub."+main+"."+item)}
         </AppText>
       </Pressable>)}
-    </View>
+    </ScrollView>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {main==="media"?<VenueMediaContent venue={venue} sub={sub.media as VenueMediaSub}

@@ -11,8 +11,8 @@ for(const id of ["players","competitions","matches","schedule"])
   expect(sub.includes('id:"'+id+'"'),"Missing About Team subtab "+id);
 expect(main.includes('key:"tmnav.analytics"')&&sub.includes('key:"tmnav.program"'),
   "Analytics must reuse Statistics and Program must reuse Schedule.");
-expect(dash.includes('section==="aboutTeam"?lastAboutTeamTab:section'),
-  "The About Team tab must restore the previous subtab.");
+expect(dash.includes('section==="aboutTeam"?aboutTeamTabs[0].id:section'),
+  "The About Team tab must select its first subtab by default.");
 expect(dash.includes('{activeMain==="aboutTeam"?<ScrollView'),
   "The submenu should only be visible when About Team is selected.");
 expect(dash.includes('focusTab(activeMain)')&&dash.includes('focusSubTab(tab)'),
