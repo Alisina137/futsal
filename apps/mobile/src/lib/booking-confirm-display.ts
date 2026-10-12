@@ -1,5 +1,6 @@
 import type {LanguageCode} from "@leaguekick/localization";
-import {AFGHANISTAN_TIME_ZONE} from "./date-time";
+// Keep this pure formatter directly executable in Node 24 regression tests.
+const AFGHANISTAN_TIME_ZONE = "Asia/Kabul";
 
 const locales:Record<LanguageCode,string>={
   en:"en-GB","fa-AF":"fa-AF","ps-AF":"ps-AF",
