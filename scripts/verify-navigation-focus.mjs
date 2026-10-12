@@ -46,4 +46,38 @@ assert.ok(sidebar.includes("navRef.current?.scrollTo")&&sidebar.includes("active
 const publicNav=read("apps/mobile/src/components/ui/PublicTopNavigation.tsx");
 assert.ok(publicNav.includes('item.key==="home"'));
 assert.ok(publicNav.includes("accessibilityState={{selected:active}}"));
-console.log("Navigation focus verified: first-tab defaults, RTL active tab scroll for venue/team, existing main dashboard focus, admin sidebar selected row.");
+const extraRails=[
+  ["apps/mobile/src/components/referee/RefereeDashboard.tsx","subRail"],
+  ["apps/mobile/src/components/competition/CompetitionMatchList.tsx","filterRail"],
+  ["apps/mobile/app/(app)/owner/competitions/index.tsx","rail"],
+  ["apps/mobile/app/(app)/owner/analytics.tsx","sectionRail"],
+  ["apps/mobile/src/components/player/PlayerDashboard.tsx","optionRail"],
+  ["apps/mobile/src/components/player/PlayerActivityTabs.tsx","optionRail"],
+  ["apps/mobile/src/components/player/PlayerCareerTabs.tsx","optionRail"],
+  ["apps/mobile/src/components/team-manager/TeamManagerDashboard.tsx","optionRail"],
+  ["apps/mobile/src/components/team-manager/TeamCompetitionOps.tsx","rail"],
+];
+for(const [file,ref] of extraRails){
+  const source=read(file);
+  assert.ok(source.includes("useVisibleTab("),"Missing selected rail focus: "+file);
+  assert.ok(source.includes(ref+".cellLayout("),"Missing measured tab layout: "+file);
+  assert.ok(source.includes(ref+".onContentSize"),"Must refocus after sizing: "+file);
+}
+const ownerAnalytics=read("apps/mobile/app/(app)/owner/analytics.tsx");
+assert.ok(ownerAnalytics.includes('useState<SectionKey>("OVERVIEW")'),
+  "Analytics main sections must default to the first Overview tab.");
+const ownerCompetitions=read("apps/mobile/app/(app)/owner/competitions/index.tsx");
+assert.ok(ownerCompetitions.includes('useState<Filter>("ALL")'),
+  "Owner competition filters must default to first tab All.");
+const referee=read("apps/mobile/src/components/referee/RefereeDashboard.tsx");
+assert.ok(referee.includes('assignments:"pending"')&&referee.includes('center:"upcoming"'),
+  "Referee subtabs must start with their first item.");
+for(const file of [
+  "apps/mobile/app/(app)/venues/[venueId].tsx",
+  "apps/mobile/src/components/social/TeamDetailExperience.tsx",
+]){
+  assert.ok(read(file).includes("navVerticalY.current-spacing.sm"),
+    "Selecting main tabs must preserve their vertical visibility: "+file);
+}
+
+console.log("Navigation focus verified: first-tab defaults, RTL active tab scroll for venue/team, existing main dashboard focus, admin sidebar selected row, all dashboard/filter rails and vertical anchoring.");
