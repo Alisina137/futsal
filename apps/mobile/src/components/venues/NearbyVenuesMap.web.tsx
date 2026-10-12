@@ -4,12 +4,12 @@ import {StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
 type Point={latitude:number;longitude:number};
 type Props={position:Point;venues:NearbyVenueDto[];
-  onSelect:(id:string)=>void;onFailed:()=>void;onReady:()=>void;maxPins?:number;};
-function createNearbyMapHtml(position:Point,venues:NearbyVenueDto[],maxPins=10):string{
+  onSelect:(id:string)=>void;onFailed:()=>void;onReady:()=>void;maxPins?:number;showOrigin?:boolean;};
+function createNearbyMapHtml(position:Point,venues:NearbyVenueDto[],maxPins=10,showOrigin=true):string{
   // Only serializable, bounded location data is passed to the embedded map.
   // Escape HTML-breaking characters so venue names never become executable script.
   const payload=JSON.stringify({
-    position,
+    position,showOrigin,
     venues:venues.slice(0,Math.min(25,Math.max(1,maxPins))).map(v=>({
       id:v.id,name:v.name,latitude:v.latitude,longitude:v.longitude,
       imageUrl:resolveMediaImageUrl(v.imageUrl),
@@ -40,8 +40,8 @@ function createNearbyMapHtml(position:Point,venues:NearbyVenueDto[],maxPins=10):
     'var layer=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(map);'+
     'var loaded=false;layer.on("tileload",function(){if(!loaded){loaded=true;send("ready");}});'+
     'setTimeout(function(){if(!loaded)send("error");},12000);'+
-    'var me=L.circleMarker(origin,{radius:9,fillColor:"#145BD5",color:"white",weight:3,fillOpacity:1}).addTo(map);'+
-    'var features=[me];'+
+    'var features=[];if(model.showOrigin)features.push(L.circleMarker(origin,{radius:9,fillColor:"#145BD5",color:"white",weight:3,fillOpacity:1}).addTo(map));'+
+    
     'model.venues.forEach(function(venue){'+
     'var bubble=document.createElement("div");bubble.className="venue-bubble";'+
     'if(venue.imageUrl){var photo=document.createElement("img");photo.src=venue.imageUrl;photo.alt="";bubble.appendChild(photo);}'+
@@ -56,10 +56,10 @@ function createNearbyMapHtml(position:Point,venues:NearbyVenueDto[],maxPins=10):
     '})();</script></body></html>';
 }
 
-export function NearbyVenuesMap({position,venues,onSelect,onFailed,onReady,maxPins=10}:Props){
+export function NearbyVenuesMap({position,venues,onSelect,onFailed,onReady,maxPins=10,showOrigin=true}:Props){
   const iframe=useRef<HTMLIFrameElement|null>(null);
-  const html=useMemo(()=>createNearbyMapHtml(position,venues,maxPins),
-    [position.latitude,position.longitude,venues,maxPins]);
+  const html=useMemo(()=>createNearbyMapHtml(position,venues,maxPins,showOrigin),
+    [position.latitude,position.longitude,venues,maxPins,showOrigin]);
   const callbacks=useRef({onSelect,onFailed,onReady,venues});
   callbacks.current={onSelect,onFailed,onReady,venues};
   useEffect(()=>{
