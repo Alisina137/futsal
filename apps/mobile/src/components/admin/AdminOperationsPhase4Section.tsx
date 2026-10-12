@@ -1,3 +1,4 @@
+import {formatCompetitionDateTime} from "../../lib/date-time";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,spacing,radius} from "@leaguekick/design-tokens";
 import type {AdminCaseDto,AdminOperationDetail,AdminOperationItem,AdminOperationKind} from "@leaguekick/contracts";
@@ -215,8 +216,8 @@ export function AdminOperationsPhase4Section({kind,token,reason,setReason,busy,a
        <AdminStatusBadge label={c.state} tone={c.state==="RESOLVED"?"success":"warning"}/>
        <Info name={l.previous} value={c.note}/>
        <Info name={l.reason} value={c.reason}/>
-       <Info name="Opened" value={c.openedAt}/>
-       <Info name="Updated" value={c.updatedAt}/>
+       <Info name="Opened" value={formatCompetitionDateTime(c.openedAt,language)}/>
+       <Info name="Updated" value={formatCompetitionDateTime(c.updatedAt,language)}/>
        {c.state==="RESOLVED"?<Issue title={l.resolvedImmutable}/>:<>
          <View style={{flexDirection:dir,gap:spacing.sm,flexWrap:"wrap"}}>
            {(["UNDER_REVIEW","RESOLVED"] as const).map(s=><Choice key={s}
