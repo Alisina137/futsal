@@ -692,6 +692,47 @@ export const venuePostScheduledActions = pgTable(
   ],
 );
 
+/** Only past, confirmed, player-owned ONLINE reservations may receive verified reviews. */
+export const venueReviews=pgTable("venue_reviews",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  venueId:uuid("venue_id").notNull().references(()=>venues.id,{onDelete:"cascade"}),
+  bookingId:uuid("booking_id").notNull().references(()=>bookings.id,{onDelete:"cascade"}),
+  userId:uuid("user_id").notNull().references(()=>users.id,{onDelete:"cascade"}),
+  rating:integer("rating").notNull(),
+  body:varchar("body",{length:500}).notNull().default(""),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  uniqueIndex("venue_reviews_booking_uq").on(table.bookingId),
+  index("venue_reviews_venue_created_idx").on(table.venueId,table.createdAt),
+  index("venue_reviews_user_idx").on(table.userId),
+]);
+
+/** A user's preferred local start time for a venue, used for next booking suggestions. */
+export const venueSavedTimes=pgTable("venue_saved_times",{
+  userId:uuid("user_id").notNull().references(()=>users.id,{onDelete:"cascade"}),
+  venueId:uuid("venue_id").notNull().references(()=>venues.id,{onDelete:"cascade"}),
+  preferredStart:time("preferred_start").notNull(),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  primaryKey({columns:[table.userId,table.venueId]}),
+  index("venue_saved_times_venue_idx").on(table.venueId),
+]);
+
+/** One-shot alerts for an exact previously unavailable court slot. */
+export const venueSlotWatches=pgTable("venue_slot_watches",{
+  id:uuid("id").defaultRandom().primaryKey(),
+  userId:uuid("user_id").notNull().references(()=>users.id,{onDelete:"cascade"}),
+  venueId:uuid("venue_id").notNull().references(()=>venues.id,{onDelete:"cascade"}),
+  areaId:uuid("area_id").notNull().references(()=>venueAreas.id,{onDelete:"cascade"}),
+  startsAt:timestamp("starts_at",{withTimezone:true}).notNull(),
+  expiresAt:timestamp("expires_at",{withTimezone:true}).notNull(),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},table=>[
+  uniqueIndex("venue_slot_watches_one_uq").on(table.userId,table.areaId,table.startsAt),
+  index("venue_slot_watches_area_start_idx").on(table.areaId,table.startsAt),
+  index("venue_slot_watches_user_idx").on(table.userId),
+]);
+
 export const venueFollows = pgTable(
   "venue_follows",
   {
