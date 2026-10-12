@@ -409,6 +409,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         ...summary,
         myMembershipRole: membership?.status === "ACTIVE" ? membership.role : null,
         joinRequestStatus: pendingRequest[0]?.status ?? null,
+        allowJoinRequests:await this.allowsJoinRequests(row.id),
       });
     }
     return result;
