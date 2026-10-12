@@ -53,6 +53,11 @@ These are simulations, not real matches or financial transactions.
 Registrations are accepted with WAIVED fees, not fictional payments.
 All three competitions are published and in progress, with sample rewards.
 
+Fifteen additional non-login QA athlete records (no usernames, emails or
+active sign-in access) are attached to those offline teams. They record
+sample goals and awards so competition leaderboards show multiple players,
+not just Abdul. The synthetic users are SUSPENDED and marked for cleanup.
+
 Fifteen extra teams are specifically labelled QA Story Offline Team and
 attached to the selected venue as *unclaimed offline teams*. This
 preserves the rule that a manager must pay separately for each additional
