@@ -8,6 +8,7 @@ import {
   venueBlocks,
   venueOpeningHours,
   venuePromotions,
+  venueFollows,
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
@@ -77,6 +78,13 @@ function mapHour(row: typeof venueOpeningHours.$inferSelect): VenueOpeningHourIn
 
 export class DrizzleBookingRepository implements BookingRepository {
   constructor(private readonly db: Database) {}
+
+  async getVenueFollowerCounts(){
+    const rows=await this.db.select({
+      venueId:venueFollows.venueId,count:sql<number>`count(*)::int`,
+    }).from(venueFollows).groupBy(venueFollows.venueId);
+    return new Map(rows.map(row=>[row.venueId,Number(row.count)]));
+  }
 
   private async hydrateVenue(row: typeof venues.$inferSelect): Promise<BookingVenueRecord> {
     const [areas, hours, subscriptionRows] = await Promise.all([
