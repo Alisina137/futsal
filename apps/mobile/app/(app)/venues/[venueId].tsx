@@ -36,6 +36,7 @@ export default function VenueDetailScreen(){
   const [reserveStartsAt,setReserveStartsAt]=useState<string|undefined>(startsAt);
   const [reservePromotionId,setReservePromotionId]=useState<string|undefined>(promotionId);
   const scroll=useRef<ScrollView>(null),initialVenue=useRef(targetId);
+  const navVerticalY=useRef(0);
   const mainNav=useVisibleTab<VenueMainTab>(main);
   const subNav=useVisibleTab<string>(sub[main]??venueSubtabs[main][0]!);
   const loadVenue=useCallback(async()=>{
@@ -76,7 +77,7 @@ export default function VenueDetailScreen(){
     if(id!==main)setSub(current=>({...current,[id]:venueSubtabs[id][0]!}));
     setMain(id);
     mainNav.focus(id,true);
-    requestAnimationFrame(()=>scroll.current?.scrollTo({y:0,animated:true}));
+    requestAnimationFrame(()=>scroll.current?.scrollTo({y:Math.max(0,navVerticalY.current-spacing.sm),animated:true}));
   }
   function reserve(date?:string,promo?:string){
     setReserveStartsAt(date);setReservePromotionId(promo);
@@ -161,7 +162,7 @@ export default function VenueDetailScreen(){
       </View>
     </View>
 
-    <View style={styles.navContainer}>
+    <View style={styles.navContainer} onLayout={e=>{navVerticalY.current=e.nativeEvent.layout.y;}}>
       <ScrollView ref={mainNav.scrollRef} onLayout={mainNav.onViewport}
         onContentSizeChange={mainNav.onContentSize}
         horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
