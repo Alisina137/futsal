@@ -9,7 +9,9 @@ const client=get("apps/mobile/src/lib/api.ts");
 const app=get("apps/api/src/app.ts"),server=get("apps/api/src/server.ts");
 const lang=get("packages/localization/src/index.ts");
 const tests=get("apps/api/test/player-dashboard-phase3.test.ts");
-check(dashboard.includes('<PlayerCareerTabs tab={tab}')&&dashboard.includes('tab==="statistics"||tab==="achievements"'),
+check(dashboard.includes('<PlayerCareerTabs tab={moreTab}')&&
+  dashboard.includes('moreTab==="statistics"||moreTab==="achievements"')&&
+  dashboard.includes('tab==="more"'),
   "Both career tabs need full components instead of placeholders.");
 check(app.includes("createPlayerDashboardPhase3Router")&&server.includes("new PlayerDashboardPhase3Service"),
   "Authenticated player career route must be wired into the API.");

@@ -77,6 +77,16 @@ assert.ok(competition.includes('focusRegistration!=="1"')&&
   competition.includes("contentY.current+y"),
   "Explicit registration deep links must still be allowed to scroll to their target.");
 
+const player=read("apps/mobile/src/components/player/PlayerDashboard.tsx");
+assert.ok(player.includes('const [tab,setTab]=useState<Section>("overview")')&&
+  player.includes('const [moreTab,setMoreTab]=useState<MoreTab>("schedule")')&&
+  player.includes('if(id==="more"&&tab!=="more")setMoreTab(moreTabs[0]!)'),
+  "Player main tab and More subtabs must default to their first item.");
+assert.ok(player.includes('tab==="more"?<MoreNavigation selected={moreTab} onSelect={setMoreTab}/>')&&
+  player.includes('useVisibleTab<MoreTab>(selected)')&&
+  player.includes('testID="player-more-subnavigation"')&&
+  player.includes('moreNavRow:{flexGrow:1'),
+  "Player More subtabs must be visible, evenly spaced and focused horizontally.");
 const manager=read("apps/mobile/src/components/team-manager/TeamManagerDashboard.tsx");
 assert.ok(manager.includes('useState<Section>("overview")'));
 assert.ok(manager.includes('section==="aboutTeam"?aboutTeamTabs[0].id:section'),

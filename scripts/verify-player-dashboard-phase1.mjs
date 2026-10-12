@@ -8,10 +8,17 @@ const server=get("apps/api/src/server.ts"),app=get("apps/api/src/app.ts");
 const api=get("apps/api/src/modules/team/player-dashboard-phase1.routes.ts");
 const schema=get("packages/database/src/schema.ts"),client=get("apps/mobile/src/lib/api.ts");
 const locale=get("packages/localization/src/index.ts"),header=get("apps/mobile/src/components/ui/AppHeader.tsx");
-const tabs=["overview","teams","competitions","matches","schedule","statistics","achievements","bookings","settings"];
+const tabs=["overview","teams","competitions","matches","bookings","more","settings"];
 for(const tab of tabs){
   requireInvariant(dash.includes('id:"'+tab+'"'),"Player navigation tab missing: "+tab);
   requireInvariant(locale.split('"pd1.tab.'+tab+'"').length-1===3,"Missing localized player tab: "+tab);
+}
+requireInvariant(dash.includes('const moreTabs:MoreTab[]=["schedule","statistics","achievements"]'),
+  "Schedule, Statistics and Achievements must be nested under More.");
+for(const name of ["schedule","statistics","achievements"]){
+  requireInvariant(!dash.includes('id:"'+name+'"'),"Nested feature remains in main menu: "+name);
+  requireInvariant(locale.split('"pd1.tab.'+name+'"').length-1===3,
+    "Missing translated More subtab: "+name);
 }
 requireInvariant(dash.includes('flexDirection:isRTL?"row-reverse":"row"')&&
   dash.includes("focusTab(tab)")&&dash.includes("navActive"),

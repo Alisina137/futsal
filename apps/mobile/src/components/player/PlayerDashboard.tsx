@@ -3,7 +3,7 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {TeamDirectoryItemDto,TeamInvitationDto,TeamListItemDto,PlayerPosition} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {Image,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
+import {Image,Pressable,ScrollView,StyleSheet,View,useWindowDimensions,type LayoutChangeEvent} from "react-native";
 import {ApiRequestError,playerDashboardApi,teamApi,resolveMediaImageUrl,
   type PlayerDashboardOverview,type PlayerDashboardPreferences} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
@@ -20,16 +20,16 @@ import {PlayerCareerTabs} from "./PlayerCareerTabs";
 import {WhatsAppGroupButton} from "../ui/WhatsAppGroupButton";
 import {useVisibleTab} from "../../hooks/useVisibleTab";
 
-type Section="overview"|"teams"|"competitions"|"matches"|"schedule"|"statistics"|"achievements"|"bookings"|"settings";
+type Section="overview"|"teams"|"competitions"|"matches"|"bookings"|"more"|"settings";
+type MoreTab="schedule"|"statistics"|"achievements";
+const moreTabs:MoreTab[]=["schedule","statistics","achievements"];
 const sections:{id:Section;icon:keyof typeof Ionicons.glyphMap}[]=[
   {id:"overview",icon:"grid-outline"},
   {id:"teams",icon:"shield-outline"},
   {id:"competitions",icon:"trophy-outline"},
   {id:"matches",icon:"football-outline"},
-  {id:"schedule",icon:"calendar-outline"},
-  {id:"statistics",icon:"stats-chart-outline"},
-  {id:"achievements",icon:"ribbon-outline"},
   {id:"bookings",icon:"location-outline"},
+  {id:"more",icon:"ellipsis-horizontal-circle-outline"},
   {id:"settings",icon:"settings-outline"},
 ];
 const emptyPreferences:PlayerDashboardPreferences={
@@ -60,16 +60,51 @@ function Choice({items,selected,onSelect}:{items:{id:string;label:string}[];sele
     </ScrollView>
   </View>;
 }
-function Stat({value,label}:{value:number;label:string}){
-  return <View style={styles.stat}><AppText variant="title" weight="bold" style={{color:colors.primary}}>{value}</AppText>
-    <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText></View>;
+function MoreNavigation({selected,onSelect}:{selected:MoreTab;onSelect:(id:MoreTab)=>void}){
+  const {t,isRTL}=useLocale();
+  const nav=useVisibleTab<MoreTab>(selected);
+  return <View testID="player-more-subnavigation" style={styles.moreNavFrame}>
+    <ScrollView ref={nav.scrollRef} onLayout={nav.onViewport}
+      onContentSizeChange={nav.onContentSize} horizontal
+      showsHorizontalScrollIndicator={false} style={styles.moreNavScroll}
+      contentContainerStyle={[styles.moreNavRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {moreTabs.map(id=><Pressable key={id} testID={"player-more-subtab-"+id}
+        accessibilityRole="tab" accessibilityLabel={t(`pd1.tab.${id}` as never)}
+        accessibilityState={{selected:selected===id}}
+        onLayout={event=>nav.cellLayout(id,event)}
+        onPress={()=>{onSelect(id);nav.focus(id,true);}}
+        style={({pressed})=>[styles.moreNavItem,selected===id&&styles.moreNavActive,
+          pressed&&styles.optionPressed]}>
+        <AppText variant="body" weight="semibold" numberOfLines={2}
+          style={{color:selected===id?colors.surface:colors.text,textAlign:"center"}}>
+          {t(`pd1.tab.${id}` as never)}
+        </AppText>
+      </Pressable>)}
+    </ScrollView>
+  </View>;
+}
+function Stat({value,label,icon}:{value:number;label:string;icon:keyof typeof Ionicons.glyphMap}){
+  return <View style={styles.stat}>
+    <View style={styles.statIcon}><Ionicons name={icon} size={19} color={colors.primary}/></View>
+    <AppText variant="title" weight="bold" forceLtr style={styles.statValue}>{value}</AppText>
+    <AppText variant="caption" muted weight="medium" style={styles.statLabel}>{label}</AppText>
+  </View>;
+}
+function OverviewTitle({icon,label}:{icon:keyof typeof Ionicons.glyphMap;label:string}){
+  const {isRTL}=useLocale();
+  return <View style={[styles.overviewHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+    <View style={styles.headingIcon}><Ionicons name={icon} color={colors.primary} size={20}/></View>
+    <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{label}</AppText>
+  </View>;
 }
 export function PlayerDashboard(){
   const {session}=useAuth(),{t,isRTL,language}=useLocale();
+  const {height:viewportHeight}=useWindowDimensions();
   const token=session?.accessToken;
   const tr=(key:string)=>t(`pd1.${key}` as never);
   const date=(s:string)=>formatCompetitionDateTime(s,language);
   const [tab,setTab]=useState<Section>("overview");
+  const [moreTab,setMoreTab]=useState<MoreTab>("schedule");
   const [data,setData]=useState<PlayerDashboardOverview|null>(null);
   const [preferences,setPreferences]=useState<PlayerDashboardPreferences>(emptyPreferences);
   const [directory,setDirectory]=useState<TeamDirectoryItemDto[]>([]);
@@ -89,7 +124,12 @@ export function PlayerDashboard(){
     navRef.current?.scrollTo({x,y:0,animated});
   },[]);
   useEffect(()=>{const id=requestAnimationFrame(()=>focusTab(tab));return()=>cancelAnimationFrame(id);},[tab,focusTab]);
-  const choose=(id:Section)=>{setTab(id);focusTab(id,true);setConfirmLeave(null);};
+  const choose=(id:Section)=>{
+    // The first More subtab is selected whenever More is newly entered.
+    if(id==="more"&&tab!=="more")setMoreTab(moreTabs[0]!);
+    if(id!==tab)setTab(id);
+    focusTab(id,true);setConfirmLeave(null);
+  };
 
   useFocusEffect(useCallback(()=>{
     let mounted=true;
@@ -164,85 +204,154 @@ export function PlayerDashboard(){
         </AppText>
       </Pressable>)}
     </ScrollView>
+    {tab==="more"?<MoreNavigation selected={moreTab} onSelect={setMoreTab}/>:null}
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={t("common.retry")} variant="secondary" onPress={()=>setRefresh(x=>x+1)}/></Card>:null}
     {message?<Card style={{backgroundColor:colors.primarySoft}}>
       <AppText style={{color:colors.primary}}>{message}</AppText></Card>:null}
+    {/* Keep the outer ScrollView from clamping upward when switching between
+        tabs with very different content heights. */}
+    <View testID="player-dashboard-tab-content" style={{minHeight:viewportHeight,gap:spacing.md}}>
     {loading?<DataLoadingState variant="dashboard" minHeight={440}/>:data?<>
-      {tab==="overview"?<>
-        <Card>
-          <View style={[styles.identityRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {tab==="overview"?<View testID="player-overview-content" style={styles.overview}>
+        <View style={styles.overviewHero}>
+          <View style={[styles.overviewIdentity,{flexDirection:isRTL?"row-reverse":"row"}]}>
             {profile?.imageUrl?<Image source={{uri:resolveMediaImageUrl(profile.imageUrl)??profile.imageUrl}}
-              style={styles.playerPhoto}/>:
-              <View style={[styles.playerPhoto,{backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"}]}>
-                <Ionicons name="football-outline" size={35} color={colors.primary}/>
+              style={styles.overviewAvatar}/>:
+              <View style={[styles.overviewAvatar,styles.overviewAvatarEmpty]}>
+                <Ionicons name="person-outline" size={30} color={colors.primary}/>
               </View>}
-            <View style={{flex:1,gap:spacing.xs,alignItems:isRTL?"flex-end":"flex-start"}}>
-              <AppText variant="bodyLarge" weight="bold">{profile?.publicDisplayName}</AppText>
-              <AppText variant="caption" muted>{t(`teams.position.${profile?.position}` as never)}</AppText>
-              <AppText variant="caption" muted>{selected?.name??tr("noCurrentTeam")}
-                {selectedRole?" · "+t(`teams.role.${selectedRole}` as never):""}</AppText>
+            <View style={styles.overviewIdentityText}>
+              <AppText variant="caption" muted>{tr("playerDashboard")}</AppText>
+              <AppText variant="title" weight="bold" numberOfLines={2}>
+                {profile?.publicDisplayName??session?.user.displayName??tr("playerDashboard")}
+              </AppText>
+              <View style={[styles.overviewLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <Ionicons name="shield-checkmark-outline" size={17} color={colors.primary}/>
+                <AppText weight="semibold" numberOfLines={2} style={{flex:1}}>
+                  {selected?.name??tr("noCurrentTeam")}</AppText>
+              </View>
             </View>
           </View>
-          <View style={styles.actions}>
-            <Button label={tr("editProfile")} variant="secondary" onPress={()=>router.push("/profile/player")}/>
-            <Button label={tr("myTeams")} variant="secondary" onPress={()=>choose("teams")}/>
-            {selected&&data.whatsappGroups?.[selected.id]?
-              <WhatsAppGroupButton url={data.whatsappGroups[selected.id]!}/>:null}
+          <View style={[styles.overviewChips,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            {profile?.position?<View style={styles.overviewChip}>
+              <Ionicons name="football-outline" size={14} color={colors.primary}/>
+              <AppText variant="caption" weight="semibold">
+                {t(`teams.position.${profile.position}` as never)}</AppText>
+            </View>:null}
+            {selectedRole?<View style={styles.overviewChip}>
+              <Ionicons name="person-outline" size={14} color={colors.primary}/>
+              <AppText variant="caption" weight="semibold">
+                {t(`teams.role.${selectedRole}` as never)}</AppText>
+            </View>:null}
           </View>
-        </Card>
-        <View style={styles.stats}>
-          <Stat label={tr("matchesPlayed")} value={data.stats.matches}/>
-          <Stat label={tr("goals")} value={data.stats.goals}/>
-          <Stat label={tr("assists")} value={data.stats.assists}/>
-          <Stat label={tr("awards")} value={data.stats.awards}/>
+          <View style={[styles.overviewActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button label={tr("editProfile")} style={styles.overviewAction}
+              variant="secondary" icon={<Ionicons name="create-outline" size={18} color={colors.primary}/>}
+              onPress={()=>router.push("/profile/player")}/>
+            <Button label={tr("myTeams")} style={styles.overviewAction}
+              variant="secondary" icon={<Ionicons name="people-outline" size={18} color={colors.primary}/>}
+              onPress={()=>choose("teams")}/>
+          </View>
+          {selected&&data.whatsappGroups?.[selected.id]?
+            <WhatsAppGroupButton url={data.whatsappGroups[selected.id]!}/>:null}
         </View>
-        <Card>
-          <AppText variant="bodyLarge" weight="bold">{tr("nextMatch")}</AppText>
-          {data.nextMatch?<View style={{gap:spacing.sm}}>
-            <AppText weight="semibold">{data.nextMatch.homeTeamName}  VS  {data.nextMatch.awayTeamName}</AppText>
-            {data.nextMatch.startsAt?<AppText muted>{date(data.nextMatch.startsAt)}</AppText>:null}
+        <View testID="player-overview-stats" style={styles.stats}>
+          <Stat label={tr("matchesPlayed")} value={data.stats.matches} icon="football-outline"/>
+          <Stat label={tr("goals")} value={data.stats.goals} icon="radio-button-on-outline"/>
+          <Stat label={tr("assists")} value={data.stats.assists} icon="git-merge-outline"/>
+          <Stat label={tr("awards")} value={data.stats.awards} icon="trophy-outline"/>
+        </View>
+        <Card style={styles.overviewSection}>
+          <OverviewTitle icon="calendar-outline" label={tr("nextMatch")}/>
+          {data.nextMatch?<View style={styles.sectionBody}>
+            <View style={styles.matchBanner}>
+              <AppText variant="bodyLarge" weight="bold" numberOfLines={2}
+                style={styles.matchTeamName}>{data.nextMatch.homeTeamName}</AppText>
+              <View style={styles.vsCircle}><AppText weight="bold" forceLtr
+                style={styles.vsLabel}>VS</AppText></View>
+              <AppText variant="bodyLarge" weight="bold" numberOfLines={2}
+                style={styles.matchTeamName}>{data.nextMatch.awayTeamName}</AppText>
+            </View>
+            {data.nextMatch.startsAt?<View style={[styles.overviewLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name="time-outline" size={17} color={colors.textMuted}/>
+              <AppText muted variant="caption">{date(data.nextMatch.startsAt)}</AppText>
+            </View>:null}
             <Button label={tr("matchDetails")} onPress={()=>router.push({
               pathname:"/competitions/[competitionId]/matches/[matchId]",
               params:{competitionId:data.nextMatch!.competitionId,matchId:data.nextMatch!.id},
             })}/>
-          </View>:<AppText muted>{tr("noNextMatch")}</AppText>}
+          </View>:<View style={[styles.overviewEmpty,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="calendar-clear-outline" size={22} color={colors.textMuted}/>
+            <AppText muted style={{flex:1}}>{tr("noNextMatch")}</AppText>
+          </View>}
         </Card>
-        <Card>
-          <AppText variant="bodyLarge" weight="bold">{tr("needsAttention")}</AppText>
-          {pendingInvites.length===0&&pendingRequests.length===0&&data.activities.filter(a=>!a.availability).length===0?
-            <AppText muted>{tr("noUrgentItems")}</AppText>:null}
-          {pendingInvites.length>0?<Button label={tr("pendingInvitations")+" ("+pendingInvites.length+")"}
-            variant="secondary" onPress={()=>{setTeamPanel("INVITES");choose("teams");}}/>:null}
-          {pendingRequests.length>0?<Button label={tr("pendingRequestsCount")+" ("+pendingRequests.length+")"}
-            variant="secondary" onPress={()=>{setTeamPanel("REQUESTS");choose("teams");}}/>:null}
-          {data.activities.filter(a=>!a.availability).slice(0,3).map(a=><View key={a.id} style={styles.item}>
-            <AppText weight="semibold">{a.title}</AppText>
-            <AppText variant="caption" muted>{date(a.startsAt)}</AppText>
-            <Button label={tr("respondToActivity")} variant="secondary"
-              onPress={()=>router.push({pathname:"/teams/[teamId]/activities",params:{teamId:a.teamId}})}/>
-          </View>)}
+        <Card style={styles.overviewSection}>
+          <OverviewTitle icon="notifications-outline" label={tr("needsAttention")}/>
+          {pendingInvites.length===0&&pendingRequests.length===0&&
+            data.activities.filter(a=>!a.availability).length===0?
+            <View style={[styles.overviewEmpty,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name="checkmark-circle-outline" size={22} color={colors.success}/>
+              <AppText muted style={{flex:1}}>{tr("noUrgentItems")}</AppText>
+            </View>:null}
+          {pendingInvites.length>0?<Button variant="secondary"
+            label={tr("pendingInvitations")+" ("+pendingInvites.length+")"}
+            onPress={()=>{setTeamPanel("INVITES");choose("teams");}}/>:null}
+          {pendingRequests.length>0?<Button variant="secondary"
+            label={tr("pendingRequestsCount")+" ("+pendingRequests.length+")"}
+            onPress={()=>{setTeamPanel("REQUESTS");choose("teams");}}/>:null}
+          {data.activities.filter(a=>!a.availability).slice(0,3).map(a=>
+            <View key={a.id} style={styles.overviewItem}>
+              <AppText weight="semibold">{a.title}</AppText>
+              <View style={[styles.overviewLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <Ionicons name="time-outline" size={15} color={colors.textMuted}/>
+                <AppText variant="caption" muted>{date(a.startsAt)}</AppText>
+              </View>
+              <Button label={tr("respondToActivity")} variant="secondary"
+                onPress={()=>router.push({pathname:"/teams/[teamId]/activities",
+                  params:{teamId:a.teamId}})}/>
+            </View>)}
         </Card>
-        <Card>
-          <AppText variant="bodyLarge" weight="bold">{tr("upcomingActivities")}</AppText>
-          {data.activities.length===0?<AppText muted>{tr("noUpcomingActivities")}</AppText>:null}
-          {data.activities.slice(0,3).map(a=><View key={a.id} style={styles.item}>
+        <Card style={styles.overviewSection}>
+          <OverviewTitle icon="calendar-number-outline" label={tr("upcomingActivities")}/>
+          {data.activities.length===0?<View style={[styles.overviewEmpty,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="calendar-outline" size={22} color={colors.textMuted}/>
+            <AppText muted style={{flex:1}}>{tr("noUpcomingActivities")}</AppText>
+          </View>:null}
+          {data.activities.slice(0,3).map(a=><View key={a.id} style={styles.overviewItem}>
             <AppText weight="semibold">{a.title}</AppText>
-            <AppText variant="caption" muted>{date(a.startsAt)}</AppText>
+            <View style={[styles.overviewLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name="time-outline" size={15} color={colors.textMuted}/>
+              <AppText variant="caption" muted>{date(a.startsAt)}</AppText>
+            </View>
             <Button label={tr("openActivity")} variant="secondary"
-              onPress={()=>router.push({pathname:"/teams/[teamId]/activities",params:{teamId:a.teamId}})}/>
+              onPress={()=>router.push({pathname:"/teams/[teamId]/activities",
+                params:{teamId:a.teamId}})}/>
           </View>)}
         </Card>
-        <Card>
-          <AppText variant="bodyLarge" weight="bold">{tr("recentPerformance")}</AppText>
-          {matches.length===0?<AppText muted>{tr("noRecentMatches")}</AppText>:null}
-          {matches.map(match=><View key={match.matchId} style={styles.item}>
-            <AppText variant="caption" muted>{match.startsAt?date(match.startsAt):tr("unscheduled")}</AppText>
-            <AppText>{tr("goals")}: {match.goals} · {tr("assists")}: {match.assists}</AppText>
+        <Card style={styles.overviewSection}>
+          <OverviewTitle icon="stats-chart-outline" label={tr("recentPerformance")}/>
+          {matches.length===0?<View style={[styles.overviewEmpty,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="stats-chart-outline" size={22} color={colors.textMuted}/>
+            <AppText muted style={{flex:1}}>{tr("noRecentMatches")}</AppText>
+          </View>:null}
+          {matches.map(match=><View key={match.matchId} style={styles.overviewItem}>
+            <AppText variant="caption" muted>
+              {match.startsAt?date(match.startsAt):tr("unscheduled")}</AppText>
+            <View style={[styles.performanceRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <View style={styles.performancePill}>
+                <Ionicons name="football-outline" size={15} color={colors.primary}/>
+                <AppText weight="semibold">{tr("goals")}: {match.goals}</AppText>
+              </View>
+              <View style={styles.performancePill}>
+                <Ionicons name="git-merge-outline" size={15} color={colors.primary}/>
+                <AppText weight="semibold">{tr("assists")}: {match.assists}</AppText>
+              </View>
+            </View>
           </View>)}
         </Card>
-      </>:null}
+      </View>:null}
 
       {tab==="teams"?<>
         <Choice selected={teamPanel} onSelect={v=>setTeamPanel(v as typeof teamPanel)}
@@ -446,13 +555,15 @@ export function PlayerDashboard(){
           onPress={()=>router.push(hasManager?"/dashboard":"/owner/competitions")}/>:null}
       </>:null}
 
-      {(["competitions","matches","schedule","bookings"] as Section[]).includes(tab)?
-        <PlayerActivityTabs tab={tab as "competitions"|"matches"|"schedule"|"bookings"}
+      {(["competitions","matches","bookings"] as Section[]).includes(tab)||
+        tab==="more"&&moreTab==="schedule"?
+        <PlayerActivityTabs tab={tab==="more"?"schedule":tab as "competitions"|"matches"|"bookings"}
           token={token!} teams={teams}/>:null}
 
-      {(tab==="statistics"||tab==="achievements")?
-        <PlayerCareerTabs tab={tab} token={token!}/>:null}
+      {tab==="more"&&(moreTab==="statistics"||moreTab==="achievements")?
+        <PlayerCareerTabs tab={moreTab} token={token!}/>:null}
     </>:null}
+    </View>
   </Screen>;
 }
 const styles=StyleSheet.create({
@@ -512,10 +623,57 @@ const styles=StyleSheet.create({
   leaveText:{color:colors.danger},
   leaveConfirm:{gap:spacing.sm,paddingTop:spacing.sm},
   actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
+  moreNavFrame:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.md,overflow:"hidden"},
+  moreNavScroll:{flexGrow:0,minHeight:56},
+  moreNavRow:{flexGrow:1,alignItems:"stretch",gap:spacing.xs,padding:spacing.xs},
+  moreNavItem:{flex:1,minWidth:110,minHeight:48,alignItems:"center",justifyContent:"center",
+    borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surfaceMuted,paddingHorizontal:spacing.sm,paddingVertical:spacing.xs},
+  moreNavActive:{backgroundColor:colors.primary,borderColor:colors.primary},
+  overview:{gap:spacing.md},
+  overviewHero:{gap:spacing.md,padding:spacing.md,
+    backgroundColor:"#EDF4FF",borderWidth:1,borderColor:"#C8D9F8",
+    borderRadius:radius.lg},
+  overviewIdentity:{alignItems:"center",gap:spacing.md},
+  overviewAvatar:{height:72,width:72,borderRadius:radius.lg,overflow:"hidden"},
+  overviewAvatarEmpty:{alignItems:"center",justifyContent:"center",backgroundColor:colors.surface,
+    borderWidth:1,borderColor:colors.border},
+  overviewIdentityText:{flex:1,minWidth:0,gap:spacing.xs},
+  overviewLine:{flexDirection:"row",alignItems:"center",gap:spacing.xs,flexWrap:"wrap"},
+  overviewChips:{gap:spacing.xs,flexWrap:"wrap"},
+  overviewChip:{flexDirection:"row",alignItems:"center",gap:spacing.xs,
+    backgroundColor:colors.surface,borderColor:colors.border,borderWidth:1,
+    borderRadius:radius.sm,paddingVertical:spacing.xs,paddingHorizontal:spacing.sm},
+  overviewActions:{gap:spacing.sm,flexWrap:"wrap"},
+  overviewAction:{flexGrow:1,flexBasis:185,minWidth:155,paddingHorizontal:spacing.sm},
   stats:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  stat:{flexGrow:1,minWidth:70,flexBasis:"21%",backgroundColor:colors.surface,
-    borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,
+  stat:{flexGrow:1,flexBasis:"40%",minWidth:125,backgroundColor:colors.surface,
+    borderWidth:1,borderColor:colors.border,borderRadius:radius.lg,minHeight:130,
     alignItems:"center",gap:spacing.xs,padding:spacing.md},
+  statIcon:{width:35,height:35,backgroundColor:colors.primarySoft,
+    borderRadius:radius.md,alignItems:"center",justifyContent:"center"},
+  statValue:{color:colors.primary,textAlign:"center"},
+  statLabel:{textAlign:"center"},
+  overviewSection:{gap:spacing.md},
+  overviewHeading:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
+  headingIcon:{width:36,height:36,alignItems:"center",justifyContent:"center",
+    backgroundColor:colors.primarySoft,borderRadius:radius.md},
+  sectionBody:{gap:spacing.md},
+  matchBanner:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.sm,
+    backgroundColor:"#F4F7FF",borderRadius:radius.md},
+  matchTeamName:{flex:1,minWidth:0,textAlign:"center"},
+  vsCircle:{width:37,height:37,borderRadius:radius.pill,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center"},
+  vsLabel:{fontSize:12,color:colors.primary},
+  overviewEmpty:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.md,
+    borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
+  overviewItem:{borderTopWidth:1,borderColor:colors.border,paddingTop:spacing.md,
+    gap:spacing.sm},
+  performanceRow:{gap:spacing.sm,flexWrap:"wrap"},
+  performancePill:{flexDirection:"row",gap:spacing.xs,alignItems:"center",
+    backgroundColor:colors.primarySoft,borderRadius:radius.sm,
+    paddingHorizontal:spacing.sm,paddingVertical:spacing.xs},
   item:{borderTopWidth:1,borderColor:colors.border,marginTop:spacing.sm,paddingTop:spacing.sm,
     gap:spacing.sm},
 });
