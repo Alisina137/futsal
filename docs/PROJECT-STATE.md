@@ -1,5 +1,12 @@
 # PROJECT STATE
 
+## Competition match schedule and compact typography (October 12, 2026)
+- Public Competition > Matches now groups fixtures by **stage + round number** rather than by calendar day. One localized matchweek heading shows "Matchweek N of Total" in the league, and group-stage/knockout rounds are distinct. Date-specific splitting and redundant per-match round labels were removed; all fixtures for each round appear together.
+- Every scheduled match displays Kabul-local date **and** 24-hour clock with no seconds/GMT offset; for matches within seven days (past or future) the date label is replaced by the localized weekday. Completed matches also retain their played date/time alongside scores. Unscheduled fixtures remain clearly labeled.
+- All shared `AppText` typography variants and the shared text-field input font size are reduced by **1 dp/px** (caption 12→11, body 15→14, bodyLarge 17→16, title 25→24, display 32→31; input 16→15). Existing line heights, accessibility font scaling, minimum tap targets, and text padding remain unchanged.
+- Vitest regression coverage: group matches spanning dates, multiple stages using same numeric round, relative seven-day cutoff, and EN/Dari/Pashto 24-hour Kabul formatting. This is UI-only; competitions/matches/database unchanged. Native device screenshot/RTL manual QA remains recommended.
+
+
 ## Persistent mobile API-disconnected banner (October 12, 2026)
 - Root cause targeted: mobile's Expo `EXPO_PUBLIC_API_URL` remains on an old ngrok hostname even after `pnpm dev:api` opens a new HTTPS tunnel. Physical devices cannot reach `localhost:4000`; Expo's own tunnel is independent from the backend API.
 - `scripts/dev-api.mjs` now validates the public HTTPS tunnel actually returns Futsal's JSON `/health` before safely updating **only** the `EXPO_PUBLIC_API_URL` entry of gitignored `apps/mobile/.env.local`, preserving other config. Disabled via `FUTSAL_SYNC_MOBILE_API_URL=false`. After changing Expo env, restart `pnpm dev:mobile` and reload Expo Go. Failure leaves previous config and prints diagnostics.
