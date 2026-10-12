@@ -30,7 +30,7 @@
     "verify:mobile-rtl": "node scripts/verify-mobile-rtl-navigation.mjs",
     "verify:loading-ux": "node scripts/verify-mobile-loading-ux.mjs",
     "verify:timetable": "node scripts/verify-venue-timetable.mjs",
-    "verify:dev-api": "node --check scripts/dev-api.mjs && node scripts/test-dev-api-startup.mjs",
+    "verify:dev-api": "node --check scripts/dev-api.mjs && node --check scripts/check-dev-api.mjs && node scripts/test-dev-api-startup.mjs && node scripts/test-mobile-api-env.mjs",
     "verify:data-cache": "node scripts/verify-mobile-data-cache.mjs",
     "verify:media": "node scripts/verify-owner-media.mjs",
     "verify:trial-datetime": "node scripts/verify-trial-datetime.mjs",
@@ -96,7 +96,8 @@
     "db:seed:test-accounts": "node apps/api/scripts/seed-test-accounts.mjs",
     "verify:test-accounts": "node scripts/verify-test-accounts-seed.mjs",
     "db:seed:competition-story": "node packages/database/scripts/seed-competition-story.mjs",
-    "verify:competition-story": "node scripts/verify-competition-story-seed.mjs"
+    "verify:competition-story": "node scripts/verify-competition-story-seed.mjs",
+    "dev:check-api": "node scripts/check-dev-api.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
