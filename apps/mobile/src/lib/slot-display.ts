@@ -10,7 +10,7 @@ export function formatSlotStartTime(startsAt:string,timeZone:string):string{
     let formatter=formatterCache.get(timeZone);
     if(!formatter){
       formatter=new Intl.DateTimeFormat("en-US",{
-        timeZone,hour:"numeric",minute:"2-digit",hour12:true,
+        timeZone,hour:"2-digit",minute:"2-digit",hour12:true,
       });
       if(formatterCache.size>=12)formatterCache.clear();
       formatterCache.set(timeZone,formatter);
