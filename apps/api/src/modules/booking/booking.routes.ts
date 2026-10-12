@@ -7,6 +7,7 @@ import {
   manualBookingRequestSchema,
   onlineBookingRequestSchema,
   venueBlockRequestSchema,
+  venueDirectoryFiltersSchema,
 } from "@leaguekick/contracts";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { TokenService } from "../auth/token.service.js";
@@ -30,6 +31,30 @@ export function createPublicVenueRouter(booking: BookingService) {
       }));
     } catch (error) { next(error); }
   });
+
+  // Expensive availability-aware discovery has an additional per-IP rate limit.
+  router.get("/search",rateLimit({windowMs:60_000,limit:24,standardHeaders:"draft-8",legacyHeaders:false}),
+    async(request,response,next)=>{
+      try{
+        const query=request.query;
+        const optionalString=(key:string)=>typeof query[key]==="string"?query[key]:undefined;
+        const optionalNumber=(key:string)=>query[key]===undefined?undefined:z.coerce.number().parse(query[key]);
+        const input=venueDirectoryFiltersSchema.parse({
+          date:optionalString("date"),
+          ...(optionalString("province")!==undefined?{province:optionalString("province")}:{}),
+          ...(optionalString("q")!==undefined?{q:optionalString("q")}:{}),
+          ...(optionalString("startTime")!==undefined?{startTime:optionalString("startTime")}:{}),
+          ...(optionalString("endTime")!==undefined?{endTime:optionalString("endTime")}:{}),
+          ...(query.minPriceAfn!==undefined?{minPriceAfn:optionalNumber("minPriceAfn")}:{}),
+          ...(query.maxPriceAfn!==undefined?{maxPriceAfn:optionalNumber("maxPriceAfn")}:{}),
+          ...(query.sort!==undefined?{sort:query.sort}:{}),
+          ...(query.availableOnly!==undefined?{availableOnly:query.availableOnly==="true"}:{}),
+          ...(query.latitude!==undefined?{latitude:optionalNumber("latitude")}:{}),
+          ...(query.longitude!==undefined?{longitude:optionalNumber("longitude")}:{}),
+        });
+        response.json(await booking.searchVenueDirectory(input));
+      }catch(error){next(error);}
+    });
 
   router.get("/discovery",async(request,response,next)=>{
     try{
