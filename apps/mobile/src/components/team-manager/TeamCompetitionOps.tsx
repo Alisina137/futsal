@@ -11,6 +11,7 @@ import {
 } from "../../lib/api";
 import { formatCompetitionDateTime } from "../../lib/date-time";
 import { useLocale } from "../../providers/LocaleProvider";
+import {useFocusedTabScroll} from "../../hooks/useFocusedTabScroll";
 import { AppText } from "../ui/AppText";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -29,9 +30,11 @@ function relativeKabulDay(value:string){
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 function Options({options,current,set}:{options:{id:string;label:string}[];current:string;set:(id:string)=>void}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
+  const rail=useFocusedTabScroll(current);
+  return <ScrollView ref={rail.scrollRef} onLayout={rail.onLayout}
+    onContentSizeChange={rail.onContentSizeChange} horizontal showsHorizontalScrollIndicator={false}
     contentContainerStyle={{gap:spacing.sm,alignItems:"center",paddingVertical:spacing.xs}}>
-    {options.map(item=><Pressable key={item.id} accessibilityRole="button"
+    {options.map(item=><Pressable key={item.id} onLayout={e=>rail.onTabLayout(item.id,e)} accessibilityRole="button"
       accessibilityState={{selected:current===item.id}} onPress={()=>set(item.id)}
       style={[styles.chip,current===item.id&&styles.chipActive]}>
       <AppText variant="caption" weight="semibold" style={current===item.id?{color:colors.primary}:undefined}>{item.label}</AppText>
