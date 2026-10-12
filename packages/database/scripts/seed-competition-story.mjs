@@ -270,7 +270,7 @@ async function dashboard(ctx,ids,offline,now){
   "values($1,'Kabul','Kabul',$2,'2023-02-01','#186F9F','#F3B543',$3,true) on conflict do nothing",
   [teamId,TAG+" Demo practice, matches, leagues, scouting and public team information",ctx.venue.id]);
  await q("insert into player_dashboard_preferences(user_id,default_team_id,biography,province,district,"+
-  "secondary_position,preferred_foot) values($1,$2,$3,'Kabul','Kabul','PIVOT','RIGHT') on conflict do nothing",
+  "secondary_position,preferred_foot) values($1,$2,$3,'Kabul','Kabul','PIVO','RIGHT') on conflict do nothing",
   [player,teamId,TAG+" Competitive winger and playmaker with multiple match performances"]);
  for(let i=1;i<=3;i++){
   const name="QA Story Reserve Player "+i;
