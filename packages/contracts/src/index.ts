@@ -978,6 +978,47 @@ export const venueDiscoveryResponseSchema=z.object({
 export type VenueDiscoveryResponse=z.infer<typeof venueDiscoveryResponseSchema>;
 
 /** Directory filters use venue-local date and AM/PM presentation; server keeps HH:mm. */
+/** Phase 5: verified booking reviews, venue-local saved times and exact slot alerts. */
+export const venueReviewCreateSchema=z.object({
+  bookingId:z.string().uuid(),
+  rating:z.number().int().min(1).max(5),
+  body:z.string().trim().max(500).default(""),
+});
+export type VenueReviewCreate=z.infer<typeof venueReviewCreateSchema>;
+export const venueReviewDtoSchema=z.object({
+  id:z.string().uuid(),
+  venueId:z.string().uuid(),
+  bookingId:z.string().uuid(),
+  rating:z.number().int().min(1).max(5),
+  body:z.string(),
+  createdAt:isoDateTimeSchema,
+  verified:z.literal(true),
+});
+export type VenueReviewDto=z.infer<typeof venueReviewDtoSchema>;
+export const venueReviewSummarySchema=z.object({
+  venueId:z.string().uuid(),
+  averageRating:z.number().min(0).max(5),
+  reviewCount:z.number().int().nonnegative(),
+  reviews:z.array(venueReviewDtoSchema),
+});
+export type VenueReviewSummary=z.infer<typeof venueReviewSummarySchema>;
+export const venueSavedTimeSchema=z.object({
+  venueId:z.string().uuid(),
+  preferredStart:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+});
+export type VenueSavedTime=z.infer<typeof venueSavedTimeSchema>;
+export const venueSlotWatchCreateSchema=z.object({
+  venueId:z.string().uuid(),
+  areaId:z.string().uuid(),
+  startsAt:isoDateTimeSchema,
+});
+export type VenueSlotWatchCreate=z.infer<typeof venueSlotWatchCreateSchema>;
+export const venueSlotWatchDtoSchema=venueSlotWatchCreateSchema.extend({
+  id:z.string().uuid(),
+  expiresAt:isoDateTimeSchema,
+});
+export type VenueSlotWatchDto=z.infer<typeof venueSlotWatchDtoSchema>;
+
 export const venueDirectorySortSchema=z.enum(["recommended","nearest","lowestPrice","mostFollowed","availableSoonest"]);
 export const venueDirectoryFiltersSchema=z.object({
   date:dateOnlySchema,
