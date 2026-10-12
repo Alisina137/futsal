@@ -1,5 +1,12 @@
 # PROJECT STATE
 
+## Global AM/PM date and clock display (October 12, 2026)
+- Global user-facing clock convention: always a **two-digit 12-hour time with explicit English `AM`/`PM`**, e.g. `13:00 → 01:00 PM`, `18:30 → 06:30 PM`, `22:00 → 10:00 PM`, `08:00 → 08:00 AM`. No visible seconds, Greenwich `GMT+4:30`, `UTC+04:30` offsets or raw ISO timestamp on supported public and dashboard date/time displays. Dates/day names stay localized (English, Dari, Pashto), time markers use AM/PM even in RTL.
+- Updated shared date-time formatters (competitions, referee calendars, notifications, trial/billing, admin), competition match schedules, booking confirmation, compact slot tiles, reservations, venue offers, owner week/day timetable headers, promotional listings, specials/history and booking/venue date display. The 12-hour convention applies to the date-time picker as well.
+- Replaced free-form **24h time display** on owner timetable period/special exception, owner manual booking/block-time, and referee availability with a dedicated `TimeOfDayPickerField` that shows AM/PM and returns the same validated 24-hour `HH:mm` value required by the existing backend. DateTimePickerField now shows a 12-hour hour stepper and AM/PM toggle while continuing to send UTC ISO values.
+- **Never change internal state semantics:** real database timestamps remain UTC ISO, timetable columns remain `HH:mm`, public/owner grid lookup keys remain 24h, promotion query matching remains 24h, and all validation/comparison logic stays intact. Source-only tests verify the visible convention and representative edge cases (noon/midnight/time zone fallback/RTL); manual Android layout review is still recommended.
+
+
 ## Booking confirmation UI refresh (October 12, 2026)
 - Replaced the bare reserve-confirm card that printed a raw UTC ISO timestamp with a compact, RTL-aware booking summary: venue identity, separately labeled **localized date, weekday, 24-hour start/end time**, cross-midnight end date (if needed), clearly marked estimated AFN price, optional notes, and a colored live-price/availability recheck notice. The venue's configured IANA timezone controls display; invalid/missing zones safely fall back to Asia/Kabul. No GMT offsets or seconds are displayed.
 - The primary confirm button now keeps a readable white label even during loading (spinner shown alongside it), respects internet availability, and rejects missing/invalid time selection. Back-to-availability action remains available. All six new UI labels are localized for English, Dari, and Pashto.
