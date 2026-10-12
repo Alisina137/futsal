@@ -24,7 +24,7 @@ const FILTER_ICONS:Record<NotificationListFilter,IconName>={
 };
 const ICONS:Record<NotificationDto["type"],IconName>={
   BOOKING_CONFIRMED:"checkmark-circle-outline",BOOKING_CANCELLED:"close-circle-outline",
-  SLOT_PROMOTION:"pricetag-outline",SLOT_AVAILABLE:"notifications-active-outline",VENUE_POST:"megaphone-outline",
+  SLOT_PROMOTION:"pricetag-outline",SLOT_AVAILABLE:"notifications-circle-outline",VENUE_POST:"megaphone-outline",
   TEAM_INVITATION:"people-outline",COMPETITION_UPDATE:"trophy-outline",
   TEAM_ACTIVITY:"calendar-outline",TEAM_CHALLENGE:"football-outline",TEAM_ANNOUNCEMENT:"megaphone-outline",
   ADMIN_ANNOUNCEMENT:"shield-checkmark-outline",
