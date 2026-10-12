@@ -33,6 +33,7 @@ export default function ProfileScreen(){
   const user=session?.user;
   const owner=user?.roles.includes("VENUE_OWNER")??false;
   const admin=user?.roles.includes("PLATFORM_ADMIN")??false;
+  const dashboardChoices=availableDashboardRoles(user?.roles??[]);
 
   const initials=useMemo(()=>{
     const words=(user?.displayName??"LK").trim().split(/\s+/).filter(Boolean);
@@ -62,11 +63,6 @@ export default function ProfileScreen(){
   const direction={flexDirection:isRTL?"row-reverse":"row"} as const;
 
   return <Screen showHeader>
-    <View style={{gap:spacing.xs}}>
-      <AppText variant="title" weight="bold">{t("profile.title")}</AppText>
-      <AppText muted>{t("profile.subtitle")}</AppText>
-    </View>
-
     {!user?.emailVerified?<Card style={[styles.sectionCard,{gap:spacing.sm,borderColor:colors.warning}]}>
       <View style={[{alignItems:"center",gap:spacing.sm},direction]}>
         <Ionicons name="shield-outline" size={26} color={colors.warning}/>
@@ -133,17 +129,20 @@ export default function ProfileScreen(){
       />}
     </Card>
 
-    <SectionHeader icon="grid-outline" title={t("rf1.dashboardMode")} subtitle={t("rf1.dashboardModeHint")} rtl={isRTL}/>
-    <Card style={styles.sectionCard}>
-      <View style={{gap:spacing.sm}}>
-        {availableDashboardRoles(user?.roles??[]).map(choice=>
-          <ActionRow key={choice} icon={dashboardIcons[choice]}
-            title={t(("rf1.dashboardRole."+choice) as never)}
-            subtitle={t("rf1.dashboardSelect")} rtl={isRTL}
-            onPress={()=>{if(user)void setDashboardRole(user.id,choice).then(()=>router.push("/dashboard"));}}/>
-        )}
-      </View>
-    </Card>
+    {/* A base normal account has no role dashboard to select. */}
+    {dashboardChoices.length>0?<>
+      <SectionHeader icon="grid-outline" title={t("rf1.dashboardMode")} subtitle={t("rf1.dashboardModeHint")} rtl={isRTL}/>
+      <Card style={styles.sectionCard}>
+        <View style={{gap:spacing.sm}}>
+          {dashboardChoices.map(choice=>
+            <ActionRow key={choice} icon={dashboardIcons[choice]}
+              title={t(("rf1.dashboardRole."+choice) as never)}
+              subtitle={t("rf1.dashboardSelect")} rtl={isRTL}
+              onPress={()=>{if(user)void setDashboardRole(user.id,choice).then(()=>router.push("/dashboard"));}}/>
+          )}
+        </View>
+      </Card>
+    </>:null}
     <SectionHeader icon="options-outline" title={t("settings.preferences")} subtitle={t("settings.preferencesSubtitle")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
       <View style={{gap:spacing.md}}>

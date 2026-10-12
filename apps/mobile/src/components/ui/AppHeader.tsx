@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../providers/AuthProvider";
+import {availableDashboardRoles} from "../../lib/dashboard-role-options";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "./AppText";
 
@@ -21,7 +22,8 @@ export function AppHeader(){
   const [menuOpen,setMenuOpen]=useState(false);
   const user=session?.user;
   const isPlatformAdmin=user?.roles.includes("PLATFORM_ADMIN")??false;
-  const hasDashboard=true;
+  // Do not offer a role dashboard to basic users without an assigned role.
+  const hasDashboard=availableDashboardRoles(user?.roles??[]).length>0;
 
   const initials=useMemo(()=>{
     const words=(user?.displayName??"LK").trim().split(/\s+/).filter(Boolean);

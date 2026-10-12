@@ -20,7 +20,8 @@ assert(header.includes('href:"/home"'), "Hamburger menu must include Home.");
 assert(header.includes('label:t("home.title")') && header.includes('icon:"home-outline"'), "Home menu item must use the Home label and home icon for every account type.");
 assert(header.includes('href:"/dashboard"') && header.includes('label:t("dashboard.title")'), "Role users must receive the shared Dashboard item.");
 assert(header.includes('...(hasDashboard?['), "Shared Dashboard item must remain in the menu.");
-assert(header.includes('const hasDashboard=true;'), "Every non-admin account must have Dashboard in the hamburger.");
+assert(header.includes('const hasDashboard=availableDashboardRoles(user?.roles??[]).length>0;'),
+  "Normal users must not see a role Dashboard in the hamburger.");
 assert((header.match(/key:"dashboard"/g)??[]).length===1 &&
   (header.split('href:"/dashboard"').length-1)===1,
   "The hamburger must contain exactly one Dashboard destination.");

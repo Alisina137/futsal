@@ -34,11 +34,13 @@ export default function DashboardScreen(){
   // never re-enable the Player dashboard after a venue appoints a referee.
   if(roles.includes("REFEREE"))return <RefereeDashboard/>;
   // The hamburger still has exactly one Dashboard item; selection is stored per account.
-  if(preferred==="PLAYER")return <PlayerDashboard/>;
+  if(preferred==="PLAYER"&&roles.includes("PLAYER"))return <PlayerDashboard/>;
   if(preferred==="VENUE_OWNER"&&roles.includes("VENUE_OWNER"))return <Redirect href="/owner/competitions"/>;
   if(preferred==="TEAM_MANAGER"&&roles.includes("TEAM_MANAGER"))return <TeamManagerDashboard/>;
   if(roles.includes("VENUE_OWNER"))return <Redirect href="/owner/competitions"/>;
   if(roles.includes("TEAM_MANAGER"))return <TeamManagerDashboard/>;
-  // Normal accounts have the free player dashboard without a paid role.
-  return <PlayerDashboard/>;
+  if(roles.includes("PLAYER"))return <PlayerDashboard/>;
+  // Base normal accounts do not have a role dashboard; stale local preference
+  // cannot grant one. Continue to the regular social Home screen instead.
+  return <Redirect href="/home"/>;
 }
