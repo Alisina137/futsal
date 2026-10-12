@@ -1,3 +1,4 @@
+import {formatCompetitionDateTime} from "../../../../src/lib/date-time";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type {
@@ -380,7 +381,7 @@ export default function TimetableEditorScreen(){
       <AppText>{t("schedule.publishConflictBody")}</AppText>
       {conflicts.slice(0,20).map((item,index)=><View key={`${item.areaId}-${item.startsAt}-${index}`} style={styles.conflict}>
         <AppText weight="semibold">{item.areaName} · {item.title}</AppText>
-        <AppText variant="caption" muted forceLtr>{item.startsAt} → {item.endsAt}</AppText>
+        <AppText variant="caption" muted forceLtr>{formatCompetitionDateTime(item.startsAt,language)} → {formatCompetitionDateTime(item.endsAt,language)}</AppText>
       </View>)}
       <Button label={t("schedule.reviewConflicts")} onPress={()=>{
         const first=conflicts[0];
