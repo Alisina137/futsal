@@ -211,7 +211,8 @@ assert(schedule.includes("slotPalette[event.type]"),"Day view must use the same 
 assert(schedule.includes("function SlotCornerMarker"),"Week/Day timetable slots must share one corner-marker rule.");
 assert(schedule.includes('type==="ONLINE_BOOKING"||type==="MANUAL_BOOKING"||type==="COMPETITION"'),"Reserved and competition slots must use the check-mark corner marker.");
 assert(schedule.includes('const discounted=type==="PROMOTION"'),"Promotion/discount slots must use the percentage corner marker.");
-assert((schedule.match(/<SlotCornerMarker type=\{event\.type\} color=\{palette\.text\}\/>/g)??[]).length===2,"Week and Day slot renderers must both apply the corner marker.");
+assert((schedule.match(/<SlotCornerMarker type=\{event\.type\} color=\{palette\.text\}\s+pending=\{event\.bookingStatus==="PENDING"\}\/>/g)??[]).length===2,
+  "Week and Day slot renderers must both apply the corner marker with pending-state support.");
 assert(schedule.includes("slotCornerMarker")&&!schedule.includes("left:4"),
   "The status marker must not overlap the start time at top left.");
 assert(!schedule.includes('Ionicons name={eventIcon(event.type)} size={19}'),"Day slots must not retain the old per-status icon alongside the new corner marker.");

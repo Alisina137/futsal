@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, colors, radius } from "@leaguekick/design-tokens";
 import type { FollowedVenueDto, PublicVenueDto, VenueSearchSuggestion } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { marketingApi, venueApi } from "../../../src/lib/api";
 import { FollowedVenueTile } from "../../../src/components/venues/FollowedVenueTile";
 import { VenueResultCard } from "../../../src/components/venues/VenueResultCard";
@@ -23,6 +23,8 @@ export default function VenuesScreen(){
   const {t,isRTL}=useLocale();
   const {session}=useAuth();
   const token=session?.accessToken;
+  const {width:windowWidth}=useWindowDimensions();
+  const twoColumns=windowWidth>=670;
   const [query,setQuery]=useState("");
   const [province,setProvince]=useState(DEFAULT_PROVINCE);
   const [provinceOptions,setProvinceOptions]=useState<string[]>([]);
@@ -37,19 +39,40 @@ export default function VenuesScreen(){
   const [followsLoading,setFollowsLoading]=useState(true);
   const [followsError,setFollowsError]=useState<string|null>(null);
   const [followRefresh,setFollowRefresh]=useState(0);
+  const latestRequest=useRef(0);
+  const lastSearchRef=useRef({query:"",province:DEFAULT_PROVINCE});
+  const [lastSearch,setLastSearch]=useState({query:"",province:DEFAULT_PROVINCE});
 
+  // Search requests can overlap when filters change quickly. Only the newest
+  // response is allowed to replace the visible directory or its loading state.
   const load=useCallback(async(nextQuery:string,nextProvince:string)=>{
+    const request=++latestRequest.current;
+    lastSearchRef.current={query:nextQuery,province:nextProvince};
+    setLastSearch(lastSearchRef.current);
     setLoading(true);setError(null);
     try{
-      setVenues((await venueApi.list({
+      const result=await venueApi.list({
         ...(nextQuery.trim()?{q:nextQuery.trim()}:{}),
         ...(nextProvince?{province:nextProvince}:{})
-      })).venues);
-    }catch{setError(t("booking.loadVenuesError"));}
-    finally{setLoading(false);}
+      });
+      if(latestRequest.current===request)setVenues(result.venues);
+    }catch{
+      if(latestRequest.current===request)setError(t("booking.loadVenuesError"));
+    }finally{
+      if(latestRequest.current===request)setLoading(false);
+    }
   },[t]);
 
   useEffect(()=>{void load("",DEFAULT_PROVINCE);},[load]);
+
+  // Screen state remains mounted while opening a venue profile. Refresh real
+  // results on return without resetting the selected province/query or scroll.
+  const initialFocus=useRef(true);
+  useFocusEffect(useCallback(()=>{
+    if(initialFocus.current){initialFocus.current=false;return;}
+    const {query:activeQuery,province:activeProvince}=lastSearchRef.current;
+    void load(activeQuery,activeProvince);
+  },[load]));
 
   // Provinces are provided by subscribed, currently discoverable venue pages;
   // never maintain an outdated hard-coded Afghanistan province list.
@@ -112,6 +135,12 @@ export default function VenuesScreen(){
 
   const preview=followed.slice(0,MAX_VISIBLE_FOLLOWS);
   const additionalCount=followed.length-MAX_VISIBLE_FOLLOWS;
+
+  function resetSearch(){
+    setQuery("");setProvince(DEFAULT_PROVINCE);
+    setSuggestionsVisible(false);setSuggestions([]);
+    void load("",DEFAULT_PROVINCE);
+  }
 
   return <Screen showHeader publicNav style={styles.page}>
     <View testID="venue-followed-strip" style={styles.followedSection}>
@@ -176,7 +205,11 @@ export default function VenuesScreen(){
       </View>
     </View>
 
-    <View style={styles.searchSection}>
+    <View testID="venue-search-panel" style={styles.searchSection}>
+      <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="options-outline" size={21} color={colors.primary}/>
+        <AppText weight="bold" style={{flex:1}}>{t("booking.search")}</AppText>
+      </View>
       <View style={styles.selectField}>
         <AppText weight="medium">{t("booking.provinceFilter")}</AppText>
         <Pressable testID="venue-province-select" accessibilityRole="button"
@@ -261,19 +294,45 @@ export default function VenuesScreen(){
       </View>
     </Modal>
 
-    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-    {loading?<DataLoadingState variant="list" minHeight={370}/>:null}
-    {!loading&&!error&&venues.length===0?<Card><AppText>{t("booking.noVenues")}</AppText></Card>:null}
-
-    {!loading&&!error?venues.map(venue=><VenueResultCard
-      key={venue.id}
-      id={venue.id}
-      name={venue.name}
-      city={venue.city}
-      province={venue.province}
-      imageUrl={venue.pageCoverImageUrl??venue.pageProfileImageUrl}
-      onlineBookingEnabled={venue.onlineBookingEnabled}
-    />):null}
+    <View testID="venue-results-section" style={styles.resultsSection}>
+      <View style={[styles.resultsHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.resultsIdentity}>
+          <AppText variant="bodyLarge" weight="bold">{t("booking.resultsHeading")}</AppText>
+          {!loading&&!error?<AppText variant="caption" muted>
+            {t("booking.resultsCount",{count:venues.length})}
+          </AppText>:null}
+        </View>
+        <Pressable testID="venue-refresh-results" accessibilityRole="button"
+          accessibilityLabel={t("common.retry")} disabled={loading}
+          onPress={()=>void load(lastSearch.query,lastSearch.province)}
+          style={({pressed})=>[styles.refreshButton,pressed&&styles.pressed]}>
+          <Ionicons name="refresh-outline" color={colors.primary} size={21}/>
+        </Pressable>
+      </View>
+      {error?<Card style={styles.resultsMessage}>
+        <Ionicons name="cloud-offline-outline" size={28} color={colors.danger}/>
+        <AppText style={{color:colors.danger}}>{error}</AppText>
+        <Button label={t("common.retry")} onPress={()=>void load(lastSearch.query,lastSearch.province)}/>
+      </Card>:null}
+      {loading?<DataLoadingState variant="list" minHeight={370}/>:null}
+      {!loading&&!error&&venues.length===0?<Card style={styles.resultsMessage}>
+        <Ionicons name="search-outline" size={30} color={colors.primary}/>
+        <AppText weight="medium" style={{textAlign:"center"}}>{t("booking.noVenues")}</AppText>
+        <Button variant="secondary" label={t("booking.resetSearch")} onPress={resetSearch}/>
+      </Card>:null}
+      {!loading&&!error?<View testID="venue-results-grid" style={[styles.resultsGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {venues.map(venue=><VenueResultCard
+          key={venue.id}
+          id={venue.id}
+          name={venue.name}
+          city={venue.city}
+          province={venue.province}
+          imageUrl={venue.pageCoverImageUrl??venue.pageProfileImageUrl}
+          onlineBookingEnabled={venue.onlineBookingEnabled}
+          twoColumn={twoColumns}
+        />)}
+      </View>:null}
+    </View>
   </Screen>;
 }
 
@@ -299,7 +358,16 @@ const styles=StyleSheet.create({
     alignItems:"center",justifyContent:"center",gap:6,
   },
   discoveryShortcutText:{color:colors.primary,textAlign:"center",flexShrink:1},
-  searchSection:{gap:spacing.sm},
+  searchSection:{gap:spacing.sm,backgroundColor:colors.surface,borderWidth:1,
+    borderColor:colors.border,borderRadius:radius.lg,padding:spacing.md},
+  sectionHeading:{alignItems:"center",gap:spacing.xs,marginBottom:spacing.xs},
+  resultsSection:{gap:spacing.md},
+  resultsHeading:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  resultsIdentity:{flex:1,gap:2},
+  refreshButton:{width:44,height:44,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surface,borderRadius:radius.md,alignItems:"center",justifyContent:"center"},
+  resultsGrid:{flexWrap:"wrap",gap:spacing.sm,alignItems:"stretch"},
+  resultsMessage:{gap:spacing.md,alignItems:"center",padding:spacing.lg},
   suggestionsBox:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
     borderRadius:radius.md,overflow:"hidden"},
   suggestionRow:{alignItems:"center",gap:spacing.sm,minHeight:54,

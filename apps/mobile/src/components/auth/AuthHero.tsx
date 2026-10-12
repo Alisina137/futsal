@@ -57,7 +57,7 @@ const styles=StyleSheet.create({
   },
   heroImage:{borderRadius:radius.lg+4},
   photoScrim:{
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor:"rgba(5,16,31,0.40)",
     borderRadius:radius.lg+4,
   },

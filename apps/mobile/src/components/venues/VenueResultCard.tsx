@@ -13,6 +13,8 @@ type Props={
   province:string;
   imageUrl:string|null;
   onlineBookingEnabled?:boolean;
+  /** Responsive two-column directory cards; full-width everywhere else. */
+  twoColumn?:boolean;
   testID?:string;
 };
 
@@ -21,7 +23,7 @@ type Props={
  * The image is always a square and is centered if translated text grows.
  * Booking is a deep link to live availability, never an automatic reservation.
  */
-export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEnabled,testID}:Props){
+export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEnabled,twoColumn=false,testID}:Props){
   const {t,isRTL}=useLocale();
   const image=resolveMediaImageUrl(imageUrl);
   const canReserve=onlineBookingEnabled!==false;
@@ -30,7 +32,7 @@ export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEna
   const openBooking=()=>router.push({pathname:"/venues/[venueId]",params:{venueId:id,focusAvailability:"1"}});
 
   return <View testID={testID??`venue-result-card-${id}`}
-    style={[styles.card,{flexDirection:isRTL?"row-reverse":"row"}]}>
+    style={[styles.card,twoColumn&&styles.gridCard,{flexDirection:isRTL?"row-reverse":"row"}]}>
     <View style={styles.imageColumn}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${t("booking.venueDetails")}: ${name}`}
         onPress={openDetails} style={({pressed})=>[styles.imageButton,pressed&&styles.pressed]}>
@@ -49,6 +51,14 @@ export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEna
         <View style={[styles.locationRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Ionicons name="location-outline" size={15} color={colors.textMuted}/>
           <AppText variant="caption" muted numberOfLines={2} style={styles.locationText}>{location}</AppText>
+        </View>
+        <View style={[styles.bookingCue,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name={canReserve?"checkmark-circle":"pause-circle-outline"} size={13}
+            color={canReserve?"#15803D":colors.textMuted}/>
+          <AppText variant="caption" numberOfLines={1}
+            style={[styles.bookingCueText,{color:canReserve?"#15803D":colors.textMuted}]}>
+            {t(canReserve?"booking.reserveOnline":"booking.onlineBookingUnavailable")}
+          </AppText>
         </View>
       </View>
 
@@ -75,9 +85,10 @@ export function VenueResultCard({id,name,city,province,imageUrl,onlineBookingEna
 
 const styles=StyleSheet.create({
   card:{
-    width:"100%",minHeight:134,borderWidth:1,borderColor:colors.border,
+    width:"100%",minHeight:144,borderWidth:1,borderColor:colors.border,
     borderRadius:radius.lg,backgroundColor:colors.surface,overflow:"hidden",
   },
+  gridCard:{width:"48%"},
   imageColumn:{
     width:"25%",alignItems:"center",justifyContent:"center",
     paddingHorizontal:6,paddingVertical:spacing.sm,
@@ -93,7 +104,9 @@ const styles=StyleSheet.create({
   },
   content:{width:"75%",minWidth:0,paddingVertical:spacing.sm,gap:spacing.sm,
     justifyContent:"space-between"},
-  identity:{gap:4,minWidth:0},
+  identity:{gap:5,minWidth:0},
+  bookingCue:{alignItems:"center",gap:4,minWidth:0},
+  bookingCueText:{flex:1,fontSize:10,lineHeight:15},
   name:{fontSize:15,lineHeight:21},
   locationRow:{alignItems:"flex-start",gap:4,minWidth:0},
   locationText:{flex:1,minWidth:0},
