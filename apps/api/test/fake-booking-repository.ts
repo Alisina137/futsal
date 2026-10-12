@@ -20,6 +20,51 @@ export class FakeBookingRepository implements BookingRepository {
   promotionPrices: PromotionPriceRecord[] = [];
   followerCounts=new Map<string,number>();
   async countVenueFollowers(){return this.followerCounts;}
+  reviews=new Map<string,import("@leaguekick/contracts").VenueReviewDto>();
+  savedTimes=new Map<string,string>();
+  watches=new Map<string,import("@leaguekick/contracts").VenueSlotWatchDto&{userId:string}>();
+  async listVerifiedReviews(venueId:string,limit:number){
+    const all=[...this.reviews.values()].filter(x=>x.venueId===venueId)
+      .sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+    return {averageRating:all.length?all.reduce((n,x)=>n+x.rating,0)/all.length:0,
+      reviewCount:all.length,reviews:all.slice(0,limit)};
+  }
+  async createVerifiedReview(input:{venueId:string;bookingId:string;userId:string;
+    rating:number;body:string;createdAt:Date}){
+    if(this.reviews.has(input.bookingId))throw errors.badRequest("ALREADY_REVIEWED","Already reviewed");
+    const review={id:randomUUID(),venueId:input.venueId,bookingId:input.bookingId,
+      rating:input.rating,body:input.body,createdAt:input.createdAt.toISOString(),verified:true as const};
+    this.reviews.set(input.bookingId,review);
+    return review;
+  }
+  async getSavedVenueTime(userId:string,venueId:string){
+    return this.savedTimes.get(userId+"|"+venueId)??null;
+  }
+  async setSavedVenueTime(userId:string,venueId:string,time:string|null,_now:Date){
+    const key=userId+"|"+venueId;
+    if(time===null)this.savedTimes.delete(key);else this.savedTimes.set(key,time);
+  }
+  async watchVenueSlot(input:{userId:string;venueId:string;areaId:string;startsAt:Date;expiresAt:Date}){
+    const old=[...this.watches.values()].find(x=>x.userId===input.userId&&
+      x.areaId===input.areaId&&x.startsAt===input.startsAt.toISOString());
+    const watch={id:old?.id??randomUUID(),userId:input.userId,venueId:input.venueId,
+      areaId:input.areaId,startsAt:input.startsAt.toISOString(),expiresAt:input.expiresAt.toISOString()};
+    this.watches.set(watch.id,watch);
+    const {userId:_,...publicWatch}=watch;
+    return publicWatch;
+  }
+  async listMyVenueSlotWatches(userId:string,venueId:string,now:Date){
+    return [...this.watches.values()].filter(x=>x.userId===userId&&x.venueId===venueId&&
+      Date.parse(x.expiresAt)>now.getTime()).map(({userId:_,...x})=>x);
+  }
+  async listVenueSlotWatches(areaId:string,startsAt:Date,now:Date){
+    return [...this.watches.values()].filter(x=>x.areaId===areaId&&
+      x.startsAt===startsAt.toISOString()&&Date.parse(x.expiresAt)>now.getTime());
+  }
+  async removeVenueSlotWatch(userId:string,watchId:string){
+    if(this.watches.get(watchId)?.userId!==userId)return false;
+    this.watches.delete(watchId);return true;
+  }
   private tail: Promise<void> = Promise.resolve();
 
   seedVenue(ownerUserId: string, options?: { trialEndsAt?: Date; status?: BookingVenueRecord["status"] }) {
