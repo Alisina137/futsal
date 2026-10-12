@@ -271,6 +271,8 @@ async function knockout(ctx,cid,ids,now){
 }
 async function dashboard(ctx,ids,offline,now){
  const manager=ctx.team.manager_user_id,player=ctx.users.abdul.id,teamId=ctx.team.id;
+ await q("insert into player_profiles(user_id,public_display_name,position,visibility) "+
+  "values($1,'Abdul','ALA','PUBLIC') on conflict do nothing",[player]);
  await q("insert into team_manager_profiles(team_id,province,district,description,founded_on,"+
   "primary_color,secondary_color,home_venue_id,allow_join_requests) "+
   "values($1,'Kabul','Kabul',$2,'2023-02-01','#186F9F','#F3B543',$3,true) on conflict do nothing",
