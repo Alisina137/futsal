@@ -15,6 +15,24 @@ for(const word of ["useVisibleTab<VenueMainTab>(main)","useVisibleTab<string>(su
   "bookingDeepLink?\"reserve\":\"media\""]){
   assert.ok(venue.includes(word),"Venue navigation invariant missing: "+word);
 }
+// Sub-navigation bars fill the available width instead of clustering at an
+// RTL/LTR edge; 112px minimum tabs keep long localized labels scrollable.
+for(const [name,component,frame,row,item,selected] of [
+  ["venue",venue,"subNavFrame","subNav","subItem","subActive"],
+  ["team",read("apps/mobile/src/components/social/TeamDetailExperience.tsx"),
+    "subFrame","subRow","sub","subSelected"],
+]){
+  for(const marker of [
+    "style={styles."+frame+"}",
+    row+":{flexGrow:1",
+    item+":{flex:1,minWidth:112,minHeight:48",
+    selected+":{borderColor:colors.primary,backgroundColor:colors.primary}",
+    'variant="body" weight="semibold" numberOfLines={2}',
+    "onContentSizeChange={subNav.onContentSize}",
+    "subNav.focus("
+  ])assert.ok(component.includes(marker),
+    name+" subnavigation layout/selection missing: "+marker);
+}
 const team=read("apps/mobile/src/components/social/TeamDetailExperience.tsx");
 for(const word of ["useVisibleTab<Tab>(tab)","useVisibleTab<string>(subs[tab]",
   "mainNav.scrollRef","subNav.scrollRef","mainNav.cellLayout(item.id,event)",

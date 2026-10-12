@@ -463,19 +463,26 @@ export default function TeamDetailExperience(){
         </Pressable>)}
       </ScrollView>
     </View>
-    <ScrollView ref={subNav.scrollRef} onLayout={subNav.onViewport}
-      onContentSizeChange={subNav.onContentSize}
-      horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
-      contentContainerStyle={[styles.subRow,rowDirection]}>
-      {subNavigation[tab].map(key=><Pressable key={key} accessibilityRole="tab"
-        onLayout={event=>subNav.cellLayout(key,event)}
-        accessibilityState={{selected:subs[tab]===key}}
-        style={[styles.sub,subs[tab]===key&&styles.subSelected]}
-        onPress={()=>{setSubs(current=>({...current,[tab]:key}));subNav.focus(key,true);}}>
-        <AppText variant="caption" weight="semibold"
-          style={{color:subs[tab]===key?"#FFFFFF":colors.primary}}>{tx(key)}</AppText>
-      </Pressable>)}
-    </ScrollView>
+    <View style={styles.subFrame}>
+      <ScrollView ref={subNav.scrollRef} onLayout={subNav.onViewport}
+        onContentSizeChange={subNav.onContentSize}
+        horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
+        contentContainerStyle={[styles.subRow,rowDirection]}>
+        {subNavigation[tab].map(key=><Pressable key={key} accessibilityRole="tab"
+          testID={"team-subtab-"+tab+"-"+key}
+          accessibilityLabel={tx(key)}
+          onLayout={event=>subNav.cellLayout(key,event)}
+          accessibilityState={{selected:subs[tab]===key}}
+          style={({pressed})=>[styles.sub,subs[tab]===key&&styles.subSelected,
+            pressed&&styles.subPressed]}
+          onPress={()=>{setSubs(current=>({...current,[tab]:key}));subNav.focus(key,true);}}>
+          <AppText variant="body" weight="semibold" numberOfLines={2}
+            style={{color:subs[tab]===key?colors.surface:colors.text,textAlign:"center"}}>
+            {tx(key)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+    </View>
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={tx("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
     {content()}
@@ -522,10 +529,14 @@ const styles=StyleSheet.create({
   tab:{minWidth:86,minHeight:67,alignItems:"center",justifyContent:"center",gap:4,
     paddingHorizontal:spacing.sm,borderBottomWidth:3,borderColor:"transparent"},
   tabSelected:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
-  subRow:{gap:spacing.sm,paddingVertical:spacing.sm},
-  sub:{borderRadius:radius.pill,paddingHorizontal:spacing.lg,paddingVertical:spacing.sm,
-    backgroundColor:colors.surfaceMuted,minHeight:38,justifyContent:"center"},
-  subSelected:{backgroundColor:colors.primary},
+  subFrame:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.md,marginTop:spacing.xs,overflow:"hidden"},
+  subRow:{flexGrow:1,gap:spacing.xs,padding:spacing.xs,alignItems:"stretch"},
+  sub:{flex:1,minWidth:112,minHeight:48,alignItems:"center",justifyContent:"center",
+    borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,
+    paddingHorizontal:spacing.sm,paddingVertical:spacing.sm,backgroundColor:colors.surfaceMuted},
+  subSelected:{borderColor:colors.primary,backgroundColor:colors.primary},
+  subPressed:{opacity:0.8},
   empty:{alignItems:"center",gap:spacing.md,padding:spacing.xl,minHeight:160,justifyContent:"center"},
   rosterCard:{padding:spacing.md},
   playerAvatar:{width:48,height:48,borderRadius:24},

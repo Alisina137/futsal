@@ -43,8 +43,11 @@ for(const fragment of [
 check(booking.includes("bookingApi.create")&&booking.includes("startsAt"),
   "Booking confirmation must remain routed through the server-authoritative booking service.");
 check(detail.includes('flexDirection:isRTL?"row-reverse":"row"')&&
-  detail.includes("styles.navActive")&&detail.includes("styles.subActive"),
-  "Main and sub navigation must remain RTL-aware with visible active state.");
+  detail.includes("styles.navActive")&&detail.includes("styles.subActive")&&
+  detail.includes("style={styles.subNavFrame}")&&
+  detail.includes("subNav:{flexGrow:1")&&
+  detail.includes("subItem:{flex:1,minWidth:112,minHeight:48"),
+  "Main and evenly distributed sub-navigation must remain RTL-aware with visible active state.");
 for(const k of ["tab.media","tab.reserve","tab.competitions","tab.updates","tab.about",
   "sub.media.posts","sub.reserve.slots","sub.reserve.bookings","sub.about.location",
   "noSlots","noOffers","noBookings","noPhotos","noVideos","bookingPaused"]){

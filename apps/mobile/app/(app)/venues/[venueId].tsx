@@ -182,21 +182,26 @@ export default function VenueDetailScreen(){
         })}
       </ScrollView>
     </View>
-    <ScrollView ref={subNav.scrollRef} onLayout={subNav.onViewport}
-      onContentSizeChange={subNav.onContentSize}
-      horizontal showsHorizontalScrollIndicator={false}
-      style={{flexGrow:0}} contentContainerStyle={[styles.subNav,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      {venueSubtabs[main].map(item=><Pressable key={item} accessibilityRole="tab"
-        onLayout={event=>subNav.cellLayout(item,event)}
-        accessibilityState={{selected:sub[main]===item}}
-        style={[styles.subItem,sub[main]===item&&styles.subActive]}
-        onPress={()=>{setSub(current=>({...current,[main]:item}));subNav.focus(item,true);}}>
-        <AppText variant="caption" weight="semibold"
-          style={{color:sub[main]===item?colors.primary:colors.textMuted,textAlign:"center"}}>
-          {tr("sub."+main+"."+item)}
-        </AppText>
-      </Pressable>)}
-    </ScrollView>
+    <View style={styles.subNavFrame}>
+      <ScrollView ref={subNav.scrollRef} onLayout={subNav.onViewport}
+        onContentSizeChange={subNav.onContentSize}
+        horizontal showsHorizontalScrollIndicator={false}
+        style={{flexGrow:0}} contentContainerStyle={[styles.subNav,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {venueSubtabs[main].map(item=><Pressable key={item} accessibilityRole="tab"
+          testID={"venue-subtab-"+main+"-"+item}
+          accessibilityLabel={tr("sub."+main+"."+item)}
+          onLayout={event=>subNav.cellLayout(item,event)}
+          accessibilityState={{selected:sub[main]===item}}
+          style={({pressed})=>[styles.subItem,sub[main]===item&&styles.subActive,
+            pressed&&styles.subPressed]}
+          onPress={()=>{setSub(current=>({...current,[main]:item}));subNav.focus(item,true);}}>
+          <AppText variant="body" weight="semibold" numberOfLines={2}
+            style={{color:sub[main]===item?colors.surface:colors.text,textAlign:"center"}}>
+            {tr("sub."+main+"."+item)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+    </View>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {main==="media"?<VenueMediaContent venue={venue} sub={sub.media as VenueMediaSub}
@@ -234,10 +239,15 @@ const styles=StyleSheet.create({
     justifyContent:"center"},
   navActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft,
     borderTopLeftRadius:radius.md,borderTopRightRadius:radius.md},
-  subNav:{borderBottomWidth:1,borderColor:colors.border,gap:spacing.xs,
-    justifyContent:"space-between"},
-  subItem:{flex:1,minWidth:0,minHeight:46,paddingVertical:spacing.sm,
-    paddingHorizontal:spacing.xs,justifyContent:"center",alignItems:"center",
-    borderBottomWidth:3,borderBottomColor:"transparent"},
-  subActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft},
+  // Horizontal ScrollView content must grow to fill its viewport: otherwise
+  // all subtabs collapse at one edge when their labels are short (especially RTL).
+  subNavFrame:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.md,marginTop:spacing.xs,overflow:"hidden"},
+  subNav:{flexGrow:1,gap:spacing.xs,padding:spacing.xs,alignItems:"stretch"},
+  subItem:{flex:1,minWidth:112,minHeight:48,paddingVertical:spacing.sm,
+    paddingHorizontal:spacing.sm,justifyContent:"center",alignItems:"center",
+    borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surfaceMuted},
+  subActive:{borderColor:colors.primary,backgroundColor:colors.primary},
+  subPressed:{opacity:0.8},
 });
