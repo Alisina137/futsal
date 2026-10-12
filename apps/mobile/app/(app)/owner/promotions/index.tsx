@@ -15,7 +15,7 @@ import {formatCompetitionDateTime} from "../../../../src/lib/date-time";
 
 export default function OwnerPromotionsScreen(){
   const {session}=useAuth();
-  const {t}=useLocale();
+  const {t,language}=useLocale();
   const [items,setItems]=useState<PromotionDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
