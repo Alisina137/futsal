@@ -7,6 +7,7 @@ import {Image,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
 import {formatFixtureSchedule,groupMatchesByRound} from "../../lib/competition-match-schedule";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useFocusedTabScroll} from "../../hooks/useFocusedTabScroll";
 import {AppText} from "../ui/AppText";
 import {Card} from "../ui/Card";
 
@@ -39,6 +40,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
 }){
   const {t,language,isRTL}=useLocale();
   const [filter,setFilter]=useState<MatchFilter>(initialFilter);
+  const filterRail=useFocusedTabScroll(filter);
   const teams=useMemo(()=>new Map(competition.teams.map(team=>[team.teamId,team])),[competition.teams]);
   const matches=useMemo(()=>order(competition.matches.filter(match=>
     filter==="ALL"?true:
@@ -58,11 +60,14 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
     params:{competitionId:competition.id,matchId:match.id},
   });
   return <View style={styles.container} testID="competition-matches-list">
-    <ScrollView testID="match-filter-rail" horizontal showsHorizontalScrollIndicator={false}
+    <ScrollView testID="match-filter-rail" ref={filterRail.scrollRef}
+      onLayout={filterRail.onLayout} onContentSizeChange={filterRail.onContentSizeChange}
+      horizontal showsHorizontalScrollIndicator={false}
       style={styles.filterViewport}
       contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {FILTERS.map(value=><Pressable key={value} testID={`match-filter-${value}`}
         accessibilityRole="tab" accessibilityState={{selected:value===filter}}
+        onLayout={e=>filterRail.onTabLayout(value,e)}
         onPress={()=>setFilter(value)}
         style={[styles.chip,filter===value&&styles.selected]}>
         <AppText variant="caption" weight="semibold" numberOfLines={1}
