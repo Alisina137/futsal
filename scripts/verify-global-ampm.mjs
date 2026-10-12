@@ -40,7 +40,7 @@ for(const lang of ["en","fa-AF","ps-AF"]){
   const referee=formatRefereeScheduleParts("2026-10-12T08:30:00Z",lang);
   assert.equal(referee.time,"01:00 PM");
   for(const x of [parts.time,combined,referee.time])
-    assert.ok(!/GMT|UTC|04:30|:\\d{2}:\\d{2}/i.test(x),"Visible time contains offset/seconds: "+x);
+    assert.ok(!/GMT|UTC|04:30|:[0-9]{2}:[0-9]{2}/i.test(x),"Visible time contains offset/seconds: "+x);
 }
 
 const dateTime=read("apps/mobile/src/lib/date-time.ts");
