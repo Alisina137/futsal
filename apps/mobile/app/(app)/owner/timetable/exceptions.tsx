@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { ApiRequestError, ownerApi } from "../../../../src/lib/api";
 import { formatCalendarDate, todayKabul } from "../../../../src/lib/timetable-calendar";
+import {formatClock12From24Hour} from "../../../../src/lib/clock-display";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
 import { Card } from "../../../../src/components/ui/Card";
@@ -159,7 +160,7 @@ function ExceptionSection({
           ?<AppText>{t("schedule.specialClosedAllDay")}</AppText>
           :<View style={styles.periodList}>
             {item.periods.map((period,index)=><View key={index} style={[styles.periodLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
-              <AppText forceLtr weight="semibold">{period.startsAt}–{period.endsAt}</AppText>
+              <AppText forceLtr weight="semibold">{formatClock12From24Hour(period.startsAt)} – {formatClock12From24Hour(period.endsAt)}</AppText>
               <AppText style={{color:colors.primary}} weight="semibold" forceLtr={period.priceAfn!==null}>
                 {period.priceAfn!==null?`${period.priceAfn} AFN`:t("schedule.specialRegularPrice")}
               </AppText>
