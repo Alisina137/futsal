@@ -19,14 +19,14 @@ import {VenueAboutContent,VenueCompetitionsContent,VenueMediaContent,
   type VenueUpdatesSub,type VenueAboutSub} from "../../../src/components/venues/VenueDetailSections";
 
 export default function VenueDetailScreen(){
-  const {venueId,focusAvailability,startsAt,promotionId}=useLocalSearchParams<{
-    venueId:string;focusAvailability?:string;startsAt?:string;promotionId?:string;
+  const {venueId,focusAvailability,startsAt,promotionId,bookingDate}=useLocalSearchParams<{
+    venueId:string;focusAvailability?:string;startsAt?:string;promotionId?:string;bookingDate?:string;
   }>();
   const {session}=useAuth(),{t,isRTL}=useLocale();
   const {height:viewportHeight}=useWindowDimensions();
   const tr=(key:string)=>t(("vd."+key) as never);
   const targetId=typeof venueId==="string"?venueId:"";
-  const bookingDeepLink=focusAvailability==="1"||!!startsAt||!!promotionId;
+  const bookingDeepLink=focusAvailability==="1"||!!startsAt||!!promotionId||!!bookingDate;
   const [main,setMain]=useState<VenueMainTab>(bookingDeepLink?"reserve":"media");
   const [sub,setSub]=useState<Record<VenueMainTab,string>>({
     media:"posts",reserve:"slots",competitions:"upcoming",updates:"announcements",about:"overview",
@@ -36,6 +36,7 @@ export default function VenueDetailScreen(){
   const [followState,setFollowState]=useState<FollowStateDto|null>(null),[followBusy,setFollowBusy]=useState(false);
   const [reserveStartsAt,setReserveStartsAt]=useState<string|undefined>(startsAt);
   const [reservePromotionId,setReservePromotionId]=useState<string|undefined>(promotionId);
+  const [reserveDate,setReserveDate]=useState<string|undefined>(bookingDate);
   const initialVenue=useRef(targetId);
   const mainNav=useVisibleTab<VenueMainTab>(main);
   const subNav=useVisibleTab<string>(sub[main]??venueSubtabs[main][0]!);
@@ -63,8 +64,9 @@ export default function VenueDetailScreen(){
   useEffect(()=>{
     if(!bookingDeepLink)return;
     setReserveStartsAt(startsAt);setReservePromotionId(promotionId);
+    setReserveDate(bookingDate);
     setMain("reserve");setSub(value=>({...value,reserve:"slots"}));
-  },[targetId,focusAvailability,startsAt,promotionId]);
+  },[targetId,focusAvailability,startsAt,promotionId,bookingDate]);
   useEffect(()=>{
     if(!session||!targetId)return;
     let active=true;
@@ -84,6 +86,7 @@ export default function VenueDetailScreen(){
   }
   function reserve(date?:string,promo?:string){
     setReserveStartsAt(date);setReservePromotionId(promo);
+    if(!date)setReserveDate(undefined);
     setSub(current=>({...current,reserve:"slots"}));
     chooseMain("reserve");
   }
@@ -214,7 +217,7 @@ export default function VenueDetailScreen(){
       {main==="media"?<VenueMediaContent venue={venue} sub={sub.media as VenueMediaSub}
         onReserve={reserve}/>:null}
       {main==="reserve"?<VenueReserveContent venue={venue} sub={sub.reserve as VenueReserveSub}
-        startsAt={reserveStartsAt} promotionId={reservePromotionId}/>:null}
+        startsAt={reserveStartsAt} promotionId={reservePromotionId} bookingDate={reserveDate}/>:null}
       {main==="competitions"?<VenueCompetitionsContent venue={venue}
         sub={sub.competitions as VenueCompetitionSub}/>:null}
       {main==="updates"?<VenueUpdatesContent venue={venue}
