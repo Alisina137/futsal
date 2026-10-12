@@ -1,10 +1,11 @@
 import type { AdminRoleSubscriptionDto, PaidRole, RoleSubscriptionOfferDto, UserRole } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
 import type { Database } from "@leaguekick/database";
-import { accountProfileImages, auditLogs, paidEntitlementPayments, subscriptionPayments, passwordResetChallenges, emailVerificationChallenges, roleSubscriptions, sessions, userRoles, users, venueReferees, venueSubscriptions, venues } from "@leaguekick/database";
+import { accountProfileImages, auditLogs, paidEntitlementPayments, subscriptionPayments, passwordResetChallenges, emailVerificationChallenges, roleSubscriptions, sessions, userRoles, users, venueReferees, venueSubscriptions, venues, teamMemberships, teams } from "@leaguekick/database";
 import { and, desc, eq, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { AuthRepository, AuthUserRecord, CreateUserInput, EmailVerificationChallengeRecord, PasswordResetChallengeRecord, SessionRecord, UpdateAccountProfileInput } from "./auth.types.js";
+import {rolesWithActiveTeamPlayer} from "./player-role-from-teams.js";
 
 function uniqueConstraint(error: unknown, depth = 0): string | null {
   if (depth > 4 || typeof error !== "object" || error === null) return null;
@@ -19,7 +20,7 @@ export class DrizzleAuthRepository implements AuthRepository {
   constructor(private readonly db: Database) {}
 
   private async rolesFor(userId: string): Promise<UserRole[]> {
-    const [roleRows, paidRows, venueRoles] = await Promise.all([
+    const [roleRows, paidRows, venueRoles, teamPlayerMemberships] = await Promise.all([
       this.db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId)),
       this.db.select({
         role: roleSubscriptions.role,
@@ -30,6 +31,19 @@ export class DrizzleAuthRepository implements AuthRepository {
       // removing the final grant removes this derived role at next refresh.
       this.db.select({userId:venueReferees.userId}).from(venueReferees)
         .where(eq(venueReferees.userId,userId)).limit(1),
+      // Derive the Player role from a real ACTIVE roster membership. This
+      // also fixes members accepted before this deployment (such as shams);
+      // no backfill or stale one-time role assignment is required.
+      // MANAGER membership alone must not imply the PLAYER role.
+      this.db.select({userId:teamMemberships.userId}).from(teamMemberships)
+        .innerJoin(teams,eq(teamMemberships.teamId,teams.id))
+        .where(and(
+          eq(teamMemberships.userId,userId),
+          eq(teamMemberships.status,"ACTIVE"),
+          or(eq(teamMemberships.role,"PLAYER"),eq(teamMemberships.role,"CAPTAIN")),
+          eq(teams.status,"ACTIVE"),
+          or(isNull(teams.offlineVenueId),isNotNull(teams.claimedAt)),
+        )).limit(1),
     ]);
     const activePaid = new Set(
       paidRows
@@ -39,7 +53,9 @@ export class DrizzleAuthRepository implements AuthRepository {
     const granted=roleRows.map(row=>row.role as UserRole)
       .filter(role=>(role!=="VENUE_OWNER"&&role!=="TEAM_MANAGER")||activePaid.has(role));
     if(venueRoles.length>0&&!granted.includes("REFEREE"))granted.push("REFEREE");
-    return granted;
+    // Explicit user_roles and paid/referee authorities still take priority.
+    // Role is dynamically added/removed as player team membership changes.
+    return rolesWithActiveTeamPlayer(granted,teamPlayerMemberships.length>0);
   }
 
   private async hydrate(row: typeof users.$inferSelect): Promise<AuthUserRecord> {

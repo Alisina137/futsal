@@ -2,10 +2,10 @@ import { resolveMediaImageUrl } from "../../../src/lib/api";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { PaidRole } from "@leaguekick/contracts";
-import { router } from "expo-router";
+import { router,useFocusEffect } from "expo-router";
 import {setDashboardRole,type DashboardRole} from "../../../src/lib/dashboard-role";
 import {availableDashboardRoles} from "../../../src/lib/dashboard-role-options";
-import { useMemo, useState } from "react";
+import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { LanguagePicker } from "../../../src/components/LanguagePicker";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -28,6 +28,15 @@ const dashboardIcons:Record<DashboardRole,IconName>={
 export default function ProfileScreen(){
   const {session,signOut,revalidate}=useAuth();
   const {t,isRTL,language}=useLocale();
+  // Keep the current callback without re-triggering a network request each
+  // time token refresh updates AuthProvider while Profile stays focused.
+  const refreshRoleRef=useRef(revalidate);
+  useEffect(()=>{refreshRoleRef.current=revalidate;},[revalidate]);
+  // A team manager can approve this user's join request on another device.
+  // Refresh once per Profile focus to show the new role without relogin.
+  useFocusEffect(useCallback(()=>{
+    void refreshRoleRef.current();
+  },[]));
   const {isOnline,hasResolved}=useNetwork();
   const [refreshing,setRefreshing]=useState(false);
   const user=session?.user;
