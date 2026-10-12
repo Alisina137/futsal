@@ -9,10 +9,13 @@ import {
   venueOpeningHours,
   venuePromotions,
   socialFollows,
+  venueReviews,
+  venueSavedTimes,
+  venueSlotWatches,
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, eq, gt, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   BookingRepository,
@@ -78,6 +81,74 @@ function mapHour(row: typeof venueOpeningHours.$inferSelect): VenueOpeningHourIn
 
 export class DrizzleBookingRepository implements BookingRepository {
   constructor(private readonly db: Database) {}
+
+  async listVerifiedReviews(venueId:string,limit:number){
+    const [summary]=await this.db.select({
+      average:sql<number>`coalesce(avg(${venueReviews.rating}),0)::float8`,
+      total:sql<number>`count(*)::int`,
+    }).from(venueReviews).where(eq(venueReviews.venueId,venueId));
+    const reviews=await this.db.select().from(venueReviews).where(eq(venueReviews.venueId,venueId))
+      .orderBy(desc(venueReviews.createdAt),desc(venueReviews.id)).limit(limit);
+    return {
+      averageRating:Number(summary?.average??0),reviewCount:Number(summary?.total??0),
+      reviews:reviews.map(row=>({id:row.id,venueId:row.venueId,bookingId:row.bookingId,
+        rating:row.rating,body:row.body,createdAt:row.createdAt.toISOString(),verified:true as const})),
+    };
+  }
+  async createVerifiedReview(input:{venueId:string;bookingId:string;userId:string;
+    rating:number;body:string;createdAt:Date}){
+    const [created]=await this.db.insert(venueReviews).values(input)
+      .onConflictDoNothing({target:venueReviews.bookingId}).returning();
+    if(!created)throw errors.badRequest("ALREADY_REVIEWED","This booking already has a review.");
+    return {id:created.id,venueId:created.venueId,bookingId:created.bookingId,
+      rating:created.rating,body:created.body,createdAt:created.createdAt.toISOString(),
+      verified:true as const};
+  }
+  async getSavedVenueTime(userId:string,venueId:string){
+    const [row]=await this.db.select({value:venueSavedTimes.preferredStart})
+      .from(venueSavedTimes).where(and(eq(venueSavedTimes.userId,userId),
+        eq(venueSavedTimes.venueId,venueId))).limit(1);
+    return row?.value.slice(0,5)??null;
+  }
+  async setSavedVenueTime(userId:string,venueId:string,time:string|null,now:Date){
+    if(time===null){
+      await this.db.delete(venueSavedTimes).where(and(eq(venueSavedTimes.userId,userId),
+        eq(venueSavedTimes.venueId,venueId)));
+      return;
+    }
+    await this.db.insert(venueSavedTimes).values({userId,venueId,preferredStart:time,updatedAt:now})
+      .onConflictDoUpdate({target:[venueSavedTimes.userId,venueSavedTimes.venueId],
+        set:{preferredStart:time,updatedAt:now}});
+  }
+  private watchDto(row:typeof venueSlotWatches.$inferSelect){
+    return {id:row.id,venueId:row.venueId,areaId:row.areaId,
+      startsAt:row.startsAt.toISOString(),expiresAt:row.expiresAt.toISOString()};
+  }
+  async watchVenueSlot(input:{userId:string;venueId:string;areaId:string;startsAt:Date;expiresAt:Date}){
+    const [row]=await this.db.insert(venueSlotWatches).values(input)
+      .onConflictDoUpdate({target:[venueSlotWatches.userId,venueSlotWatches.areaId,venueSlotWatches.startsAt],
+        set:{expiresAt:input.expiresAt}}).returning();
+    if(!row)throw new Error("Could not create slot alert");
+    return this.watchDto(row);
+  }
+  async listMyVenueSlotWatches(userId:string,venueId:string,now:Date){
+    const rows=await this.db.select().from(venueSlotWatches).where(and(
+      eq(venueSlotWatches.userId,userId),eq(venueSlotWatches.venueId,venueId),
+      gt(venueSlotWatches.expiresAt,now))).orderBy(venueSlotWatches.startsAt).limit(100);
+    return rows.map(row=>this.watchDto(row));
+  }
+  async listVenueSlotWatches(areaId:string,startsAt:Date,now:Date){
+    const rows=await this.db.select().from(venueSlotWatches).where(and(
+      eq(venueSlotWatches.areaId,areaId),eq(venueSlotWatches.startsAt,startsAt),
+      gt(venueSlotWatches.expiresAt,now))).limit(200);
+    return rows.map(row=>({...this.watchDto(row),userId:row.userId}));
+  }
+  async removeVenueSlotWatch(userId:string,watchId:string){
+    const rows=await this.db.delete(venueSlotWatches).where(and(
+      eq(venueSlotWatches.userId,userId),eq(venueSlotWatches.id,watchId)))
+      .returning({id:venueSlotWatches.id});
+    return rows.length>0;
+  }
 
   async countVenueFollowers(){
     const rows=await this.db.select({venueId:socialFollows.entityId,
