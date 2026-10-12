@@ -38,6 +38,7 @@ export default function VenueDetailScreen(){
   const [reserveStartsAt,setReserveStartsAt]=useState<string|undefined>(startsAt);
   const [reservePromotionId,setReservePromotionId]=useState<string|undefined>(promotionId);
   const scroll=useRef<ScrollView>(null),initialVenue=useRef(targetId);
+  const navigationY=useRef(0);
   const loadVenue=useCallback(async()=>{
     if(!targetId)return;
     setLoading(true);setError(null);
@@ -74,7 +75,11 @@ export default function VenueDetailScreen(){
   },[session?.accessToken,targetId]);
   function chooseMain(id:VenueMainTab){
     setMain(id);
-    requestAnimationFrame(()=>scroll.current?.scrollTo({y:0,animated:true}));
+    // Preserve the selected navigation in the vertical viewport even when
+    // the venue hero is taller than a small phone's screen.
+    requestAnimationFrame(()=>scroll.current?.scrollTo({
+      y:Math.max(0,navigationY.current-spacing.sm),animated:true,
+    }));
   }
   function reserve(date?:string,promo?:string){
     setReserveStartsAt(date);setReservePromotionId(promo);
@@ -159,7 +164,7 @@ export default function VenueDetailScreen(){
       </View>
     </View>
 
-    <View style={styles.navContainer}>
+    <View style={styles.navContainer} onLayout={e=>{navigationY.current=e.nativeEvent.layout.y;}}>
       <ScrollView ref={mainRail.scrollRef} onLayout={mainRail.onLayout}
         onContentSizeChange={mainRail.onContentSizeChange}
         horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
