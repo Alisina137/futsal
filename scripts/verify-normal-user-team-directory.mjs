@@ -35,6 +35,12 @@ assert(screen.includes('TeamDirectoryExperience mode="directory"')
   "Teams page must use the all-team directory, not only My Teams.");
 assert(experience.includes('t("teams.viewTeam")')&&experience.includes('t("teams.requestToJoin")'),
   "directory must expose View Team and Request to Join");
+const profile = read("apps/mobile/app/(app)/(tabs)/settings.tsx");
+assert(profile.includes('(user?.roles.length??-1)===0?<>')
+  &&profile.includes('testID="profile-join-team"')
+  &&profile.includes('testID="profile-join-team-action"')
+  &&profile.includes('onPress={()=>router.push("/teams")}'),
+  "Only normal accounts must see the Profile > Roles & participation > Join a team shortcut into the directory.");
 assert(experience.includes('joinRequestStatus==="PENDING"'),
   "directory must show pending request state");
 assert((localization.match(/"teams\.title": "Teams"/g) ?? []).length === 1, "English Teams title must not say My Teams");

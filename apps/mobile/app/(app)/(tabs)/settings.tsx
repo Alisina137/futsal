@@ -136,6 +136,30 @@ export default function ProfileScreen(){
         t={t}
         onSelect={selectRole}
       />}
+      {/* Joining an existing team is free, unlike paid management roles.
+          Do not offer the shortcut after a role has been assigned. */}
+      {(user?.roles.length??-1)===0?<>
+        <Divider/>
+        <View testID="profile-join-team" style={styles.joinTeamCallout}>
+          <View style={[styles.roleRow,direction]}>
+            <View style={styles.joinTeamIcon}>
+              <Ionicons name="people-circle-outline" size={24} color={colors.primary}/>
+            </View>
+            <View style={styles.roleCopy}>
+              <AppText variant="bodyLarge" weight="bold">{t("settings.joinTeam")}</AppText>
+              <AppText variant="caption" muted>{t("settings.joinTeamBody")}</AppText>
+              {!user?.emailVerified?<AppText variant="caption" style={styles.joinTeamHint}>
+                {t("settings.joinTeamVerifyHint")}
+              </AppText>:null}
+            </View>
+          </View>
+          <View testID="profile-join-team-action">
+            <Button label={t("settings.joinTeamAction")}
+              icon={<Ionicons name="search-outline" size={19} color="#FFFFFF"/>}
+              onPress={()=>router.push("/teams")}/>
+          </View>
+        </View>
+      </>:null}
     </Card>
 
     {/* A base normal account has no role dashboard to select. */}
@@ -453,6 +477,20 @@ const styles=StyleSheet.create({
     gap:spacing.xs,
     flexWrap:"wrap",
   },
+  joinTeamCallout:{
+    gap:spacing.sm,
+    padding:spacing.md,
+    borderRadius:radius.md,
+    borderWidth:1,
+    borderColor:"#C9D9F2",
+    backgroundColor:"#F0F5FF",
+  },
+  joinTeamIcon:{
+    width:44,height:44,borderRadius:radius.md,
+    backgroundColor:"#DFEAFE",
+    alignItems:"center",justifyContent:"center",
+  },
+  joinTeamHint:{color:colors.warning},
   activeRoleBadge:{
     minHeight:24,
     paddingHorizontal:spacing.sm,
