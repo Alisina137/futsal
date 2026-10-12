@@ -252,9 +252,14 @@ async function probeApi(timeoutMs = 2_500) {
     const response = await fetch(`${baseUrl}/health`, {
       method: "GET",
       signal: controller.signal,
-      headers: { Accept: "application/json" },
+      cache: "no-store",
+      headers: { Accept: "application/json", "Cache-Control": "no-cache" },
     });
-    return response.ok;
+    // Ngrok error/interstitial pages and unrelated websites may return HTTP
+    // 200. Only the Futsal API's real health payload proves connectivity.
+    if (!response.ok) return false;
+    const value = await response.json().catch(() => null);
+    return value?.service === "futsal-api" && value?.status === "ok";
   } catch {
     return false;
   } finally {
