@@ -339,7 +339,7 @@ describe("Phase 3 availability and booking API", () => {
     // Inject a real publisher into the same repository to simulate cancellation.
     const sent:Array<{userId:string;watchId:string}>=[];
     const svc=new BookingService(bookingRepository,()=>clock.now,{
-      slotAvailable:async(input)=>{sent.push({userId:input.userId,watchId:input.watchId});},
+      slotAvailable:async(input:{userId:string;watchId:string})=>{sent.push({userId:input.userId,watchId:input.watchId});},
     } as unknown as import("../src/modules/notifications/notification.types.js").NotificationPublisher);
     const cancelled=await svc.cancelOwnerBooking(owner.body.user.id,booked.body.booking.id);
     expect(cancelled.status).toBe("CANCELLED");
