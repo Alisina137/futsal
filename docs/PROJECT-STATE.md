@@ -1,5 +1,13 @@
 # PROJECT STATE
 
+## Navigation selection and focused tab visibility (October 12, 2026)
+- Navigation rule: first main tab selected when a navigation first appears; selected tabs use existing highlighted UI and must remain visible within horizontal navs in both RTL and LTR. Explicit booking/deep links remain respected.
+- New reusable `useVisibleTab` hook measures viewport width, content width and item layout before centering selected tabs; handles relayout, initial render and selection changes without hard-coded offsets. Used for venue detail and team detail main and sub navigation.
+- Switching a venue/team main section resets that section's subnavigation to its **first** tab, then focuses the selected item. Team manager's About Team now always opens at Players, not a previously visited subtab. Other dashboard navigation components already calculate selected item location and maintain their focus.
+- The admin panel defaults to its first Overview/Dashboard section on entry rather than an old browser-stored selection. The admin sidebar automatically expands and scrolls to the currently selected group/item. Public top navigation highlights Home when displayed outside its five direct destinations. Owner navigation falls back to its first item for unrecognized owner routes.
+- Regression verifier `pnpm verify:navigation-focus` checks layout-based active focus and first-tab defaults. Native Android and web visual checks, especially RTL horizontal scrolling and nested tab layout, are still recommended. No backend/API/database change.
+
+
 ## Global AM/PM date and clock display (October 12, 2026)
 - Global user-facing clock convention: always a **two-digit 12-hour time with explicit English `AM`/`PM`**, e.g. `13:00 → 01:00 PM`, `18:30 → 06:30 PM`, `22:00 → 10:00 PM`, `08:00 → 08:00 AM`. No visible seconds, Greenwich `GMT+4:30`, `UTC+04:30` offsets or raw ISO timestamp on supported public and dashboard date/time displays. Dates/day names stay localized (English, Dari, Pashto), time markers use AM/PM even in RTL.
 - Updated shared date-time formatters (competitions, referee calendars, notifications, trial/billing, admin), competition match schedules, booking confirmation, compact slot tiles, reservations, venue offers, owner week/day timetable headers, promotional listings, specials/history and booking/venue date display. The 12-hour convention applies to the date-time picker as well.
