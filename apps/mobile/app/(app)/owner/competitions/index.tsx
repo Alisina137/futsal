@@ -13,6 +13,7 @@ import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState
 import { Screen } from "../../../../src/components/ui/Screen";
 import { useAuth } from "../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
+import {useVisibleTab} from "../../../../src/hooks/useVisibleTab";
 
 type Filter="ALL"|CompetitionStatus;
 const filters:Filter[]=["ALL","IN_PROGRESS","REGISTRATION_OPEN","REGISTRATION_CLOSED","COMPLETED","DRAFT","SCHEDULED","ARCHIVED","CANCELLED"];
@@ -26,6 +27,7 @@ export default function OwnerCompetitionListScreen(){
   const {t,isRTL,language}=useLocale();
   const [items,setItems]=useState<CompetitionListItemDto[]>([]);
   const [filter,setFilter]=useState<Filter>("ALL");
+  const rail=useVisibleTab(filter);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
 
@@ -67,13 +69,16 @@ export default function OwnerCompetitionListScreen(){
     <Button label={t("competition.create")} onPress={()=>router.push("/owner/competitions/create")}/>
 
     <ScrollView
+      ref={rail.scrollRef} onLayout={rail.onViewport}
+      onContentSizeChange={rail.onContentSize}
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.filterScroller}
       contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}
     >
       {filters.map((value)=><Pressable
-        key={value}
+        key={value} accessibilityRole="tab" accessibilityState={{selected:filter===value}}
+        onLayout={e=>rail.cellLayout(value,e)}
         onPress={()=>setFilter(value)}
         style={[
           styles.filter,
