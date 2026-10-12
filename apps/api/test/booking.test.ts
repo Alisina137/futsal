@@ -284,6 +284,17 @@ describe("Phase 3 availability and booking API", () => {
     expect(created.body.review).toEqual(expect.objectContaining({
       venueId:venue.id,rating:5,verified:true,body:"Reliable court",
     }));
+    // Every completed reviewed booking is listed only to its authenticated owner,
+    // even after it falls beyond the public reviews page window.
+    const privateMine=await request(app).get("/api/v1/bookings/reviews/mine")
+      .set("Authorization",`Bearer ${player.body.accessToken}`).query({venueId:venue.id});
+    expect(privateMine.status).toBe(200);
+    expect(privateMine.body.reviewedBookingIds).toEqual([booking.body.booking.id]);
+    const otherReviews=await request(app).get("/api/v1/bookings/reviews/mine")
+      .set("Authorization",`Bearer ${outsider.body.accessToken}`).query({venueId:venue.id});
+    expect(otherReviews.body.reviewedBookingIds).toEqual([]);
+    expect((await request(app).get("/api/v1/bookings/reviews/mine")
+      .query({venueId:venue.id})).status).toBe(401);
     const duplicate=await request(app).post("/api/v1/bookings/reviews")
       .set("Authorization",`Bearer ${player.body.accessToken}`).send(input);
     expect(duplicate.status).toBe(400);
@@ -292,6 +303,8 @@ describe("Phase 3 availability and booking API", () => {
     expect(listing.body.averageRating).toBe(5);
     expect(listing.body.reviewCount).toBe(1);
     expect(listing.body.reviews).toHaveLength(1);
+    expect(JSON.stringify(listing.body)).not.toContain(booking.body.booking.id);
+    expect(JSON.stringify(created.body.review)).not.toContain(booking.body.booking.id);
     expect(JSON.stringify(listing.body)).not.toContain(player.body.user.id);
     expect(JSON.stringify(listing.body)).not.toContain(player.body.user.phone);
   });
@@ -316,6 +329,21 @@ describe("Phase 3 availability and booking API", () => {
       .query({date:"2026-10-05"})).body.slots[0];
     const watchRoute="/api/v1/bookings/slot-watches";
     const slotInput={venueId:venue.id,areaId:slot.areaId,startsAt:slot.startsAt};
+    const otherSlot=(await request(app).get(`/api/v1/venues/${venue.id}/availability`)
+      .query({date:"2026-10-05"})).body.slots[1];
+    const maintenance=await request(app).post("/api/v1/owner/blocks")
+      .set("Authorization",`Bearer ${owner.body.accessToken}`)
+      .send({areaId:otherSlot.areaId,startsAt:otherSlot.startsAt,
+        endsAt:otherSlot.endsAt,reason:"Routine cleaning"});
+    expect(maintenance.status).toBe(201);
+    // An owner block also appears UNAVAILABLE in the public timetable but is
+    // not an actual booking that can trigger an exact cancellation alert.
+    const watchingBlock=await request(app).post(watchRoute)
+      .set("Authorization",`Bearer ${token}`).send({
+        venueId:venue.id,areaId:otherSlot.areaId,startsAt:otherSlot.startsAt,
+      });
+    expect(watchingBlock.status).toBe(400);
+    expect(watchingBlock.body.error.code).toBe("SLOT_WATCH_INVALID");
     expect((await request(app).post(watchRoute).set("Authorization",`Bearer ${token}`)
       .send(slotInput)).status).toBe(400); // Still free: watching is not permitted
     const booked=await request(app).post("/api/v1/bookings")
