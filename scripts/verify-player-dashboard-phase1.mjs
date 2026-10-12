@@ -39,4 +39,29 @@ requireInvariant(dash.includes("teamApi.acceptInvitation")&&dash.includes("teamA
   &&dash.includes("teamApi.requestJoin"),"Team invitation and membership actions must work.");
 requireInvariant(dash.includes("formatCompetitionDateTime"),"Dates must use Kabul-local formatter.");
 requireInvariant(!dash.includes('t("dashboard.title")'),"Do not restore generic dashboard header.");
+
+// My Teams used to render 200px-tall oval options because the horizontal
+// ScrollView expanded on the vertical axis. Check the bounded selector,
+// RTL layout, active state and the same treatment across all Choice usages.
+for(const needle of [
+  'style={styles.choiceScroll}','choiceScroll:{flexGrow:0,flexShrink:0,width:"100%"}',
+  'choiceRow:{minHeight:56','alignItems:"center"',
+  'option:{minHeight:46,minWidth:86,flexShrink:0',
+  'numberOfLines={1}','accessibilityRole="tab"',
+  'useVisibleTab<string>(selected)','flexDirection:isRTL?"row-reverse":"row"',
+  'onPress={()=>{onSelect(item.id);nav.focus(item.id,true);}}'
+])requireInvariant(dash.includes(needle),"Player compact selector regression: "+needle);
+for(const needle of [
+  'testID={"player-team-card-"+team.id}',
+  'styles.memberTeamLogo','styles.memberTeamHeader','styles.teamBadges',
+  'testID="player-default-team-badge"','styles.teamActionGrid',
+  'styles.teamActionButton','styles.teamDivider','styles.teamFooter',
+  'testID="player-leave-team-trigger"',
+  'team.managerUserId!==session?.user.id',
+  'confirmLeave===team.id','playerDashboardApi.leaveTeam(token!,team.id)',
+  'playerDashboardApi.updatePreferences(token!,{',
+  'data.whatsappGroups?.[team.id]?<View style={[styles.teamWhatsAppRow,',
+  'discover.map(team=><Card key={team.id} style={styles.memberTeamCard}>'
+])requireInvariant(dash.includes(needle),"Player teams list/cards regression: "+needle);
+
 console.log("Player Dashboard Phase 1 verified: nine RTL-aware tabs, overview, teams, invitations, discovery, preferences, role access and guarded writes.");

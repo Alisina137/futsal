@@ -18,6 +18,7 @@ import {TextField} from "../ui/TextField";
 import {PlayerActivityTabs} from "./PlayerActivityTabs";
 import {PlayerCareerTabs} from "./PlayerCareerTabs";
 import {WhatsAppGroupButton} from "../ui/WhatsAppGroupButton";
+import {useVisibleTab} from "../../hooks/useVisibleTab";
 
 type Section="overview"|"teams"|"competitions"|"matches"|"schedule"|"statistics"|"achievements"|"bookings"|"settings";
 const sections:{id:Section;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -36,15 +37,28 @@ const emptyPreferences:PlayerDashboardPreferences={
 };
 const positions:PlayerPosition[]=["UNSPECIFIED","GOALKEEPER","FIXO","ALA","PIVO","UNIVERSAL"];
 function Choice({items,selected,onSelect}:{items:{id:string;label:string}[];selected:string;onSelect:(value:string)=>void}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
-    contentContainerStyle={{flexDirection:"row",gap:spacing.sm,paddingVertical:spacing.xs}}>
-    {items.map(item=><Pressable key={item.id} accessibilityRole="button"
-      accessibilityState={{selected:item.id===selected}} onPress={()=>onSelect(item.id)}
-      style={[styles.option,selected===item.id&&styles.optionActive]}>
-      <AppText variant="caption" weight="semibold"
-        style={selected===item.id?{color:colors.primary}:undefined}>{item.label}</AppText>
-    </Pressable>)}
-  </ScrollView>;
+  const {isRTL}=useLocale();
+  const nav=useVisibleTab<string>(selected);
+  // A horizontal ScrollView without flexGrow:0 stretched its options to the
+  // page's remaining height, creating oversized oval buttons on Android.
+  return <View style={styles.choiceFrame}>
+    <ScrollView ref={nav.scrollRef} horizontal nestedScrollEnabled
+      testID="player-team-panel-scroll" accessibilityRole="tablist"
+      onLayout={nav.onViewport} onContentSizeChange={nav.onContentSize}
+      showsHorizontalScrollIndicator={false} style={styles.choiceScroll}
+      contentContainerStyle={[styles.choiceRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {items.map(item=><Pressable key={item.id} accessibilityRole="tab"
+        onLayout={event=>nav.cellLayout(item.id,event)}
+        accessibilityState={{selected:item.id===selected}}
+        onPress={()=>{onSelect(item.id);nav.focus(item.id,true);}}
+        style={({pressed})=>[styles.option,selected===item.id&&styles.optionActive,
+          pressed&&styles.optionPressed]}>
+        <AppText variant="body" weight="semibold" numberOfLines={1}
+          style={{color:selected===item.id?colors.surface:colors.text,
+            textAlign:"center"}}>{item.label}</AppText>
+      </Pressable>)}
+    </ScrollView>
+  </View>;
 }
 function Stat({value,label}:{value:number;label:string}){
   return <View style={styles.stat}><AppText variant="title" weight="bold" style={{color:colors.primary}}>{value}</AppText>
@@ -234,44 +248,93 @@ export function PlayerDashboard(){
         <Choice selected={teamPanel} onSelect={v=>setTeamPanel(v as typeof teamPanel)}
           items={["MINE","INVITES","REQUESTS","FIND"].map(id=>({id,label:tr("teamPanel."+id)}))}/>
         {teamPanel==="MINE"?<>
+          <View style={[styles.teamListHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <AppText variant="bodyLarge" weight="bold">{tr("myTeams")}</AppText>
+            <View style={styles.teamCountBadge}><AppText forceLtr weight="bold"
+              style={styles.teamCountText}>{teams.length}</AppText></View>
+          </View>
           {!teams.length?<Card><AppText muted>{tr("noTeams")}</AppText>
             <Button label={tr("findTeam")} onPress={()=>setTeamPanel("FIND")}/></Card>:null}
           {teams.map(team=>{
             const member=data.profile.teams.find(x=>x.id===team.id);
-            return <Card key={team.id}>
-              <View style={[styles.identityRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-                <View style={styles.teamLogo}>
+            const isDefault=team.id===selected?.id;
+            return <Card key={team.id} testID={"player-team-card-"+team.id}
+              style={styles.memberTeamCard}>
+              <View style={[styles.memberTeamHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <View style={styles.memberTeamLogo}>
                   {team.logoUrl?<Image source={{uri:resolveMediaImageUrl(team.logoUrl)??team.logoUrl}}
-                    style={styles.avatarImage}/>:
-                    <Ionicons name="shield-outline" size={24} color={colors.primary}/>}
+                    style={styles.avatarImage} resizeMode="cover"/>:
+                    <Ionicons name="shield-outline" size={29} color={colors.primary}/>}
                 </View>
-                <View style={{flex:1,alignItems:isRTL?"flex-end":"flex-start"}}>
-                  <AppText weight="bold">{team.name}</AppText>
-                  <AppText variant="caption" muted>{team.city} · {member?.role?t(`teams.role.${member.role}` as never):tr("member")}</AppText>
+                <View style={styles.memberTeamInfo}>
+                  <AppText variant="bodyLarge" weight="bold" numberOfLines={2}>
+                    {team.name}</AppText>
+                  <View style={[styles.memberTeamLocation,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                    <Ionicons name="location-outline" size={15} color={colors.textMuted}/>
+                    <AppText variant="caption" muted numberOfLines={1} style={{flexShrink:1}}>
+                      {team.city}</AppText>
+                  </View>
                 </View>
               </View>
-              {team.id===selected?.id?<AppText variant="caption" style={{color:colors.primary}}>
-                {tr("defaultTeam")}</AppText>:null}
-              <View style={styles.actions}>
-                <Button label={tr("viewTeam")} variant="secondary" onPress={()=>router.push({
-                  pathname:"/teams/[teamId]",params:{teamId:team.id}})}/>
-                {team.id!==selected?.id?<Button label={tr("makeDefault")} disabled={busy!==null}
-                  onPress={()=>void perform("default:"+team.id,()=>playerDashboardApi.updatePreferences(token!,{
-                    defaultTeamId:team.id,
-                  }))}/>:null}
-                <Button label={tr("teamActivities")} variant="secondary" onPress={()=>router.push({
-                  pathname:"/teams/[teamId]/activities",params:{teamId:team.id}})}/>
-                {data.whatsappGroups?.[team.id]?<WhatsAppGroupButton url={data.whatsappGroups[team.id]!}/>:null}
+              <View style={[styles.teamBadges,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <View style={styles.memberRoleBadge}>
+                  <Ionicons name="person-outline" size={14} color={colors.textMuted}/>
+                  <AppText variant="caption" weight="semibold">
+                    {member?.role?t(`teams.role.${member.role}` as never):tr("member")}
+                  </AppText>
+                </View>
+                {isDefault?<View testID="player-default-team-badge" style={styles.defaultTeamBadge}>
+                  <Ionicons name="checkmark-circle" size={15} color={colors.primary}/>
+                  <AppText variant="caption" weight="semibold" style={styles.defaultTeamText}>
+                    {tr("defaultTeam")}</AppText>
+                </View>:null}
               </View>
-              {team.managerUserId!==session?.user.id?<View>
-                {confirmLeave===team.id?<View style={styles.actions}>
+              <View style={styles.teamDivider}/>
+              <View style={[styles.teamActionGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <Button style={styles.teamActionButton} label={tr("viewTeam")}
+                  variant="secondary"
+                  icon={<Ionicons name="eye-outline" size={18} color={colors.primary}/>}
+                  onPress={()=>router.push({pathname:"/teams/[teamId]",params:{teamId:team.id}})}/>
+                <Button style={styles.teamActionButton} label={tr("teamActivities")}
+                  variant="secondary"
+                  icon={<Ionicons name="calendar-outline" size={18} color={colors.primary}/>}
+                  onPress={()=>router.push({pathname:"/teams/[teamId]/activities",params:{teamId:team.id}})}/>
+              </View>
+              {!isDefault?<Button label={tr("makeDefault")} variant="secondary"
+                style={styles.teamFullButton} icon={<Ionicons name="star-outline" size={18}
+                  color={colors.primary}/>} disabled={busy!==null}
+                loading={busy==="default:"+team.id}
+                onPress={()=>void perform("default:"+team.id,()=>playerDashboardApi.updatePreferences(token!,{
+                  defaultTeamId:team.id,
+                }))}/>:null}
+              {data.whatsappGroups?.[team.id]?<View style={[styles.teamWhatsAppRow,{alignItems:isRTL?"flex-end":"flex-start"}]}>
+                <WhatsAppGroupButton url={data.whatsappGroups[team.id]!}/>
+              </View>:null}
+              {team.managerUserId!==session?.user.id?<View style={styles.teamFooter}>
+                {confirmLeave===team.id?<View style={styles.leaveConfirm}>
                   <AppText style={{color:colors.danger}}>{tr("confirmLeave")}</AppText>
-                  <Button variant="danger" label={tr("leaveTeam")} loading={busy==="leave:"+team.id}
-                    onPress={()=>void perform("leave:"+team.id,()=>playerDashboardApi.leaveTeam(token!,team.id),
-                      ()=>setConfirmLeave(null))}/>
-                  <Button variant="secondary" label={t("common.cancel")} onPress={()=>setConfirmLeave(null)}/>
-                </View>:<Button label={tr("leaveTeam")} variant="ghost" disabled={busy!==null}
-                  onPress={()=>setConfirmLeave(team.id)}/>}
+                  <View style={[styles.teamActionGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                    <Button style={styles.teamActionButton} variant="danger"
+                      label={tr("leaveTeam")} loading={busy==="leave:"+team.id}
+                      disabled={busy!==null}
+                      onPress={()=>void perform("leave:"+team.id,
+                        ()=>playerDashboardApi.leaveTeam(token!,team.id),
+                        ()=>setConfirmLeave(null))}/>
+                    <Button style={styles.teamActionButton} variant="secondary"
+                      label={t("common.cancel")} disabled={busy!==null}
+                      onPress={()=>setConfirmLeave(null)}/>
+                  </View>
+                </View>:<Pressable accessibilityRole="button"
+                  testID="player-leave-team-trigger"
+                  accessibilityLabel={tr("leaveTeam")}
+                  accessibilityState={{disabled:busy!==null}}
+                  disabled={busy!==null}
+                  style={({pressed})=>[styles.leaveControl,pressed&&styles.optionPressed]}
+                  onPress={()=>setConfirmLeave(team.id)}>
+                  <Ionicons name="exit-outline" size={17} color={colors.danger}/>
+                  <AppText weight="semibold" style={styles.leaveText}>
+                    {tr("leaveTeam")}</AppText>
+                </Pressable>}
               </View>:null}
             </Card>;
           })}
@@ -313,14 +376,30 @@ export function PlayerDashboard(){
             <AppText variant="caption" muted>{tr("findHint")}</AppText>
           </Card>
           {!discover.length?<Card><AppText muted>{tr("noResults")}</AppText></Card>:null}
-          {discover.map(team=><Card key={team.id}>
-            <AppText weight="bold">{team.name}</AppText>
-            <AppText variant="caption" muted>{team.city} · {tr("members")}: {team.rosterCount}</AppText>
-            <View style={styles.actions}>
-              <Button label={tr("viewTeam")} variant="secondary" onPress={()=>router.push({
-                pathname:"/teams/[teamId]",params:{teamId:team.id}})}/>
-              <Button label={team.myMembershipRole?tr("alreadyMember"):
-                team.joinRequestStatus==="PENDING"?tr("requested"):tr("requestJoin")}
+          {discover.map(team=><Card key={team.id} style={styles.memberTeamCard}>
+            <View style={[styles.memberTeamHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <View style={styles.directoryTeamLogo}>
+                <Ionicons name="shield-outline" size={25} color={colors.primary}/>
+              </View>
+              <View style={styles.memberTeamInfo}>
+                <AppText variant="bodyLarge" weight="bold" numberOfLines={2}>{team.name}</AppText>
+                <View style={[styles.memberTeamLocation,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  <Ionicons name="location-outline" size={15} color={colors.textMuted}/>
+                  <AppText variant="caption" muted numberOfLines={1}>
+                    {team.city}</AppText>
+                </View>
+                <AppText variant="caption" muted>
+                  {tr("members")}: {team.rosterCount}</AppText>
+              </View>
+            </View>
+            <View style={styles.teamDivider}/>
+            <View style={[styles.teamActionGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Button style={styles.teamActionButton} label={tr("viewTeam")}
+                variant="secondary"
+                onPress={()=>router.push({pathname:"/teams/[teamId]",params:{teamId:team.id}})}/>
+              <Button style={styles.teamActionButton}
+                label={team.myMembershipRole?tr("alreadyMember"):
+                  team.joinRequestStatus==="PENDING"?tr("requested"):tr("requestJoin")}
                 disabled={busy!==null||Boolean(team.myMembershipRole)||team.joinRequestStatus==="PENDING"}
                 loading={busy===team.id} onPress={()=>void perform(team.id,
                   ()=>teamApi.requestJoin(token!,team.id))}/>
@@ -387,12 +466,51 @@ const styles=StyleSheet.create({
   navTab:{alignItems:"center",gap:3,paddingVertical:spacing.sm,paddingHorizontal:spacing.sm,
     borderBottomWidth:3,borderBottomColor:"transparent",minWidth:73},
   navActive:{backgroundColor:colors.primarySoft,borderBottomColor:colors.primary,borderRadius:radius.sm},
-  option:{borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,
-    paddingHorizontal:spacing.md,paddingVertical:spacing.sm,borderRadius:radius.pill},
-  optionActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
+  // The selector stays 56px tall; Pressables never inherit screen height.
+  choiceFrame:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.md,overflow:"hidden"},
+  choiceScroll:{flexGrow:0,flexShrink:0,width:"100%"},
+  choiceRow:{minHeight:56,paddingHorizontal:spacing.xs,paddingVertical:spacing.xs,
+    gap:spacing.xs,alignItems:"center"},
+  option:{minHeight:46,minWidth:86,flexShrink:0,alignItems:"center",justifyContent:"center",
+    borderWidth:1,borderColor:colors.border,backgroundColor:colors.surfaceMuted,
+    paddingHorizontal:spacing.md,paddingVertical:spacing.sm,borderRadius:radius.sm},
+  optionActive:{borderColor:colors.primary,backgroundColor:colors.primary},
+  optionPressed:{opacity:.78},
   playerPhoto:{width:76,height:76,borderRadius:radius.lg},
-  teamLogo:{width:54,height:54,borderRadius:radius.md,backgroundColor:colors.primarySoft,
-    alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  teamListHeading:{alignItems:"center",justifyContent:"space-between",
+    paddingHorizontal:spacing.xs},
+  teamCountBadge:{minWidth:30,height:30,paddingHorizontal:spacing.sm,borderRadius:radius.pill,
+    backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  teamCountText:{color:colors.primary,textAlign:"center"},
+  memberTeamCard:{gap:spacing.md,padding:spacing.md,borderRadius:radius.lg},
+  memberTeamHeader:{alignItems:"center",gap:spacing.md},
+  memberTeamLogo:{width:70,height:70,borderRadius:radius.md,
+    backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center",
+    overflow:"hidden",borderWidth:1,borderColor:colors.border},
+  directoryTeamLogo:{width:60,height:60,borderRadius:radius.md,
+    backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  memberTeamInfo:{flex:1,minWidth:0,gap:spacing.xs},
+  memberTeamLocation:{alignItems:"center",gap:spacing.xs},
+  teamBadges:{alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
+  memberRoleBadge:{minHeight:30,flexDirection:"row",alignItems:"center",gap:5,
+    borderRadius:radius.sm,paddingHorizontal:spacing.sm,paddingVertical:3,
+    backgroundColor:colors.surfaceMuted},
+  defaultTeamBadge:{minHeight:30,flexDirection:"row",alignItems:"center",gap:5,
+    borderRadius:radius.sm,paddingHorizontal:spacing.sm,paddingVertical:3,
+    borderWidth:1,borderColor:"#B9CEF8",backgroundColor:colors.primarySoft},
+  defaultTeamText:{color:colors.primary},
+  teamDivider:{height:1,backgroundColor:colors.border},
+  teamActionGrid:{gap:spacing.sm,flexWrap:"wrap",alignItems:"stretch"},
+  teamActionButton:{flexGrow:1,flexBasis:137,minWidth:120,minHeight:54,
+    paddingHorizontal:spacing.sm},
+  teamFullButton:{width:"100%",minHeight:50},
+  teamWhatsAppRow:{width:"100%"},
+  teamFooter:{borderTopWidth:1,borderTopColor:colors.border,paddingTop:spacing.xs},
+  leaveControl:{alignSelf:"center",minHeight:44,flexDirection:"row",gap:spacing.xs,
+    alignItems:"center",justifyContent:"center",paddingHorizontal:spacing.md},
+  leaveText:{color:colors.danger},
+  leaveConfirm:{gap:spacing.sm,paddingTop:spacing.sm},
   actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
   stats:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   stat:{flexGrow:1,minWidth:70,flexBasis:"21%",backgroundColor:colors.surface,
