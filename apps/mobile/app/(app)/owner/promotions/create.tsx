@@ -21,7 +21,7 @@ function todayKabul(){
 export default function CreatePromotionScreen(){
   const params=useLocalSearchParams<{areaId?:string;date?:string;start?:string}>();
   const {session}=useAuth();
-  const {t}=useLocale();
+  const {t,language}=useLocale();
   const [date,setDate]=useState(typeof params.date==="string"?params.date:todayKabul());
   const [slots,setSlots]=useState<AvailabilitySlotDto[]>([]);
   const [selected,setSelected]=useState<AvailabilitySlotDto|null>(null);
