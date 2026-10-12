@@ -2,7 +2,7 @@ import {describe,expect,it} from "vitest";
 import type {CompetitionMatchDto} from "@leaguekick/contracts";
 import {
   formatFixtureSchedule,groupMatchesByRound,
-} from "../../mobile/src/lib/competition-match-schedule";
+} from "../../mobile/src/lib/competition-match-schedule.js";
 
 function fixture(id:string,stage:CompetitionMatchDto["stage"],roundNumber:number,
   startsAt:string|null):CompetitionMatchDto{
