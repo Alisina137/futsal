@@ -465,8 +465,11 @@ try{
  ctx.athletes=await sampleAthletes(ctx,all);
  ctx.squad=await sampleSquad(ctx);
  // Idempotent: no partial existing tournament set, and existing full seed is checked not overwritten.
- const exists=await Promise.all(names.map(x=>get(
-  "select id from competitions where venue_id=$1 and name=$2",[ctx.venue.id,x[0]])));
+ const exists=[];
+ for(const cfg of names){
+  exists.push(await get("select id from competitions where venue_id=$1 and name=$2",
+   [ctx.venue.id,cfg[0]]));
+ }
  guard(!exists.some(Boolean)||exists.every(Boolean),"Incomplete previous QA story set; refusing partial reseed.");
  for(let i=0;i<names.length;i++){
   const cfg=names[i],[cid,prior]=await createCompetition(ctx,cfg,now);ids.push(cid);
