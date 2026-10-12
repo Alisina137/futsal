@@ -9,6 +9,7 @@ import { ApiRequestError, authApi, notificationApi, resolveMediaImageUrl, teamAp
 import { formatCompetitionDateTime } from "../../lib/date-time";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
+import {useVisibleTab} from "../../hooks/useVisibleTab";
 import { AppText } from "../ui/AppText";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -56,8 +57,10 @@ function Stat({value,label}:{value:number;label:string}){
     <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText></View>;
 }
 function Options({items,selected,onSelect}:{items:{id:string;label:string}[];selected:string;onSelect:(id:string)=>void}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:spacing.sm}}>
-    {items.map(item=><Pressable key={item.id} accessibilityRole="button"
+  const optionRail=useVisibleTab(selected);
+  return <ScrollView ref={optionRail.scrollRef} onLayout={optionRail.onViewport}
+    onContentSizeChange={optionRail.onContentSize} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:spacing.sm}}>
+    {items.map(item=><Pressable key={item.id} onLayout={e=>optionRail.cellLayout(item.id,e)} accessibilityRole="button"
       accessibilityState={{selected:item.id===selected}}
       onPress={()=>onSelect(item.id)} style={[styles.option,item.id===selected&&styles.optionActive]}>
       <AppText variant="caption" weight="semibold" style={item.id===selected?{color:colors.primary}:undefined}>{item.label}</AppText>
