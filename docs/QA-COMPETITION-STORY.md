@@ -59,7 +59,10 @@ placed on seeded fixtures, with accepted past matches and pending upcoming
 assignments.
 
 Fifteen additional non-login QA athlete records (no usernames, emails or
-active sign-in access) are attached to those offline teams. They record
+active sign-in access) are attached to those offline teams. Another seven
+non-login squadmates join Abdul's managed team, giving him an eight-person
+competition roster with five starters and three substitutes and stat rows for
+multiple squad members. They record
 sample goals and awards so competition leaderboards show multiple players,
 not just Abdul. The synthetic users are SUSPENDED and marked for cleanup.
 
