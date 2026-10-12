@@ -9,6 +9,7 @@ import {ApiRequestError,refereeApi,type RefereeMatch,type RefereeOverview,type R
 import {formatRefereeScheduleParts,formatRefereeCalendarPeriod} from "../../lib/date-time";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useFocusedTabScroll} from "../../hooks/useFocusedTabScroll";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -126,7 +127,8 @@ export function RefereeDashboard(){
     ["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"].includes(a.reportStatus));
   const finished=accepted.filter(a=>["COMPLETED","CORRECTED"].includes(a.matchStatus));
   const future=upcoming.filter(a=>!!a.startsAt&&Date.parse(a.startsAt)>Date.now());
-  const selectedSub=sub[main]??"";
+  const selectedSub=sub[main]??(main==="overview"?"":subTabs[main][0]??"");
+  const subRail=useFocusedTabScroll(main+":"+selectedSub);
   const kabulDay=(value:Date)=>{
     const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",
       year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(value);
@@ -227,16 +229,19 @@ export function RefereeDashboard(){
       onContentSizeChange={w=>{navWidth.current=w;focusTab(main);}}
       contentContainerStyle={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,alignItems:"center"}}>
       {tabs.map(tab=><Pressable key={tab.id} accessibilityRole="tab" accessibilityState={{selected:main===tab.id}}
-        onLayout={(e:LayoutChangeEvent)=>{cells.current[tab.id]=e.nativeEvent.layout;}}
+        onLayout={(e:LayoutChangeEvent)=>{cells.current[tab.id]=e.nativeEvent.layout;if(main===tab.id)focusTab(main);}}
         onPress={()=>choose(tab.id)} style={[styles.navItem,main===tab.id&&styles.navActive]}>
         <Ionicons name={tab.icon} size={20} color={main===tab.id?colors.primary:colors.textMuted}/>
         <AppText variant="caption" weight="semibold" style={main===tab.id?{color:colors.primary}:undefined}>
           {tr("nav."+tab.id)}</AppText>
       </Pressable>)}
     </ScrollView>
-    {main!=="overview"?<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subNav}
+    {main!=="overview"?<ScrollView key={main} ref={subRail.scrollRef}
+      horizontal showsHorizontalScrollIndicator={false} style={styles.subNav}
+      onLayout={subRail.onLayout} onContentSizeChange={subRail.onContentSizeChange}
       contentContainerStyle={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.xs}}>
       {subTabs[main].map(id=><Pressable key={id} accessibilityRole="tab" accessibilityState={{selected:selectedSub===id}}
+        onLayout={e=>subRail.onTabLayout(main+":"+id,e)}
         style={[styles.subItem,selectedSub===id&&styles.subActive]}
         onPress={()=>setSub(x=>({...x,[main]:id}))}>
         <AppText weight="semibold" variant="caption" style={selectedSub===id?{color:colors.primary}:undefined}>

@@ -56,10 +56,14 @@ export function PublicTopNavigation(){
     {key:"notifications",href:"/notifications",label:t("notifications.title"),icon:"notifications-outline",selectedIcon:"notifications"},
   ];
 
+  // If this shared navigation is shown on a route without its own top-level
+  // destination, start from the first tab instead of leaving all tabs unfocused.
+  const current=items.find(item=>pathname===item.href||pathname.startsWith(item.href+"/"))?.key
+    ??items[0]!.key;
   return <View style={styles.container}>
     <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {items.map(item=>{
-        const active=pathname===item.href||pathname.startsWith(item.href+"/");
+        const active=current===item.key;
         const badge=item.key==="notifications"&&unread>0;
         const accessibilityLabel=badge?`${item.label}, ${unread} ${t("notifications.unread")}`:item.label;
         return <Pressable

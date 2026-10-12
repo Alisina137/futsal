@@ -1,5 +1,13 @@
 # PROJECT STATE
 
+## Selected tab focus and navigation defaults (October 12, 2026)
+- Added shared `useFocusedTabScroll` hook with measured item layout + viewport/content width; horizontal navs center selected tab (clamped to actual bounds) at initial mount, selection change, dynamic content change and RTL layout. No guessed widths or offscreen selection.
+- Applied to public Venue detail main/subnav (subnav now scrollable for narrower phones), public Team detail main/subnav, Referee nested tabs, Competition Matches filters, venue owner Competition filters and Analytics range/sections, and player/team manager horizontal option selectors. Existing Player dashboard, Team Manager dashboard, Competition profile, Owner top nav and Timetable subnav already used measured selected-tab focusing and remain in place.
+- Main navigation defaults to the **first item** when entering without explicit route/state: Home public top, Competitions venue owner, Media venue/team detail, Overview player/referee/team-manager, HOME competition detail, ALL match filters. Intentional deep links (e.g. Venue Reserve, Competition Teams registration, existing dashboard scope) override defaults; user's explicit selection remains highlighted.
+- Admin sidebar expands the active group and scrolls its selected item into view when opened on mobile/desktop, without resetting current workspace.
+- Added `pnpm verify:navigation-focus` math and source invariant regression checks within `pnpm verify`. Layout needs native-device RTL/scroll smoke testing.
+
+
 ## Global AM/PM date and clock display (October 12, 2026)
 - Global user-facing clock convention: always a **two-digit 12-hour time with explicit English `AM`/`PM`**, e.g. `13:00 → 01:00 PM`, `18:30 → 06:30 PM`, `22:00 → 10:00 PM`, `08:00 → 08:00 AM`. No visible seconds, Greenwich `GMT+4:30`, `UTC+04:30` offsets or raw ISO timestamp on supported public and dashboard date/time displays. Dates/day names stay localized (English, Dari, Pashto), time markers use AM/PM even in RTL.
 - Updated shared date-time formatters (competitions, referee calendars, notifications, trial/billing, admin), competition match schedules, booking confirmation, compact slot tiles, reservations, venue offers, owner week/day timetable headers, promotional listings, specials/history and booking/venue date display. The 12-hour convention applies to the date-time picker as well.
