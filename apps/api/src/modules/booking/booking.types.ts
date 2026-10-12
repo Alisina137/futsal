@@ -84,6 +84,8 @@ export type VenueDiscoveryRecord = Pick<BookingVenueRecord, "id"|"name"|"provinc
 
 export interface BookingRepository {
   listVenueDiscoveryRecords():Promise<VenueDiscoveryRecord[]>;
+  /** Existing test repositories can omit this optional read-only aggregate. */
+  getVenueFollowerCounts?():Promise<Map<string,number>>;
   listPublicVenueRecords(filters: { city?: string; province?: string; q?: string }): Promise<BookingVenueRecord[]>;
   getVenueRecord(venueId: string): Promise<BookingVenueRecord | null>;
   getVenueRecordByAreaId(areaId: string): Promise<BookingVenueRecord | null>;
