@@ -977,6 +977,44 @@ export const venueDiscoveryResponseSchema=z.object({
 });
 export type VenueDiscoveryResponse=z.infer<typeof venueDiscoveryResponseSchema>;
 
+/** Results use the venue's real available slots, not advertised prices. */
+export const venueSearchSortSchema=z.enum(["recommended","nearest","lowest_price","available_soonest","most_followed"]);
+export type VenueSearchSort=z.infer<typeof venueSearchSortSchema>;
+export const venueSearchFiltersSchema=z.object({
+  date:dateOnlySchema,
+  province:z.string().trim().max(80).optional(),
+  q:z.string().trim().max(120).optional(),
+  startTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  endTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  minPriceAfn:z.number().int().nonnegative().max(1_000_000).optional(),
+  maxPriceAfn:z.number().int().nonnegative().max(1_000_000).optional(),
+  availableOnly:z.boolean().default(false),
+  sort:venueSearchSortSchema.default("recommended"),
+  latitude:z.number().finite().min(-90).max(90).optional(),
+  longitude:z.number().finite().min(-180).max(180).optional(),
+  page:z.number().int().min(1).max(500).default(1),
+  pageSize:z.number().int().min(1).max(30).default(15),
+});
+export type VenueSearchFilters=z.infer<typeof venueSearchFiltersSchema>;
+export const venueSearchResultSchema=z.object({
+  venue:publicVenueDtoSchema,
+  availableCount:z.number().int().nonnegative(),
+  lowestPriceAfn:z.number().int().nonnegative().nullable(),
+  distanceKm:z.number().nonnegative().nullable(),
+  followerCount:z.number().int().nonnegative(),
+  nextSlots:z.array(availabilitySlotDtoSchema).max(3),
+});
+export type VenueSearchResult=z.infer<typeof venueSearchResultSchema>;
+export const venueSearchResponseSchema=z.object({
+  venues:z.array(venueSearchResultSchema),
+  total:z.number().int().nonnegative(),
+  page:z.number().int().positive(),
+  pageSize:z.number().int().positive(),
+  date:dateOnlySchema,
+  generatedAt:isoDateTimeSchema,
+});
+export type VenueSearchResponse=z.infer<typeof venueSearchResponseSchema>;
+
 export const publicVenueListResponseSchema = z.object({
   generatedAt: isoDateTimeSchema,
   venues: z.array(publicVenueDtoSchema),
