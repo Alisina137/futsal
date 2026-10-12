@@ -5,6 +5,8 @@ import type {
   OwnerScheduleResponse,
   PublicVenueListResponse,
   VenueAvailabilityResponse,
+  VenueDirectoryFilters,
+  VenueDirectoryResponse,
   VenueBlockRequest,
 } from "@leaguekick/contracts";
 import { normalizeAfghanistanPhone } from "@leaguekick/contracts";
@@ -14,6 +16,7 @@ import { toPublicVenueDto } from "./booking.types.js";
 import type { NotificationPublisher } from "../notifications/notification.types.js";
 import { hasPremiumWriteAccess } from "../billing/entitlement.js";
 import { buildVenueDiscovery } from "./venue-discovery.js";
+import {venueDirectoryRow,rankVenueDirectory} from "./venue-directory.js";
 import type { TimetableService } from "../timetable/timetable.service.js";
 
 function assertBookableVenue(venue: BookingVenueRecord | null, now: Date): asserts venue is BookingVenueRecord {
@@ -152,6 +155,36 @@ export class BookingService {
       venues: records
         .filter((venue) => venue.status === "ACTIVE" && hasPremiumWriteAccess(venue.subscription, now))
         .map(toPublicVenueDto),
+    };
+  }
+
+  /** Filter by actual availability for one Kabul-local date, never guessed opening hours. */
+  async searchVenueDirectory(filters:VenueDirectoryFilters):Promise<VenueDirectoryResponse>{
+    const now=this.now();
+    const today=localDateForInstant(now,"Asia/Kabul");
+    const latest=new Date(Date.parse(today+"T12:00:00Z")+60*86400000).toISOString().slice(0,10);
+    if(filters.date<today||filters.date>latest)
+      throw errors.badRequest("INVALID_SEARCH_DATE","Search dates must be within the next 60 days.");
+    const {venues}=await this.listPublicVenues({
+      ...(filters.province?{province:filters.province}:{}),
+      ...(filters.q?{q:filters.q}:{}),
+    });
+    const followers=await this.repository.countVenueFollowers?.()??new Map<string,number>();
+    const rows:VenueDirectoryResponse["results"]=[];
+    // No silent truncation: evaluate every eligible venue using small, bounded batches.
+    // An unavailable inventory service fails the search rather than falsely claiming no slots.
+    for(let start=0;start<venues.length;start+=5){
+      const part=await Promise.all(venues.slice(start,start+5).map(async venue=>{
+        const slots=venue.onlineBookingEnabled?
+          (await this.getAvailability(venue.id,filters.date)).slots:[];
+        return venueDirectoryRow(venue,slots,filters,followers.get(venue.id)??0);
+      }));
+      for(const item of part)if(item)rows.push(item);
+    }
+    return {
+      date:filters.date,
+      results:rankVenueDirectory(rows,filters.sort),
+      generatedAt:now.toISOString(),
     };
   }
 
