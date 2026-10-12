@@ -222,7 +222,7 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   const dateValid=/^\d{4}-\d{2}-\d{2}$/.test(date)&&!Number.isNaN(Date.parse(date+"T12:00:00Z"))
     &&date>=today&&date<=maximum;
   useEffect(()=>{
-    if(!startsAt){if(bookingDate&&/^\\d{4}-\\d{2}-\\d{2}$/.test(bookingDate))setDate(bookingDate);return;}
+    if(!startsAt){if(bookingDate&&/^\d{4}-\d{2}-\d{2}$/.test(bookingDate))setDate(bookingDate);return;}
     const parts=new Intl.DateTimeFormat("en-GB",{timeZone:venue.timezone,year:"numeric",
       month:"2-digit",day:"2-digit"}).formatToParts(new Date(startsAt));
     const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));
