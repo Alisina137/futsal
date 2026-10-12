@@ -3,6 +3,8 @@ import type {
   OwnPlayerProfileDto,
   PublicPlayerProfileDto,
   TeamDirectoryItemDto,
+  TeamDiscoveryQuery,
+  TeamDiscoveryResponse,
   TeamDto,
   TeamInvitationDto,
   TeamJoinRequestDto,
@@ -29,6 +31,9 @@ export class FakeTeamRepository implements TeamRepository {
   invitations = new Map<string, TeamInvitationDto>();
   joinRequests = new Map<string, TeamJoinRequestDto>();
   joinRequestsAllowed = new Map<string,boolean>();
+  teamLocations=new Map<string,{province:string|null;district:string|null}>();
+  teamFollowerCounts=new Map<string,number>();
+  teamFollowings=new Set<string>();
 
   seedUser(input: {
     id: string;
@@ -240,6 +245,50 @@ export class FakeTeamRepository implements TeamRepository {
       });
     }
     return result.sort((a,b)=>a.name.localeCompare(b.name));
+  }
+
+  async discoverTeams(userId:string,filters:TeamDiscoveryQuery):Promise<TeamDiscoveryResponse>{
+    const available=await this.listDirectoryTeams(userId);
+    // Fake mirrors production constraints and never leaks other users' join state.
+    const eligible=available.filter(team=>{
+      const record=this.teams.get(team.id);
+      return !!record&&(!record.offlineVenueId||!!record.claimedAt);
+    });
+    const location=(id:string)=>this.teamLocations.get(id)??{province:null,district:null};
+    const facets={
+      provinces:[...new Set(eligible.map(x=>location(x.id).province).filter((v):v is string=>!!v))].sort(),
+      cities:[...new Set(eligible.filter(x=>!filters.province||
+        location(x.id).province===filters.province).map(x=>x.city))].sort(),
+      districts:[...new Set(eligible.filter(x=>
+        (!filters.province||location(x.id).province===filters.province)&&
+        (!filters.city||x.city===filters.city)).map(x=>location(x.id).district)
+        .filter((v):v is string=>!!v))].sort(),
+    };
+    const q=filters.q.toLowerCase();
+    const records=eligible.filter(x=>{
+      const geo=location(x.id);
+      return (!filters.province||geo.province===filters.province)&&
+        (!filters.city||x.city===filters.city)&&
+        (!filters.district||geo.district===filters.district)&&
+        (!q||[x.name,x.city,geo.province??"",geo.district??""].some(value=>
+          value.toLowerCase().includes(q)))&&
+        (filters.scope!=="mine"||!!x.myMembershipRole)&&
+        (filters.scope!=="following"||this.teamFollowings.has(userId+":"+x.id));
+    }).map(x=>({...x,...location(x.id),followerCount:this.teamFollowerCounts.get(x.id)??0}));
+    const sort=filters.scope==="popular"?"mostFollowed":filters.sort;
+    records.sort((a,b)=>sort==="newest"?
+      b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id):
+      sort==="alphabetical"?
+      a.name.localeCompare(b.name)||a.id.localeCompare(b.id):
+      sort==="mostMembers"?
+      b.rosterCount-a.rosterCount||b.followerCount-a.followerCount||
+        a.name.localeCompare(b.name)||a.id.localeCompare(b.id):
+      b.followerCount-a.followerCount||b.rosterCount-a.rosterCount||
+        a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
+    const total=records.length;
+    const teams=records.slice((filters.page-1)*filters.limit,filters.page*filters.limit);
+    return {teams,total,page:filters.page,limit:filters.limit,
+      hasMore:filters.page*filters.limit<total,facets};
   }
 
   async allowsJoinRequests(teamId:string){return this.joinRequestsAllowed.get(teamId)??true;}
