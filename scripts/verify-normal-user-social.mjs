@@ -38,7 +38,9 @@ assert(commentsPage.includes("addSocialComment") && commentsPage.includes("updat
 assert(commentsPage.includes("likeSocialComment") && commentsPage.includes("unlikeSocialComment"), "Dedicated comments page must support comment likes");
 assert(home.includes('pathname:"/venues/[venueId]"') && home.includes('pathname:"/teams/[teamId]"') && home.includes('pathname:"/competitions/[competitionId]"'), "post author navigation must support venue/team/competition");
 assert(teamsDirectory.includes('TeamDirectoryExperience mode="directory"')
-  &&teamExperience.includes("teamApi.directory")&&!teamExperience.includes("teamApi.mine("),
+  &&teamExperience.includes("teamApi.discover")&&
+  teamExperience.includes('scope:"following",limit:11')&&
+  !teamExperience.includes("teamApi.mine("),
   "Teams navigation must list active public teams instead of only My Teams.");
 assert(teamExperience.includes("teamApi.requestJoin")&&teamExperience.includes('t("teams.viewTeam")'),
   "Teams directory must support join requests and opening team profiles.");
