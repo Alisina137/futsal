@@ -52,6 +52,9 @@ missing the QA marker are never adopted.
 These are simulations, not real matches or financial transactions.
 Registrations are accepted with WAIVED fees, not fictional payments.
 All three competitions are published and in progress, with sample rewards.
+If the host venue has an assigned referee, the same venue-scoped referee is
+placed on seeded fixtures, with accepted past matches and pending upcoming
+assignments.
 
 Fifteen additional non-login QA athlete records (no usernames, emails or
 active sign-in access) are attached to those offline teams. They record
