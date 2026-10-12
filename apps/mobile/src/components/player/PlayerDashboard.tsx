@@ -9,6 +9,7 @@ import {ApiRequestError,playerDashboardApi,teamApi,resolveMediaImageUrl,
 import {formatCompetitionDateTime} from "../../lib/date-time";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useFocusedTabScroll} from "../../hooks/useFocusedTabScroll";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -36,9 +37,11 @@ const emptyPreferences:PlayerDashboardPreferences={
 };
 const positions:PlayerPosition[]=["UNSPECIFIED","GOALKEEPER","FIXO","ALA","PIVO","UNIVERSAL"];
 function Choice({items,selected,onSelect}:{items:{id:string;label:string}[];selected:string;onSelect:(value:string)=>void}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
+  const optionRail=useFocusedTabScroll(selected);
+  return <ScrollView ref={optionRail.scrollRef} onLayout={optionRail.onLayout}
+    onContentSizeChange={optionRail.onContentSizeChange} horizontal showsHorizontalScrollIndicator={false}
     contentContainerStyle={{flexDirection:"row",gap:spacing.sm,paddingVertical:spacing.xs}}>
-    {items.map(item=><Pressable key={item.id} accessibilityRole="button"
+    {items.map(item=><Pressable key={item.id} onLayout={e=>optionRail.onTabLayout(item.id,e)} accessibilityRole="button"
       accessibilityState={{selected:item.id===selected}} onPress={()=>onSelect(item.id)}
       style={[styles.option,selected===item.id&&styles.optionActive]}>
       <AppText variant="caption" weight="semibold"
