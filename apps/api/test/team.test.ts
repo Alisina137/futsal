@@ -60,6 +60,98 @@ async function register(
   return refreshed.body as { accessToken: string; user: { id: string; phone: string } };
 }
 
+describe("Teams Phase 2 server-backed directory",()=>{
+  it("filters and paginates teams across name, province, city and district with correct scope",async()=>{
+    const {app,teamRepository,authRepository}=setup();
+    const manager=await register(app,teamRepository,authRepository,{
+      phone:"0705991001",username:"discovermanager",displayName:"Discovery Manager",
+    });
+    const viewer=await register(app,teamRepository,authRepository,{
+      phone:"0705991002",username:"discoverviewer",displayName:"Discovery Viewer",
+      accountType:"VENUE_OWNER",
+    });
+    const names=["Kabul Star","Kabul Eagle","Herat Lions","Herat Eagles","Balkh Storm"];
+    const ids:string[]=[];
+    for(const [i,name] of names.entries()){
+      const created=await request(app).post("/api/v1/teams")
+        .set("Authorization",`Bearer ${manager.accessToken}`)
+        .send({name,city:i<2?"Kabul":i<4?"Herat":"Mazar",privacy:"PUBLIC"});
+      expect(created.status).toBe(201);
+      ids.push(created.body.team.id);
+      teamRepository.teamLocations.set(created.body.team.id,{
+        province:i<2?"Kabul":i<4?"Herat":"Balkh",
+        district:i===0?"Kart-e-Se":i===1?"Wazir Akbar Khan":i===2?"Injil":
+          i===3?"Guzara":"Dehdadi",
+      });
+      teamRepository.teamFollowerCounts.set(created.body.team.id,i+1);
+    }
+    const endpoint="/api/v1/teams/discover";
+    const header={Authorization:`Bearer ${viewer.accessToken}`};
+    expect((await request(app).get(endpoint)).status).toBe(401);
+    const first=await request(app).get(endpoint)
+      .set(header).query({sort:"alphabetical",page:1,limit:2});
+    expect(first.status).toBe(200);
+    expect(first.body.total).toBe(5);
+    expect(first.body.teams).toHaveLength(2);
+    expect(first.body.hasMore).toBe(true);
+    expect(first.body.facets.provinces).toEqual(["Balkh","Herat","Kabul"]);
+    expect(first.body.facets.cities).toEqual(["Herat","Kabul","Mazar"]);
+    const second=await request(app).get(endpoint)
+      .set(header).query({sort:"alphabetical",page:2,limit:2});
+    expect(second.status).toBe(200);
+    expect(second.body.teams).toHaveLength(2);
+    expect(second.body.teams[0].id).not.toBe(first.body.teams[0].id);
+    const kab=await request(app).get(endpoint)
+      .set(header).query({province:"Kabul",city:"Kabul",q:"EAGLE"});
+    expect(kab.status).toBe(200);
+    expect(kab.body.total).toBe(1);
+    expect(kab.body.teams[0].name).toBe("Kabul Eagle");
+    expect(kab.body.facets.cities).toEqual(["Kabul"]);
+    expect(kab.body.facets.districts).toEqual(["Kart-e-Se","Wazir Akbar Khan"]);
+    const district=await request(app).get(endpoint)
+      .set(header).query({district:"Injil"});
+    expect(district.body.teams.map((x:{id:string})=>x.id)).toEqual([ids[2]]);
+    const literal=await request(app).get(endpoint).set(header).query({q:"%"});
+    expect(literal.body.total).toBe(0);
+    const follower=await request(app).get(endpoint).set(header)
+      .query({scope:"popular",sort:"alphabetical",page:1,limit:1});
+    expect(follower.body.teams[0].id).toBe(ids[4]);
+    expect(follower.body.teams[0].followerCount).toBe(5);
+    const mine=await request(app).get(endpoint)
+      .set({Authorization:`Bearer ${manager.accessToken}`}).query({scope:"mine"});
+    expect(mine.body.total).toBe(5);
+    expect(mine.body.teams.every((x:{myMembershipRole:string})=>x.myMembershipRole==="MANAGER")).toBe(true);
+    teamRepository.teamFollowings.add(viewer.user.id+":"+ids[1]);
+    const following=await request(app).get(endpoint).set(header).query({scope:"following"});
+    expect(following.body.total).toBe(1);
+    expect(following.body.teams[0].id).toBe(ids[1]);
+    expect(following.body.teams[0].myMembershipRole).toBeNull();
+    expect(following.body.teams[0].joinRequestStatus).toBeNull();
+    expect(following.body.teams[0]).not.toHaveProperty("members");
+    expect(JSON.stringify(following.body)).not.toContain(viewer.user.phone);
+  });
+
+  it("validates page/filter bounds and does not mutate memberships from discovery",async()=>{
+    const {app,teamRepository,authRepository}=setup();
+    const user=await register(app,teamRepository,authRepository,{
+      phone:"0705992001",username:"page_user",displayName:"Page User",
+    });
+    const header={Authorization:`Bearer ${user.accessToken}`};
+    for(const params of [{page:0},{page:-1},{limit:41},{sort:"invalid"},{scope:"other"},
+      {province:"a".repeat(81)},{q:"x".repeat(121)}]){
+      const invalid=await request(app).get("/api/v1/teams/discover")
+        .set(header).query(params);
+      expect(invalid.status).toBe(400);
+    }
+    const empty=await request(app).get("/api/v1/teams/discover")
+      .set(header).query({page:3,limit:2});
+    expect(empty.status).toBe(200);
+    expect(empty.body.total).toBe(0);
+    expect(empty.body.hasMore).toBe(false);
+    expect(teamRepository.joinRequests.size).toBe(0);
+  });
+});
+
 describe("Phase 5 teams and player identity API", () => {
   it("creates a team with creator as manager and never exposes private contact data publicly", async () => {
     const { app, teamRepository, authRepository } = setup();
