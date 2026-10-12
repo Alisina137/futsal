@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,spacing} from "@leaguekick/design-tokens";
-import {useState} from "react";
-import {Pressable,ScrollView,View} from "react-native";
+import {useCallback,useEffect,useRef,useState} from "react";
+import {Pressable,ScrollView,View,type LayoutChangeEvent} from "react-native";
 import {AppText} from "../ui/AppText";
 import {styles} from "./AdminStyles";
 import {adminNavItems,type SectionKey} from "./admin-navigation";
@@ -26,7 +26,32 @@ export function AdminSidebar({
   const {language}=useLocale();
   const [mobileOpen,setMobileOpen]=useState(false);
   const [collapsed,setCollapsed]=useState<string[]>([]);
+  const sidebarScroll=useRef<ScrollView|null>(null);
+  const viewport=useRef(0),content=useRef(0);
+  const groupY=useRef<Record<string,number>>({});
+  const itemFrame=useRef<Record<string,{y:number;height:number}>>({});
+  const selectedGroup=groups.find(group=>(group.sections as readonly string[]).includes(section))?.id
+    ??groups[0].id;
+  const focusSelected=useCallback((animated=false)=>{
+    if(!desktop&&!mobileOpen)return;
+    const groupTop=groupY.current[selectedGroup];
+    const frame=itemFrame.current[section];
+    if(groupTop===undefined||!frame||viewport.current<=0)return;
+    const center=groupTop+frame.y+frame.height/2-viewport.current/2;
+    sidebarScroll.current?.scrollTo({
+      x:0,y:Math.max(0,Math.min(center,Math.max(0,content.current-viewport.current))),
+      animated,
+    });
+  },[desktop,mobileOpen,section,selectedGroup]);
+  useEffect(()=>{
+    // Never hide the active destination inside a collapsed sidebar section.
+    setCollapsed(previous=>previous.includes(selectedGroup)
+      ?previous.filter(id=>id!==selectedGroup):previous);
+    const frame=requestAnimationFrame(()=>focusSelected(false));
+    return()=>cancelAnimationFrame(frame);
+  },[selectedGroup,section,desktop,mobileOpen,focusSelected]);
   function toggle(id:string){
+    if(id===selectedGroup)return; // the selected tab must remain visible
     setCollapsed(previous=>previous.includes(id)?previous.filter(x=>x!==id):[...previous,id]);
   }
   const rowDirection=isRTL?"row-reverse" as const:"row" as const;
@@ -44,11 +69,15 @@ export function AdminSidebar({
         <Ionicons name={mobileOpen?"close":"menu"} color="#FFFFFF" size={25}/>
       </Pressable>:null}
     </View>
-    {desktop||mobileOpen?<ScrollView style={desktop?styles.adminNavScroll:{maxHeight:440,flexGrow:0}} contentContainerStyle={styles.adminNavGroups}
-      keyboardShouldPersistTaps="handled">
+    {desktop||mobileOpen?<ScrollView ref={sidebarScroll}
+      style={desktop?styles.adminNavScroll:{maxHeight:440,flexGrow:0}}
+      onLayout={e=>{viewport.current=e.nativeEvent.layout.height;focusSelected(false);}}
+      onContentSizeChange={(_w,h)=>{content.current=h;focusSelected(false);}}
+      contentContainerStyle={styles.adminNavGroups} keyboardShouldPersistTaps="handled">
       {groups.map(group=>{
         const open=!collapsed.includes(group.id);
-        return <View key={group.id} style={{gap:4}}>
+        return <View key={group.id} style={{gap:4}}
+          onLayout={(e:LayoutChangeEvent)=>{groupY.current[group.id]=e.nativeEvent.layout.y;focusSelected(false);}}>
           <Pressable onPress={()=>toggle(group.id)}
             accessibilityRole="button" accessibilityState={{expanded:open}}
             style={[styles.adminGroupHeader,{flexDirection:rowDirection}]}>
@@ -59,8 +88,13 @@ export function AdminSidebar({
           </Pressable>
           {open?adminNavItems.filter(item=>(group.sections as readonly string[]).includes(item.key)).map(item=>{
             const active=item.key===section;
-            return <Pressable key={item.key} accessibilityRole="button"
-              accessibilityState={{selected:active}} onPress={()=>{
+            return <Pressable key={item.key} accessibilityRole="tab"
+              accessibilityState={{selected:active}}
+              onLayout={(e:LayoutChangeEvent)=>{
+                itemFrame.current[item.key]={y:e.nativeEvent.layout.y,height:e.nativeEvent.layout.height};
+                if(active)focusSelected(false);
+              }}
+              onPress={()=>{
                 onSelect(item.key);if(!desktop)setMobileOpen(false);
               }} style={({pressed})=>[styles.navItem,
                 {flexDirection:rowDirection,backgroundColor:active?"#17447A":"transparent"},
