@@ -175,8 +175,9 @@ async function bracket(ctx,cid,first,now,offset,play=false){
   for(let slot=1;slot<=count;slot++){
    const h=r===n?entries[(slot-1)*2]:null,a=r===n?entries[(slot-1)*2+1]:null;
    const done=play&&r===n&&slot<=4;
-   const when=dateAt(now,offset+(n-r)*8,9+slot,0);
-   const scores=done?score(slot+2,r+1,slot):[null,null];
+   const scheduledDay=play&&r===n&&slot>4?3:offset+(n-r)*15;
+   const when=dateAt(now,scheduledDay,9+slot,0);
+   const scores=done?(slot%2===0?[1,3]:[3,1]):[null,null];
    const id=await match(ctx,cid,"KNOCKOUT",r,slot,h,a,when,done,null,scores);
    map.set(r+":"+slot,{id,home:h,away:a,done,scores});
   }
