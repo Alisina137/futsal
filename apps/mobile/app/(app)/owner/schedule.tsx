@@ -417,6 +417,14 @@ function WeekView({
   onTodayRowLayout:(y:number)=>void;
   onSelectSlot:(event:VenueCalendarEvent,date:string)=>void;
 }){
+  const [weekHeaderHeight,setWeekHeaderHeight]=useState(68);
+  const [weekRowHeights,setWeekRowHeights]=useState<Record<string,number>>({});
+  const measureWeekRow=useCallback((time:string,height:number)=>{
+    const rounded=Math.ceil(height);
+    if(rounded<1)return;
+    setWeekRowHeights(previous=>previous[time]===rounded
+      ?previous:{...previous,[time]:rounded});
+  },[]);
   const timeRows=Array.from(new Set(
     days.flatMap((day)=>day.events
       .filter((event)=>Boolean(event.startsAt))
@@ -430,75 +438,90 @@ function WeekView({
 
   return <View style={styles.weekSlotSection}>
     <SlotColorGuide t={t}/>
-    <ScrollView
-      horizontal
-      nestedScrollEnabled
-      showsHorizontalScrollIndicator
-      contentContainerStyle={styles.weekSlotScroll}
-    >
-      <View style={styles.weekSlotGrid}>
-        <View style={[styles.weekSlotHeader,{flexDirection:language==="en"?"row":"row-reverse"}]}>
-          <View style={styles.weekTimeHeader}>
-            <Ionicons name="time-outline" size={16} color={colors.textMuted}/>
-          </View>
-          {days.map((day)=>{
-            const isToday=day.date===todayDate;
-            return <View
-              key={day.date}
-              onLayout={isToday?(event)=>onTodayRowLayout(event.nativeEvent.layout.y):undefined}
-              style={[styles.weekDayHeader,isToday&&styles.weekDayHeaderToday]}
-            >
-              <AppText variant="caption" weight="bold">
-                {formatCalendarDate(day.date,language,{weekday:"short"})}
-              </AppText>
-              <AppText variant="caption" muted>
-                {formatCalendarDate(day.date,language,{month:"short",day:"numeric"})}
-              </AppText>
-              {isToday?<View style={styles.weekTodayBadge}>
-                <AppText variant="caption" weight="bold" style={styles.weekTodayBadgeText}>
-                  {t("schedule.today")}
-                </AppText>
-              </View>:null}
-            </View>;
-          })}
+    <View testID="owner-week-grid" style={[styles.weekSlotFrame,
+      {flexDirection:language==="en"?"row":"row-reverse"}]}>
+      {/* Fixed AM/PM time rail, independent of horizontal date scrolling. */}
+      <View testID="owner-week-sticky-times" style={styles.weekTimeRail}>
+        <View style={[styles.weekTimeHeader,{height:weekHeaderHeight}]}>
+          <Ionicons name="time-outline" size={16} color={colors.textMuted}/>
         </View>
-
-        {timeRows.map((time)=><View
-          key={time}
-          style={[styles.weekSlotTimeRow,{flexDirection:language==="en"?"row":"row-reverse"}]}
-        >
-          <View style={styles.weekTimeCell}>
-            <AppText variant="caption" weight="semibold" forceLtr>{formatClock12From24Hour(time)}</AppText>
-          </View>
-
-          {days.map((day)=>{
-            const cellEvents=day.events.filter((event)=>
-              Boolean(event.startsAt)&&rawTime(event.startsAt!)===time
-            );
-            return <View key={`${day.date}-${time}`} style={styles.weekSlotCell}>
-              {cellEvents.length?cellEvents.map((event)=>{
-                const palette=slotPalette[event.type];
-                return <Pressable
-                  key={event.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatSlotStartTime(event.startsAt!,"Asia/Kabul")}, ${formatSlotTilePrice(event.priceAfn)}`}
-                  onPress={()=>onSelectSlot(event,day.date)}
-                  style={({pressed})=>[
-                    styles.weekSlot,
-                    {backgroundColor:softenSlotColor(palette.background),borderColor:palette.border},
-                    pressed&&styles.weekSlotPressed,
-                  ]}
-                >
-                  <SlotTileContent startsAt={event.startsAt!} timeZone="Asia/Kabul"
-                    priceAfn={event.priceAfn} ink={palette.text}
-                    marker={<SlotCornerMarker type={event.type} color={palette.text}/>}/>
-                </Pressable>;
-              }):<View style={styles.weekEmptySlot}/>}
-            </View>;
-          })}
+        {timeRows.map(time=><View key={time}
+          style={[styles.weekTimeCell,{height:weekRowHeights[time]??62}]}>
+          <AppText variant="caption" weight="semibold" forceLtr>
+            {formatClock12From24Hour(time)}
+          </AppText>
         </View>)}
       </View>
-    </ScrollView>
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator
+        testID="owner-week-scrollable-days"
+        style={styles.weekSlotHorizontal}
+        contentContainerStyle={styles.weekSlotScroll}
+      >
+        <View style={styles.weekSlotGrid}>
+          <View
+            onLayout={event=>{
+              const height=Math.ceil(event.nativeEvent.layout.height);
+              if(height>0)setWeekHeaderHeight(previous=>previous===height?previous:height);
+            }}
+            style={[styles.weekSlotHeader,{flexDirection:language==="en"?"row":"row-reverse"}]}>
+            {days.map((day)=>{
+              const isToday=day.date===todayDate;
+              return <View
+                key={day.date}
+                onLayout={isToday?(event)=>onTodayRowLayout(event.nativeEvent.layout.y):undefined}
+                style={[styles.weekDayHeader,isToday&&styles.weekDayHeaderToday]}
+              >
+                <AppText variant="caption" weight="bold">
+                  {formatCalendarDate(day.date,language,{weekday:"short"})}
+                </AppText>
+                <AppText variant="caption" muted>
+                  {formatCalendarDate(day.date,language,{month:"short",day:"numeric"})}
+                </AppText>
+                {isToday?<View style={styles.weekTodayBadge}>
+                  <AppText variant="caption" weight="bold" style={styles.weekTodayBadgeText}>
+                    {t("schedule.today")}
+                  </AppText>
+                </View>:null}
+              </View>;
+            })}
+          </View>
+          {timeRows.map(time=><View
+            key={time}
+            onLayout={event=>measureWeekRow(time,event.nativeEvent.layout.height)}
+            style={[styles.weekSlotTimeRow,{flexDirection:language==="en"?"row":"row-reverse"}]}
+          >
+            {days.map((day)=>{
+              const cellEvents=day.events.filter((event)=>
+                Boolean(event.startsAt)&&rawTime(event.startsAt!)===time
+              );
+              return <View key={`${day.date}-${time}`} style={styles.weekSlotCell}>
+                {cellEvents.length?cellEvents.map((event)=>{
+                  const palette=slotPalette[event.type];
+                  return <Pressable
+                    key={event.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t(`schedule.event.${event.type}` as never)}, ${formatSlotStartTime(event.startsAt!,"Asia/Kabul")}, ${formatSlotTilePrice(event.priceAfn)}`}
+                    onPress={()=>onSelectSlot(event,day.date)}
+                    style={({pressed})=>[
+                      styles.weekSlot,
+                      {backgroundColor:softenSlotColor(palette.background),borderColor:palette.border},
+                      pressed&&styles.weekSlotPressed,
+                    ]}
+                  >
+                    <SlotTileContent startsAt={event.startsAt!} timeZone="Asia/Kabul"
+                      priceAfn={event.priceAfn} ink={palette.text}
+                      marker={<SlotCornerMarker type={event.type} color={palette.text}/>}/>
+                  </Pressable>;
+                }):<View style={styles.weekEmptySlot}/>}
+              </View>;
+            })}
+          </View>)}
+        </View>
+      </ScrollView>
+    </View>
   </View>;
 }
 
@@ -858,15 +881,12 @@ const styles=StyleSheet.create({
   slotGuideItems:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   slotGuideItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
   slotGuideSwatch:{width:18,height:18,borderRadius:5,borderWidth:1},
-  weekSlotScroll:{paddingBottom:spacing.xs},
-  weekSlotGrid:{
-    minWidth:1010,
-    borderWidth:1,
-    borderColor:colors.border,
-    borderRadius:radius.lg,
-    overflow:"hidden",
-    backgroundColor:colors.surface,
-  },
+  weekSlotFrame:{width:"100%",borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.lg,overflow:"hidden",backgroundColor:colors.surface},
+  weekTimeRail:{width:94,flexShrink:0,backgroundColor:colors.surfaceMuted},
+  weekSlotHorizontal:{flex:1,minWidth:0},
+  weekSlotScroll:{flexGrow:0},
+  weekSlotGrid:{minWidth:938,backgroundColor:colors.surface},
   weekSlotHeader:{
     alignItems:"stretch",
     backgroundColor:colors.primarySoft,
@@ -874,12 +894,15 @@ const styles=StyleSheet.create({
     borderBottomColor:colors.border,
   },
   weekTimeHeader:{
-    width:70,
+    width:94,
     minHeight:68,
     alignItems:"center",
     justifyContent:"center",
+    borderBottomWidth:1,
+    borderBottomColor:colors.border,
     borderRightWidth:1,
-    borderRightColor:colors.border,
+    borderLeftWidth:1,
+    borderColor:colors.border,
   },
   weekDayHeader:{
     width:134,
@@ -911,8 +934,10 @@ const styles=StyleSheet.create({
     justifyContent:"center",
     padding:spacing.xs,
     backgroundColor:colors.surfaceMuted,
+    borderBottomWidth:1,
     borderRightWidth:1,
-    borderRightColor:colors.border,
+    borderLeftWidth:1,
+    borderColor:colors.border,
   },
   weekSlotCell:{
     width:134,

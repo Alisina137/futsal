@@ -17,7 +17,7 @@ for(const marker of [
   'accessibilityState={{disabled,busy:processing}}',
   'disabled={disabled||processing} onPress={press}',
   'onTap:(slot:VenueTimelineSlotDto,date:string)=>void',
-  'const ownBySlot=useMemo(',
+  'const ownBookingsByArea=useMemo(',
   'const ownBooking=useCallback(',
   'const {timeRows,slotsAtTime}=useMemo(',
   'slotsAtTime.get(date+"|"+time)',

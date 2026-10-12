@@ -131,6 +131,16 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
   const [mineError,setMineError]=useState(false);
   const [cancelConfirm,setCancelConfirm]=useState(false),[cancelBusy,setCancelBusy]=useState(false);
   const [contactError,setContactError]=useState(false);
+  const [weekHeaderHeight,setWeekHeaderHeight]=useState(80);
+  const [weekRowHeights,setWeekRowHeights]=useState<Record<string,number>>({});
+  // Match the actual height of every scrollable slot row (including large
+  // accessibility text and rare multiple slots) in the pinned time column.
+  const measureWeekRow=useCallback((time:string,height:number)=>{
+    const rounded=Math.ceil(height);
+    if(rounded<1)return;
+    setWeekRowHeights(previous=>previous[time]===rounded
+      ?previous:{...previous,[time]:rounded});
+  },[]);
   const callLink=callVenueUrl(venue.publicPhone);
   const whatsappLink=venueWhatsAppUrl(venue,language);
   const sequence=useRef(0);
@@ -371,38 +381,58 @@ export function VenueSlotTimetable({venue,startsAt,promotionId}:{
             </Card>:null}
           </View>)}
         </>:timeRows.length?<>
-          <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator
-            style={{flexGrow:0}} contentContainerStyle={{flexGrow:0}}>
-            <View>
-              <View style={[styles.gridRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-                <View style={styles.timeHeading}><Ionicons name="time-outline" size={19}
-                  color={colors.textMuted}/></View>
-                {visibleDays.map(date=><Pressable key={date}
-                  style={[styles.dayHeading,date===today&&styles.todayHeading]}
-                  onPress={()=>{setAnchor(date);setView("DAY");}}>
-                  <AppText variant="caption" weight="bold" style={{textAlign:"center"}}>
-                    {formatCalendarDate(date,language,{weekday:"short"})}
-                  </AppText>
-                  <AppText variant="caption" muted>{formatCalendarDate(date,language,{day:"numeric",month:"short"})}</AppText>
-                  {date===today?<AppText variant="caption" weight="semibold"
-                    style={{color:colors.primary}}>{tr("today")}</AppText>:null}
-                </Pressable>)}
+          <View testID="venue-week-grid" style={[styles.weekGridFrame,
+            {flexDirection:isRTL?"row-reverse":"row"}]}>
+            {/* Time stays pinned on the leading edge while the seven dates scroll. */}
+            <View testID="venue-week-sticky-times" style={styles.weekTimeRail}>
+              <View style={[styles.timeHeading,{height:weekHeaderHeight}]}>
+                <Ionicons name="time-outline" size={19} color={colors.textMuted}/>
               </View>
               {timeRows.map(time=><View key={time}
-                style={[styles.gridRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-                <View style={styles.timeCell}><AppText variant="caption" weight="semibold"
-                  forceLtr>{formatClock12From24Hour(time)}</AppText></View>
-                {visibleDays.map(date=>{
-                  const found=slotsAtTime.get(date+"|"+time)??[];
-                  return <View key={date+"-"+time} style={styles.weekCell}>
-                    {found.map(item=><Slot key={item.areaId+"-"+item.startsAt} item={item} date={date}
-                      own={ownBooking(item)} timezone={venue.timezone} today={today} limit={limit}
-                      promotionId={promotionId} startsAt={startsAt} t={t} onTap={tap}/>)}
-                  </View>;
-                })}
+                style={[styles.timeCell,{height:weekRowHeights[time]??62}]}>
+                <AppText variant="caption" weight="semibold" forceLtr>
+                  {formatClock12From24Hour(time)}
+                </AppText>
               </View>)}
             </View>
-          </ScrollView>
+            <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator
+              testID="venue-week-scrollable-days"
+              style={styles.weekDaysScroll} contentContainerStyle={styles.weekDaysContent}>
+              <View>
+                <View
+                  onLayout={event=>{
+                    const height=Math.ceil(event.nativeEvent.layout.height);
+                    if(height>0)setWeekHeaderHeight(previous=>previous===height?previous:height);
+                  }}
+                  style={[styles.gridRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  {visibleDays.map(date=><Pressable key={date}
+                    style={[styles.dayHeading,date===today&&styles.todayHeading]}
+                    onPress={()=>{setAnchor(date);setView("DAY");}}>
+                    <AppText variant="caption" weight="bold" style={{textAlign:"center"}}>
+                      {formatCalendarDate(date,language,{weekday:"short"})}
+                    </AppText>
+                    <AppText variant="caption" muted>
+                      {formatCalendarDate(date,language,{day:"numeric",month:"short"})}
+                    </AppText>
+                    {date===today?<AppText variant="caption" weight="semibold"
+                      style={{color:colors.primary}}>{tr("today")}</AppText>:null}
+                  </Pressable>)}
+                </View>
+                {timeRows.map(time=><View key={time}
+                  onLayout={event=>measureWeekRow(time,event.nativeEvent.layout.height)}
+                  style={[styles.gridRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  {visibleDays.map(date=>{
+                    const found=slotsAtTime.get(date+"|"+time)??[];
+                    return <View key={date+"-"+time} style={styles.weekCell}>
+                      {found.map(item=><Slot key={item.areaId+"-"+item.startsAt} item={item} date={date}
+                        own={ownBooking(item)} timezone={venue.timezone} today={today} limit={limit}
+                        promotionId={promotionId} startsAt={startsAt} t={t} onTap={tap}/>)}
+                    </View>;
+                  })}
+                </View>)}
+              </View>
+            </ScrollView>
+          </View>
         </>:<Card><AppText muted>{tr("noScheduledSlots")}</AppText></Card>}
 
       </>}
@@ -477,6 +507,12 @@ const styles=StyleSheet.create({
   legend:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   legendItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs},
   swatch:{width:22,height:22,borderRadius:5,borderWidth:1},
+  weekGridFrame:{width:"100%",borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.md,overflow:"hidden",backgroundColor:colors.surface},
+  weekTimeRail:{width:WEEK_TIME_COLUMN_WIDTH,flexShrink:0,
+    backgroundColor:"#EFF6FF"},
+  weekDaysScroll:{flex:1,minWidth:0},
+  weekDaysContent:{flexGrow:0},
   gridRow:{alignItems:"stretch"},
   timeHeading:{width:WEEK_TIME_COLUMN_WIDTH,minHeight:80,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:colors.border},
@@ -484,7 +520,8 @@ const styles=StyleSheet.create({
     alignItems:"center",justifyContent:"center",gap:3,borderWidth:1,borderColor:colors.border},
   todayHeading:{backgroundColor:"#DBEAFE"},
   timeCell:{width:WEEK_TIME_COLUMN_WIDTH,minHeight:62,justifyContent:"center",alignItems:"center",
-    backgroundColor:"#EFF6FF",borderWidth:1,borderColor:colors.border},
+    backgroundColor:"#EFF6FF",borderWidth:1,borderColor:colors.border,
+    paddingHorizontal:spacing.xs},
   weekCell:{width:WEEK_DAY_COLUMN_WIDTH,minHeight:62,padding:3,borderWidth:1,borderColor:colors.border,
     gap:2,justifyContent:"center",backgroundColor:colors.surface},
   slot:{minHeight:54,borderRadius:radius.md,borderWidth:1,justifyContent:"center",
