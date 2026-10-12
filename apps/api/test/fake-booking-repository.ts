@@ -23,6 +23,11 @@ export class FakeBookingRepository implements BookingRepository {
   reviews=new Map<string,import("@leaguekick/contracts").VenueReviewDto>();
   savedTimes=new Map<string,string>();
   watches=new Map<string,import("@leaguekick/contracts").VenueSlotWatchDto&{userId:string}>();
+  async listReviewedBookingIds(userId:string,venueId:string){
+    return [...this.reviews.keys()].filter(bookingId=>
+      this.bookings.get(bookingId)?.playerUserId===userId&&
+      this.reviews.get(bookingId)?.venueId===venueId);
+  }
   async listVerifiedReviews(venueId:string,limit:number){
     const all=[...this.reviews.values()].filter(x=>x.venueId===venueId)
       .sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
@@ -32,7 +37,7 @@ export class FakeBookingRepository implements BookingRepository {
   async createVerifiedReview(input:{venueId:string;bookingId:string;userId:string;
     rating:number;body:string;createdAt:Date}){
     if(this.reviews.has(input.bookingId))throw errors.badRequest("ALREADY_REVIEWED","Already reviewed");
-    const review={id:randomUUID(),venueId:input.venueId,bookingId:input.bookingId,
+    const review={id:randomUUID(),venueId:input.venueId,
       rating:input.rating,body:input.body,createdAt:input.createdAt.toISOString(),verified:true as const};
     this.reviews.set(input.bookingId,review);
     return review;
