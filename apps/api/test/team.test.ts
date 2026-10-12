@@ -64,10 +64,10 @@ describe("Teams Phase 2 server-backed directory",()=>{
   it("filters and paginates teams across name, province, city and district with correct scope",async()=>{
     const {app,teamRepository,authRepository}=setup();
     const manager=await register(app,teamRepository,authRepository,{
-      phone:"0705991001",username:"discovermanager",displayName:"Discovery Manager",
+      phone:"0705991001",username:"discmanager",displayName:"Discovery Manager",
     });
     const viewer=await register(app,teamRepository,authRepository,{
-      phone:"0705991002",username:"discoverviewer",displayName:"Discovery Viewer",
+      phone:"0705991002",username:"discviewer",displayName:"Discovery Viewer",
       accountType:"VENUE_OWNER",
     });
     const names=["Kabul Star","Kabul Eagle","Herat Lions","Herat Eagles","Balkh Storm"];
