@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,spacing} from "@leaguekick/design-tokens";
-import {useState} from "react";
+import {useEffect,useRef,useState} from "react";
 import {Pressable,ScrollView,View} from "react-native";
 import {AppText} from "../ui/AppText";
 import {styles} from "./AdminStyles";
@@ -26,6 +26,21 @@ export function AdminSidebar({
   const {language}=useLocale();
   const [mobileOpen,setMobileOpen]=useState(false);
   const [collapsed,setCollapsed]=useState<string[]>([]);
+  const navRef=useRef<ScrollView>(null);
+  const positions=useRef(new Map<SectionKey,number>());
+  const groupPositions=useRef(new Map<string,number>());
+  // Keep the chosen section's group expanded and its label on-screen.
+  const activeGroup=groups.find(g=>(g.sections as readonly string[]).includes(section))?.id;
+  useEffect(()=>{
+    if(!activeGroup)return;
+    setCollapsed(previous=>previous.includes(activeGroup)
+      ?previous.filter(id=>id!==activeGroup):previous);
+    const frame=requestAnimationFrame(()=>{
+      const y=(groupPositions.current.get(activeGroup)??0)+(positions.current.get(section)??0);
+      if(y!==undefined)navRef.current?.scrollTo({y:Math.max(0,y-100),animated:true});
+    });
+    return()=>cancelAnimationFrame(frame);
+  },[section,activeGroup,mobileOpen,desktop]);
   function toggle(id:string){
     setCollapsed(previous=>previous.includes(id)?previous.filter(x=>x!==id):[...previous,id]);
   }
@@ -44,11 +59,11 @@ export function AdminSidebar({
         <Ionicons name={mobileOpen?"close":"menu"} color="#FFFFFF" size={25}/>
       </Pressable>:null}
     </View>
-    {desktop||mobileOpen?<ScrollView style={desktop?styles.adminNavScroll:{maxHeight:440,flexGrow:0}} contentContainerStyle={styles.adminNavGroups}
+    {desktop||mobileOpen?<ScrollView ref={navRef} style={desktop?styles.adminNavScroll:{maxHeight:440,flexGrow:0}} contentContainerStyle={styles.adminNavGroups}
       keyboardShouldPersistTaps="handled">
       {groups.map(group=>{
         const open=!collapsed.includes(group.id);
-        return <View key={group.id} style={{gap:4}}>
+        return <View key={group.id} style={{gap:4}} onLayout={e=>{groupPositions.current.set(group.id,e.nativeEvent.layout.y);}}>
           <Pressable onPress={()=>toggle(group.id)}
             accessibilityRole="button" accessibilityState={{expanded:open}}
             style={[styles.adminGroupHeader,{flexDirection:rowDirection}]}>
@@ -60,6 +75,7 @@ export function AdminSidebar({
           {open?adminNavItems.filter(item=>(group.sections as readonly string[]).includes(item.key)).map(item=>{
             const active=item.key===section;
             return <Pressable key={item.key} accessibilityRole="button"
+              onLayout={event=>{positions.current.set(item.key,event.nativeEvent.layout.y);}}
               accessibilityState={{selected:active}} onPress={()=>{
                 onSelect(item.key);if(!desktop)setMobileOpen(false);
               }} style={({pressed})=>[styles.navItem,
