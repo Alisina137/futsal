@@ -10,12 +10,21 @@ const client=read("apps/mobile/src/lib/api.ts");
 const sections=read("apps/mobile/src/components/competition/CompetitionProfileSections.tsx");
 const contracts=read("packages/contracts/src/index.ts");
 const l10n=read("packages/localization/src/index.ts");
+const fixtureSchedule=read("apps/mobile/src/lib/competition-match-schedule.ts");
 assert(list.includes('"competition-matches-list"')
-  &&list.includes("dateGroup(match.startsAt)")
-  &&list.includes('formatLocalDateTimeParts(match.startsAt,language)')
+  &&list.includes("groupMatchesByRound(matches)")
+  &&list.includes("formatFixtureSchedule(match.startsAt,language)")
+  &&list.includes('testID={`match-round-${group.stage}-${group.roundNumber}`}')
   &&list.includes("teams.get(match.homeTeamId")
-  &&list.includes("teams.get(match.awayTeamId"),
-  "Date-grouped match list needs real team crests and localized Kabul fixture times.");
+  &&list.includes("teams.get(match.awayTeamId")
+  &&fixtureSchedule.includes("AFGHANISTAN_TIME_ZONE")
+  &&fixtureSchedule.includes("weekday:\"long\"")
+  &&fixtureSchedule.includes('Math.abs(instant.getTime()-now.getTime())<WEEK_MS'),
+  "Round-grouped match list needs real team crests and concise weekday/date + Kabul time.");
+assert(!list.includes("dateGroup(match.startsAt)")
+  &&!list.includes('match.groupName??t("competition.round"'),
+  "Don't show redundant match-round labels inside cards; heading owns round.");
+
 assert(list.includes('testID="match-filter-rail"')
   &&list.includes('["ALL","UPCOMING","LIVE","FINISHED"]')
   &&list.includes("filter===\"LIVE\"")
@@ -46,9 +55,9 @@ assert(api.includes('router.get("/competitions/:competitionId/matches/:matchId"'
   &&contracts.includes("competitionPublicMatchDetailSchema")
   &&client.includes("request<CompetitionPublicMatchDetail>"),
   "Public match details must be scoped to the published competition with only recorded player data.");
-for(const key of ["competition.matchList.filter.UPCOMING","competition.matchList.fullTime",
+for(const key of ["competition.matchList.filter.UPCOMING","competition.matchList.roundOf","competition.matchList.fullTime",
   "competition.matchList.registrationOpen","competition.matchDetail.recordedPlayers",
   "competition.matchDetail.highlightsUnavailable","competition.standingsTeamPreview"]){
   assert(l10n.split(`"${key}"`).length-1===3,`Missing three-language translation: ${key}`);
 }
-console.log("Match discovery verified: date-grouped fixtures, tappable real match details, safe per-match stats, locale support and registration CTA.");
+console.log("Match discovery verified: round-grouped fixtures, compact Kabul weekday/date + 24-hour times, tappable details, safe recorded stats, 3-language headings and registration CTA.");
