@@ -9,6 +9,7 @@ import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
+import {DataLoadingState} from "../ui/DataLoadingState";
 import {TextField} from "../ui/TextField";
 import {TimeOfDayPickerField} from "../ui/TimeOfDayPickerField";
 
@@ -61,7 +62,7 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
       </View>
       <AppText variant="caption" muted>{tr("verifiedOnly")}</AppText>
       {error?<AppText style={{color:colors.danger}}>{error}</AppText>:null}
-      {loading?<AppText variant="caption" muted>{t("common.loading")}</AppText>:null}
+      {loading?<DataLoadingState variant="list" minHeight={90}/>:null}
       {summary?.reviews.length?summary.reviews.map(item=><View key={item.id}
         style={styles.review}>
         <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
