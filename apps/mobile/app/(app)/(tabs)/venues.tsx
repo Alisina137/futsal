@@ -134,8 +134,12 @@ export default function VenuesScreen(){
   useEffect(()=>{
     if(!geo.point)return;
     activePoint.current=geo.point;
-    const {query:activeQuery,province:activeProvince,filters:applied}=lastSearchRef.current;
-    void load(activeQuery,activeProvince,applied);
+    const {query:activeQuery,filters:applied}=lastSearchRef.current;
+    // "Use my location" means discover nearest across provinces, while
+    // retaining the same chosen date/time/price and availability filters.
+    const sorted={...applied,sort:"nearest" as const};
+    filtersRef.current=sorted;setFilters(sorted);setProvince("");
+    void load(activeQuery,"",sorted);
   },[geo.point,load]);
 
   // Screen state remains mounted while opening a venue profile. Refresh real
@@ -449,6 +453,21 @@ export default function VenuesScreen(){
           <Ionicons name="refresh-outline" color={colors.primary} size={21}/>
         </Pressable>
       </View>
+      <View testID="venue-list-map-toggle" style={[styles.mapToggleRow,
+        {flexDirection:isRTL?"row-reverse":"row"}]}>
+        {(["list","map"] as const).map(mode=><Pressable key={mode}
+          testID={`venue-view-${mode}`} accessibilityRole="tab"
+          accessibilityState={{selected:viewMode===mode}}
+          onPress={()=>{setViewMode(mode);setDirectionsError(false);}}
+          style={[styles.mapToggleButton,viewMode===mode&&styles.mapToggleSelected]}>
+          <Ionicons name={mode==="map"?"map-outline":"list-outline"} size={17}
+            color={viewMode===mode?"#FFFFFF":colors.primary}/>
+          <AppText variant="caption" weight="bold"
+            style={{color:viewMode===mode?"#FFFFFF":colors.primary}}>
+            {t(mode==="map"?"booking.mapView":"booking.listView")}
+          </AppText>
+        </Pressable>)}
+      </View>
       {error?<Card style={styles.resultsMessage}>
         <Ionicons name="cloud-offline-outline" size={28} color={colors.danger}/>
         <AppText style={{color:colors.danger}}>{error}</AppText>
@@ -460,7 +479,81 @@ export default function VenuesScreen(){
         <AppText weight="medium" style={{textAlign:"center"}}>{t("booking.noVenues")}</AppText>
         <Button variant="secondary" label={t("booking.resetSearch")} onPress={resetSearch}/>
       </Card>:null}
-      {!loading&&!error?<View testID="venue-results-grid" style={[styles.resultsGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {!loading&&!error&&viewMode==="map"?<View testID="venue-directory-map"
+        style={styles.mapSection}>
+        <View style={[styles.mapActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={{flex:1,gap:3}}>
+            <AppText weight="semibold">{t("booking.mapFilteredResults")}</AppText>
+            <AppText variant="caption" muted>
+              {t("booking.mapPinCount",{count:Math.min(25,mappedVenues.length)})}
+            </AppText>
+          </View>
+          <Button variant="secondary" label={t("booking.tryLiveLocation")}
+            disabled={geo.state==="asking"||geo.state==="locating"}
+            onPress={geo.locate}/>
+        </View>
+        {(geo.state==="asking"||geo.state==="locating")?<View style={styles.mapNotice}>
+          <Ionicons name="navigate-circle-outline" size={21} color={colors.primary}/>
+          <AppText variant="caption" muted style={{flex:1}}>{t("booking.nearbyLocating")}</AppText>
+        </View>:null}
+        {geo.state==="locating"?<NearbyDeviceLocation key={geo.attempt}
+          onLocation={geo.onLocation} onError={geo.onError}/>:null}
+        {(geo.state==="denied"||geo.state==="timeout")?<View style={styles.mapNotice}>
+          <AppText variant="caption" style={{color:colors.danger,flex:1}}>
+            {t(geo.state==="denied"?"booking.nearbyPermissionDenied":"booking.nearbyTimeout")}
+          </AppText>
+          <Button variant="secondary" label={t("booking.setDefaultLocation")}
+            onPress={()=>router.push("/profile/account")}/>
+        </View>:null}
+        {geo.source==="default"?<AppText variant="caption" muted>
+          {t("booking.nearbyDefaultExplanation")}
+        </AppText>:null}
+        {mappedVenues.length===0||!center?<Card style={styles.resultsMessage}>
+          <Ionicons name="location-outline" size={26} color={colors.textMuted}/>
+          <AppText muted style={{textAlign:"center"}}>{t("booking.mapNoPins")}</AppText>
+          <Button variant="secondary" label={t("booking.listView")}
+            onPress={()=>setViewMode("list")}/>
+        </Card>:<>
+          <NearbyVenuesMap position={center} venues={mappedVenues}
+            maxPins={25} showOrigin={Boolean(geo.point||defaultPoint)}
+            onSelect={id=>{setMapSelectedId(id);setDirectionsError(false);}}
+            onFailed={()=>setMapFailed(true)} onReady={()=>setMapFailed(false)}/>
+          {mapFailed?<View style={styles.mapNotice}>
+            <AppText variant="caption" style={{color:colors.danger,flex:1}}>
+              {t("booking.nearbyMapUnavailable")}
+            </AppText>
+            <Button variant="secondary" label={t("booking.listView")}
+              onPress={()=>setViewMode("list")}/>
+          </View>:<AppText variant="caption" muted>{t("booking.nearbySelectPin")}</AppText>}
+          {mappedVenues.length>25?<AppText variant="caption" muted>
+            {t("booking.mapPinLimit")}
+          </AppText>:null}
+          {mapSelected?<View testID="venue-map-selected-card" style={styles.mapSelected}>
+            <VenueResultCard id={mapSelected.id} name={mapSelected.name}
+              city={mapSelected.city} province={mapSelected.province}
+              imageUrl={mapSelected.pageCoverImageUrl??mapSelected.pageProfileImageUrl}
+              onlineBookingEnabled={mapSelected.onlineBookingEnabled}
+              availableCount={metrics[mapSelected.id]?.availableCount}
+              lowestPriceAfn={metrics[mapSelected.id]?.lowestPriceAfn}
+              distanceKm={metrics[mapSelected.id]?.distanceKm}
+              nextSlots={metrics[mapSelected.id]?.nextSlots}
+              availabilityDate={lastSearch.filters.date} timeZone={mapSelected.timezone}
+              snapshotAt={searchSnapshotAt}
+              onRefreshResults={()=>{
+                const current=lastSearchRef.current;
+                void load(current.query,current.province,current.filters);
+              }}/>
+            {mapSelected.latitude!==null&&mapSelected.longitude!==null?
+              <Button variant="secondary" label={t("booking.mapDirections")}
+                icon={<Ionicons name="navigate-outline" size={18} color={colors.primary}/>}
+                onPress={()=>void openDirections(mapSelected.latitude!,mapSelected.longitude!)}/>:null}
+            {directionsError?<AppText variant="caption" style={{color:colors.danger}}>
+              {t("booking.mapDirectionsError")}
+            </AppText>:null}
+          </View>:null}
+        </>}
+      </View>:null}
+      {!loading&&!error&&viewMode==="list"?<View testID="venue-results-grid" style={[styles.resultsGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
         {venues.map(venue=><VenueResultCard
           key={venue.id}
           id={venue.id}
@@ -518,6 +611,18 @@ const styles=StyleSheet.create({
   refreshButton:{width:44,height:44,borderWidth:1,borderColor:colors.border,
     backgroundColor:colors.surface,borderRadius:radius.md,alignItems:"center",justifyContent:"center"},
   resultsGrid:{flexWrap:"wrap",gap:spacing.sm,alignItems:"stretch"},
+  mapToggleRow:{gap:spacing.sm,alignItems:"center",alignSelf:"flex-start"},
+  mapToggleButton:{flexDirection:"row",alignItems:"center",gap:spacing.xs,
+    minHeight:44,paddingHorizontal:spacing.md,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.primary,backgroundColor:colors.surface},
+  mapToggleSelected:{backgroundColor:colors.primary},
+  mapSection:{gap:spacing.md},
+  mapActions:{alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
+  mapNotice:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
+    borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+    padding:spacing.sm,backgroundColor:colors.surfaceMuted},
+  mapSelected:{gap:spacing.sm,backgroundColor:colors.surface,borderRadius:radius.lg,
+    padding:spacing.sm,borderWidth:1,borderColor:colors.border},
   resultsMessage:{gap:spacing.md,alignItems:"center",padding:spacing.lg},
   suggestionsBox:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
     borderRadius:radius.md,overflow:"hidden"},
