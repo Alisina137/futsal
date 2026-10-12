@@ -17,6 +17,7 @@ import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
+import {useFocusedTabScroll} from "../../../src/hooks/useFocusedTabScroll";
 
 type SectionKey="OVERVIEW"|"REVENUE"|"BOOKINGS"|"CUSTOMERS"|"MARKETING"|"COMPETITIONS";
 type RangePreset="7D"|"30D"|"90D"|"CUSTOM";
@@ -48,6 +49,8 @@ export default function OwnerAnalyticsScreen() {
   const [from, setFrom] = useState(kabulDate(29));
   const [to, setTo] = useState(kabulDate());
   const [section,setSection]=useState<SectionKey>("OVERVIEW");
+  const rangeRail=useFocusedTabScroll(preset);
+  const sectionRail=useFocusedTabScroll(section);
   const [data, setData] = useState<OwnerAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,9 +117,12 @@ export default function OwnerAnalyticsScreen() {
       </View>
     </View>
 
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetRow}>
+    <ScrollView ref={rangeRail.scrollRef} onLayout={rangeRail.onLayout}
+      onContentSizeChange={rangeRail.onContentSizeChange} horizontal
+      showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetRow}>
       {(["7D","30D","90D"] as const).map((value)=><Pressable
-        key={value}
+        key={value} accessibilityRole="tab" accessibilityState={{selected:preset===value}}
+        onLayout={e=>rangeRail.onTabLayout(value,e)}
         onPress={()=>applyPreset(value)}
         style={[styles.presetChip,preset===value&&styles.presetChipActive]}
       >
@@ -124,7 +130,10 @@ export default function OwnerAnalyticsScreen() {
           {t(`phase7.analytics.range.${value}` as never)}
         </AppText>
       </Pressable>)}
-      <Pressable onPress={()=>setPreset("CUSTOM")} style={[styles.presetChip,preset==="CUSTOM"&&styles.presetChipActive]}>
+      <Pressable onPress={()=>setPreset("CUSTOM")} accessibilityRole="tab"
+        accessibilityState={{selected:preset==="CUSTOM"}}
+        onLayout={e=>rangeRail.onTabLayout("CUSTOM",e)}
+        style={[styles.presetChip,preset==="CUSTOM"&&styles.presetChipActive]}>
         <AppText variant="caption" weight="bold" style={preset==="CUSTOM"?styles.presetTextActive:undefined}>{t("phase7.analytics.range.CUSTOM")}</AppText>
       </Pressable>
     </ScrollView>
@@ -155,8 +164,13 @@ export default function OwnerAnalyticsScreen() {
         <MetricCard icon="receipt-outline" title={t("phase7.analytics.avgBooking")} value={afn(data.averageBookingValueAfn)}/>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>
-        {sections.map((value)=><Pressable key={value} onPress={()=>setSection(value)} style={[styles.sectionTab,section===value&&styles.sectionTabActive]}>
+      <ScrollView ref={sectionRail.scrollRef} onLayout={sectionRail.onLayout}
+        onContentSizeChange={sectionRail.onContentSizeChange} horizontal
+        showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>
+        {sections.map((value)=><Pressable key={value} accessibilityRole="tab"
+          accessibilityState={{selected:section===value}}
+          onLayout={e=>sectionRail.onTabLayout(value,e)}
+          onPress={()=>setSection(value)} style={[styles.sectionTab,section===value&&styles.sectionTabActive]}>
           <AppText variant="caption" weight="bold" style={section===value?styles.sectionTabTextActive:undefined}>
             {t(`phase7.analytics.section.${value}` as never)}
           </AppText>
