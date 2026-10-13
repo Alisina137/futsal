@@ -1230,6 +1230,7 @@ export const teamManagerProfiles = pgTable("team_manager_profiles",{
   description:text("description"),
   foundedOn:varchar("founded_on",{length:10}),
   primaryColor:varchar("primary_color",{length:7}),
+  coverImageUrl:text("cover_image_url"),
   secondaryColor:varchar("secondary_color",{length:7}),
   contactPhone:varchar("contact_phone",{length:24}),
   homeVenueId:uuid("home_venue_id").references(()=>venues.id,{onDelete:"set null"}),
