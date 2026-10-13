@@ -978,7 +978,12 @@ export class DrizzleTeamRepository implements TeamRepository {
       }
 
       const [team] = await tx.select().from(teams).where(eq(teams.id, invite.teamId)).limit(1);
-      if (!team || team.status !== "ACTIVE" || (team.offlineVenueId&&!team.claimedAt)) return false;
+      if (!team || team.status !== "ACTIVE" || (team.offlineVenueId&&!team.claimedAt)){
+        // A dormant team must not keep an indefinitely actionable invitation.
+        await tx.update(teamInvitations).set({status:"REVOKED",respondedAt:now,updatedAt:now})
+          .where(eq(teamInvitations.id,invitationId));
+        return false;
+      }
 
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${invitedUserId}))`);
       const [referee,refereeRole]=await Promise.all([
@@ -1000,7 +1005,11 @@ export class DrizzleTeamRepository implements TeamRepository {
 
       // Never demote an already-active player, captain or manager through an
       // invitation that became stale after a parallel approval/role change.
-      if(existing?.status==="ACTIVE")return false;
+      if(existing?.status==="ACTIVE"){
+        await tx.update(teamInvitations).set({status:"REVOKED",respondedAt:now,updatedAt:now})
+          .where(eq(teamInvitations.id,invitationId));
+        return false;
+      }
       if (existing) {
         await tx.update(teamMemberships).set({
           role: invite.role === "CAPTAIN" ? "CAPTAIN" : "PLAYER",
