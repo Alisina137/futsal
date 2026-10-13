@@ -24,7 +24,7 @@ export class FakeTeamRepository implements TeamRepository {
   /** Test fake assumes seeded manager entitlements are paid; live Drizzle repository validates slots. */
   async assertManagerSubscription(_userId:string,_teamId:string,_now:Date):Promise<void>{}
 
-  users = new Map<string, TeamIdentityUser & { usernameNormalized: string | null; phoneE164: string }>();
+  users = new Map<string, TeamIdentityUser & { usernameNormalized: string | null; phoneE164: string; emailNormalized: string | null }>();
   profiles = new Map<string, OwnPlayerProfileDto>();
   teams = new Map<string, TeamRecord>();
   memberships = new Map<string, TeamMembershipRecord>();
@@ -40,6 +40,7 @@ export class FakeTeamRepository implements TeamRepository {
     displayName: string;
     username?: string | null;
     phoneE164: string;
+    email?: string | null;
     roles?: UserRole[];
   }) {
     this.users.set(input.id, {
@@ -48,6 +49,7 @@ export class FakeTeamRepository implements TeamRepository {
       username: input.username ?? null,
       usernameNormalized: input.username?.toLowerCase() ?? null,
       phoneE164: input.phoneE164,
+      emailNormalized:input.email?.trim().toLowerCase()??null,
       roles: input.roles ?? ["PLAYER"],
     });
   }
@@ -61,10 +63,11 @@ export class FakeTeamRepository implements TeamRepository {
     return user ? { id: user.id, displayName: user.displayName, username: user.username, roles: user.roles } : null;
   }
 
-  async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
+  async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string; emailNormalized?: string }) {
     const user = [...this.users.values()].find((item) =>
       (input.usernameNormalized && item.usernameNormalized === input.usernameNormalized) ||
-      (input.phoneE164 && item.phoneE164 === input.phoneE164)
+      (input.phoneE164 && item.phoneE164 === input.phoneE164) ||
+      (input.emailNormalized && item.emailNormalized === input.emailNormalized)
     );
     return user ? { id: user.id, displayName: user.displayName, username: user.username, roles: user.roles } : null;
   }
