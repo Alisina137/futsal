@@ -530,12 +530,18 @@ export class FakeTeamRepository implements TeamRepository {
     }
 
     const team=this.teams.get(invite.teamId);
-    if(!team||team.status!=="ACTIVE"||(team.offlineVenueId&&!team.claimedAt))return null;
+    if(!team||team.status!=="ACTIVE"||(team.offlineVenueId&&!team.claimedAt)){
+      this.invitations.set(invitationId,{...invite,status:"REVOKED"});
+      return null;
+    }
     if(this.users.get(invitedUserId)?.roles.includes("REFEREE"))
       throw errors.conflict("REFEREE_ROLE_EXCLUSIVE","Referees cannot join teams.");
     const key = this.membershipKey(invite.teamId, invitedUserId);
     const existing = this.memberships.get(key);
-    if(existing?.status==="ACTIVE")return null;
+    if(existing?.status==="ACTIVE"){
+      this.invitations.set(invitationId,{...invite,status:"REVOKED"});
+      return null;
+    }
     this.memberships.set(key, {
       teamId: invite.teamId,
       userId: invitedUserId,
