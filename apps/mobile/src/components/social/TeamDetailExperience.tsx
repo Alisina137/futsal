@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {SocialFollowStateDto,TeamDto,TeamJoinRequestStatus} from "@leaguekick/contracts";
-import {router,useLocalSearchParams} from "expo-router";
+import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {Image,Modal,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions} from "react-native";
 import {marketingApi,resolveMediaImageUrl,teamApi,teamManagerApi,teamPublicApi,
@@ -151,9 +151,11 @@ export default function TeamDetailExperience(){
   const mainNav=useVisibleTab<Tab>(tab);
   const subNav=useVisibleTab<string>(subs[tab]??subNavigation[tab][0]!);
   const lastId=useRef(id);
+  const loadGeneration=useRef(0);
 
   const load=useCallback(async()=>{
     if(!id)return;
+    const generation=++loadGeneration.current;
     setLoading(true);setError(null);
     try{
       const [result,details,policy]=await Promise.all([
@@ -173,27 +175,36 @@ export default function TeamDetailExperience(){
           }
         }catch{/* Public team details remain usable when private reads fail. */}
       }
+      if(loadGeneration.current!==generation)return;
       setTeam(next);setProfile(details?.profile??null);
       setMember(isMember);setJoinStatus(request);setJoinAllowed(policy.allowJoinRequests);
     }catch{
-      setError(t("teams.publicTeamLoadError"));
-    }finally{setLoading(false);}
+      if(loadGeneration.current===generation)setError(t("teams.publicTeamLoadError"));
+    }finally{if(loadGeneration.current===generation)setLoading(false);}
   },[id,session?.accessToken,session?.user.id,t]);
-  useEffect(()=>{void load();},[load]);
+  // Returning from manager, invitations or player pages must refresh roster
+  // privileges and pending requests without retaining another team's response.
+  useFocusEffect(useCallback(()=>{
+    setHighlights(null);setOlderPosts([]);setMorePostsAvailable(false);
+    postsGeneration.current++;setMorePostsError(null);
+    void load();
+    return()=>{loadGeneration.current++;postsGeneration.current++;};
+  },[load]));
   useEffect(()=>{
     if(lastId.current===id)return;
-    lastId.current=id;setTeam(null);setProfile(null);setHighlights(null);
+    lastId.current=id;loadGeneration.current++;
+    setTeam(null);setProfile(null);setHighlights(null);
     postsGeneration.current++;setOlderPosts([]);setMorePostsAvailable(false);
     setMorePostsError(null);setMorePostsBusy(false);setPhoto(null);
     setTab("media");setFollowState(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
   },[id]);
-  useEffect(()=>{
-    if(!session||!id)return;
+  useFocusEffect(useCallback(()=>{
+    if(!session||!id){setFollowState(null);return;}
     let live=true;
     marketingApi.socialFollowState(session.accessToken,"TEAM",id)
-      .then(result=>{if(live)setFollowState(result);}).catch(()=>{});
+      .then(result=>{if(live)setFollowState(result);}).catch(()=>{if(live)setFollowState(null);});
     return()=>{live=false;};
-  },[session?.accessToken,id]);
+  },[session?.accessToken,id]));
   useEffect(()=>{
     if(!team||team.id!==id||highlights||tab==="squad"||tab==="about")return;
     let live=true;
