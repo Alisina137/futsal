@@ -326,7 +326,7 @@ export default function TeamDetailExperience(){
     const posts=subs.media==="photos"?allPosts.filter(p=>!!resolveMediaImageUrl(p.imageUrl)):allPosts;
     const footer=<>
       {morePostsError?<Card><AppText style={{color:colors.danger}}>{morePostsError}</AppText></Card>:null}
-      {morePostsAvailable||morePostsError?<Button testID="team-load-more-posts"
+      {morePostsAvailable||morePostsError?<Button
         label={tx("showMore")} variant="secondary" loading={morePostsBusy}
         disabled={morePostsBusy} onPress={()=>void loadMorePosts()}/>:null}
     </>;
