@@ -38,6 +38,11 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
     catch (error) { next(error); }
   });
 
+  router.get("/competitions/mine",auth,async(request,response,next)=>{
+    try {response.json(await service.listMyPublic(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+
   router.post("/competitions/:competitionId/register", auth, writeLimiter, async (request, response, next) => {
     try {
       const competitionId = idSchema.parse(request.params.competitionId);
