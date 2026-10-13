@@ -233,7 +233,7 @@ export class DrizzleTeamRepository implements TeamRepository {
     };
   }
 
-  private async listMembers(teamId: string): Promise<TeamMemberDto[]> {
+  private async listMembers(teamId: string, publicOnly=false): Promise<TeamMemberDto[]> {
     const rows = await this.db.select({
       userId: users.id,
       fallbackDisplayName: users.displayName,
@@ -250,6 +250,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         eq(teamMemberships.teamId, teamId),
         eq(teamMemberships.status, "ACTIVE"),
         eq(users.status, "ACTIVE"),
+        publicOnly ? eq(playerProfiles.visibility, "PUBLIC") : undefined,
       ));
 
     return rows.map((row) => ({
@@ -344,7 +345,7 @@ export class DrizzleTeamRepository implements TeamRepository {
     return row ? teamRecord(row) : null;
   }
 
-  async getTeam(teamId: string, includeRoster: boolean): Promise<TeamDto | null> {
+  async getTeam(teamId: string, includeRoster: boolean, publicRoster=false): Promise<TeamDto | null> {
     const record = await this.getTeamRecord(teamId);
     if (!record) return null;
     return {
@@ -357,7 +358,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       managerUserId: record.managerUserId,
       captainUserId: record.captainUserId,
       rosterCount: await this.rosterCount(record.id),
-      members: includeRoster ? await this.listMembers(record.id) : [],
+      members: includeRoster ? await this.listMembers(record.id,publicRoster) : [],
       createdAt: record.createdAt.toISOString(),
     };
   }
