@@ -99,6 +99,15 @@ export class FakeCompetitionRepository implements CompetitionRepository {
 
   async listOwnerCompetitions(ownerUserId:string){return this.items(ownerUserId,false);}
   async listPublicCompetitions(){return this.items(undefined,true);}
+  async listMyPublicCompetitions(userId:string):Promise<CompetitionListItemDto[]>{
+    // Existing test fake models manager-owned teams; the live repository
+    // additionally includes every active team membership for this user.
+    const teamIds=new Set([...this.teams.values()].filter(team=>
+      team.managerUserId===userId&&team.status==="ACTIVE").map(team=>team.id));
+    const involved=new Set([...this.registrations.values()].filter(item=>
+      teamIds.has(item.teamId)).map(item=>item.competitionId));
+    return (await this.items(undefined,true)).filter(item=>involved.has(item.id));
+  }
 
   async createCompetition(input:Parameters<CompetitionRepository["createCompetition"]>[0]){
     const venue=[...this.venues.values()].find((item)=>item.id===input.venueId)!;

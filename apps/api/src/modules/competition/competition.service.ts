@@ -214,6 +214,14 @@ export class CompetitionService {
     };
   }
 
+  async listMyPublic(userId:string){
+    const competitions=await this.repository.listMyPublicCompetitions(userId);
+    return {
+      generatedAt:this.now().toISOString(),
+      competitions:competitions.filter(item=>item.status!=="DRAFT"&&item.status!=="CANCELLED"),
+    };
+  }
+
   async getPublic(competitionId: string) {
     const record = await this.repository.getCompetitionRecord(competitionId);
     if (!record || !record.published || record.status === "DRAFT") {

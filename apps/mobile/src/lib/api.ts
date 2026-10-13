@@ -1217,6 +1217,9 @@ export const manualTeamApi = {
 export const competitionApi = {
   list: () =>
     request<{ generatedAt: string; competitions: CompetitionListItemDto[] }>("/api/v1/competitions"),
+  mine: (accessToken:string) =>
+    request<{ generatedAt:string; competitions:CompetitionListItemDto[] }>(
+      "/api/v1/competitions/mine",{},accessToken),
   get: (competitionId: string) =>
     request<{ competition: CompetitionDto }>(`/api/v1/competitions/${competitionId}`),
   match: (competitionId:string,matchId:string)=>
