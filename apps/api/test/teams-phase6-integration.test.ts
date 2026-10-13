@@ -18,7 +18,7 @@ function createFixture(){
 }
 async function ownedTeam(fixture:ReturnType<typeof createFixture>){
   return fixture.service.createTeam(fixture.manager,{name:"Kabul Five",city:"Kabul",
-    privacy:"PUBLIC",logoUrl:null});
+    privacy:"PUBLIC"});
 }
 describe("Teams Phase 6 — end-to-end service authorization and privacy",()=>{
   it("resolves invitations through normalized email without losing username lookups",async()=>{
