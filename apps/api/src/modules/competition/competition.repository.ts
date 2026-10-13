@@ -29,7 +29,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, count, desc, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNotNull, lt, ne, sql, type SQL } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   CompetitionRecord,
@@ -297,7 +297,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     };
   }
 
-  private async listItems(where: ReturnType<typeof eq>): Promise<CompetitionListItemDto[]> {
+  private async listItems(where: SQL): Promise<CompetitionListItemDto[]> {
     const rows = await this.db.select({
       competition: competitions,
       venueName: venues.name,
@@ -305,6 +305,21 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       .innerJoin(venues, eq(competitions.venueId, venues.id))
       .where(where);
 
+    // Fetch one image per competition from genuine published photo posts.
+    // A single bounded-by-competition-ID query avoids N+1 media requests.
+    const images=new Map<string,string>();
+    if(rows.length){
+      const media=await this.db.select({id:socialPosts.entityId,imageUrl:socialPosts.imageUrl})
+        .from(socialPosts).where(and(
+          eq(socialPosts.entityType,"COMPETITION"),
+          eq(socialPosts.status,"PUBLISHED"),
+          isNotNull(socialPosts.imageUrl),
+          inArray(socialPosts.entityId,rows.map(row=>row.competition.id)),
+        )).orderBy(desc(socialPosts.publishedAt));
+      for(const post of media){
+        if(post.imageUrl&&!images.has(post.id))images.set(post.id,post.imageUrl);
+      }
+    }
     const items: CompetitionListItemDto[] = [];
     for (const row of rows) {
       const [accepted] = await this.db.select({ value: count() }).from(competitionTeams).where(and(
@@ -333,6 +348,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         startsAt: row.competition.startsAt?.toISOString() ?? null,
         endsAt: row.competition.endsAt?.toISOString() ?? null,
         acceptedTeams: Number(accepted?.value ?? 0),
+        coverImageUrl: images.get(row.competition.id)??null,
       });
     }
     return items.sort((a, b) => (a.startsAt ?? a.name).localeCompare(b.startsAt ?? b.name));
@@ -344,6 +360,19 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
 
   async listPublicCompetitions() {
     return this.listItems(eq(competitions.published, true));
+  }
+
+  /** Only published competitions involving the authenticated user's active team membership. */
+  async listMyPublicCompetitions(userId:string):Promise<CompetitionListItemDto[]>{
+    const links=await this.db.selectDistinct({competitionId:competitionTeams.competitionId})
+      .from(competitionTeams)
+      .innerJoin(teamMemberships,eq(teamMemberships.teamId,competitionTeams.teamId))
+      .innerJoin(competitions,eq(competitions.id,competitionTeams.competitionId))
+      .where(and(eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE"),
+        eq(competitions.published,true)));
+    if(!links.length)return [];
+    return this.listItems(and(eq(competitions.published,true),
+      inArray(competitions.id,links.map(link=>link.competitionId)))!);
   }
 
   async createCompetition(input: Parameters<CompetitionRepository["createCompetition"]>[0]) {
