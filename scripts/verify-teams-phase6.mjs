@@ -19,7 +19,9 @@ for(const [ok,label] of [
   [service.includes("const emailNormalized=value.includes")&&
     repo.includes("eq(users.emailNormalized,input.emailNormalized)")&&
     types.includes("emailNormalized?: string"),"normalized email invitation resolution across repository contracts"],
-  [repo.includes('if(existing?.status==="ACTIVE")return false;'),"stale invite cannot replace active membership role"],
+  [repo.includes('if(existing?.status==="ACTIVE"){')&&
+    repo.includes('this.db.transaction(async (tx)')&&
+    repo.includes('status:"REVOKED",respondedAt:now,updatedAt:now'),"stale invite cannot replace active membership role"],
   [repo.includes('team.offlineVenueId&&!team.claimedAt')&&
     repo.includes('eq(userRoles.role,"REFEREE")'),"unclaimed teams and referee grants prohibited during invitation acceptance"],
   [repo.includes("pg_advisory_xact_lock")&&repo.includes('eq(teamInvitations.status, "PENDING")'),"transaction locks and pending invitation state gates"],
