@@ -445,7 +445,7 @@ export class DrizzleTeamRepository implements TeamRepository {
     if(filters.district)constraints.push(eq(teamManagerProfiles.district,filters.district));
     if(filters.q){
       // Literal substring matching: user wildcards must not broaden results.
-      const pattern="%"+filters.q.replace(/[\\%_]/g,"\\const pattern="%"+filters.q.replace(/[\\%_]/g,"\\  async allowsJoinRequests(teamId:string):Promise<boolean>{")+"%";")+"%";
+      const pattern="%"+filters.q.replace(/[\\%_]/g,"\\$&")+"%";
       constraints.push(or(ilike(teams.name,pattern),ilike(teams.city,pattern),
         ilike(teamManagerProfiles.province,pattern),
         ilike(teamManagerProfiles.district,pattern))!);
@@ -956,9 +956,14 @@ export class DrizzleTeamRepository implements TeamRepository {
 
   async acceptInvitation(invitationId: string, invitedUserId: string, now: Date) {
     const accepted = await this.db.transaction(async (tx) => {
-      const [invite] = await tx.select().from(teamInvitations)
+      const [initial] = await tx.select().from(teamInvitations)
         .where(eq(teamInvitations.id, invitationId))
         .limit(1);
+      if (!initial || initial.invitedUserId !== invitedUserId || initial.status !== "PENDING") return false;
+      // Re-read after the team lock: manager approval may have revoked this invite.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${initial.teamId}))`);
+      const [invite] = await tx.select().from(teamInvitations)
+        .where(eq(teamInvitations.id, invitationId)).limit(1);
       if (!invite || invite.invitedUserId !== invitedUserId || invite.status !== "PENDING") return false;
       if (invite.expiresAt.getTime() <= now.getTime()) {
         await tx.update(teamInvitations).set({
@@ -969,7 +974,6 @@ export class DrizzleTeamRepository implements TeamRepository {
         return false;
       }
 
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${invite.teamId}))`);
       const [team] = await tx.select().from(teams).where(eq(teams.id, invite.teamId)).limit(1);
       if (!team || team.status !== "ACTIVE") return false;
 
