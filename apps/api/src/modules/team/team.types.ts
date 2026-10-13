@@ -75,6 +75,7 @@ export interface TeamRepository {
   allowsJoinRequests(teamId:string):Promise<boolean>;
   getJoinRequest(teamId: string, requesterUserId: string): Promise<TeamJoinRequestDto | null>;
   createJoinRequest(teamId: string, requesterUserId: string, now: Date): Promise<TeamJoinRequestDto>;
+  cancelJoinRequest(teamId: string, requesterUserId: string, now: Date): Promise<TeamJoinRequestDto | null>;
   listJoinRequestsForTeam(teamId: string): Promise<TeamJoinRequestDto[]>;
   respondJoinRequest(teamId: string, requestId: string, managerUserId: string, accept: boolean, now: Date): Promise<TeamJoinRequestDto | null>;
   getMembership(teamId: string, userId: string): Promise<TeamMembershipRecord | null>;

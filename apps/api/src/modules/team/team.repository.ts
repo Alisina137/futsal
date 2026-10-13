@@ -445,7 +445,7 @@ export class DrizzleTeamRepository implements TeamRepository {
     if(filters.district)constraints.push(eq(teamManagerProfiles.district,filters.district));
     if(filters.q){
       // Literal substring matching: user wildcards must not broaden results.
-      const pattern="%"+filters.q.replace(/[\\%_]/g,"\\  async allowsJoinRequests(teamId:string):Promise<boolean>{")+"%";
+      const pattern="%"+filters.q.replace(/[\\%_]/g,"\\const pattern="%"+filters.q.replace(/[\\%_]/g,"\\  async allowsJoinRequests(teamId:string):Promise<boolean>{")+"%";")+"%";
       constraints.push(or(ilike(teams.name,pattern),ilike(teams.city,pattern),
         ilike(teamManagerProfiles.province,pattern),
         ilike(teamManagerProfiles.district,pattern))!);
@@ -568,6 +568,24 @@ export class DrizzleTeamRepository implements TeamRepository {
     }
   }
 
+  async cancelJoinRequest(teamId: string, requesterUserId: string, now: Date): Promise<TeamJoinRequestDto | null> {
+    const requestId = await this.db.transaction(async (tx) => {
+      // Same advisory team lock as manager approval: cannot cancel an already-approved request.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${teamId}))`);
+      const [current] = await tx.select({ id: teamJoinRequests.id }).from(teamJoinRequests)
+        .where(and(eq(teamJoinRequests.teamId, teamId),
+          eq(teamJoinRequests.requesterUserId, requesterUserId),
+          eq(teamJoinRequests.status, "PENDING"))).limit(1);
+      if (!current) return null;
+      const [updated] = await tx.update(teamJoinRequests).set({
+        status: "CANCELLED", respondedAt: now, respondedByUserId: null, updatedAt: now,
+      }).where(and(eq(teamJoinRequests.id, current.id), eq(teamJoinRequests.status, "PENDING")))
+        .returning({ id: teamJoinRequests.id });
+      return updated?.id ?? null;
+    });
+    return requestId ? this.joinRequestDto(requestId) : null;
+  }
+
   async listJoinRequestsForTeam(teamId: string): Promise<TeamJoinRequestDto[]> {
     const rows = await this.db.select({ id: teamJoinRequests.id }).from(teamJoinRequests)
       .where(eq(teamJoinRequests.teamId, teamId))
@@ -628,6 +646,14 @@ export class DrizzleTeamRepository implements TeamRepository {
         });
       }
 
+      if (accept) {
+        // A newly joined player must not have a stale actionable invitation.
+        await tx.update(teamInvitations).set({
+          status: "REVOKED", respondedAt: now, updatedAt: now,
+        }).where(and(eq(teamInvitations.teamId, teamId),
+          eq(teamInvitations.invitedUserId, request.requesterUserId),
+          eq(teamInvitations.status, "PENDING")));
+      }
       await tx.update(teamJoinRequests).set({
         status: accept ? "ACCEPTED" : "REJECTED",
         respondedByUserId: managerUserId,
@@ -994,6 +1020,13 @@ export class DrizzleTeamRepository implements TeamRepository {
         await tx.update(teams).set({ captainUserId: invitedUserId, updatedAt: now }).where(eq(teams.id, invite.teamId));
       }
 
+      // Accepting an invitation resolves any parallel membership request too.
+      await tx.update(teamJoinRequests).set({
+        status: "ACCEPTED", respondedByUserId: team.managerUserId,
+        respondedAt: now, updatedAt: now,
+      }).where(and(eq(teamJoinRequests.teamId, invite.teamId),
+        eq(teamJoinRequests.requesterUserId, invitedUserId),
+        eq(teamJoinRequests.status, "PENDING")));
       await tx.update(teamInvitations).set({
         status: "ACCEPTED",
         respondedAt: now,

@@ -73,12 +73,11 @@ export class PlayerDashboardPhase1Service{
   }
   async cancelJoinRequest(userId:string,id:string){
     await this.ensureIdentity(userId);
-    const [updated]=await this.db.update(teamJoinRequests).set({status:"CANCELLED",
-      respondedAt:this.now(),updatedAt:this.now()})
-      .where(and(eq(teamJoinRequests.id,id),eq(teamJoinRequests.requesterUserId,userId),
-        eq(teamJoinRequests.status,"PENDING")))
-      .returning({id:teamJoinRequests.id});
-    if(!updated)throw errors.conflict("JOIN_REQUEST_UNAVAILABLE","This request is no longer pending.");
+    const [current]=await this.db.select({teamId:teamJoinRequests.teamId})
+      .from(teamJoinRequests).where(and(eq(teamJoinRequests.id,id),
+        eq(teamJoinRequests.requesterUserId,userId))).limit(1);
+    if(!current)throw errors.conflict("JOIN_REQUEST_UNAVAILABLE","This request is unavailable.");
+    await this.teamService.cancelMyJoinRequest(userId,current.teamId);
     return {cancelled:true};
   }
   async leaveTeam(userId:string,teamId:string){

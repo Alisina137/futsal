@@ -113,6 +113,20 @@ export class TeamService {
     return this.repository.discoverTeams(userId,filters);
   }
 
+  async getPublicJoinPolicy(teamId: string) {
+    await this.team(teamId);
+    return { allowJoinRequests: await this.repository.allowsJoinRequests(teamId) };
+  }
+
+  async cancelMyJoinRequest(userId: string, teamId: string) {
+    await this.identity(userId);
+    await this.team(teamId);
+    const request = await this.repository.cancelJoinRequest(teamId, userId, this.now());
+    if (!request) throw errors.conflict("TEAM_JOIN_REQUEST_UNAVAILABLE",
+      "This join request is no longer pending.");
+    return request;
+  }
+
   async getMyJoinRequest(userId: string, teamId: string) {
     await this.identity(userId);
     const team = await this.team(teamId);
@@ -122,6 +136,8 @@ export class TeamService {
 
   async requestToJoin(userId: string, teamId: string) {
     const user = await this.identity(userId);
+    if (user.roles.includes("REFEREE")) throw errors.forbidden("REFEREE_ROLE_EXCLUSIVE",
+      "Referees cannot request player membership.");
     const team = await this.team(teamId);
     if (team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
     if (team.managerUserId === userId) {
