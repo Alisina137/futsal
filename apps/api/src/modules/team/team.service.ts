@@ -252,6 +252,10 @@ export class TeamService {
     if (target.id === userId) {
       throw errors.badRequest("CANNOT_INVITE_SELF", "You are already the manager of this team.");
     }
+    if(target.roles.includes("REFEREE")){
+      throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+        "Referees cannot be invited as players. Remove their referee role first.");
+    }
 
     const existingMembership = await this.repository.getMembership(teamId, target.id);
     if (existingMembership?.status === "ACTIVE") {
