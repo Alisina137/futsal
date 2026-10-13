@@ -1,7 +1,7 @@
 import { colors, spacing } from "@leaguekick/design-tokens";
 import type { TeamInvitationDto } from "@leaguekick/contracts";
-import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import { View } from "react-native";
 import { teamApi } from "../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../src/lib/date-time";
@@ -21,28 +21,34 @@ export default function TeamInvitationsScreen(){
   const [error,setError]=useState<string|null>(null);
   const [feedback,setFeedback]=useState<string|null>(null);
   const [busyId,setBusyId]=useState<string|null>(null);
+  const loadGeneration=useRef(0);
 
   const load=useCallback(async()=>{
-    if(!session)return;
+    const generation=++loadGeneration.current;
+    if(!session){setItems([]);setLoading(false);return;}
     setLoading(true);setError(null);
     try{
-      setItems((await teamApi.invitations(session.accessToken)).invitations);
+      const response=await teamApi.invitations(session.accessToken);
+      if(loadGeneration.current===generation)setItems(response.invitations);
     }catch{
-      setError(t("teams.invitationLoadError"));
+      if(loadGeneration.current===generation)setError(t("teams.invitationLoadError"));
     }finally{
-      setLoading(false);
+      if(loadGeneration.current===generation)setLoading(false);
     }
-  },[session,t]);
+  },[session?.accessToken,t]);
 
-  useEffect(()=>{void load();},[load]);
+  useFocusEffect(useCallback(()=>{
+    void load();
+    return()=>{loadGeneration.current++;};
+  },[load]));
 
   async function respond(invitationId:string,accept:boolean){
-    if(!session)return;
+    if(!session||busyId)return;
     setBusyId(invitationId);setError(null);setFeedback(null);
     try{
       if(accept)await teamApi.acceptInvitation(session.accessToken,invitationId);
       else await teamApi.declineInvitation(session.accessToken,invitationId);
-      if(accept)await revalidate();
+      if(accept)await revalidate().catch(()=>{});
       await load();
       setFeedback(t(accept?"teams.phase4.invitationAccepted":"teams.phase4.invitationDeclined"));
     }catch{
@@ -88,6 +94,7 @@ export default function TeamInvitationsScreen(){
           label={t("teams.accept")}
           onPress={()=>void respond(item.id,true)}
           loading={busyId===item.id}
+          disabled={busyId!==null}
           style={{flex:1}}
         />
         <Button
