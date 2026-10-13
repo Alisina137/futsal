@@ -1,3 +1,13 @@
+## Teams Phase 6 — Integration, Authorization and Release QA (2026-10-13)
+
+- Team invitation lookup now supports normalized email addresses in addition to usernames and legacy phone numbers; account email remains verified at membership acceptance.
+- Security: an anonymous PUBLIC team roster excludes members with PRIVATE player profiles without altering the total member count. Authorized active team members and managers retain roster access.
+- Security: accepting invitations rejects referee grants, inactive/unclaimed teams and stale invitations that would overwrite an active membership role. Transactional membership decisions preserve team/user locking.
+- Mobile: public team details refresh roster, pending join state, follow state and highlights on focus. Stale team responses cannot overwrite a newly selected team.
+- Mobile: the multi-team manager dashboard clears other-team drafts, roster, join approvals, invitations and media on switch; async actions are guarded by the selected team. Invitations are refreshed on focus, serialized and stale responses ignored.
+- Added cross-module integration tests and `pnpm verify:teams-phase6`, included in root `pnpm verify`. Added `docs/TEAMS-PHASE6-QA.md` with device QA and release gates.
+- No new migration. GitHub CI ensures source verification, tests, types and Expo export. Real-device QA remains a separate manual acceptance activity.
+
 ## Teams Phase 5 — Media, Matches & Statistics (2026-10-13)
 
 - Public team Media supports posts/photos, server-validated bounded pagination for older public posts (published, public-visible only), individual post/comment navigation, and a refresh action. In-flight older-page responses are invalidated on team switch.
