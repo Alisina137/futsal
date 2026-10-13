@@ -93,7 +93,7 @@ export class TeamService {
 
   async getPublicTeam(teamId: string): Promise<TeamDto> {
     const team = await this.team(teamId);
-    const dto = await this.repository.getTeam(teamId, team.privacy === "PUBLIC");
+    const dto = await this.repository.getTeam(teamId, team.privacy === "PUBLIC", true);
     if (!dto) throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
     return dto;
   }
