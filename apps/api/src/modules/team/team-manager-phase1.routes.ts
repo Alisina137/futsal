@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { Database } from "@leaguekick/database";
 import { and, asc, eq, gte, inArray, or } from "drizzle-orm";
 import { competitionMatches, competitionTeams, competitions, roleSubscriptions,
-  teamGuestPlayers, teamManagerProfiles, teamMemberships, teams } from "@leaguekick/database";
+  teamGuestPlayers, teamManagerProfiles, teamMemberships, teams, socialUserPostImages } from "@leaguekick/database";
 import { errors } from "../../lib/errors.js";
 import {teamLicenseActive,requireTeamLicense} from "./team-slots.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -37,6 +37,7 @@ const profileInput=z.object({
     const d=new Date(value+"T00:00:00Z");return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===value;
   }).nullable(),
   primaryColor:z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+  coverImageUrl:z.string().regex(/^\/api\/v1\/social\/post-images\/[0-9a-f-]{36}\/[A-Za-z0-9_-]{32,64}$/).nullable().optional(),
   secondaryColor:z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
   contactPhone:optionalText(24),
   homeVenueId:id.nullable(),
@@ -77,6 +78,7 @@ export class TeamManagerPhase1Service {
       province:record?.province??null,district:record?.district??null,
       description:record?.description??null,foundedOn:record?.foundedOn??null,
       primaryColor:record?.primaryColor??null,secondaryColor:record?.secondaryColor??null,
+      coverImageUrl:record?.coverImageUrl??null,
       contactPhone:record?.contactPhone??null,homeVenueId:record?.homeVenueId??null,
       allowJoinRequests:record?.allowJoinRequests??true,
       whatsappGroupUrl:record?.whatsappGroupUrl??null,
@@ -126,6 +128,17 @@ export class TeamManagerPhase1Service {
   }
   async updateProfile(userId:string,teamId:string,input:z.infer<typeof profileInput>){
     await this.team(userId,teamId,true);
+    // Only the manager's own uploaded media token can be published as this
+    // team's cover. Reject arbitrary remote URLs, unsafe hosts and other users'
+    // media even when a caller bypasses the mobile image picker.
+    if(input.coverImageUrl){
+      const match=/^\/api\/v1\/social\/post-images\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{32,64})$/.exec(input.coverImageUrl);
+      if(!match)throw errors.badRequest("TEAM_COVER_INVALID","Choose an image uploaded through the app.");
+      const [asset]=await this.db.select({id:socialUserPostImages.id}).from(socialUserPostImages)
+        .where(and(eq(socialUserPostImages.id,match[1]!),eq(socialUserPostImages.publicToken,match[2]!),
+          eq(socialUserPostImages.ownerUserId,userId))).limit(1);
+      if(!asset)throw errors.forbidden("TEAM_COVER_NOT_OWNED","This photo belongs to another account.");
+    }
     const data={...input,updatedAt:this.now()};
     await this.db.insert(teamManagerProfiles).values({teamId,...data})
       .onConflictDoUpdate({target:teamManagerProfiles.teamId,set:data});
