@@ -77,7 +77,7 @@ export class PlayerDashboardPhase1Service{
       .from(teamJoinRequests).where(and(eq(teamJoinRequests.id,id),
         eq(teamJoinRequests.requesterUserId,userId))).limit(1);
     if(!current)throw errors.conflict("JOIN_REQUEST_UNAVAILABLE","This request is unavailable.");
-    await this.teamService.cancelMyJoinRequest(userId,current.teamId);
+    await this.teamsService.cancelMyJoinRequest(userId,current.teamId);
     return {cancelled:true};
   }
   async leaveTeam(userId:string,teamId:string){
