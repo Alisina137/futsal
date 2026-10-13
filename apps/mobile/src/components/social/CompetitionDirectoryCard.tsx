@@ -104,9 +104,10 @@ export function CompetitionDirectoryCard({
     </View>
   </View>;
 }
-const IMAGE_SIZE=108;
+// 144px square ≈ half of the resulting ~290px card height.
+const IMAGE_SIZE=144;
 const styles=StyleSheet.create({
-  card:{width:"100%",minHeight:222,borderRadius:radius.lg,borderWidth:1,borderColor:colors.border,
+  card:{width:"100%",minHeight:288,borderRadius:radius.lg,borderWidth:1,borderColor:colors.border,
     backgroundColor:colors.surface,padding:spacing.sm,gap:spacing.sm},
   header:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm},
   photo:{width:IMAGE_SIZE,height:IMAGE_SIZE,aspectRatio:1,borderRadius:radius.md,
