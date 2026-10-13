@@ -192,7 +192,7 @@ export default function TeamDetailExperience(){
   },[load]));
   useEffect(()=>{
     if(lastId.current===id)return;
-    lastId.current=id;loadGeneration.current++;
+    lastId.current=id;
     setTeam(null);setProfile(null);setHighlights(null);
     postsGeneration.current++;setOlderPosts([]);setMorePostsAvailable(false);
     setMorePostsError(null);setMorePostsBusy(false);setPhoto(null);
