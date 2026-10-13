@@ -78,6 +78,7 @@ export interface CompetitionRepository {
   listPublicMatchPlayerStats(matchId:string):Promise<CompetitionPublicMatchPlayer[]>;
   listOwnerCompetitions(ownerUserId: string): Promise<CompetitionListItemDto[]>;
   listPublicCompetitions(): Promise<CompetitionListItemDto[]>;
+  listMyPublicCompetitions(userId:string): Promise<CompetitionListItemDto[]>;
   createCompetition(input: {
     venueId: string;
     createdByUserId: string;
