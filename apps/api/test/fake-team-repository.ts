@@ -213,7 +213,8 @@ export class FakeTeamRepository implements TeamRepository {
   async getTeam(teamId: string, includeRoster: boolean, publicRoster=false) {
     const team = this.teams.get(teamId);
     if (!team) return null;
-    const members = this.members(teamId).filter(member=>!publicRoster||
+    const allMembers=this.members(teamId);
+    const members = allMembers.filter(member=>!publicRoster||
       this.profiles.get(member.userId)?.visibility==="PUBLIC");
     return {
       id: team.id,
@@ -224,7 +225,7 @@ export class FakeTeamRepository implements TeamRepository {
       privacy: team.privacy,
       managerUserId: team.managerUserId,
       captainUserId: team.captainUserId,
-      rosterCount: members.length,
+      rosterCount: allMembers.length,
       members: includeRoster ? members : [],
       createdAt: team.createdAt.toISOString(),
     };
@@ -528,8 +529,13 @@ export class FakeTeamRepository implements TeamRepository {
       return null;
     }
 
+    const team=this.teams.get(invite.teamId);
+    if(!team||team.status!=="ACTIVE"||(team.offlineVenueId&&!team.claimedAt))return null;
+    if(this.users.get(invitedUserId)?.roles.includes("REFEREE"))
+      throw errors.conflict("REFEREE_ROLE_EXCLUSIVE","Referees cannot join teams.");
     const key = this.membershipKey(invite.teamId, invitedUserId);
     const existing = this.memberships.get(key);
+    if(existing?.status==="ACTIVE")return null;
     this.memberships.set(key, {
       teamId: invite.teamId,
       userId: invitedUserId,
