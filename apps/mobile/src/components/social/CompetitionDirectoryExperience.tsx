@@ -283,7 +283,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
       {!loading&&!error?<View testID="competitions-results-grid" style={[styles.grid,
         {flexDirection:isRTL?"row-reverse":"row"}]}>{visible.map(render)}</View>:null}
       {!loading&&!error&&resultCount>visible.length?<Button
-        testID="competitions-show-more" variant="secondary"
+        variant="secondary"
         label={t("competition.phase1.showMore")}
         onPress={()=>setVisibleCount(n=>n+INITIAL_VISIBLE)}/>:null}
     </View>
