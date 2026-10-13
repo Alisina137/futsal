@@ -569,7 +569,7 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   async cancelJoinRequest(teamId: string, requesterUserId: string, now: Date, requestId?: string): Promise<TeamJoinRequestDto | null> {
-    const requestId = await this.db.transaction(async (tx) => {
+    const cancelledId = await this.db.transaction(async (tx) => {
       // Same advisory team lock as manager approval: cannot cancel an already-approved request.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${teamId}))`);
       const [current] = await tx.select({ id: teamJoinRequests.id }).from(teamJoinRequests)
@@ -584,7 +584,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         .returning({ id: teamJoinRequests.id });
       return updated?.id ?? null;
     });
-    return requestId ? this.joinRequestDto(requestId) : null;
+    return cancelledId ? this.joinRequestDto(cancelledId) : null;
   }
 
   async listJoinRequestsForTeam(teamId: string): Promise<TeamJoinRequestDto[]> {
