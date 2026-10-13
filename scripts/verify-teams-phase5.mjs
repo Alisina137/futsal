@@ -26,7 +26,7 @@ for(const [ok,label] of [
   [tests.includes("Teams Phase 5 public player leaderboard privacy"),"regression tests"],
   [client.includes("posts:(teamId:string,offset:number,limit=20)")&&
     client.includes("players:Array<{userId:string;displayName:string;appearances:number;goals:number;assists:number}>"),"typed public media + stats"],
-  [profile.includes('stats:["overview","form","leaders"]')&&
+  [profile.includes('stats:["overview","form","topPlayers"]')&&
     profile.includes('testID="team-verified-player-leaders"'),"three statistics subtabs"],
   [profile.includes("async function loadMorePosts()")&&
     profile.includes("postsGeneration.current")&&
