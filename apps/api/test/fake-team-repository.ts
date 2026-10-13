@@ -319,9 +319,9 @@ export class FakeTeamRepository implements TeamRepository {
     return request;
   }
 
-  async cancelJoinRequest(teamId:string,requesterUserId:string,now:Date){
+  async cancelJoinRequest(teamId:string,requesterUserId:string,now:Date,requestId?:string){
     const current=await this.getJoinRequest(teamId,requesterUserId);
-    if(!current)return null;
+    if(!current||(requestId&&current.id!==requestId))return null;
     const cancelled:TeamJoinRequestDto={...current,status:"CANCELLED",
       respondedAt:now.toISOString()};
     this.joinRequests.set(current.id,cancelled);
