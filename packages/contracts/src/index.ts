@@ -1859,7 +1859,7 @@ export const teamJoinRequestDtoSchema = z.object({
 export type TeamJoinRequestDto = z.infer<typeof teamJoinRequestDtoSchema>;
 
 export const teamInviteRequestSchema = z.object({
-  identifier: z.string().trim().min(3).max(80),
+  identifier: z.string().trim().min(3).max(320),
   role: z.enum(["CAPTAIN", "PLAYER"]).default("PLAYER"),
   shirtNumber: z.number().int().min(1).max(99).nullable().optional(),
 });
