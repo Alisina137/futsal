@@ -47,6 +47,12 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     emptyProfile:"The team has not added more profile information yet.",close:"Close",
     followHint:"Follow the team for public updates.",noStats:"Stats appear after verified results.",
     status:"Status",back:"All teams",published:"Published",
+    squadSize:"Registered players",captain:"Captain",manager:"Team manager",
+    versus:"VS",kickoff:"Kickoff",fullTime:"Full time",live:"Live",postponed:"Postponed",
+    scheduled:"Scheduled",resultsVerified:"Recorded result",result:"Result",
+    teamForm:"Last 5 completed matches",matchRecord:"Verified match results",
+    noCover:"Team cover",activeCompetition:"Active",pastCompetition:"Past",
+    showTeam:"View team",playerNumber:"Shirt number",totalCompetitions:"Competitions",
   },
   "fa-AF":{
     media:"رسانه",squad:"بازیکنان",matches:"مسابقات",competitions:"رقابت‌ها",stats:"آمار",about:"درباره",
@@ -68,6 +74,12 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     emptyProfile:"تیم هنوز معلومات بیشتری اضافه نکرده است.",close:"بستن",
     followHint:"برای دیدن خبرهای عمومی تیم، آن را دنبال کنید.",noStats:"آمار پس از تأیید نتایج نمایش داده می‌شود.",
     status:"وضعیت",back:"همه تیم‌ها",published:"نشر شده",
+    squadSize:"بازیکنان ثبت‌شده",captain:"کپیتان",manager:"مدیر تیم",
+    versus:"در برابر",kickoff:"شروع مسابقه",fullTime:"پایان مسابقه",live:"جریان دارد",postponed:"به تعویق افتاده",
+    scheduled:"برنامه‌ریزی شده",resultsVerified:"نتیجه ثبت‌شده",result:"نتیجه",
+    teamForm:"۵ مسابقه تکمیل‌شده اخیر",matchRecord:"نتایج ثبت‌شده مسابقات",
+    noCover:"جلد تیم",activeCompetition:"جاری",pastCompetition:"گذشته",
+    showTeam:"نمایش تیم",playerNumber:"شماره پیراهن",totalCompetitions:"رقابت‌ها",
   },
   "ps-AF":{
     media:"رسنۍ",squad:"لوبغاړي",matches:"لوبې",competitions:"سیالۍ",stats:"شمېرې",about:"په اړه",
@@ -89,6 +101,12 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     emptyProfile:"ټیم لا ډېر معلومات نه دي اضافه کړي.",close:"بندول",
     followHint:"د ټیم د عامه خبرونو لپاره یې تعقیب کړئ.",noStats:"شمېرې له تایید شوو پایلو وروسته څرګندېږي.",
     status:"حالت",back:"ټول ټیمونه",published:"خپور شوی",
+    squadSize:"ثبت شوي لوبغاړي",captain:"لوبډلمشر",manager:"د ټیم مدیر",
+    versus:"د",kickoff:"د لوبې پیل",fullTime:"د لوبې پای",live:"روانه ده",postponed:"ځنډېدلې",
+    scheduled:"ټاکل شوې",resultsVerified:"ثبت شوې پایله",result:"پایله",
+    teamForm:"وروستۍ ۵ بشپړې لوبې",matchRecord:"ثبت شوې لوبې او پایلې",
+    noCover:"د ټیم پوښ",activeCompetition:"روانه",pastCompetition:"تېره",
+    showTeam:"ټیم وګورئ",playerNumber:"د کمیس شمېره",totalCompetitions:"سیالۍ",
   },
 };
 
@@ -96,7 +114,7 @@ export default function TeamDetailExperience(){
   const {teamId}=useLocalSearchParams<{teamId:string}>();
   const id=typeof teamId==="string"?teamId:"";
   const {session}=useAuth(),{t,isRTL,language}=useLocale();
-  const {height:viewportHeight}=useWindowDimensions();
+  const {height:viewportHeight,width:viewportWidth}=useWindowDimensions();
   const tx=(key:string)=>words[language][key]??words.en[key]??key;
   const [team,setTeam]=useState<TeamDto|null>(null);
   const [profile,setProfile]=useState<Omit<TeamManagerProfileDetails,"allowJoinRequests"|"whatsappGroupUrl">|null>(null);
@@ -204,6 +222,9 @@ export default function TeamDetailExperience(){
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
     :team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
   const rowDirection={flexDirection:isRTL?"row-reverse" as const:"row" as const};
+  const cover=resolveMediaImageUrl(profile?.coverImageUrl);
+  const teamColor=profile?.primaryColor??colors.primary;
+  const bigScreen=viewportWidth>=720;
   const textAlign={alignItems:isRTL?"flex-end" as const:"flex-start" as const};
 
   function empty(message:string,icon:keyof typeof Ionicons.glyphMap="file-tray-outline"){
@@ -218,9 +239,11 @@ export default function TeamDetailExperience(){
     if(!visible)return empty(tx("privateRoster"),"lock-closed-outline");
     const players=subs.squad==="leaders"?team.members.filter(p=>p.role==="CAPTAIN"):team.members;
     if(!players.length)return empty(tx(subs.squad==="leaders"?"noLeaders":"noRoster"),"people-outline");
-    return players.map(player=><Pressable key={player.userId} accessibilityRole="button"
+    return <View testID="team-squad-grid" style={[styles.squadGrid,rowDirection]}>
+      {players.map(player=><Pressable key={player.userId} accessibilityRole="button"
+      style={[styles.rosterItem,bigScreen&&styles.rosterItemWide]}
       onPress={()=>router.push({pathname:"/players/[playerId]",params:{playerId:player.userId}})}>
-      <Card style={styles.rosterCard}>
+      <Card style={[styles.rosterCard,{borderLeftColor:teamColor}]}>
         <View style={[styles.horizontal,rowDirection]}>
           {resolveMediaImageUrl(player.imageUrl)?<Image source={{uri:resolveMediaImageUrl(player.imageUrl)!}}
             style={styles.playerAvatar}/>:
@@ -230,15 +253,24 @@ export default function TeamDetailExperience(){
               </AppText>
             </View>}
           <View style={[{flex:1,gap:3},textAlign]}>
-            <AppText weight="bold">{player.publicDisplayName}</AppText>
-            <AppText variant="caption" muted>{t(`teams.position.${player.position}` as never)}
-              {" · "}{t(`teams.role.${player.role}` as never)}
-              {player.shirtNumber?" · #"+player.shirtNumber:""}</AppText>
+            <AppText weight="bold" numberOfLines={1}>{player.publicDisplayName}</AppText>
+            <AppText variant="caption" muted numberOfLines={2}>
+              {t(`teams.position.${player.position}` as never)}
+            </AppText>
+            {player.role==="CAPTAIN"||player.role==="MANAGER"?<View
+              style={[styles.memberTag,{backgroundColor:colors.primarySoft}]}>
+              <AppText variant="caption" weight="bold" style={{color:teamColor}}>
+                {tx(player.role==="CAPTAIN"?"captain":"manager")}
+              </AppText>
+            </View>:null}
           </View>
+          {player.shirtNumber?<View style={styles.jerseyBadge}>
+            <AppText variant="caption" muted>#{player.shirtNumber}</AppText>
+          </View>:null}
           <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.textMuted}/>
         </View>
       </Card>
-    </Pressable>);
+    </Pressable>)}</View>;
   }
   function mediaContent(data:TeamPublicHighlights){
     const posts=subs.media==="photos"?data.posts.filter(p=>!!resolveMediaImageUrl(p.imageUrl)):data.posts;
@@ -276,23 +308,39 @@ export default function TeamDetailExperience(){
         :(Date.parse(a.startsAt??"")||Number.MAX_SAFE_INTEGER)-(Date.parse(b.startsAt??"")||Number.MAX_SAFE_INTEGER));
     if(!rows.length)return empty(tx("noGames"),"football-outline");
     return rows.map(m=><Card key={m.id} style={styles.fixture}>
-      <AppText variant="caption" muted>{m.competitionName} · {m.stage}</AppText>
+      <View style={[styles.fixtureHeading,rowDirection]}>
+        <View style={{flex:1,gap:3}}>
+          <AppText weight="semibold" numberOfLines={1}>{m.competitionName}</AppText>
+          <AppText variant="caption" muted>{m.stage}</AppText>
+        </View>
+        <View style={[styles.fixtureStatus,{backgroundColor:finished(m)?"#DCFCE7":
+          m.status==="IN_PROGRESS"?"#DBEAFE":"#FEF3C7"}]}>
+          <AppText variant="caption" weight="bold" style={{color:finished(m)?"#166534":
+            m.status==="IN_PROGRESS"?"#1D4ED8":"#92400E"}}>
+            {tx(finished(m)?"resultsVerified":m.status==="IN_PROGRESS"?"live":
+              m.status==="POSTPONED"?"postponed":"scheduled")}
+          </AppText>
+        </View>
+      </View>
       <View style={[styles.scoreRow,rowDirection]}>
         <AppText weight="semibold" style={{flex:1,textAlign:"center"}}>
           {m.homeTeamId===id?team?.name:m.homeTeamName||"—"}
         </AppText>
         <View style={styles.scoreBadge}>
           <AppText weight="bold" style={{color:colors.primary}}>
-            {finished(m)?`${m.homeScore??"—"} : ${m.awayScore??"—"}`:"VS"}
+            {finished(m)?`${m.homeScore??"—"} : ${m.awayScore??"—"}`:tx("versus") }
           </AppText>
         </View>
         <AppText weight="semibold" style={{flex:1,textAlign:"center"}}>
           {m.awayTeamId===id?team?.name:m.awayTeamName||"—"}
         </AppText>
       </View>
-      <AppText variant="caption" muted style={{textAlign:"center"}}>
-        {m.startsAt?formatCompetitionDateTime(m.startsAt,language):tx("datePending")}
-      </AppText>
+      <View style={[styles.fixtureDate,rowDirection]}>
+        <Ionicons name="calendar-outline" size={17} color={colors.textMuted}/>
+        <AppText variant="caption" muted style={{flex:1}}>
+          {m.startsAt?formatCompetitionDateTime(m.startsAt,language):tx("datePending")}
+        </AppText>
+      </View>
       <Button label={tx("viewMatch")} variant="secondary"
         onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
           params:{competitionId:m.competitionId,matchId:m.id}})}/>
@@ -302,15 +350,23 @@ export default function TeamDetailExperience(){
     const old=["COMPLETED","ARCHIVED","CANCELLED"];
     const chosen=data.competitions.filter(c=>subs.competitions==="past"?old.includes(c.status):!old.includes(c.status));
     if(!chosen.length)return empty(tx("noCompetitions"),"trophy-outline");
-    return chosen.map(c=><Card key={c.id} style={styles.postCard}>
+    return chosen.map(c=><Card key={c.id} style={styles.competitionCard}>
       <View style={[styles.horizontal,rowDirection]}>
         <View style={styles.iconCircle}><Ionicons name="trophy-outline" size={22} color={colors.primary}/></View>
         <View style={{flex:1,gap:4}}>
           <AppText weight="bold">{c.name}</AppText>
-          <AppText variant="caption" muted>{c.format} · {c.status.replace(/_/g," ")}</AppText>
+          <AppText variant="caption" muted>{c.format}</AppText>
+        </View>
+        <View style={[styles.fixtureStatus,{backgroundColor:old.includes(c.status)?"#F1F5F9":"#E7F0FF"}]}>
+          <AppText variant="caption" weight="bold" style={{color:old.includes(c.status)?"#475569":"#1D4ED8"}}>
+            {tx(old.includes(c.status)?"pastCompetition":"activeCompetition")}
+          </AppText>
         </View>
       </View>
-      {c.startsAt?<AppText variant="caption" muted>{formatCompetitionDateTime(c.startsAt,language)}</AppText>:null}
+      {c.startsAt?<View style={[styles.fixtureDate,rowDirection]}>
+        <Ionicons name="calendar-outline" size={16} color={colors.textMuted}/>
+        <AppText variant="caption" muted>{formatCompetitionDateTime(c.startsAt,language)}</AppText>
+      </View>:null}
       <Button label={tx("viewCompetition")} variant="secondary"
         onPress={()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:c.id}})}/>
     </Card>);
@@ -322,7 +378,7 @@ export default function TeamDetailExperience(){
         .sort((a,b)=>(Date.parse(b.startsAt??"")||0)-(Date.parse(a.startsAt??"")||0)).slice(0,5);
       if(!last.length)return empty(tx("noForm"),"stats-chart-outline");
       return <Card style={styles.postCard}>
-        <AppText variant="bodyLarge" weight="bold">{tx("form")}</AppText>
+        <AppText variant="bodyLarge" weight="bold">{tx("teamForm")}</AppText>
         <View style={[styles.horizontal,{justifyContent:"center"},rowDirection]}>
           {last.map(m=>{
             const our=m.homeTeamId===id?m.homeScore!:m.awayScore!;
@@ -343,14 +399,24 @@ export default function TeamDetailExperience(){
       ["goalDifference",s.goalDifference],["winRate",s.winRate+"%"],
     ];
     return <>
-      <AppText variant="bodyLarge" weight="bold">{tx("record")}</AppText>
+      <AppText variant="bodyLarge" weight="bold">{tx("matchRecord")}</AppText>
       <View style={styles.metricGrid}>{tiles.map(([key,value])=>
         <View key={key} style={styles.metric}>
           <AppText variant="bodyLarge" weight="bold" style={{color:colors.primary,textAlign:"center"}}>
             {String(value)}</AppText>
           <AppText variant="caption" muted style={{textAlign:"center"}}>{tx(key)}</AppText>
         </View>)}</View>
-      {s.played===0?empty(tx("noStats"),"stats-chart-outline"):null}
+      {s.played>0?<Card style={styles.performanceCard}>
+        <AppText weight="semibold">{tx("winRate")}: {s.winRate}%</AppText>
+        <View style={styles.performanceTrack}>
+          <View style={[styles.performanceFill,{width:`${Math.min(100,Math.max(0,s.winRate))}%`}]}/>
+        </View>
+        <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
+          <AppText variant="caption" muted>{tx("wins")}: {s.wins}</AppText>
+          <AppText variant="caption" muted>{tx("draws")}: {s.draws}</AppText>
+          <AppText variant="caption" muted>{tx("losses")}: {s.losses}</AppText>
+        </View>
+      </Card>:empty(tx("noStats"),"stats-chart-outline")}
     </>;
   }
   function aboutContent(){
@@ -407,7 +473,12 @@ export default function TeamDetailExperience(){
   </Card></Screen>;
   return <Screen showHeader>
     <View style={styles.profileCard}>
-      <View style={styles.cover}><Ionicons name="football-outline" size={58} color="#CEE0FF"/></View>
+      <View testID="team-profile-cover" style={[styles.cover,{backgroundColor:teamColor}]}>
+        {cover?<Image source={{uri:cover}} resizeMode="cover" style={StyleSheet.absoluteFill}/>:<>
+          <Ionicons name="shield-outline" size={62} color="rgba(255,255,255,.75)"/>
+          <AppText variant="caption" style={{color:"#FFFFFF"}}>{tx("noCover")}</AppText>
+        </>}
+      </View>
       <View style={styles.identity}>
         {resolveMediaImageUrl(team.logoUrl)?<Image source={{uri:resolveMediaImageUrl(team.logoUrl)!}}
           style={styles.teamLogo}/>:
@@ -416,9 +487,13 @@ export default function TeamDetailExperience(){
               {team.name.slice(0,2).toUpperCase()}</AppText>
           </View>}
         <AppText variant="title" weight="bold" style={{textAlign:"center"}}>{team.name}</AppText>
+        {profile?.description?<AppText variant="caption" muted
+          numberOfLines={2} style={{textAlign:"center"}}>{profile.description}</AppText>:null}
         <View style={[styles.horizontal,rowDirection,{justifyContent:"center"}]}>
           <Ionicons name="location-outline" color={colors.textMuted} size={15}/>
-          <AppText muted variant="caption">{team.city}</AppText>
+          <AppText muted variant="caption">
+            {[team.city,profile?.district,profile?.province].filter(Boolean).join(" · ")}
+          </AppText>
           {role?<AppText weight="semibold" variant="caption" style={{color:colors.primary}}>
             {" · "}{t(`teams.role.${role}` as never)}</AppText>:null}
         </View>
@@ -518,9 +593,9 @@ function InfoLine({icon,label,value,rtl}:{icon:keyof typeof Ionicons.glyphMap;
 const styles=StyleSheet.create({
   horizontal:{flexDirection:"row",gap:spacing.sm,alignItems:"center"},
   profileCard:{borderRadius:radius.lg,backgroundColor:colors.surface,overflow:"hidden"},
-  cover:{height:110,backgroundColor:colors.primary,alignItems:"center",justifyContent:"center"},
+  cover:{height:160,backgroundColor:colors.primary,alignItems:"center",justifyContent:"center",gap:4},
   identity:{alignItems:"center",gap:spacing.sm,padding:spacing.md,paddingTop:0},
-  teamLogo:{height:84,width:84,borderRadius:42,marginTop:-38,borderWidth:4,borderColor:colors.surface},
+  teamLogo:{height:90,width:90,borderRadius:45,marginTop:-44,borderWidth:4,borderColor:colors.surface},
   avatarEmpty:{backgroundColor:colors.primarySoft,justifyContent:"center",alignItems:"center"},
   summary:{width:"100%",justifyContent:"space-between",paddingVertical:spacing.md,borderTopWidth:1,
     borderBottomWidth:1,borderColor:colors.border},
@@ -542,14 +617,26 @@ const styles=StyleSheet.create({
   subSelected:{borderColor:colors.primary,backgroundColor:colors.primary},
   subPressed:{opacity:0.8},
   empty:{alignItems:"center",gap:spacing.md,padding:spacing.xl,minHeight:160,justifyContent:"center"},
-  rosterCard:{padding:spacing.md},
+  squadGrid:{flexWrap:"wrap",gap:spacing.sm,alignItems:"stretch"},
+  rosterItem:{width:"100%"},
+  rosterItemWide:{width:"48.5%"},
+  rosterCard:{padding:spacing.md,borderLeftWidth:3,minHeight:90,justifyContent:"center"},
+  memberTag:{paddingHorizontal:spacing.sm,paddingVertical:2,borderRadius:radius.pill,alignSelf:"flex-start"},
+  jerseyBadge:{borderRadius:radius.md,padding:spacing.xs,backgroundColor:colors.surfaceMuted},
   playerAvatar:{width:48,height:48,borderRadius:24},
   photoGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   photoCell:{width:"31%",aspectRatio:1,borderRadius:radius.sm,overflow:"hidden"},
   photo:{width:"100%",height:"100%"},
   postCard:{gap:spacing.md,padding:spacing.md},
   postImage:{height:230,width:"100%",borderRadius:radius.md},
-  fixture:{gap:spacing.md,padding:spacing.md},
+  fixture:{gap:spacing.md,padding:spacing.md,borderWidth:1,borderColor:colors.border},
+  fixtureHeading:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  fixtureStatus:{paddingHorizontal:spacing.sm,paddingVertical:5,borderRadius:radius.pill},
+  fixtureDate:{alignItems:"center",gap:spacing.xs},
+  competitionCard:{padding:spacing.md,gap:spacing.md,borderWidth:1,borderColor:colors.border},
+  performanceCard:{padding:spacing.md,gap:spacing.md},
+  performanceTrack:{height:13,borderRadius:radius.pill,backgroundColor:colors.surfaceMuted,overflow:"hidden"},
+  performanceFill:{height:"100%",backgroundColor:colors.success,borderRadius:radius.pill},
   scoreRow:{alignItems:"center",gap:spacing.sm},
   scoreBadge:{paddingHorizontal:spacing.md,paddingVertical:spacing.sm,
     borderRadius:radius.md,backgroundColor:colors.primarySoft,minWidth:68,alignItems:"center"},
