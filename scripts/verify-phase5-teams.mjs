@@ -29,7 +29,7 @@ const checks = [
   [teamRepository.includes('pg_advisory_xact_lock(hashtext') && teamRepository.includes('transferManager'), "serialized manager/captain mutations"],
   [teamService.includes("return this.identity(userId)") && !teamService.includes("PLAYER_ACCOUNT_REQUIRED"), "free base-account player participation"],
   [teamService.includes('user.roles.includes("TEAM_MANAGER")') && teamService.includes("TEAM_OWNER_SUBSCRIPTION_REQUIRED"), "paid Team Owner management entitlement"],
-  [teamService.includes('"No active account matches that username or phone number."') && !teamService.includes('target.roles.includes("PLAYER")'), "team invitations grant scoped Player membership to normal accounts"],
+  [teamService.includes('"No active account matches that username, email or phone number."') && !teamService.includes('target.roles.includes("PLAYER")'), "team invitations grant scoped Player membership to normal accounts"],
   [teamService.includes('TEAM_MANAGER_REQUIRED') && teamRoutes.includes('/teams/:teamId/manager'), "object-scoped manager authority"],
   [teamService.includes('7 * 24 * 60 * 60 * 1000') && teamRepository.includes('"EXPIRED"'), "expiring single-use invitations"],
   [notificationService.includes('type: "TEAM_INVITATION"') && notificationService.includes('teamInvitesEnabled'), "team invitation preference/dedupe delivery"],

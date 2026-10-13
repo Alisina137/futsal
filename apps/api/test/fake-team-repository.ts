@@ -24,7 +24,7 @@ export class FakeTeamRepository implements TeamRepository {
   /** Test fake assumes seeded manager entitlements are paid; live Drizzle repository validates slots. */
   async assertManagerSubscription(_userId:string,_teamId:string,_now:Date):Promise<void>{}
 
-  users = new Map<string, TeamIdentityUser & { usernameNormalized: string | null; phoneE164: string }>();
+  users = new Map<string, TeamIdentityUser & { usernameNormalized: string | null; phoneE164: string; emailNormalized: string | null }>();
   profiles = new Map<string, OwnPlayerProfileDto>();
   teams = new Map<string, TeamRecord>();
   memberships = new Map<string, TeamMembershipRecord>();
@@ -40,6 +40,7 @@ export class FakeTeamRepository implements TeamRepository {
     displayName: string;
     username?: string | null;
     phoneE164: string;
+    email?: string | null;
     roles?: UserRole[];
   }) {
     this.users.set(input.id, {
@@ -48,6 +49,7 @@ export class FakeTeamRepository implements TeamRepository {
       username: input.username ?? null,
       usernameNormalized: input.username?.toLowerCase() ?? null,
       phoneE164: input.phoneE164,
+      emailNormalized:input.email?.trim().toLowerCase()??null,
       roles: input.roles ?? ["PLAYER"],
     });
   }
@@ -61,10 +63,11 @@ export class FakeTeamRepository implements TeamRepository {
     return user ? { id: user.id, displayName: user.displayName, username: user.username, roles: user.roles } : null;
   }
 
-  async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
+  async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string; emailNormalized?: string }) {
     const user = [...this.users.values()].find((item) =>
       (input.usernameNormalized && item.usernameNormalized === input.usernameNormalized) ||
-      (input.phoneE164 && item.phoneE164 === input.phoneE164)
+      (input.phoneE164 && item.phoneE164 === input.phoneE164) ||
+      (input.emailNormalized && item.emailNormalized === input.emailNormalized)
     );
     return user ? { id: user.id, displayName: user.displayName, username: user.username, roles: user.roles } : null;
   }
@@ -207,10 +210,12 @@ export class FakeTeamRepository implements TeamRepository {
     return this.teams.get(teamId) ?? null;
   }
 
-  async getTeam(teamId: string, includeRoster: boolean) {
+  async getTeam(teamId: string, includeRoster: boolean, publicRoster=false) {
     const team = this.teams.get(teamId);
     if (!team) return null;
-    const members = this.members(teamId);
+    const allMembers=this.members(teamId);
+    const members = allMembers.filter(member=>!publicRoster||
+      this.profiles.get(member.userId)?.visibility==="PUBLIC");
     return {
       id: team.id,
       name: team.name,
@@ -220,7 +225,7 @@ export class FakeTeamRepository implements TeamRepository {
       privacy: team.privacy,
       managerUserId: team.managerUserId,
       captainUserId: team.captainUserId,
-      rosterCount: members.length,
+      rosterCount: allMembers.length,
       members: includeRoster ? members : [],
       createdAt: team.createdAt.toISOString(),
     };
@@ -524,8 +529,19 @@ export class FakeTeamRepository implements TeamRepository {
       return null;
     }
 
+    const team=this.teams.get(invite.teamId);
+    if(!team||team.status!=="ACTIVE"||(team.offlineVenueId&&!team.claimedAt)){
+      this.invitations.set(invitationId,{...invite,status:"REVOKED"});
+      return null;
+    }
+    if(this.users.get(invitedUserId)?.roles.includes("REFEREE"))
+      throw errors.conflict("REFEREE_ROLE_EXCLUSIVE","Referees cannot join teams.");
     const key = this.membershipKey(invite.teamId, invitedUserId);
     const existing = this.memberships.get(key);
+    if(existing?.status==="ACTIVE"){
+      this.invitations.set(invitationId,{...invite,status:"REVOKED"});
+      return null;
+    }
     this.memberships.set(key, {
       teamId: invite.teamId,
       userId: invitedUserId,

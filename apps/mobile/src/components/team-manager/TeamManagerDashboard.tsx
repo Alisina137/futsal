@@ -170,6 +170,16 @@ export function TeamManagerDashboard(){
     return()=>{active=false;};
   },[token,userId,teamListRefresh,t]));
 
+  // A multi-team owner must not see or edit the previous team's roster,
+  // approvals, media preview or unsaved settings during a team switch.
+  useEffect(()=>{
+    setTeam(null);setOverview(null);setRequests([]);setInvitations([]);
+    setJoinAction(null);setJoinActionError(null);
+    setInviteIdentifier("");setInviteRole("PLAYER");
+    setCoverPreview(null);setShowVenues(false);setVenueSearch("");
+    setError(null);setMessage(null);resetGuest();
+  },[selectedId]);
+
   useEffect(()=>{
     let active=true;
     if(!token||!selectedId){setTeam(null);setOverview(null);return()=>{active=false;};}
@@ -206,13 +216,16 @@ export function TeamManagerDashboard(){
     setJoinActionError(null);
     setError(null);
     setMessage(null);
+    const teamIdAtStart=team.id;
     try{
-      const {request:updated}=await teamApi.respondJoinRequest(token,team.id,requestId,accept);
+      const {request:updated}=await teamApi.respondJoinRequest(token,teamIdAtStart,requestId,accept);
+      if(selectedTeamRef.current!==teamIdAtStart)return;
       setRequests(current=>current.map(item=>item.id===updated.id?updated:item));
       setMessage(t("tm1.saved"));
       setRefresh(v=>v+1);
     }catch(e){
-      setJoinActionError({requestId,message:e instanceof ApiRequestError?e.message:t("tm1.actionFailed")});
+      if(selectedTeamRef.current===teamIdAtStart)
+        setJoinActionError({requestId,message:e instanceof ApiRequestError?e.message:t("tm1.actionFailed")});
     }finally{
       setBusy(false);
       setJoinAction(null);
@@ -221,10 +234,16 @@ export function TeamManagerDashboard(){
 
   async function perform(fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
+    const teamIdAtStart=selectedTeamRef.current;
     setBusy(true);setError(null);setMessage(null);
-    try{await fn();after?.();setMessage(t("tm1.saved"));setRefresh(value=>value+1);}
-    catch(e){setError(e instanceof ApiRequestError?e.message:t("tm1.actionFailed"));}
-    finally{setBusy(false);}
+    try{
+      await fn();
+      if(selectedTeamRef.current!==teamIdAtStart)return;
+      after?.();setMessage(t("tm1.saved"));setRefresh(value=>value+1);
+    }catch(e){
+      if(selectedTeamRef.current===teamIdAtStart)
+        setError(e instanceof ApiRequestError?e.message:t("tm1.actionFailed"));
+    }finally{setBusy(false);}
   }
   async function requestSlot(slotId?:string){
     if(!token||slotBusy)return;
@@ -334,7 +353,9 @@ export function TeamManagerDashboard(){
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={{gap:spacing.sm,alignItems:"center",flexDirection:isRTL?"row-reverse":"row"}}>
         {teams.map(item=><Pressable key={item.id} accessibilityRole="button"
-          onPress={()=>{setSelectedId(item.id);resetGuest();}}
+          onPress={()=>{if(item.id!==selectedId)setSelectedId(item.id);}}
+          disabled={busy||slotBusy||coverBusy}
+          accessibilityState={{selected:item.id===selectedId,disabled:busy||slotBusy||coverBusy}}
           style={[styles.teamItem,item.id===selectedId&&styles.teamSelected]}>
           {item.logoUrl?<Image source={{uri:resolveMediaImageUrl(item.logoUrl)??item.logoUrl}} style={styles.teamIcon}/>:
             <Ionicons name="shield-outline" size={22} color={colors.primary}/>}
@@ -347,7 +368,8 @@ export function TeamManagerDashboard(){
       </Card>:null}
     </View>:null}
 
-    {loading&&teams.length>0?<DataLoadingState variant="dashboard" minHeight={400}/>:team&&overview?<>
+    {(loading||team?.id!==selectedId||!overview)&&teams.length>0?
+      <DataLoadingState variant="dashboard" minHeight={400}/>:team&&overview?<>
       {tab==="overview"?<>
         <Card><View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
           {team.logoUrl?<Image source={{uri:resolveMediaImageUrl(team.logoUrl)??team.logoUrl}} style={styles.teamLogo}/>:

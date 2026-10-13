@@ -79,18 +79,15 @@ export class DrizzleTeamRepository implements TeamRepository {
     };
   }
 
-  async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
-    if (!input.usernameNormalized && !input.phoneE164) return null;
+  async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string; emailNormalized?: string }) {
+    if (!input.usernameNormalized && !input.phoneE164 && !input.emailNormalized) return null;
 
-    const identifierCondition =
-      input.usernameNormalized && input.phoneE164
-        ? or(
-          eq(users.usernameNormalized, input.usernameNormalized),
-          eq(users.phoneE164, input.phoneE164),
-        )
-        : input.usernameNormalized
-          ? eq(users.usernameNormalized, input.usernameNormalized)
-          : eq(users.phoneE164, input.phoneE164!);
+    const identifiers=[
+      input.usernameNormalized?eq(users.usernameNormalized,input.usernameNormalized):undefined,
+      input.phoneE164?eq(users.phoneE164,input.phoneE164):undefined,
+      input.emailNormalized?eq(users.emailNormalized,input.emailNormalized):undefined,
+    ].filter((condition):condition is NonNullable<typeof condition>=>!!condition);
+    const identifierCondition=identifiers.length===1?identifiers[0]!:or(...identifiers)!;
 
     const [row] = await this.db.select({
       id: users.id,
@@ -236,7 +233,7 @@ export class DrizzleTeamRepository implements TeamRepository {
     };
   }
 
-  private async listMembers(teamId: string): Promise<TeamMemberDto[]> {
+  private async listMembers(teamId: string, publicOnly=false): Promise<TeamMemberDto[]> {
     const rows = await this.db.select({
       userId: users.id,
       fallbackDisplayName: users.displayName,
@@ -253,6 +250,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         eq(teamMemberships.teamId, teamId),
         eq(teamMemberships.status, "ACTIVE"),
         eq(users.status, "ACTIVE"),
+        publicOnly ? eq(playerProfiles.visibility, "PUBLIC") : undefined,
       ));
 
     return rows.map((row) => ({
@@ -347,7 +345,7 @@ export class DrizzleTeamRepository implements TeamRepository {
     return row ? teamRecord(row) : null;
   }
 
-  async getTeam(teamId: string, includeRoster: boolean): Promise<TeamDto | null> {
+  async getTeam(teamId: string, includeRoster: boolean, publicRoster=false): Promise<TeamDto | null> {
     const record = await this.getTeamRecord(teamId);
     if (!record) return null;
     return {
@@ -360,7 +358,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       managerUserId: record.managerUserId,
       captainUserId: record.captainUserId,
       rosterCount: await this.rosterCount(record.id),
-      members: includeRoster ? await this.listMembers(record.id) : [],
+      members: includeRoster ? await this.listMembers(record.id,publicRoster) : [],
       createdAt: record.createdAt.toISOString(),
     };
   }
@@ -621,9 +619,13 @@ export class DrizzleTeamRepository implements TeamRepository {
         // Referees must stay separate from players even after their original
         // venue grant. The user lock matches referee appointment locking.
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${request.requesterUserId}))`);
-        const [referee]=await tx.select({id:venueReferees.venueId})
-          .from(venueReferees).where(eq(venueReferees.userId,request.requesterUserId)).limit(1);
-        if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+        const [referee,refereeRole]=await Promise.all([
+          tx.select({id:venueReferees.venueId}).from(venueReferees)
+            .where(eq(venueReferees.userId,request.requesterUserId)).limit(1),
+          tx.select({role:userRoles.role}).from(userRoles).where(and(
+            eq(userRoles.userId,request.requesterUserId),eq(userRoles.role,"REFEREE"))).limit(1),
+        ]);
+        if(referee.length||refereeRole.length)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
           "Referees cannot join teams as players. Remove their referee assignment first.");
         const [candidate]=await tx.select({verified:users.emailVerifiedAt}).from(users)
           .where(eq(users.id,request.requesterUserId)).limit(1);
@@ -976,12 +978,21 @@ export class DrizzleTeamRepository implements TeamRepository {
       }
 
       const [team] = await tx.select().from(teams).where(eq(teams.id, invite.teamId)).limit(1);
-      if (!team || team.status !== "ACTIVE") return false;
+      if (!team || team.status !== "ACTIVE" || (team.offlineVenueId&&!team.claimedAt)){
+        // A dormant team must not keep an indefinitely actionable invitation.
+        await tx.update(teamInvitations).set({status:"REVOKED",respondedAt:now,updatedAt:now})
+          .where(eq(teamInvitations.id,invitationId));
+        return false;
+      }
 
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${invitedUserId}))`);
-      const [referee]=await tx.select({id:venueReferees.venueId})
-        .from(venueReferees).where(eq(venueReferees.userId,invitedUserId)).limit(1);
-      if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+      const [referee,refereeRole]=await Promise.all([
+        tx.select({id:venueReferees.venueId}).from(venueReferees)
+          .where(eq(venueReferees.userId,invitedUserId)).limit(1),
+        tx.select({role:userRoles.role}).from(userRoles).where(and(
+          eq(userRoles.userId,invitedUserId),eq(userRoles.role,"REFEREE"))).limit(1),
+      ]);
+      if(referee.length||refereeRole.length)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
         "Referees cannot join teams as players. Remove their referee assignment first.");
 
       const [candidate]=await tx.select({verified:users.emailVerifiedAt}).from(users)
@@ -992,6 +1003,13 @@ export class DrizzleTeamRepository implements TeamRepository {
         eq(teamMemberships.userId, invitedUserId),
       )).limit(1);
 
+      // Never demote an already-active player, captain or manager through an
+      // invitation that became stale after a parallel approval/role change.
+      if(existing?.status==="ACTIVE"){
+        await tx.update(teamInvitations).set({status:"REVOKED",respondedAt:now,updatedAt:now})
+          .where(eq(teamInvitations.id,invitationId));
+        return false;
+      }
       if (existing) {
         await tx.update(teamMemberships).set({
           role: invite.role === "CAPTAIN" ? "CAPTAIN" : "PLAYER",

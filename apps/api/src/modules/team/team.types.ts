@@ -46,7 +46,7 @@ export type TeamMembershipRecord = {
 export interface TeamRepository {
   getUserIdentity(userId: string): Promise<TeamIdentityUser | null>;
   assertManagerSubscription(userId:string,teamId:string,now:Date):Promise<void>;
-  getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }): Promise<TeamIdentityUser | null>;
+  getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string; emailNormalized?: string }): Promise<TeamIdentityUser | null>;
 
   ensurePlayerProfile(userId: string, fallbackDisplayName: string, now: Date): Promise<OwnPlayerProfileDto>;
   updatePlayerProfile(userId: string, input: {
@@ -68,7 +68,7 @@ export interface TeamRepository {
     now: Date;
   }): Promise<TeamDto>;
   getTeamRecord(teamId: string): Promise<TeamRecord | null>;
-  getTeam(teamId: string, includeRoster: boolean): Promise<TeamDto | null>;
+  getTeam(teamId: string, includeRoster: boolean, publicRoster?: boolean): Promise<TeamDto | null>;
   listDirectoryTeams(userId: string): Promise<TeamDirectoryItemDto[]>;
   discoverTeams(userId:string,filters:TeamDiscoveryQuery):Promise<TeamDiscoveryResponse>;
   listUserTeams(userId: string): Promise<TeamListItemDto[]>;
