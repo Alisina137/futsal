@@ -783,6 +783,7 @@ export const teamGrowthApi={
 export type TeamManagerProfileDetails={
   province:string|null;district:string|null;description:string|null;foundedOn:string|null;
   primaryColor:string|null;secondaryColor:string|null;contactPhone:string|null;homeVenueId:string|null;
+  coverImageUrl:string|null;
   allowJoinRequests:boolean;whatsappGroupUrl:string|null;
 };
 export type TeamGuestPlayer={id:string;teamId:string;name:string;position:string;shirtNumber:number|null;createdAt:string};
