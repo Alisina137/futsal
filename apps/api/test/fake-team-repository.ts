@@ -210,10 +210,11 @@ export class FakeTeamRepository implements TeamRepository {
     return this.teams.get(teamId) ?? null;
   }
 
-  async getTeam(teamId: string, includeRoster: boolean) {
+  async getTeam(teamId: string, includeRoster: boolean, publicRoster=false) {
     const team = this.teams.get(teamId);
     if (!team) return null;
-    const members = this.members(teamId);
+    const members = this.members(teamId).filter(member=>!publicRoster||
+      this.profiles.get(member.userId)?.visibility==="PUBLIC");
     return {
       id: team.id,
       name: team.name,
