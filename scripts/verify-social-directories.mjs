@@ -36,7 +36,7 @@ ensure(competition.includes('socialDirectoryDiscovery(token,"COMPETITION")')
   &&competition.includes(".slice(0,10)"),"Ongoing competitions must be limited to ten running at followed venues.");
 ensure(competition.includes("x.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())")
   &&competition.includes('testID="competition-name-search"'),"Competition search must filter by competition name only.");
-ensure(competition.includes("router.push(\"/competitions/popular\")")
+ensure(competition.includes('to:"/competitions/popular"')
   &&competition.includes("router.push(\"/competitions/ongoing\")")
   &&competition.includes("followed.slice(0,10)")&&competition.includes("router.push(\"/competitions/following\")"),
   "Competition discovery must include followed, popular and ongoing destinations.");
