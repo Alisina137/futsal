@@ -2205,6 +2205,8 @@ export const competitionListItemDtoSchema = competitionDtoSchema.omit({
   rewards: true,
 }).extend({
   acceptedTeams: z.number().int().min(0),
+  /** Most recent public media image used only as a directory fallback, until dedicated branding is available. */
+  coverImageUrl: z.string().nullable().optional(),
 });
 export type CompetitionListItemDto = z.infer<typeof competitionListItemDtoSchema>;
 
