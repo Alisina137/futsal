@@ -79,18 +79,15 @@ export class DrizzleTeamRepository implements TeamRepository {
     };
   }
 
-  async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }) {
-    if (!input.usernameNormalized && !input.phoneE164) return null;
+  async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string; emailNormalized?: string }) {
+    if (!input.usernameNormalized && !input.phoneE164 && !input.emailNormalized) return null;
 
-    const identifierCondition =
-      input.usernameNormalized && input.phoneE164
-        ? or(
-          eq(users.usernameNormalized, input.usernameNormalized),
-          eq(users.phoneE164, input.phoneE164),
-        )
-        : input.usernameNormalized
-          ? eq(users.usernameNormalized, input.usernameNormalized)
-          : eq(users.phoneE164, input.phoneE164!);
+    const identifiers=[
+      input.usernameNormalized?eq(users.usernameNormalized,input.usernameNormalized):undefined,
+      input.phoneE164?eq(users.phoneE164,input.phoneE164):undefined,
+      input.emailNormalized?eq(users.emailNormalized,input.emailNormalized):undefined,
+    ].filter((condition):condition is NonNullable<typeof condition>=>!!condition);
+    const identifierCondition=identifiers.length===1?identifiers[0]!:or(...identifiers)!;
 
     const [row] = await this.db.select({
       id: users.id,
