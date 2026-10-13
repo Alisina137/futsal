@@ -52,15 +52,20 @@ describe("Teams Phase 6 — end-to-end service authorization and privacy",()=>{
     expect(privateRoster.members.map(m=>m.userId)).toContain(f.player);
   });
 
-  it("does not allow a pending invite to convert a referee into a player",async()=>{
+  it("blocks referees at invite creation and again if referee role is granted later",async()=>{
     const f=createFixture(),team=await ownedTeam(f);
-    const invite=await f.service.createInvitation(f.manager,team.id,{
+    await expect(f.service.createInvitation(f.manager,team.id,{
       identifier:"ref@example.com",role:"PLAYER",shirtNumber:null,
+    })).rejects.toMatchObject({code:"REFEREE_ROLE_EXCLUSIVE"});
+    // Membership role may change after a valid invitation has been sent.
+    const invited=await f.service.createInvitation(f.manager,team.id,{
+      identifier:"striker",role:"PLAYER",shirtNumber:null,
     });
-    await expect(f.service.acceptInvitation(f.referee,invite.id)).rejects.toMatchObject({
+    f.repo.users.set(f.player,{...f.repo.users.get(f.player)!,roles:["REFEREE"]});
+    await expect(f.service.acceptInvitation(f.player,invited.id)).rejects.toMatchObject({
       code:"REFEREE_ROLE_EXCLUSIVE",
     });
-    expect(f.repo.memberships.has(team.id+":"+f.referee)).toBe(false);
+    expect(f.repo.memberships.has(team.id+":"+f.player)).toBe(false);
   });
 
   it("rejects an invitation to a team archived before acceptance",async()=>{
@@ -72,6 +77,7 @@ describe("Teams Phase 6 — end-to-end service authorization and privacy",()=>{
     await expect(f.service.acceptInvitation(f.player,invite.id)).rejects.toMatchObject({
       code:"INVITATION_UNAVAILABLE",
     });
+    expect(f.repo.invitations.get(invite.id)?.status).toBe("REVOKED");
   });
 
   it("does not let a stale invitation overwrite an existing captain/member role",async()=>{
@@ -86,6 +92,7 @@ describe("Teams Phase 6 — end-to-end service authorization and privacy",()=>{
     await expect(f.service.acceptInvitation(f.player,invite.id)).rejects.toMatchObject({
       code:"INVITATION_UNAVAILABLE",
     });
+    expect(f.repo.invitations.get(invite.id)?.status).toBe("REVOKED");
     expect(f.repo.memberships.get(team.id+":"+f.player)).toMatchObject({
       role:"CAPTAIN",shirtNumber:7,status:"ACTIVE",
     });
