@@ -24,7 +24,7 @@ const navigation:{id:Tab;icon:keyof typeof Ionicons.glyphMap}[]=[
 ];
 const subNavigation:Record<Tab,string[]>={
   media:["posts","photos"],squad:["players","leaders"],matches:["upcoming","results"],
-  competitions:["active","past"],stats:["overview","form"],about:["overview","members"],
+  competitions:["active","past"],stats:["overview","form","leaders"],about:["overview","members"],
 };
 const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
   en:{
@@ -53,6 +53,9 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     teamForm:"Last 5 completed matches",matchRecord:"Verified match results",
     noCover:"Team cover",activeCompetition:"Active",pastCompetition:"Past",
     showTeam:"View team",playerNumber:"Shirt number",totalCompetitions:"Competitions",
+    leaders:"Top players",noPublicLeaders:"No verified public player statistics yet.",
+    goals:"Goals",assists:"Assists",appearances:"Played",showMore:"Load more posts",
+    mediaLoadError:"Could not load older posts.",refresh:"Refresh",viewPost:"View post",
   },
   "fa-AF":{
     media:"رسانه",squad:"بازیکنان",matches:"مسابقات",competitions:"رقابت‌ها",stats:"آمار",about:"درباره",
@@ -80,6 +83,9 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     teamForm:"۵ مسابقه تکمیل‌شده اخیر",matchRecord:"نتایج ثبت‌شده مسابقات",
     noCover:"جلد تیم",activeCompetition:"جاری",pastCompetition:"گذشته",
     showTeam:"نمایش تیم",playerNumber:"شماره پیراهن",totalCompetitions:"رقابت‌ها",
+    leaders:"بازیکنان برتر",noPublicLeaders:"هنوز آمار تأییدشدهٔ عمومی بازیکنان وجود ندارد.",
+    goals:"گل",assists:"پاس گل",appearances:"بازی",showMore:"نمایش پست‌های بیشتر",
+    mediaLoadError:"پست‌های قدیمی بارگذاری نشد.",refresh:"تازه‌سازی",viewPost:"نمایش پست",
   },
   "ps-AF":{
     media:"رسنۍ",squad:"لوبغاړي",matches:"لوبې",competitions:"سیالۍ",stats:"شمېرې",about:"په اړه",
@@ -107,6 +113,9 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     teamForm:"وروستۍ ۵ بشپړې لوبې",matchRecord:"ثبت شوې لوبې او پایلې",
     noCover:"د ټیم پوښ",activeCompetition:"روانه",pastCompetition:"تېره",
     showTeam:"ټیم وګورئ",playerNumber:"د کمیس شمېره",totalCompetitions:"سیالۍ",
+    leaders:"غوره لوبغاړي",noPublicLeaders:"تر اوسه تایید شوې عامه د لوبغاړو شمېرې نشته.",
+    goals:"ګولونه",assists:"مرستې",appearances:"لوبې",showMore:"نور پوسټونه",
+    mediaLoadError:"زاړه پوسټونه پورته نشول.",refresh:"تازه کول",viewPost:"پوسټ وګورئ",
   },
 };
 
@@ -131,6 +140,11 @@ export default function TeamDetailExperience(){
     competitions:"active",stats:"overview",about:"overview",
   });
   const [highlights,setHighlights]=useState<TeamPublicHighlights|null>(null);
+  const [olderPosts,setOlderPosts]=useState<TeamPublicHighlights["posts"]>([]);
+  const [morePostsAvailable,setMorePostsAvailable]=useState(false);
+  const [morePostsBusy,setMorePostsBusy]=useState(false);
+  const [morePostsError,setMorePostsError]=useState<string|null>(null);
+  const postsGeneration=useRef(0);
   const [publicBusy,setPublicBusy]=useState(false);
   const [retryCounter,setRetryCounter]=useState(0);
   const [photo,setPhoto]=useState<string|null>(null);
@@ -169,6 +183,8 @@ export default function TeamDetailExperience(){
   useEffect(()=>{
     if(lastId.current===id)return;
     lastId.current=id;setTeam(null);setProfile(null);setHighlights(null);
+    postsGeneration.current++;setOlderPosts([]);setMorePostsAvailable(false);
+    setMorePostsError(null);setMorePostsBusy(false);setPhoto(null);
     setTab("media");setFollowState(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
   },[id]);
   useEffect(()=>{
@@ -183,12 +199,34 @@ export default function TeamDetailExperience(){
     let live=true;
     setPublicBusy(true);
     void teamPublicApi.highlights(id).then(result=>{
-      if(live){setHighlights(result);}
+      if(live){setHighlights(result);setOlderPosts([]);setMorePostsAvailable(result.posts.length===50);
+        setMorePostsError(null);postsGeneration.current++;}
     }).catch(()=>{/* Error state shown through missing highlights. */})
       .finally(()=>{if(live)setPublicBusy(false);});
     return()=>{live=false;};
   },[id,team?.id,tab,highlights,retryCounter]);
 
+  async function loadMorePosts(){
+    if(!id||!highlights||morePostsBusy||!morePostsAvailable)return;
+    const generation=postsGeneration.current;
+    setMorePostsBusy(true);setMorePostsError(null);
+    try{
+      const existing=[...highlights.posts,...olderPosts];
+      const response=await teamPublicApi.posts(id,existing.length,20);
+      if(postsGeneration.current!==generation)return;
+      const existingIds=new Set(existing.map(post=>post.id));
+      setOlderPosts(items=>[...items,...response.posts.filter(post=>!existingIds.has(post.id))]);
+      setMorePostsAvailable(response.hasMore);
+    }catch{
+      if(postsGeneration.current===generation)setMorePostsError(tx("mediaLoadError"));
+    }finally{
+      if(postsGeneration.current===generation)setMorePostsBusy(false);
+    }
+  }
+  function refreshHighlights(){
+    postsGeneration.current++;setOlderPosts([]);setMorePostsAvailable(false);setMorePostsError(null);
+    setHighlights(null);setRetryCounter(n=>n+1);
+  }
   async function toggleFollow(){
     if(!session||!followState||followBusy)return;
     setFollowBusy(true);setError(null);
@@ -284,14 +322,23 @@ export default function TeamDetailExperience(){
     </Pressable>)}</View>;
   }
   function mediaContent(data:TeamPublicHighlights){
-    const posts=subs.media==="photos"?data.posts.filter(p=>!!resolveMediaImageUrl(p.imageUrl)):data.posts;
-    if(!posts.length)return empty(tx(subs.media==="photos"?"noPhotos":"noPosts"),"images-outline");
-    if(subs.media==="photos")return <View style={styles.photoGrid}>{posts.map(p=>
-      <Pressable key={p.id} style={styles.photoCell} accessibilityRole="button"
-        onPress={()=>setPhoto(resolveMediaImageUrl(p.imageUrl))}>
-        <Image style={styles.photo} source={{uri:resolveMediaImageUrl(p.imageUrl)!}} resizeMode="cover"/>
-      </Pressable>)}</View>;
-    return posts.map(p=><Card key={p.id} style={styles.postCard}>
+    const allPosts=[...data.posts,...olderPosts];
+    const posts=subs.media==="photos"?allPosts.filter(p=>!!resolveMediaImageUrl(p.imageUrl)):allPosts;
+    const footer=<>
+      {morePostsError?<Card><AppText style={{color:colors.danger}}>{morePostsError}</AppText></Card>:null}
+      {morePostsAvailable||morePostsError?<Button testID="team-load-more-posts"
+        label={tx("showMore")} variant="secondary" loading={morePostsBusy}
+        disabled={morePostsBusy} onPress={()=>void loadMorePosts()}/>:null}
+    </>;
+    if(!posts.length)return <>{empty(tx(subs.media==="photos"?"noPhotos":"noPosts"),"images-outline")}{footer}</>;
+    if(subs.media==="photos")return <>
+      <View style={styles.photoGrid}>{posts.map(p=>
+        <Pressable key={p.id} style={styles.photoCell} accessibilityRole="button"
+          onPress={()=>setPhoto(resolveMediaImageUrl(p.imageUrl))}>
+          <Image style={styles.photo} source={{uri:resolveMediaImageUrl(p.imageUrl)!}} resizeMode="cover"/>
+        </Pressable>)}</View>{footer}
+    </>;
+    return <>{posts.map(p=><Card key={p.id} style={styles.postCard}>
       <View style={[styles.horizontal,rowDirection]}>
         <Ionicons name="football" size={20} color={colors.primary}/>
         <View style={{flex:1}}>
@@ -305,9 +352,13 @@ export default function TeamDetailExperience(){
         <Image source={{uri:resolveMediaImageUrl(p.imageUrl)!}} style={styles.postImage}
           resizeMode="cover"/>
       </Pressable>:null}
-      {session?<Button label={tx("openComments")} variant="secondary"
-        onPress={()=>router.push({pathname:"/posts/[postId]/comments",params:{postId:p.id}})}/>:null}
-    </Card>);
+      <View style={[styles.horizontal,rowDirection]}>
+        <Button style={{flex:1}} label={tx("viewPost")} variant="secondary"
+          onPress={()=>router.push({pathname:"/posts/[postId]",params:{postId:p.id}})}/>
+        {session?<Button style={{flex:1}} label={tx("openComments")} variant="secondary"
+          onPress={()=>router.push({pathname:"/posts/[postId]/comments",params:{postId:p.id}})}/>:null}
+      </View>
+    </Card>)}{footer}</>;
   }
   function matchesContent(data:TeamPublicHighlights){
     const finished=(m:TeamPublicHighlights["matches"][number])=>
@@ -383,6 +434,32 @@ export default function TeamDetailExperience(){
     </Card>);
   }
   function statsContent(data:TeamPublicHighlights){
+    if(subs.stats==="leaders"){
+      if(!data.stats.players.length)return empty(tx("noPublicLeaders"),"people-outline");
+      return <View testID="team-verified-player-leaders" style={{gap:spacing.sm}}>
+        {data.stats.players.map((player,index)=><Pressable key={player.userId}
+          accessibilityRole="button" onPress={()=>router.push({
+            pathname:"/players/[playerId]",params:{playerId:player.userId}})}>
+          <Card style={[styles.fixture,{gap:spacing.sm}]}>
+            <View style={[styles.horizontal,rowDirection]}>
+              <View style={styles.jerseyBadge}>
+                <AppText weight="bold" style={{color:teamColor}}>#{index+1}</AppText>
+              </View>
+              <AppText weight="semibold" style={{flex:1}} numberOfLines={1}>{player.displayName}</AppText>
+              <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.textMuted}/>
+            </View>
+            <View style={[styles.horizontal,rowDirection,{justifyContent:"space-around"}]}>
+              {([["goals",player.goals],["assists",player.assists],
+                ["appearances",player.appearances]] as const).map(([key,value])=>
+                <View key={key} style={{flex:1,alignItems:"center",gap:2}}>
+                  <AppText weight="bold" style={{color:colors.primary}}>{value}</AppText>
+                  <AppText variant="caption" muted>{tx(key)}</AppText>
+                </View>)}
+            </View>
+          </Card>
+        </Pressable>)}
+      </View>;
+    }
     if(subs.stats==="form"){
       const last=data.matches.filter(m=>["COMPLETED","CORRECTED"].includes(m.status)
         &&m.homeScore!==null&&m.awayScore!==null)
@@ -577,6 +654,11 @@ export default function TeamDetailExperience(){
       </ScrollView>
     </View>
     <View testID="team-tab-content" style={{minHeight:viewportHeight,gap:spacing.md}}>
+      {tab==="media"||tab==="matches"||tab==="stats"?
+        <View style={[styles.horizontal,rowDirection,{justifyContent:"flex-end"}]}>
+          <Button label={tx("refresh")} variant="ghost" disabled={publicBusy}
+            onPress={refreshHighlights}/>
+        </View>:null}
       {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
         <Button label={tx("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
       {content()}
