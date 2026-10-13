@@ -618,9 +618,13 @@ export class DrizzleTeamRepository implements TeamRepository {
         // Referees must stay separate from players even after their original
         // venue grant. The user lock matches referee appointment locking.
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${request.requesterUserId}))`);
-        const [referee]=await tx.select({id:venueReferees.venueId})
-          .from(venueReferees).where(eq(venueReferees.userId,request.requesterUserId)).limit(1);
-        if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+        const [referee,refereeRole]=await Promise.all([
+          tx.select({id:venueReferees.venueId}).from(venueReferees)
+            .where(eq(venueReferees.userId,request.requesterUserId)).limit(1),
+          tx.select({role:userRoles.role}).from(userRoles).where(and(
+            eq(userRoles.userId,request.requesterUserId),eq(userRoles.role,"REFEREE"))).limit(1),
+        ]);
+        if(referee.length||refereeRole.length)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
           "Referees cannot join teams as players. Remove their referee assignment first.");
         const [candidate]=await tx.select({verified:users.emailVerifiedAt}).from(users)
           .where(eq(users.id,request.requesterUserId)).limit(1);
@@ -973,12 +977,16 @@ export class DrizzleTeamRepository implements TeamRepository {
       }
 
       const [team] = await tx.select().from(teams).where(eq(teams.id, invite.teamId)).limit(1);
-      if (!team || team.status !== "ACTIVE") return false;
+      if (!team || team.status !== "ACTIVE" || (team.offlineVenueId&&!team.claimedAt)) return false;
 
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${invitedUserId}))`);
-      const [referee]=await tx.select({id:venueReferees.venueId})
-        .from(venueReferees).where(eq(venueReferees.userId,invitedUserId)).limit(1);
-      if(referee)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
+      const [referee,refereeRole]=await Promise.all([
+        tx.select({id:venueReferees.venueId}).from(venueReferees)
+          .where(eq(venueReferees.userId,invitedUserId)).limit(1),
+        tx.select({role:userRoles.role}).from(userRoles).where(and(
+          eq(userRoles.userId,invitedUserId),eq(userRoles.role,"REFEREE"))).limit(1),
+      ]);
+      if(referee.length||refereeRole.length)throw errors.conflict("REFEREE_ROLE_EXCLUSIVE",
         "Referees cannot join teams as players. Remove their referee assignment first.");
 
       const [candidate]=await tx.select({verified:users.emailVerifiedAt}).from(users)
@@ -989,6 +997,9 @@ export class DrizzleTeamRepository implements TeamRepository {
         eq(teamMemberships.userId, invitedUserId),
       )).limit(1);
 
+      // Never demote an already-active player, captain or manager through an
+      // invitation that became stale after a parallel approval/role change.
+      if(existing?.status==="ACTIVE")return false;
       if (existing) {
         await tx.update(teamMemberships).set({
           role: invite.role === "CAPTAIN" ? "CAPTAIN" : "PLAYER",
