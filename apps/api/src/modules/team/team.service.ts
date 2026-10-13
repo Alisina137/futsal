@@ -118,10 +118,10 @@ export class TeamService {
     return { allowJoinRequests: await this.repository.allowsJoinRequests(teamId) };
   }
 
-  async cancelMyJoinRequest(userId: string, teamId: string) {
+  async cancelMyJoinRequest(userId: string, teamId: string, requestId?: string) {
     await this.identity(userId);
     await this.team(teamId);
-    const request = await this.repository.cancelJoinRequest(teamId, userId, this.now());
+    const request = await this.repository.cancelJoinRequest(teamId, userId, this.now(), requestId);
     if (!request) throw errors.conflict("TEAM_JOIN_REQUEST_UNAVAILABLE",
       "This join request is no longer pending.");
     return request;
