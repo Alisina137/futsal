@@ -1,10 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { RoleSubscriptionOfferDto, TeamDto, TeamInvitationDto, TeamJoinRequestDto, TeamListItemDto, TeamPrivacy, PublicVenueDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import { ApiRequestError, authApi, notificationApi, resolveMediaImageUrl, teamApi, teamManagerApi, venueApi,
+import { ApiRequestError, authApi, notificationApi, marketingApi, resolveMediaImageUrl, teamApi, teamManagerApi, venueApi,
   type TeamGuestPlayer, type TeamManagerOverview, type TeamManagerProfileDetails, type TeamCapacity } from "../../lib/api";
 import { formatCompetitionDateTime } from "../../lib/date-time";
 import { useAuth } from "../../providers/AuthProvider";
@@ -48,6 +49,7 @@ type Position=(typeof positions)[number];
 const initialProfile:TeamManagerProfileDetails={
   province:null,district:null,description:null,foundedOn:null,
   primaryColor:null,secondaryColor:null,contactPhone:null,homeVenueId:null,allowJoinRequests:true,
+  coverImageUrl:null,
   whatsappGroupUrl:null,
 };
 
@@ -102,6 +104,10 @@ export function TeamManagerDashboard(){
   const [logoUrl,setLogoUrl]=useState("");
   const [privacy,setPrivacy]=useState<TeamPrivacy>("PUBLIC");
   const [profile,setProfile]=useState<TeamManagerProfileDetails>(initialProfile);
+  const [coverBusy,setCoverBusy]=useState(false);
+  const [coverPreview,setCoverPreview]=useState<{url:string;uri:string}|null>(null);
+  const selectedTeamRef=useRef(selectedId);
+  selectedTeamRef.current=selectedId;
   const [inviteIdentifier,setInviteIdentifier]=useState("");
   const [inviteRole,setInviteRole]=useState<"PLAYER"|"CAPTAIN">("PLAYER");
   const [guestName,setGuestName]=useState("");
@@ -245,6 +251,32 @@ export function TeamManagerDashboard(){
     new Date(profile.foundedOn+"T00:00:00Z").toISOString().slice(0,10)===profile.foundedOn;
   const colorOk=(value:string|null)=>!value||/^#[0-9a-fA-F]{6}$/.test(value);
   const whatsappOk=!profile.whatsappGroupUrl||isWhatsAppGroupInviteLink(profile.whatsappGroupUrl);
+  async function chooseCover(){
+    if(!token||!selectedId||!canWrite||coverBusy)return;
+    const teamIdAtStart=selectedId;
+    setError(null);
+    try{
+      const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if(!permission.granted){setError(t("teams.phase3.coverPermission"));return;}
+      const picked=await ImagePicker.launchImageLibraryAsync({
+        mediaTypes:["images"],allowsEditing:true,aspect:[16,6],
+        quality:.82,selectionLimit:1,
+      });
+      if(picked.canceled||!picked.assets[0])return;
+      setCoverBusy(true);
+      const asset=picked.assets[0];
+      const result=await marketingApi.uploadUserPostImage(token,{
+        uri:asset.uri,mimeType:asset.mimeType??"image/jpeg",
+        ...(asset.fileSize!==undefined?{size:asset.fileSize}:{}),
+      });
+      if(selectedTeamRef.current!==teamIdAtStart)return;
+      setProfile(previous=>({...previous,coverImageUrl:result.imageUrl}));
+      setCoverPreview({url:result.imageUrl,uri:asset.uri});
+    }catch(cause){
+      if(selectedTeamRef.current===teamIdAtStart)setError(cause instanceof ApiRequestError?
+        cause.message:t("teams.phase3.coverError"));
+    }finally{setCoverBusy(false);}
+  }
   const saveTeam=()=>perform(async()=>{
     await teamApi.update(token!,selectedId!,{name:name.trim(),city:city.trim(),logoUrl:logoUrl.trim(),privacy});
     await teamManagerApi.updateProfile(token!,selectedId!,profile);
@@ -464,6 +496,29 @@ export function TeamManagerDashboard(){
           <TextField label={t("teams.name")} value={name} onChangeText={setName}/>
           <TextField label={t("teams.city")} value={city} onChangeText={setCity}/>
           <TextField label={t("teams.logoUrl")} value={logoUrl} onChangeText={setLogoUrl} autoCapitalize="none" forceLtr/>
+          <View testID="team-cover-settings" style={styles.coverSettings}>
+            <AppText weight="semibold">{t("teams.phase3.coverTitle")}</AppText>
+            <View style={styles.coverPreview}>
+              {profile.coverImageUrl?<Image
+                source={{uri:coverPreview?.url===profile.coverImageUrl?coverPreview.uri:
+                  resolveMediaImageUrl(profile.coverImageUrl)??""}}
+                resizeMode="cover" style={{width:"100%",height:"100%"}}/>:
+                <View style={styles.coverEmpty}>
+                  <Ionicons name="image-outline" size={29} color={colors.textMuted}/>
+                  <AppText variant="caption" muted>{t("teams.phase3.coverEmpty")}</AppText>
+                </View>}
+            </View>
+            <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap"}]}>
+              <Button label={t("teams.phase3.chooseCover")} variant="secondary"
+                disabled={!canWrite||coverBusy||busy} loading={coverBusy}
+                onPress={()=>void chooseCover()}/>
+              {profile.coverImageUrl?<Button label={t("teams.phase3.removeCover")} variant="secondary"
+                disabled={!canWrite||coverBusy||busy} onPress={()=>{
+                  setProfile(v=>({...v,coverImageUrl:null}));setCoverPreview(null);
+                }}/>:null}
+            </View>
+            <AppText variant="caption" muted>{t("teams.phase3.coverHint")}</AppText>
+          </View>
           <TextField label={t("tm1.province")} value={profile.province??""} onChangeText={v=>updateProfile("province",v||null)}/>
           <TextField label={t("tm1.district")} value={profile.district??""} onChangeText={v=>updateProfile("district",v||null)}/>
           <TextField label={t("tm1.description")} value={profile.description??""} onChangeText={v=>updateProfile("description",v||null)} multiline/>
@@ -479,7 +534,7 @@ export function TeamManagerDashboard(){
           <Options selected={privacy} onSelect={v=>setPrivacy(v as TeamPrivacy)}
             items={["PUBLIC","PRIVATE"].map(id=>({id,label:t(`teams.privacy.${id}` as never)}))}/>
           <Button label={t("common.save")} loading={busy}
-            disabled={!canWrite||name.trim().length<2||city.trim().length<2||!foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)||!whatsappOk}
+            disabled={!canWrite||coverBusy||name.trim().length<2||city.trim().length<2||!foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)||!whatsappOk}
             onPress={()=>void saveTeam()}/>
           <AppText variant="caption" muted>{t("tm1.publicHint")}</AppText>
         </Card>
@@ -546,6 +601,9 @@ export function TeamManagerDashboard(){
   </Screen>;
 }
 const styles=StyleSheet.create({
+  coverSettings:{gap:spacing.sm,paddingVertical:spacing.sm},
+  coverPreview:{height:150,borderRadius:radius.md,overflow:"hidden",backgroundColor:colors.surfaceMuted},
+  coverEmpty:{flex:1,alignItems:"center",justifyContent:"center",gap:spacing.sm},
   nav:{flexGrow:0,flexShrink:0,borderTopWidth:1,borderBottomWidth:1,
     borderTopColor:colors.border,borderBottomColor:colors.border,backgroundColor:colors.background,marginHorizontal:-spacing.xs},
   navItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs,height:48,
