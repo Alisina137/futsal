@@ -247,7 +247,7 @@ export class TeamService {
     const team = await this.manager(teamId, userId);
     const target = await this.resolveInviteTarget(input.identifier);
     if (!target) {
-      throw errors.badRequest("INVITEE_NOT_FOUND", "No active account matches that username or phone number.");
+      throw errors.badRequest("INVITEE_NOT_FOUND", "No active account matches that username, email or phone number.");
     }
     if (target.id === userId) {
       throw errors.badRequest("CANNOT_INVITE_SELF", "You are already the manager of this team.");
@@ -322,16 +322,23 @@ export class TeamService {
   }
 
   async resolveInviteTarget(identifier: string) {
-    const usernameNormalized = normalizeUsername(identifier);
+    const value=identifier.trim();
+    // Email is now the primary account credential; retain username/legacy phone
+    // lookup only as explicit fallback for older accounts.
+    const emailNormalized=value.includes("@")?value.toLowerCase():undefined;
+    if(emailNormalized&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalized))
+      return null;
+    const usernameNormalized=emailNormalized?undefined:normalizeUsername(value);
     let phoneE164: string | undefined;
     try {
-      phoneE164 = normalizeAfghanistanPhone(identifier);
+      if(!emailNormalized)phoneE164 = normalizeAfghanistanPhone(value);
     } catch {
       // Identifier can be a username.
     }
     return this.repository.getUserByNormalizedIdentifier({
       ...(usernameNormalized ? { usernameNormalized } : {}),
       ...(phoneE164 ? { phoneE164 } : {}),
+      ...(emailNormalized ? { emailNormalized } : {}),
     });
   }
 }
