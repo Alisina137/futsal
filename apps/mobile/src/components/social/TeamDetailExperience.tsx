@@ -114,7 +114,7 @@ export default function TeamDetailExperience(){
   const {teamId}=useLocalSearchParams<{teamId:string}>();
   const id=typeof teamId==="string"?teamId:"";
   const {session}=useAuth(),{t,isRTL,language}=useLocale();
-  const {width:viewportWidth}=useWindowDimensions();
+  const {height:viewportHeight,width:viewportWidth}=useWindowDimensions();
   const tx=(key:string)=>words[language][key]??words.en[key]??key;
   const [team,setTeam]=useState<TeamDto|null>(null);
   const [profile,setProfile]=useState<Omit<TeamManagerProfileDetails,"allowJoinRequests"|"whatsappGroupUrl">|null>(null);
@@ -560,7 +560,7 @@ export default function TeamDetailExperience(){
         </Pressable>)}
       </ScrollView>
     </View>
-    <View testID="team-tab-content" style={{minHeight:180,gap:spacing.md}}>
+    <View testID="team-tab-content" style={{minHeight:viewportHeight,gap:spacing.md}}>
       {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
         <Button label={tx("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
       {content()}
