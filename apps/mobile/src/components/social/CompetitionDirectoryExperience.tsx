@@ -207,10 +207,6 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
             {t("competition.ongoingFollowedVenues")}
           </AppText>
         </Pressable>
-        <Pressable testID="competitions-most-followed-button" accessibilityRole="button"
-          onPress={()=>router.push("/competitions/popular")} style={styles.hiddenShortcut}>
-          <AppText>{t("competition.mostFollowed")}</AppText>
-        </Pressable>
       </View>
       <View testID="competitions-search-panel" style={styles.filters}>
         <View style={styles.titleCopy}>
@@ -305,7 +301,6 @@ const styles=StyleSheet.create({
     padding:spacing.sm,flexDirection:"row",alignItems:"center",gap:spacing.xs},
   followedVenues:{minHeight:44,flexDirection:"row",alignItems:"center",gap:spacing.sm,
     paddingHorizontal:spacing.sm},
-  hiddenShortcut:{display:"none"},
   filters:{gap:spacing.sm},
   suggestions:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   suggestion:{minHeight:48,justifyContent:"center",paddingHorizontal:spacing.md,
