@@ -46,7 +46,7 @@ export type TeamMembershipRecord = {
 export interface TeamRepository {
   getUserIdentity(userId: string): Promise<TeamIdentityUser | null>;
   assertManagerSubscription(userId:string,teamId:string,now:Date):Promise<void>;
-  getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string }): Promise<TeamIdentityUser | null>;
+  getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string; emailNormalized?: string }): Promise<TeamIdentityUser | null>;
 
   ensurePlayerProfile(userId: string, fallbackDisplayName: string, now: Date): Promise<OwnPlayerProfileDto>;
   updatePlayerProfile(userId: string, input: {
