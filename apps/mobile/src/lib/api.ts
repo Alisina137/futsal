@@ -728,18 +728,25 @@ export const teamOperationsApi={
       {method:"POST",body:JSON.stringify({availability})},token),
 };
 
+export type TeamPublicPost={id:string;body:string;imageUrl:string|null;publishedAt:string};
 export type TeamPublicHighlights={
-  posts:Array<{id:string;body:string;imageUrl:string|null;publishedAt:string}>;
+  posts:TeamPublicPost[];
   competitions:Array<{id:string;name:string;status:string;format:string;startsAt:string|null;endsAt:string|null}>;
   matches:Array<{id:string;competitionId:string;competitionName:string;homeTeamId:string|null;
     awayTeamId:string|null;homeTeamName:string;awayTeamName:string;status:string;stage:string;
     startsAt:string|null;homeScore:number|null;awayScore:number|null}>;
   stats:{played:number;wins:number;draws:number;losses:number;goalsFor:number;
-    goalsAgainst:number;goalDifference:number;winRate:number};
+    goalsAgainst:number;goalDifference:number;winRate:number;
+    players:Array<{userId:string;displayName:string;appearances:number;goals:number;assists:number}>};
 };
 export const teamPublicApi={
   highlights:(teamId:string)=>request<TeamPublicHighlights>(
     `/api/v1/teams/${teamId}/public-highlights`),
+  posts:(teamId:string,offset:number,limit=20)=>
+    request<{posts:TeamPublicPost[];hasMore:boolean}>(
+      `/api/v1/teams/${teamId}/public-posts?`+new URLSearchParams({
+        offset:String(offset),limit:String(limit),
+      }).toString()),
 };
 
 export type TeamGrowthPost={id:string;body:string;imageUrl:string|null;publishedAt:string};

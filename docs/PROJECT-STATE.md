@@ -1,3 +1,12 @@
+## Teams Phase 5 — Media, Matches & Statistics (2026-10-13)
+
+- Public team Media supports posts/photos, server-validated bounded pagination for older public posts (published, public-visible only), individual post/comment navigation, and a refresh action. In-flight older-page responses are invalidated on team switch.
+- Public team Matches remain linked to official published competitions; only accepted team registrations are allowed in public fixtures and results. Team-wide statistics now aggregate **all** completed/corrected published accepted matches, not merely the first 100 displayed fixtures.
+- Public Statistics adds a Top Players subtab (goals, assists and appearances), using only active, public-visibility player profiles on active memberships in published accepted competition results. Private team identities are never exposed in the leaderboard.
+- Team Manager Media adds a photo gallery, proper media-library permissions, upload protection across team switches, editable post draft reset and an explicit delete-confirmation step.
+- English, Dari and Pashto localization is maintained. Added server unit tests for leaderboard privacy and a `pnpm verify:teams-phase5` source regression suite.
+- No new database migration is needed. Verify with `pnpm verify`, Expo web export, and Android smoke QA.
+
 ## Teams Phase 4 — Membership & Invitations (2026-10-13)
 
 - Public join-policy endpoint and invitation-only UI on public team detail and directory.

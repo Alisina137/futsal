@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {aggregateCompletedMatches,assertFriendlyChallengeAllowed} from "../src/modules/team/team-manager-phase3.routes.js";
+import {aggregateCompletedMatches,aggregatePublicPlayerStats,assertFriendlyChallengeAllowed} from "../src/modules/team/team-manager-phase3.routes.js";
 
 describe("Team Manager Phase 3 verified results",()=>{
   const team="11111111-1111-4111-8111-111111111111";
@@ -28,5 +28,31 @@ describe("Team Manager Phase 3 friendly challenge safety",()=>{
   });
   it("permits an opponent and future proposed time",()=>{
     expect(()=>assertFriendlyChallengeAllowed(team,other,new Date("2026-10-10T07:00:00Z"),now)).not.toThrow();
+  });
+});
+
+describe("Teams Phase 5 public player leaderboard privacy",()=>{
+  const visible=(userId:string,name:string,goals:number,assists:number,matchStatus="COMPLETED")=>({
+    userId,displayName:name,goals,assists,appeared:true,visibility:"PUBLIC",matchStatus,
+  });
+  it("excludes private profiles and unverified match rows",()=>{
+    const stats=aggregatePublicPlayerStats([
+      visible("a","First",2,1),{...visible("b","Hidden",12,8),visibility:"PRIVATE"},
+      visible("a","First",4,2,"IN_PROGRESS"),visible("c","Second",1,3,"CORRECTED"),
+    ]);
+    expect(stats).toEqual([
+      {userId:"a",displayName:"First",appearances:1,goals:2,assists:1},
+      {userId:"c",displayName:"Second",appearances:1,goals:1,assists:3},
+    ]);
+  });
+  it("aggregates goals and assists across public finalized fixtures and orders by goals",()=>{
+    const stats=aggregatePublicPlayerStats([
+      visible("a","Alex",1,0),visible("b","Ben",2,1),visible("a","Alex",3,2,"CORRECTED"),
+    ]);
+    expect(stats.map(x=>x.userId)).toEqual(["a","b"]);
+    expect(stats[0]).toMatchObject({goals:4,assists:2,appearances:2});
+  });
+  it("returns an empty leader list without verified rows",()=>{
+    expect(aggregatePublicPlayerStats([visible("a","Alex",5,0,"SCHEDULED")])).toEqual([]);
   });
 });

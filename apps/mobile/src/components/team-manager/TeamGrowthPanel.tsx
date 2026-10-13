@@ -3,7 +3,7 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import * as ImagePicker from "expo-image-picker";
 import type {TeamDto,TeamDirectoryItemDto} from "@leaguekick/contracts";
 import {router} from "expo-router";
-import {useEffect,useState} from "react";
+import {useEffect,useRef,useState} from "react";
 import {Image,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {ApiRequestError,marketingApi,resolveMediaImageUrl,teamApi,teamGrowthApi,
   type TeamGrowthData,type TeamGrowthPost} from "../../lib/api";
@@ -52,9 +52,17 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   const [challengeVenue,setChallengeVenue]=useState("");
   const [challengeMessage,setChallengeMessage]=useState("");
   const [showChallengeForm,setShowChallengeForm]=useState(false);
-  const [mediaSection,setMediaSection]=useState<"POSTS"|"ANNOUNCEMENTS">("POSTS");
+  const [mediaSection,setMediaSection]=useState<"POSTS"|"PHOTOS"|"ANNOUNCEMENTS">("POSTS");
+  const [deleteCandidate,setDeleteCandidate]=useState<string|null>(null);
+  const currentTeam=useRef(team.id);
+  currentTeam.current=team.id;
   const [statSection,setStatSection]=useState<"PERFORMANCE"|"PLAYERS"|"HISTORY">("PERFORMANCE");
 
+  // Never retain an editable post or uploaded photo when switching licensed teams.
+  useEffect(()=>{
+    setPostBody("");setImageUrl(null);setPostEditing(null);setDeleteCandidate(null);
+    setAnnouncementTitle("");setAnnouncementBody("");setUploading(false);setMediaSection("POSTS");
+  },[team.id]);
   useEffect(()=>{
     let current=true;
     setLoading(true);setError(null);
@@ -80,18 +88,26 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   }
   async function selectPhoto(){
     if(!canWrite||uploading)return;
+    const selectedTeam=team.id;
     try{
+      const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if(!permission.granted){
+        if(currentTeam.current===selectedTeam)setError(tr("photoPermission"));
+        return;
+      }
       const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:0.8});
-      if(result.canceled||!result.assets[0])return;
+      if(result.canceled||!result.assets[0]||currentTeam.current!==selectedTeam)return;
       setUploading(true);setError(null);
       const asset=result.assets[0];
       const image=await marketingApi.uploadUserPostImage(token,{
         uri:asset.uri,mimeType:asset.mimeType??"image/jpeg",
         ...(asset.fileSize!==undefined?{size:asset.fileSize}:{}),
       });
-      setImageUrl(image.imageUrl);
-    }catch(e){setError(e instanceof ApiRequestError?e.message:t("tm3.uploadError"));}
-    finally{setUploading(false);}
+      if(currentTeam.current===selectedTeam)setImageUrl(image.imageUrl);
+    }catch(e){
+      if(currentTeam.current===selectedTeam)
+        setError(e instanceof ApiRequestError?e.message:t("tm3.uploadError"));
+    }finally{if(currentTeam.current===selectedTeam)setUploading(false);}
   }
   function editPost(post:TeamGrowthPost){
     setPostEditing(post.id);setPostBody(post.body);setImageUrl(post.imageUrl);setMediaSection("POSTS");
@@ -107,7 +123,8 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
     {message?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{message}</AppText></Card>:null}
     {loading?<DataLoadingState variant="list" minHeight={300}/>:data?<>
       {tab==="media"?<>
-        <Options items={[{id:"POSTS",name:tr("publicPosts")},{id:"ANNOUNCEMENTS",name:tr("privateAnnouncements")}]}
+        <Options items={[{id:"POSTS",name:tr("publicPosts")},{id:"PHOTOS",name:tr("phase5Photos")},
+          {id:"ANNOUNCEMENTS",name:tr("privateAnnouncements")}]}
           current={mediaSection} onChange={id=>setMediaSection(id as typeof mediaSection)}/>
         {mediaSection==="POSTS"?<>
           <Card>
@@ -138,11 +155,38 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
               <View style={styles.actions}>
                 <Button label={tr("edit")} variant="secondary" disabled={!canWrite} onPress={()=>editPost(post)}/>
                 <Button label={tr("delete")} variant="ghost" disabled={!canWrite||busy}
-                  onPress={()=>void execute(()=>teamGrowthApi.deletePost(token,team.id,post.id))}/>
+                  onPress={()=>setDeleteCandidate(post.id)}/>
                 <Button label={tr("viewInteractions")} variant="secondary"
                   onPress={()=>router.push({pathname:"/posts/[postId]/comments",params:{postId:post.id}})}/>
               </View>
             </View>)}
+            {deleteCandidate?<Card style={{borderColor:colors.danger}}>
+              <AppText weight="semibold">{tr("phase5ConfirmDelete")}</AppText>
+              <View style={styles.actions}>
+                <Button label={tr("delete")} variant="danger" disabled={!canWrite}
+                  loading={busy} onPress={()=>void execute(
+                    ()=>teamGrowthApi.deletePost(token,team.id,deleteCandidate),
+                    ()=>setDeleteCandidate(null))}/>
+                <Button label={t("common.cancel")} variant="secondary"
+                  onPress={()=>setDeleteCandidate(null)}/>
+              </View>
+            </Card>:null}
+          </Card>
+        </>:mediaSection==="PHOTOS"?<>
+          <Card>
+            <AppText variant="bodyLarge" weight="bold">{tr("phase5Photos")}</AppText>
+            <AppText variant="caption" muted>{tr("phase5PhotoHint")}</AppText>
+            <Button label={tr("addPhoto")} variant="secondary" disabled={!canWrite}
+              onPress={()=>{resetPost();setMediaSection("POSTS");}}/>
+            {data.posts.filter(post=>!!post.imageUrl).length===0?
+              <AppText muted>{tr("phase5NoPhotos")}</AppText>:
+              <View style={styles.photoGrid}>{data.posts.filter(post=>!!post.imageUrl).map(post=>
+                <Pressable key={post.id} accessibilityRole="button" accessibilityLabel={post.body||tr("phase5Photos")}
+                  onPress={()=>router.push({pathname:"/posts/[postId]",params:{postId:post.id}})}
+                  style={styles.photoTile}>
+                  <Image source={{uri:resolveMediaImageUrl(post.imageUrl)??post.imageUrl!}}
+                    style={styles.photoImage} resizeMode="cover"/>
+                </Pressable>)}</View>}
           </Card>
         </>:<>
           <Card><AppText variant="bodyLarge" weight="bold">{tr("newAnnouncement")}</AppText>
@@ -258,6 +302,9 @@ const styles=StyleSheet.create({
   item:{borderTopWidth:1,borderColor:colors.border,paddingTop:spacing.md,marginTop:spacing.md,gap:spacing.sm},
   actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
   mediaImage:{width:"100%",height:190,borderRadius:radius.md,backgroundColor:colors.primarySoft},
+  photoGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,marginTop:spacing.sm},
+  photoTile:{width:"31%",aspectRatio:1,borderRadius:radius.md,overflow:"hidden"},
+  photoImage:{height:"100%",width:"100%"},
   chip:{backgroundColor:colors.surface,paddingHorizontal:spacing.md,paddingVertical:spacing.sm,
     borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,minHeight:40,justifyContent:"center"},
   active:{borderColor:colors.primary,backgroundColor:colors.primarySoft},

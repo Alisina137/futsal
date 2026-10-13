@@ -6,7 +6,7 @@ import type { Database } from "@leaguekick/database";
 import {
   competitions,competitionMatches,competitionTeams,playerMatchStats,playerProfiles,roleSubscriptions,
   socialPosts,socialUserPostImages,teamAnnouncements,teamFriendlyChallenges,
-  teamMemberships,teams,
+  teamMemberships,teams,users,
 } from "@leaguekick/database";
 import { errors } from "../../lib/errors.js";
 import {teamLicenseActive,requireTeamLicense} from "./team-slots.js";
@@ -40,6 +40,25 @@ export function aggregateCompletedMatches(games:Array<{homeTeamId:string|null;aw
   }
   return {played:final.length,wins,draws,losses,goalsFor,goalsAgainst,
     goalDifference:goalsFor-goalsAgainst,winRate:final.length?Math.round(wins*100/final.length):0};
+}
+/** Only non-private active player profiles and finalized verified competition
+ * statistics may appear in a public team leaderboard. */
+export function aggregatePublicPlayerStats(rows:ReadonlyArray<{
+  userId:string;displayName:string;goals:number;assists:number;appeared:boolean;
+  visibility:string;matchStatus:string;
+}>){
+  const players=new Map<string,{userId:string;displayName:string;appearances:number;goals:number;assists:number}>();
+  for(const r of rows){
+    if(r.visibility!=="PUBLIC"||!["COMPLETED","CORRECTED"].includes(r.matchStatus))continue;
+    const current=players.get(r.userId)??{userId:r.userId,displayName:r.displayName,
+      appearances:0,goals:0,assists:0};
+    current.appearances+=r.appeared?1:0;
+    current.goals+=r.goals;
+    current.assists+=r.assists;
+    players.set(r.userId,current);
+  }
+  return [...players.values()].sort((a,b)=>b.goals-a.goals||b.assists-a.assists||
+    b.appearances-a.appearances||a.displayName.localeCompare(b.displayName)).slice(0,20);
 }
 export class TeamManagerPhase3Service{
   constructor(private readonly db:Database,private readonly now:()=>Date=()=>new Date(),
@@ -167,22 +186,39 @@ export class TeamManagerPhase3Service{
     };
   }
 
+  // Public feed pages share the same gate as highlights and cannot reveal draft
+  // or non-public team posts. Offset is bounded by the validated route schema.
+  async publicPosts(teamId:string,offset:number,limit:number){
+    const [team]=await this.db.select({status:teams.status,offlineVenueId:teams.offlineVenueId,
+      claimedAt:teams.claimedAt}).from(teams).where(eq(teams.id,teamId)).limit(1);
+    if(!team||team.status!=="ACTIVE"||(team.offlineVenueId&&!team.claimedAt))
+      throw errors.badRequest("TEAM_NOT_FOUND","This team is not available.");
+    const rows=await this.db.select({id:socialPosts.id,body:socialPosts.body,
+      imageUrl:socialPosts.imageUrl,publishedAt:socialPosts.publishedAt}).from(socialPosts)
+      .where(and(eq(socialPosts.entityType,"TEAM"),eq(socialPosts.entityId,teamId),
+        eq(socialPosts.status,"PUBLISHED"),eq(socialPosts.visibility,"PUBLIC")))
+      .orderBy(desc(socialPosts.publishedAt),desc(socialPosts.id))
+      .offset(offset).limit(limit+1);
+    return {posts:rows.slice(0,limit).map(p=>({...p,publishedAt:p.publishedAt.toISOString()})),
+      hasMore:rows.length>limit};
+  }
+
   // Public profile snapshot: only published material and confirmed public fixtures.
   // This endpoint never returns member contact, invitations, private announcements,
   // team activities, unpublished competitions, or unclaimed offline-team details.
   async publicHighlights(teamId:string){
     const [team]=await this.db.select({id:teams.id,status:teams.status,
-      offlineVenueId:teams.offlineVenueId,claimedAt:teams.claimedAt})
+      privacy:teams.privacy,offlineVenueId:teams.offlineVenueId,claimedAt:teams.claimedAt})
       .from(teams).where(eq(teams.id,teamId)).limit(1);
     if(!team||team.status!=="ACTIVE"||(team.offlineVenueId&&!team.claimedAt))
       throw errors.badRequest("TEAM_NOT_FOUND","This team is not available.");
 
-    const [posts,registered,matches]=await Promise.all([
+    const [posts,registered,matches,statsGames,playerScores]=await Promise.all([
       this.db.select({id:socialPosts.id,body:socialPosts.body,imageUrl:socialPosts.imageUrl,
         publishedAt:socialPosts.publishedAt}).from(socialPosts)
         .where(and(eq(socialPosts.entityType,"TEAM"),eq(socialPosts.entityId,teamId),
           eq(socialPosts.status,"PUBLISHED"),eq(socialPosts.visibility,"PUBLIC")))
-        .orderBy(desc(socialPosts.publishedAt)).limit(50),
+        .orderBy(desc(socialPosts.publishedAt),desc(socialPosts.id)).limit(50),
       this.db.select({id:competitions.id,name:competitions.name,status:competitions.status,
         format:competitions.format,startsAt:competitions.startsAt,endsAt:competitions.endsAt})
         .from(competitionTeams).innerJoin(competitions,eq(competitionTeams.competitionId,competitions.id))
@@ -194,9 +230,40 @@ export class TeamManagerPhase3Service{
         stage:competitionMatches.stage,startsAt:competitionMatches.startsAt,
         homeScore:competitionMatches.homeScore,awayScore:competitionMatches.awayScore})
         .from(competitionMatches).innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
+        .innerJoin(competitionTeams,and(eq(competitionTeams.competitionId,competitionMatches.competitionId),
+          eq(competitionTeams.teamId,teamId),eq(competitionTeams.status,"ACCEPTED")))
         .where(and(eq(competitions.published,true),
           or(eq(competitionMatches.homeTeamId,teamId),eq(competitionMatches.awayTeamId,teamId))))
         .orderBy(desc(competitionMatches.startsAt)).limit(100),
+      // Stats must cover ALL completed public games, not just the last 100 fixtures.
+      this.db.select({homeTeamId:competitionMatches.homeTeamId,
+        awayTeamId:competitionMatches.awayTeamId,status:competitionMatches.status,
+        homeScore:competitionMatches.homeScore,awayScore:competitionMatches.awayScore})
+        .from(competitionMatches).innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
+        .innerJoin(competitionTeams,and(eq(competitionTeams.competitionId,competitionMatches.competitionId),
+          eq(competitionTeams.teamId,teamId),eq(competitionTeams.status,"ACCEPTED")))
+        .where(and(eq(competitions.published,true),
+          inArray(competitionMatches.status,["COMPLETED","CORRECTED"]),
+          or(eq(competitionMatches.homeTeamId,teamId),eq(competitionMatches.awayTeamId,teamId)))),
+      team.privacy==="PUBLIC"?
+        this.db.select({userId:playerMatchStats.playerUserId,
+          displayName:playerProfiles.publicDisplayName,visibility:playerProfiles.visibility,
+          goals:playerMatchStats.goals,assists:playerMatchStats.assists,
+          appeared:playerMatchStats.appeared,matchStatus:competitionMatches.status})
+          .from(playerMatchStats)
+          .innerJoin(competitionMatches,eq(playerMatchStats.matchId,competitionMatches.id))
+          .innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
+          .innerJoin(competitionTeams,and(eq(competitionTeams.competitionId,competitionMatches.competitionId),
+            eq(competitionTeams.teamId,teamId),eq(competitionTeams.status,"ACCEPTED")))
+          .innerJoin(playerProfiles,eq(playerMatchStats.playerUserId,playerProfiles.userId))
+          .innerJoin(users,eq(playerMatchStats.playerUserId,users.id))
+          .innerJoin(teamMemberships,and(eq(teamMemberships.teamId,teamId),
+            eq(teamMemberships.userId,playerMatchStats.playerUserId)))
+          .where(and(eq(playerMatchStats.teamId,teamId),eq(competitions.published,true),
+            inArray(competitionMatches.status,["COMPLETED","CORRECTED"]),
+            or(eq(competitionMatches.homeTeamId,teamId),eq(competitionMatches.awayTeamId,teamId)),
+            eq(playerProfiles.visibility,"PUBLIC"),eq(teamMemberships.status,"ACTIVE"),
+            eq(users.status,"ACTIVE"))):Promise.resolve([]),
     ]);
     const opponents=[...new Set(matches.flatMap(m=>[m.homeTeamId,m.awayTeamId])
       .filter((id):id is string=>!!id&&id!==teamId))];
@@ -212,7 +279,8 @@ export class TeamManagerPhase3Service{
       competitions:registered.map(c=>({...c,startsAt:c.startsAt?.toISOString()??null,
         endsAt:c.endsAt?.toISOString()??null})),
       matches:publicMatches,
-      stats:aggregateCompletedMatches(matches,teamId),
+      stats:{...aggregateCompletedMatches(statsGames,teamId),
+        players:aggregatePublicPlayerStats(playerScores)},
     };
   }
 
@@ -311,6 +379,14 @@ export function createTeamManagerPhase3Router(service:TeamManagerPhase3Service,t
       try{res.status(status).json(await fn(req.auth!.userId,uuid.parse(req.params.teamId),req));}
       catch(error){next(error);}
     };
+  router.get("/teams/:teamId/public-posts",async(req,res,next)=>{
+    try{
+      const teamId=uuid.parse(req.params.teamId);
+      const query=z.object({offset:z.coerce.number().int().min(0).max(1000).default(0),
+        limit:z.coerce.number().int().min(1).max(50).default(20)}).parse(req.query);
+      res.json(await service.publicPosts(teamId,query.offset,query.limit));
+    }catch(error){next(error);}
+  });
   router.get("/teams/:teamId/public-highlights",async(req,res,next)=>{
     try{res.json(await service.publicHighlights(uuid.parse(req.params.teamId)));}
     catch(error){next(error);}
