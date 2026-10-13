@@ -91,7 +91,7 @@ for (const marker of [
   'return this.identity(userId);',
   'user.roles.includes("TEAM_MANAGER")',
   '"TEAM_OWNER_SUBSCRIPTION_REQUIRED"',
-  '"No active account matches that username or phone number."',
+  '"No active account matches that username, email or phone number."',
 ]) requireText(teamService, marker, "Free-player / paid-Team-Owner invariant missing");
 rejectText(teamService, "PLAYER_ACCOUNT_REQUIRED", "Base users must participate as players without a global Player role");
 
