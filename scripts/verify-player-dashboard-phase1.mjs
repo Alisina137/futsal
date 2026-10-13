@@ -39,7 +39,7 @@ for(const term of ['"DEFAULT_TEAM_NOT_MEMBER"','"TEAM_MANAGER_TRANSFER_REQUIRED"
   requireInvariant(api.includes(term),"Phase 1 authorization or real-data invariant missing: "+term);
 }
 const teamRepository=get("apps/api/src/modules/team/team.repository.ts");
-requireInvariant(api.includes("await this.teamService.cancelMyJoinRequest(userId,current.teamId)")&&
+requireInvariant(api.includes("await this.teamsService.cancelMyJoinRequest(userId,current.teamId)")&&
   teamRepository.includes('eq(teamJoinRequests.status, "PENDING")'),
   "Player request cancellation must use shared team-locked pending-only authorization.");
 for(const method of ["overview:","updatePreferences:","outgoingRequests:","cancelRequest:","leaveTeam:"]){
