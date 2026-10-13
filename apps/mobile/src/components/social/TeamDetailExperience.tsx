@@ -24,7 +24,7 @@ const navigation:{id:Tab;icon:keyof typeof Ionicons.glyphMap}[]=[
 ];
 const subNavigation:Record<Tab,string[]>={
   media:["posts","photos"],squad:["players","leaders"],matches:["upcoming","results"],
-  competitions:["active","past"],stats:["overview","form","leaders"],about:["overview","members"],
+  competitions:["active","past"],stats:["overview","form","topPlayers"],about:["overview","members"],
 };
 const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
   en:{
@@ -53,7 +53,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     teamForm:"Last 5 completed matches",matchRecord:"Verified match results",
     noCover:"Team cover",activeCompetition:"Active",pastCompetition:"Past",
     showTeam:"View team",playerNumber:"Shirt number",totalCompetitions:"Competitions",
-    leaders:"Top players",noPublicLeaders:"No verified public player statistics yet.",
+    topPlayers:"Top players",noPublicLeaders:"No verified public player statistics yet.",
     goals:"Goals",assists:"Assists",appearances:"Played",showMore:"Load more posts",
     mediaLoadError:"Could not load older posts.",refresh:"Refresh",viewPost:"View post",
   },
@@ -83,7 +83,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     teamForm:"۵ مسابقه تکمیل‌شده اخیر",matchRecord:"نتایج ثبت‌شده مسابقات",
     noCover:"جلد تیم",activeCompetition:"جاری",pastCompetition:"گذشته",
     showTeam:"نمایش تیم",playerNumber:"شماره پیراهن",totalCompetitions:"رقابت‌ها",
-    leaders:"بازیکنان برتر",noPublicLeaders:"هنوز آمار تأییدشدهٔ عمومی بازیکنان وجود ندارد.",
+    topPlayers:"بازیکنان برتر",noPublicLeaders:"هنوز آمار تأییدشدهٔ عمومی بازیکنان وجود ندارد.",
     goals:"گل",assists:"پاس گل",appearances:"بازی",showMore:"نمایش پست‌های بیشتر",
     mediaLoadError:"پست‌های قدیمی بارگذاری نشد.",refresh:"تازه‌سازی",viewPost:"نمایش پست",
   },
@@ -113,7 +113,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     teamForm:"وروستۍ ۵ بشپړې لوبې",matchRecord:"ثبت شوې لوبې او پایلې",
     noCover:"د ټیم پوښ",activeCompetition:"روانه",pastCompetition:"تېره",
     showTeam:"ټیم وګورئ",playerNumber:"د کمیس شمېره",totalCompetitions:"سیالۍ",
-    leaders:"غوره لوبغاړي",noPublicLeaders:"تر اوسه تایید شوې عامه د لوبغاړو شمېرې نشته.",
+    topPlayers:"غوره لوبغاړي",noPublicLeaders:"تر اوسه تایید شوې عامه د لوبغاړو شمېرې نشته.",
     goals:"ګولونه",assists:"مرستې",appearances:"لوبې",showMore:"نور پوسټونه",
     mediaLoadError:"زاړه پوسټونه پورته نشول.",refresh:"تازه کول",viewPost:"پوسټ وګورئ",
   },
@@ -434,7 +434,7 @@ export default function TeamDetailExperience(){
     </Card>);
   }
   function statsContent(data:TeamPublicHighlights){
-    if(subs.stats==="leaders"){
+    if(subs.stats==="topPlayers"){
       if(!data.stats.players.length)return empty(tx("noPublicLeaders"),"people-outline");
       return <View testID="team-verified-player-leaders" style={{gap:spacing.sm}}>
         {data.stats.players.map((player,index)=><Pressable key={player.userId}
