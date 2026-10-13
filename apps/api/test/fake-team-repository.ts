@@ -319,6 +319,15 @@ export class FakeTeamRepository implements TeamRepository {
     return request;
   }
 
+  async cancelJoinRequest(teamId:string,requesterUserId:string,now:Date,requestId?:string){
+    const current=await this.getJoinRequest(teamId,requesterUserId);
+    if(!current||(requestId&&current.id!==requestId))return null;
+    const cancelled:TeamJoinRequestDto={...current,status:"CANCELLED",
+      respondedAt:now.toISOString()};
+    this.joinRequests.set(current.id,cancelled);
+    return cancelled;
+  }
+
   async listJoinRequestsForTeam(teamId:string){
     return [...this.joinRequests.values()]
       .filter((request)=>request.teamId===teamId)
@@ -333,6 +342,11 @@ export class FakeTeamRepository implements TeamRepository {
     const next:TeamJoinRequestDto={...request,status,respondedAt:now.toISOString()};
     this.joinRequests.set(requestId,next);
     if(accept){
+      for(const [id,inv] of this.invitations){
+        if(inv.teamId===teamId&&inv.invitedUserId===request.requesterUserId&&inv.status==="PENDING"){
+          this.invitations.set(id,{...inv,status:"REVOKED"});
+        }
+      }
       const key=this.membershipKey(teamId,request.requesterUserId);
       const current=this.memberships.get(key);
       this.memberships.set(key,{
@@ -531,6 +545,11 @@ export class FakeTeamRepository implements TeamRepository {
       this.teams.set(invite.teamId, team);
     }
 
+    for(const [id,pending] of this.joinRequests){
+      if(pending.teamId===invite.teamId&&pending.requesterUserId===invitedUserId&&pending.status==="PENDING"){
+        this.joinRequests.set(id,{...pending,status:"ACCEPTED",respondedAt:now.toISOString()});
+      }
+    }
     const accepted = { ...invite, status: "ACCEPTED" as const };
     this.invitations.set(invitationId, accepted);
     return accepted;

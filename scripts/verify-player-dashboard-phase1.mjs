@@ -34,10 +34,14 @@ requireInvariant(schema.includes("export const playerDashboardPreferences"),
   "Dashboard preferences must persist on the server.");
 for(const term of ['"DEFAULT_TEAM_NOT_MEMBER"','"TEAM_MANAGER_TRANSFER_REQUIRED"',
   'eq(teamJoinRequests.requesterUserId,userId)','eq(teamMemberships.userId,userId)',
-  'eq(teamMemberships.status,"ACTIVE")','eq(teamJoinRequests.status,"PENDING")',
+  'eq(teamMemberships.status,"ACTIVE")',
   'playerMatchStats.playerUserId','getOwnProfile(userId)']){
   requireInvariant(api.includes(term),"Phase 1 authorization or real-data invariant missing: "+term);
 }
+const teamRepository=get("apps/api/src/modules/team/team.repository.ts");
+requireInvariant(api.includes("await this.teamsService.cancelMyJoinRequest(userId,current.teamId,id)")&&
+  teamRepository.includes('eq(teamJoinRequests.status, "PENDING")'),
+  "Player request cancellation must use shared team-locked pending-only authorization.");
 for(const method of ["overview:","updatePreferences:","outgoingRequests:","cancelRequest:","leaveTeam:"]){
   requireInvariant(client.includes(method),"Typed player API action missing: "+method);
 }

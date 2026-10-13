@@ -940,6 +940,10 @@ export const teamApi = {
     request<{ request: TeamJoinRequestDto | null }>(`/api/v1/teams/${teamId}/join-request`, {}, accessToken),
   requestJoin: (accessToken: string, teamId: string) =>
     request<{ request: TeamJoinRequestDto }>(`/api/v1/teams/${teamId}/join-request`, { method: "POST" }, accessToken),
+  cancelJoin: (accessToken: string, teamId: string) =>
+    request<{ request: TeamJoinRequestDto }>(`/api/v1/teams/${teamId}/join-request`, { method: "DELETE" }, accessToken),
+  publicJoinPolicy: (teamId: string) =>
+    request<{ allowJoinRequests: boolean }>(`/api/v1/teams/${teamId}/join-policy`),
   create: (accessToken: string, input: TeamCreateRequest) =>
     request<{ team: TeamDto }>("/api/v1/teams", { method: "POST", body: JSON.stringify(input) }, accessToken),
   publicTeam: (teamId: string) =>

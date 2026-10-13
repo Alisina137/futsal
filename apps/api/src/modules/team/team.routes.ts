@@ -21,6 +21,13 @@ export function createPublicTeamRouter(teams: TeamService) {
   const router = Router();
   router.use(rateLimit({ windowMs: 60_000, limit: 180, standardHeaders: "draft-8", legacyHeaders: false }));
 
+  router.get("/teams/:teamId/join-policy", async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      response.json(await teams.getPublicJoinPolicy(teamId));
+    } catch (error) { next(error); }
+  });
+
   router.get("/teams/:teamId", async (request, response, next) => {
     try {
       const teamId = routeIdSchema.parse(request.params.teamId);
@@ -96,6 +103,13 @@ export function createAuthenticatedTeamRouter(teams: TeamService, tokens: TokenS
     try {
       const teamId = routeIdSchema.parse(request.params.teamId);
       response.json(await teams.getMyJoinRequest(request.auth!.userId, teamId));
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/teams/:teamId/join-request", auth, writeLimiter, async (request, response, next) => {
+    try {
+      const teamId = routeIdSchema.parse(request.params.teamId);
+      response.json({ request: await teams.cancelMyJoinRequest(request.auth!.userId, teamId) });
     } catch (error) { next(error); }
   });
 
