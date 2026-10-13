@@ -415,9 +415,11 @@ export function TeamManagerDashboard(){
           <AppText variant="caption" muted>{t("tm1.consentHint")}</AppText>
         </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.pendingRequests")} ({pending.length})</AppText>
+          <AppText variant="caption" muted>{t("teams.phase4.managerReviewHint")}</AppText>
           {pending.length===0?<AppText muted>{t("tm1.noRequests")}</AppText>:null}
           {pending.map(request=><View key={request.id} style={styles.divider}>
             <AppText weight="semibold">{request.requesterDisplayName}</AppText>
+            <AppText variant="caption" muted>{formatCompetitionDateTime(request.createdAt,language)}</AppText>
             <View style={styles.actions}>
               <Button label={t("teams.accept")} style={styles.action} disabled={!canWrite||busy}
                 loading={joinAction?.requestId===request.id&&joinAction.accept}

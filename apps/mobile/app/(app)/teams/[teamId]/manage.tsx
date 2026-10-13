@@ -1,5 +1,5 @@
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { TeamDto, TeamInvitationDto, TeamPrivacy } from "@leaguekick/contracts";
+import type { TeamDto, TeamInvitationDto, TeamJoinRequestDto, TeamPrivacy } from "@leaguekick/contracts";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, View } from "react-native";
@@ -19,6 +19,7 @@ export default function ManageTeamScreen(){
   const {t,isRTL}=useLocale();
   const [team,setTeam]=useState<TeamDto|null>(null);
   const [invitations,setInvitations]=useState<TeamInvitationDto[]>([]);
+  const [requests,setRequests]=useState<TeamJoinRequestDto[]>([]);
   const [name,setName]=useState("");
   const [city,setCity]=useState("");
   const [logoUrl,setLogoUrl]=useState("");
@@ -34,9 +35,10 @@ export default function ManageTeamScreen(){
     if(!session||!teamId)return;
     setLoading(true);setError(null);
     try{
-      const [{team:nextTeam},{invitations:nextInvites}]=await Promise.all([
+      const [{team:nextTeam},{invitations:nextInvites},{requests:nextRequests}]=await Promise.all([
         teamApi.roster(session.accessToken,teamId),
         teamApi.teamInvitations(session.accessToken,teamId),
+        teamApi.joinRequests(session.accessToken,teamId),
       ]);
       if(nextTeam.managerUserId!==session.user.id){
         router.replace({pathname:"/teams/[teamId]",params:{teamId}});
@@ -44,6 +46,7 @@ export default function ManageTeamScreen(){
       }
       setTeam(nextTeam);
       setInvitations(nextInvites);
+      setRequests(nextRequests);
       setName(nextTeam.name);
       setCity(nextTeam.city);
       setLogoUrl(nextTeam.logoUrl??"");
@@ -132,6 +135,18 @@ export default function ManageTeamScreen(){
     finally{setBusy(null);}
   }
 
+  async function reviewJoinRequest(requestId:string,accept:boolean){
+    if(!session||!teamId||busy)return;
+    setBusy(`request:${requestId}`);setError(null);
+    try{
+      const {request:updated}=await teamApi.respondJoinRequest(session.accessToken,teamId,requestId,accept);
+      setRequests(current=>current.map(item=>item.id===updated.id?updated:item));
+      if(accept)await load();
+    }catch{setError(t("teams.memberActionError"));}
+    finally{setBusy(null);}
+  }
+
+  const pendingRequests=requests.filter((item)=>item.status==="PENDING");
   const pending=invitations.filter((item)=>item.status==="PENDING");
 
   if(loading)return <Screen showHeader><DataLoadingState variant="form" minHeight={500}/></Screen>;
@@ -169,6 +184,23 @@ export default function ManageTeamScreen(){
           </Pressable>)}
         </View>
         <Button label={t("teams.saveTeam")} onPress={()=>void saveTeam()} loading={busy==="team"} disabled={name.trim().length<2||city.trim().length<2}/>
+      </Card>
+
+      <Card>
+        <AppText variant="bodyLarge" weight="bold">{t("tm1.pendingRequests")} ({pendingRequests.length})</AppText>
+        <AppText variant="caption" muted>{t("teams.phase4.managerReviewHint")}</AppText>
+        {pendingRequests.length===0?<AppText muted>{t("tm1.noRequests")}</AppText>:null}
+        {pendingRequests.map(request=><View key={request.id} style={{gap:spacing.sm,paddingVertical:spacing.sm,
+          borderTopWidth:1,borderTopColor:colors.border}}>
+          <AppText weight="semibold">{request.requesterDisplayName}</AppText>
+          <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
+            <Button style={{flex:1}} label={t("teams.accept")}
+              loading={busy===`request:${request.id}`} disabled={busy!==null}
+              onPress={()=>void reviewJoinRequest(request.id,true)}/>
+            <Button style={{flex:1}} label={t("teams.decline")} variant="secondary"
+              disabled={busy!==null} onPress={()=>void reviewJoinRequest(request.id,false)}/>
+          </View>
+        </View>)}
       </Card>
 
       <Card>

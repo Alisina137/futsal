@@ -155,6 +155,18 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
     setProvince("");setCity("");setDistrict("");setSort("recommended");setQuery("");
     apply({...defaults});
   }
+  async function cancel(id:string){
+    if(!token||joiningId)return;
+    setJoiningId(id);setError(null);
+    try{
+      await teamApi.cancelJoin(token,id);
+      setTeams(list=>list.map(x=>x.id===id?{...x,joinRequestStatus:null}:x));
+      setFollowed(list=>list.map(x=>x.id===id?{...x,joinRequestStatus:null}:x));
+    }catch{
+      setError(t("teams.phase4.cancelRequestError"));
+      void load(applied.current,1);
+    }finally{setJoiningId(null);}
+  }
   async function join(id:string){
     if(!token||joiningId)return;
     setJoiningId(id);setError(null);
@@ -171,8 +183,8 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
       status:t(`teams.role.${team.myMembershipRole}` as never),
       tone:"success" as const,
     }:team.joinRequestStatus==="PENDING"?{
-      label:t("teams.joinRequestPending"),disabled:true,
-      status:t("teams.joinRequestPending"),tone:"warning" as const,
+      label:t("teams.phase4.cancelRequest"),disabled:false,
+      status:t("teams.phase4.pendingReview"),tone:"warning" as const,
     }:!team.allowJoinRequests?{
       label:t("teams.invitationOnly"),disabled:true,
       status:t("teams.invitationOnly"),tone:"muted" as const,
@@ -193,7 +205,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
         statusLabel={a.status??""} statusTone={a.tone}
         detailsLabel={t("teams.viewTeam")} actionLabel={a.label}
         actionDisabled={a.disabled||!token||joiningId!==null} busy={joiningId===team.id}
-        onDetails={()=>open(team.id)} onAction={()=>void join(team.id)}/>
+        onDetails={()=>open(team.id)} onAction={()=>void (team.joinRequestStatus==="PENDING"?cancel(team.id):join(team.id))}/>
     </View>;
   }
   const title=mode==="popular"?t("teams.mostFollowed"):mode==="mine"?t("teams.myTeams")

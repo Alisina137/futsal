@@ -123,6 +123,7 @@ export default function TeamDetailExperience(){
   const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
   const [followBusy,setFollowBusy]=useState(false);
   const [joinStatus,setJoinStatus]=useState<TeamJoinRequestStatus|null>(null);
+  const [joinAllowed,setJoinAllowed]=useState(false);
   const [joinBusy,setJoinBusy]=useState(false);
   const [tab,setTab]=useState<Tab>("media");
   const [subs,setSubs]=useState<Record<Tab,string>>({
@@ -141,8 +142,9 @@ export default function TeamDetailExperience(){
     if(!id)return;
     setLoading(true);setError(null);
     try{
-      const [result,details]=await Promise.all([
+      const [result,details,policy]=await Promise.all([
         teamApi.publicTeam(id),teamManagerApi.publicDetails(id).catch(()=>null),
+        teamApi.publicJoinPolicy(id).catch(()=>({allowJoinRequests:false})),
       ]);
       let next=result.team;
       let isMember=false,request:TeamJoinRequestStatus|null=null;
@@ -158,7 +160,7 @@ export default function TeamDetailExperience(){
         }catch{/* Public team details remain usable when private reads fail. */}
       }
       setTeam(next);setProfile(details?.profile??null);
-      setMember(isMember);setJoinStatus(request);
+      setMember(isMember);setJoinStatus(request);setJoinAllowed(policy.allowJoinRequests);
     }catch{
       setError(t("teams.publicTeamLoadError"));
     }finally{setLoading(false);}
@@ -167,7 +169,7 @@ export default function TeamDetailExperience(){
   useEffect(()=>{
     if(lastId.current===id)return;
     lastId.current=id;setTeam(null);setProfile(null);setHighlights(null);
-    setTab("media");setFollowState(null);setMember(false);setJoinStatus(null);
+    setTab("media");setFollowState(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
   },[id]);
   useEffect(()=>{
     if(!session||!id)return;
@@ -198,12 +200,21 @@ export default function TeamDetailExperience(){
     finally{setFollowBusy(false);}
   }
   async function requestJoin(){
-    if(!session||member||joinBusy||joinStatus==="PENDING")return;
+    if(!session||member||joinBusy||joinStatus==="PENDING"||!joinAllowed)return;
     setJoinBusy(true);setError(null);
     try{
       const result=await teamApi.requestJoin(session.accessToken,id);
       setJoinStatus(result.request.status);
     }catch{setError(t("teams.joinRequestError"));}
+    finally{setJoinBusy(false);}
+  }
+  async function cancelJoin(){
+    if(!session||joinBusy||joinStatus!=="PENDING")return;
+    setJoinBusy(true);setError(null);
+    try{
+      await teamApi.cancelJoin(session.accessToken,id);
+      setJoinStatus(null);
+    }catch{setError(t("teams.phase4.cancelRequestError"));}
     finally{setJoinBusy(false);}
   }
   async function share(){
@@ -439,9 +450,12 @@ export default function TeamDetailExperience(){
         {joinStatus==="PENDING"?<AppText style={{color:colors.warning}} weight="semibold">
           {t("teams.joinRequestPending")}</AppText>:null}
         {!member&&role!=="MANAGER"&&session?<Button
-          label={joinStatus==="PENDING"?t("teams.joinRequestPending"):t("teams.requestToJoin")}
-          disabled={joinStatus==="PENDING"} loading={joinBusy} variant="secondary"
-          onPress={()=>void requestJoin()}/>:null}
+          label={joinStatus==="PENDING"?t("teams.phase4.cancelRequest"):
+            !joinAllowed?t("teams.invitationOnly"):t("teams.requestToJoin")}
+          disabled={!joinAllowed&&joinStatus!=="PENDING"} loading={joinBusy} variant="secondary"
+          onPress={()=>void (joinStatus==="PENDING"?cancelJoin():requestJoin())}/>:null}
+        {!member&&!joinAllowed&&joinStatus!=="PENDING"?
+          <AppText variant="caption" muted>{t("teams.phase4.invitationOnlyHelp")}</AppText>:null}
         {role?<AppText weight="semibold" style={{color:colors.primary}}>
           {t("teams.myRole")}: {t(`teams.role.${role}` as never)}</AppText>:null}
         {role?<Button label={tx("viewActivity")} variant="secondary"
@@ -511,8 +525,10 @@ export default function TeamDetailExperience(){
             onPress={()=>router.push({pathname:"/teams/[teamId]/manage",params:{teamId:id}})}/>:
             member?<Button style={{flex:1}} label={tx("joined")} variant="secondary" disabled onPress={()=>{}}/>:
             <Button style={{flex:1}} variant="secondary" loading={joinBusy}
-              label={joinStatus==="PENDING"?t("teams.joinRequestPending"):t("teams.requestToJoin")}
-              disabled={!session||joinStatus==="PENDING"} onPress={()=>void requestJoin()}/>}
+              label={joinStatus==="PENDING"?t("teams.phase4.cancelRequest"):
+                !joinAllowed?t("teams.invitationOnly"):t("teams.requestToJoin")}
+              disabled={!session||(!joinAllowed&&joinStatus!=="PENDING")}
+              onPress={()=>void (joinStatus==="PENDING"?cancelJoin():requestJoin())}/>}
         </View>
         <View style={[styles.horizontal,rowDirection,{justifyContent:"center"}]}>
           <Pressable accessibilityRole="button" onPress={()=>void share()} style={styles.smallAction}>
@@ -522,7 +538,7 @@ export default function TeamDetailExperience(){
         </View>
         {joinStatus==="PENDING"&&!member?<View style={styles.pending}>
           <Ionicons name="time-outline" size={18} color={colors.warning}/>
-          <AppText variant="caption" style={{flex:1}}>{tx("joinDescription")}</AppText>
+          <AppText variant="caption" style={{flex:1}}>{t("teams.joinRequestPendingBody")}</AppText>
         </View>:null}
       </View>
     </View>

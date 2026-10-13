@@ -1,3 +1,12 @@
+## Teams Phase 4 — Membership & Invitations (2026-10-13)
+
+- Public join-policy endpoint and invitation-only UI on public team detail and directory.
+- Players can cancel pending requests from directory and detail. Request-scoped transactional cancellation serializes with manager review; stale approvals return 409.
+- On acceptance, pending invitation and pending join requests are mutually resolved. Player role rules and manager subscription authorization remain enforced.
+- Team Manager review controls are shown in both the dashboard and team management; personal invitations allow viewing teams and refresh account roles on acceptance.
+- English/Dari/Pashto interface copy, API regression coverage, and `pnpm verify:teams-phase4` added.
+- No schema migration for Phase 4. Run `pnpm verify`, Expo web export and Android QA before production.
+
 ## Teams improvement roadmap — Phase 3: public team profile and identity (October 13, 2026)
 - Added an optional **persisted manager-owned team cover photo**, displayed on public team profiles with the manager-configured primary color as a safe background fallback. Managers upload a real photo from their gallery into the existing authenticated social image pipeline in Team Manager → Settings → Team Identity, preview or remove it, then **Save** to publish. Server validates every submitted media token against the uploading manager's actual ownership, active team authority and license; arbitrary external image URLs and another user's media are rejected. Optional removal uses null. Schema migration `0040_team_profile_cover_image.sql` is required before exposing the new cover feature.
 - Public team profile retains the six existing tabs and subnavigation; the default remains **Media / Posts**. Header now shows uploaded cover, real team identity and available description/location instead of a generic permanent banner. Existing Follow/Request to Join/Manage/Share actions, member-only links and privacy gates are preserved.
