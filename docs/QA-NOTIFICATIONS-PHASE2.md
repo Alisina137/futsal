@@ -14,7 +14,7 @@
 - `pnpm verify:notifications-phase2` covers required API/contract/client invariants and screens.
 - `apps/api/test/notification-phase2-reliability.test.ts` verifies same-timestamp keyset pagination, new rows between pages, push-only privacy, per-user isolation, forged cursor rejection, idempotent marks and unread counts.
 - Existing Phase 1 and Notifications Center scripts updated for parameterized deep links.
-- Full CI `pnpm verify` and Expo web export on PR; competition database smoke remains independently enforced.
+- GitHub Actions runs full `pnpm verify`, Expo web export, and disposable PostgreSQL integration via `apps/api/scripts/notifications-phase2-db.ts`, validating real DB cursor ordering, channel isolation and concurrent event deduplication alongside competition database smoke.
 
 ## Device/manual acceptance checklist
 1. User A receives 65+ mixed events across Bookings/Teams/Competitions. Load multiple pages; have another device send two newer events while paging. Confirm no duplicate/missing cards and filters show correct totals.
