@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {BookingDto} from "@leaguekick/contracts";
 import {router} from "expo-router";
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {formatCalendarDate} from "../../lib/timetable-calendar";
 import {formatSlotStartTime} from "../../lib/slot-display";
@@ -22,6 +22,7 @@ type Props={
   onRefresh:()=>void;
   onCancel:(bookingId:string)=>Promise<void>;
   scopedVenueId?:string;
+  focusBookingId?:string|undefined;
 };
 
 const statePalette={
@@ -40,12 +41,17 @@ function bookingDate(iso:string,language:"en"|"fa-AF"|"ps-AF"){
 }
 function bookingTime(iso:string){return formatSlotStartTime(iso,"Asia/Kabul");}
 
-export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scopedVenueId}:Props){
+export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scopedVenueId,focusBookingId}:Props){
   const {t,language,isRTL}=useLocale();
   const {isOnline,apiReachable}=useNetwork();
   const tr=(key:string)=>t(("booking.reserves."+key) as never);
   const [filter,setFilter]=useState<ReservationGroup>("ALL");
   const [expandedId,setExpandedId]=useState<string|null>(null);
+  useEffect(()=>{
+    if(!focusBookingId)return;
+    setFilter("ALL");
+    setExpandedId(focusBookingId);
+  },[focusBookingId]);
   const [cancelTarget,setCancelTarget]=useState<BookingDto|null>(null);
   const [cancelBusy,setCancelBusy]=useState(false);
   const [cancelError,setCancelError]=useState<string|null>(null);
@@ -153,6 +159,7 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
       return <Card key={item.id}
         testID={group==="CANCELLED"?`reservation-cancelled-card-${item.id}`:undefined}
         style={[styles.bookingCard,{borderLeftColor:palette.ink},
+           focusBookingId===item.id&&{borderWidth:2,borderColor:colors.primary},
           group==="CANCELLED"&&styles.cancelledCard]}>
         <View style={[styles.identity,rtlRow]}>
           <View style={[styles.venueIcon,{backgroundColor:palette.background}]}>

@@ -24,14 +24,22 @@ export function createNotificationRouter(notifications: NotificationService, tok
     legacyHeaders: false,
   });
 
+  router.get("/unread-count",async(request,response,next)=>{
+    try{response.json(await notifications.unreadCount(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+
   router.get("/", async (request,response,next)=>{
     try{
       const query=z.object({
         filter:notificationListFilterSchema.default("ALL"),
         limit:z.coerce.number().int().min(1).max(100).default(30),
-        offset:z.coerce.number().int().min(0).max(10000).default(0),
+        offset:z.coerce.number().int().min(0).max(10000).optional(),
+        cursor:z.string().min(1).max(180).optional(),
+      }).refine(value=>!(value.cursor!==undefined&&value.offset!==undefined),{
+        message:"Use cursor or offset, not both",
       }).parse(request.query);
-      response.json(await notifications.list(request.auth!.userId,query.filter,query.limit,query.offset));
+      response.json(await notifications.list(request.auth!.userId,query.filter,query.limit,query.offset??0,query.cursor));
     }catch(error){next(error);}
   });
 
@@ -55,7 +63,7 @@ export function createNotificationRouter(notifications: NotificationService, tok
   router.post("/:notificationId/read", writeLimiter, async (request, response, next) => {
     try {
       const notificationId = routeIdSchema.parse(request.params.notificationId);
-      response.json({ notification: await notifications.markRead(request.auth!.userId, notificationId) });
+      response.json(await notifications.markRead(request.auth!.userId, notificationId));
     } catch (error) { next(error); }
   });
 

@@ -1,7 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing } from "@leaguekick/design-tokens";
 import { router, useFocusEffect, usePathname } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import {AppState} from "react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 import { notificationApi } from "../../lib/api";
 import { onNotificationUnreadChange, publishNotificationUnread } from "../../lib/notification-events";
@@ -27,24 +28,43 @@ export function PublicTopNavigation(){
   const {t,isRTL}=useLocale();
   const pathname=usePathname();
   const [unread,setUnread]=useState(0);
+  const badgeAccount=useRef<string|null>(null);
 
   const isPlatformAdmin=session?.user.roles.includes("PLATFORM_ADMIN")??false;
   const token=!isPlatformAdmin?session?.accessToken:undefined;
+  const accountId=!isPlatformAdmin?session?.user.id??null:null;
 
   useFocusEffect(useCallback(()=>{
-    if(!token){setUnread(0);return;}
+    if(!token){setUnread(0);badgeAccount.current=null;return;}
+    if(accountId!==badgeAccount.current){
+      badgeAccount.current=accountId;
+      setUnread(0); // Never flash a previous account's private unread count.
+    }
     let active=true;
+    let generation=0;
     const unsubscribe=onNotificationUnreadChange((source,count)=>{
-      if(active&&source===token)setUnread(count);
+      if(active&&source===token){generation++;setUnread(count);}
     });
-    notificationApi.list(token).then(({unreadCount})=>{
-      if(active){setUnread(unreadCount);publishNotificationUnread(token,unreadCount);}
-    }).catch(()=>{
-      // No fabricated badge when offline. Navigation remains usable.
-      if(active)setUnread(0);
+    const reload=()=>{
+      const request=++generation;
+      void notificationApi.unreadCount(token).then(({unreadCount})=>{
+        if(active&&request===generation){
+          setUnread(unreadCount);
+          publishNotificationUnread(token,unreadCount);
+        }
+      }).catch(()=>{
+        // An offline request must not erase a previously confirmed unread badge.
+      });
+    };
+    reload();
+    const appState=AppState.addEventListener("change",state=>{
+      if(state==="active")reload();
     });
-    return ()=>{active=false;unsubscribe();};
-  },[token]));
+    const timer=setInterval(()=>{
+      if(AppState.currentState==="active")reload();
+    },30_000);
+    return ()=>{active=false;generation++;clearInterval(timer);appState.remove();unsubscribe();};
+  },[token,accountId]));
 
   if(isPlatformAdmin)return null;
 

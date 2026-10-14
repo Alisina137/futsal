@@ -1,3 +1,12 @@
+## Notifications Center — Phase 2: live inbox reliability and precise navigation (October 14, 2026)
+
+- Improved delivery-channel integrity: only events with an actual IN_APP delivery appear in the inbox and unread counts, while push-only events remain push-only. Previously delivered in-app notifications persist when users later turn delivery off.
+- Added dedicated authenticated unread-count endpoint, actor-scoped uncached inbox reads, 30-second/focus/foreground navbar reconciliation, race-resistant list/mutation handling, server-authoritative read counts, idempotent read timestamps.
+- Added stable opaque createdAt+id cursor paging (existing offset API remains backward compatible); mid-pagination inserts cannot shift older pages. Inline retry preserves loaded cards on Load-more network errors.
+- Added contextual deep-link selection for booked reservation, owner approval, team request, manager match/challenge, with ordinary platform notices expanding inline. Preserved six inbox filters, English/Dari/Pashto and RTL-friendly styling.
+- Added `apps/api/test/notification-phase2-reliability.test.ts`, `pnpm verify:notifications-phase2`; manual acceptance guide `docs/QA-NOTIFICATIONS-PHASE2.md`.
+- **No Phase 2 migration**. Prior Phase 1 migration 0042 still required. Native push-device validation remains a separate hardware/FCM/APNs prerequisite.
+
 ## Notifications Center — Phase 1: native push gateway and actionable event delivery (October 14, 2026)
 
 - Existing notification center styling, six category filters, unread interactions, preferences and localized dates are preserved.

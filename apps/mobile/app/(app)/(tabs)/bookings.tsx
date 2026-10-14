@@ -1,5 +1,5 @@
 import type {BookingDto} from "@leaguekick/contracts";
-import {useFocusEffect} from "expo-router";
+import {useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useRef,useState} from "react";
 import {ReservationsPanel} from "../../../src/components/bookings/ReservationsPanel";
 import {Screen} from "../../../src/components/ui/Screen";
@@ -10,6 +10,7 @@ import {useNetwork} from "../../../src/providers/NetworkProvider";
 
 export default function MyBookingsScreen(){
   const {session}=useAuth();
+  const {bookingId}=useLocalSearchParams<{bookingId?:string}>();
   const {t}=useLocale();
   const {reconnectVersion}=useNetwork();
   const userId=session?.user.id??null,token=session?.accessToken;
@@ -52,6 +53,6 @@ export default function MyBookingsScreen(){
   return <Screen showHeader publicNav
     refreshing={loading&&safeItems.length>0} onRefresh={()=>void load()}>
     <ReservationsPanel items={safeItems} loading={loading} error={error}
-      onRefresh={()=>void load()} onCancel={cancel}/>
+      onRefresh={()=>void load()} onCancel={cancel} focusBookingId={bookingId}/>
   </Screen>;
 }

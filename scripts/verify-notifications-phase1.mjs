@@ -48,7 +48,7 @@ assert.ok(mobilePackage.includes('"expo-notifications"')&&
   appJson.includes('"expo-notifications"')&&
   read("pnpm-lock.yaml").includes("expo-notifications@"),
   "Push package SDK 57 and frozen-lockfile must be installed");
-assert.ok(notifScreen.includes('router.push("/owner/schedule")')&&
+assert.ok(notifScreen.includes('pathname:"/owner/schedule"')&&
   notifScreen.includes('pathname:"/teams/[teamId]/manage"')&&
   notifScreen.includes('pathname:"/teams/[teamId]"'),
   "Action notifications must navigate to actual approval and team pages");

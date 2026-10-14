@@ -19,14 +19,38 @@ export class NotificationService implements NotificationPublisher {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async list(userId:string,filter:NotificationListFilter="ALL",limit=30,offset=0){
-    const [notifications,total,unreadCount]=await Promise.all([
-      this.repository.listNotifications(userId,limit,offset,filter),
+  /** Opaque createdAt/id keyset cursor; stable when new rows arrive ahead of page 1. */
+  async list(userId:string,filter:NotificationListFilter="ALL",limit=30,offset=0,cursor?:string){
+    let before:{createdAt:Date;id:string}|undefined;
+    if(cursor){
+      try{
+        const value=Buffer.from(cursor,"base64url").toString("utf8");
+        const separator=value.indexOf("|");
+        const rawDate=value.slice(0,separator),id=value.slice(separator+1);
+        const date=new Date(rawDate);
+        if(separator<=0||!/^\d{4}-\d{2}-\d{2}T/.test(rawDate)||date.toISOString()!==rawDate||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+          throw new Error("Invalid cursor");
+        before={createdAt:date,id};
+      }catch{
+        throw errors.badRequest("INVALID_NOTIFICATION_CURSOR","Invalid notification page cursor.");
+      }
+    }
+    const [page,total,unreadCount]=await Promise.all([
+      this.repository.listNotifications(userId,limit+1,cursor?0:offset,filter,before),
       this.repository.countNotifications(userId,filter),
       this.repository.countUnreadNotifications(userId),
     ]);
-    return {notifications,total,unreadCount,hasMore:offset+notifications.length<total,
+    const hasMore=page.length>limit,notifications=page.slice(0,limit);
+    const last=notifications[notifications.length-1];
+    const nextCursor=hasMore&&last?
+      Buffer.from(last.createdAt+"|"+last.id).toString("base64url"):null;
+    return {notifications,total,unreadCount,hasMore,nextCursor,
       generatedAt:this.now().toISOString()};
+  }
+
+  async unreadCount(userId:string){
+    return {unreadCount:await this.repository.countUnreadNotifications(userId)};
   }
 
   async markAllRead(userId:string){
@@ -48,7 +72,7 @@ export class NotificationService implements NotificationPublisher {
   async markRead(userId: string, notificationId: string) {
     const notification = await this.repository.markRead(userId, notificationId, this.now());
     if (!notification) throw errors.badRequest("NOTIFICATION_NOT_FOUND", "Notification not found.");
-    return notification;
+    return {notification,unreadCount:await this.repository.countUnreadNotifications(userId)};
   }
 
   getPreferences(userId: string) {
@@ -85,9 +109,8 @@ export class NotificationService implements NotificationPublisher {
     if (preferences.pushEnabled && await this.repository.hasActivePushDevice(input.userId)) channels.push("PUSH");
     if (channels.length === 0) return;
 
-    const { notification, created } = await this.repository.createNotification(input, this.now());
-    if (!created) return;
-    await this.repository.ensureDeliveries(notification.id, channels);
+    // Persist the event and its intended delivery channels in one transaction.
+    await this.repository.createNotification(input, this.now(), channels);
   }
 
   async slotAvailable(input:{userId:string;watchId:string;venueId:string;areaId:string;
@@ -106,7 +129,7 @@ export class NotificationService implements NotificationPublisher {
     await this.publish({
       userId:input.ownerUserId,type:"BOOKING_REQUEST",title:"New booking requires approval",
       body:`${input.venueName} · ${input.startsAt}`,
-      deepLink:"/owner/schedule",
+      deepLink:`/owner/schedule?bookingId=${input.bookingId}`,
       data:{bookingId:input.bookingId,venueId:input.venueId,venueName:input.venueName,startsAt:input.startsAt},
       dedupeKey:`booking-request:${input.bookingId}`,marketing:false,
     });
@@ -116,7 +139,7 @@ export class NotificationService implements NotificationPublisher {
     await this.publish({
       userId:input.managerUserId,type:"TEAM_JOIN_REQUEST",title:"New team join request",
       body:`${input.requesterDisplayName} wants to join ${input.teamName}.`,
-      deepLink:`/teams/${input.teamId}/manage`,
+      deepLink:`/teams/${input.teamId}/manage?requestId=${input.requestId}`,
       data:{teamId:input.teamId,requestId:input.requestId,teamName:input.teamName,requesterDisplayName:input.requesterDisplayName},
       dedupeKey:`team-join-request:${input.requestId}`,marketing:false,
     });
@@ -144,7 +167,7 @@ export class NotificationService implements NotificationPublisher {
       type: "BOOKING_CONFIRMED",
       title: "Booking confirmed",
       body: `${input.venueName} · ${input.startsAt}`,
-      deepLink: "/bookings",
+      deepLink: `/bookings?bookingId=${input.bookingId}`,
       data: { bookingId: input.bookingId, startsAt: input.startsAt, venueName: input.venueName },
       dedupeKey: `booking-confirmed:${input.bookingId}`,
       marketing: false,
@@ -161,7 +184,7 @@ export class NotificationService implements NotificationPublisher {
       type: "BOOKING_CANCELLED",
       title: "Booking cancelled",
       body: `Your booking at ${input.venueName} was cancelled.`,
-      deepLink: "/bookings",
+      deepLink: `/bookings?bookingId=${input.bookingId}`,
       data: { bookingId: input.bookingId, venueName: input.venueName },
       dedupeKey: `booking-cancelled:${input.bookingId}`,
       marketing: false,
@@ -245,7 +268,8 @@ export class NotificationService implements NotificationPublisher {
   async teamChallenge(input:{teamId:string;challengeId:string;teamName:string;title:string;userIds:string[]}){
     await Promise.allSettled(input.userIds.map(userId=>this.publish({
       userId,type:"TEAM_CHALLENGE",title:input.teamName,body:input.title,
-      deepLink:"/dashboard",data:{teamId:input.teamId,challengeId:input.challengeId},
+      deepLink:`/dashboard?tab=matches&teamId=${input.teamId}&challengeId=${input.challengeId}`,
+      data:{teamId:input.teamId,challengeId:input.challengeId},
       dedupeKey:`team-challenge:${input.challengeId}:${input.title}:${userId}`,marketing:false,
     })));
   }

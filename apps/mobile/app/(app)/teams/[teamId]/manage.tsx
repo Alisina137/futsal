@@ -14,7 +14,7 @@ import { useAuth } from "../../../../src/providers/AuthProvider";
 import { useLocale } from "../../../../src/providers/LocaleProvider";
 
 export default function ManageTeamScreen(){
-  const {teamId}=useLocalSearchParams<{teamId:string}>();
+  const {teamId,requestId}=useLocalSearchParams<{teamId:string;requestId?:string}>();
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const [team,setTeam]=useState<TeamDto|null>(null);
@@ -190,7 +190,7 @@ export default function ManageTeamScreen(){
         <AppText variant="bodyLarge" weight="bold">{t("tm1.pendingRequests")} ({pendingRequests.length})</AppText>
         <AppText variant="caption" muted>{t("teams.phase4.managerReviewHint")}</AppText>
         {pendingRequests.length===0?<AppText muted>{t("tm1.noRequests")}</AppText>:null}
-        {pendingRequests.map(request=><View key={request.id} style={{gap:spacing.sm,paddingVertical:spacing.sm,
+        {pendingRequests.map(request=><View key={request.id} style={{gap:spacing.sm,paddingVertical:spacing.sm,...(request.id===requestId?{borderWidth:2,borderRadius:8,borderColor:colors.primary,paddingHorizontal:spacing.sm}:{}) ,
           borderTopWidth:1,borderTopColor:colors.border}}>
           <AppText weight="semibold">{request.requesterDisplayName}</AppText>
           <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>

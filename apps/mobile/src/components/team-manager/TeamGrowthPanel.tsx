@@ -31,7 +31,7 @@ function Options({items,current,onChange}:{items:{id:string;name:string}[];curre
   </ScrollView>;
 }
 
-export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;token:string;canWrite:boolean}){
+export function TeamGrowthPanel({tab,team,token,canWrite,focusChallengeId}:{tab:Tab;team:TeamDto;token:string;canWrite:boolean;focusChallengeId?:string|undefined}){
   const {t,language}=useLocale();
   const tr=(key:string)=>t(`tm3.${key}` as never);
   const date=(x:string)=>formatCompetitionDateTime(x,language);
@@ -278,7 +278,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
               }),()=>{setChallengeTarget("");setChallengeTime("");setChallengeVenue("");setChallengeMessage("");setShowChallengeForm(false);})}/>
           </View>:null}
           {!data.challenges.length?<AppText muted>{tr("noChallenges")}</AppText>:null}
-          {data.challenges.map(c=><View key={c.id} style={styles.item}>
+          {data.challenges.map(c=><View key={c.id} style={[styles.item,focusChallengeId===c.id&&{borderWidth:2,borderColor:colors.primary,borderRadius:8,padding:spacing.sm}]}>
             <AppText weight="semibold">{c.opponentName}</AppText>
             <AppText variant="caption" muted>{date(c.proposedAt)} · {tr("status."+c.status)}</AppText>
             {c.venueName?<AppText variant="caption">{c.venueName}</AppText>:null}

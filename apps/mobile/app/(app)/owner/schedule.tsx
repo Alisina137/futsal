@@ -112,7 +112,7 @@ function SlotCornerMarker({
 }
 
 export default function OwnerScheduleScreen(){
-  const params=useLocalSearchParams<{date?:string}>();
+  const params=useLocalSearchParams<{date?:string;bookingId?:string}>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
@@ -252,7 +252,7 @@ export default function OwnerScheduleScreen(){
       <Button label={t("common.retry")} onPress={()=>void refresh()} variant="secondary"/>
     </Card>:null}
 
-    <OwnerPendingBookings token={token} onChanged={()=>void refresh()}/>
+    <OwnerPendingBookings token={token} focusBookingId={params.bookingId} onChanged={()=>void refresh()}/>
     <Card>
       <View style={styles.toolbar}>
         <View style={[styles.todayRow,{flexDirection:isRTL?"row-reverse":"row"}]}>

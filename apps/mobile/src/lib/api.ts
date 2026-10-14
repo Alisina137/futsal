@@ -247,7 +247,7 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   if (isSafeRead(init)) {
     // Sensitive live administration must never be served from the app's offline
     // cache, and stale page queries must obey the caller's abort signal.
-    if(path.startsWith("/api/v1/admin/")||path.startsWith("/api/v1/venues/search?")||path.startsWith("/api/v1/competitions/discover")||path.endsWith("/participation"))
+    if(path.startsWith("/api/v1/notifications")||path.startsWith("/api/v1/admin/")||path.startsWith("/api/v1/venues/search?")||path.startsWith("/api/v1/competitions/discover")||path.endsWith("/participation"))
       return networkRequest<T>(path,init,accessToken);
     return cachedApiRead(path, accessToken, () => networkRequest<T>(path, init, accessToken));
   }
@@ -665,13 +665,16 @@ export const notificationApi = {
   unregisterDevice:(accessToken:string,expoPushToken:string)=>
     request<void>("/api/v1/notifications/devices/unregister",
       {method:"POST",body:JSON.stringify({expoPushToken})},accessToken),
-  list: (accessToken:string,options?:{filter?:NotificationListFilter;limit?:number;offset?:number})=>{
+  unreadCount:(accessToken:string)=>networkRequest<{unreadCount:number}>(
+    "/api/v1/notifications/unread-count",{},accessToken),
+  list: (accessToken:string,options?:{filter?:NotificationListFilter;limit?:number;offset?:number;cursor?:string})=>{
     const query=new URLSearchParams();
     if(options?.filter)query.set("filter",options.filter);
     if(options?.limit!==undefined)query.set("limit",String(options.limit));
     if(options?.offset!==undefined)query.set("offset",String(options.offset));
+    if(options?.cursor)query.set("cursor",options.cursor);
     const path=`/api/v1/notifications${query.toString()?`?${query}`:""}`;
-    return request<NotificationListResponse>(path,{},accessToken);
+    return networkRequest<NotificationListResponse>(path,{},accessToken);
   },
   markAllRead: (accessToken:string)=>request<{updated:number;unreadCount:number}>(
     "/api/v1/notifications/read-all",{method:"POST"},accessToken),
@@ -680,7 +683,7 @@ export const notificationApi = {
   remove: (accessToken:string,id:string)=>request<{deleted:boolean;unreadCount:number}>(
     `/api/v1/notifications/${id}`,{method:"DELETE"},accessToken),
   markRead: (accessToken: string, notificationId: string) =>
-    request<{ notification: NotificationDto }>(`/api/v1/notifications/${notificationId}/read`, { method: "POST" }, accessToken),
+    request<{ notification: NotificationDto; unreadCount:number }>(`/api/v1/notifications/${notificationId}/read`, { method: "POST" }, accessToken),
   preferences: (accessToken: string) =>
     request<{ preferences: NotificationPreferences }>("/api/v1/notifications/preferences", {}, accessToken),
   updatePreferences: (accessToken: string, input: NotificationPreferencesUpdate) =>

@@ -16,7 +16,7 @@ const l10n=read("packages/localization/src/index.ts");
 assert(screen.includes('testID="notifications-filters"')&&screen.includes('notification-filter-')
   &&screen.includes('["ALL","UNREAD","BOOKINGS","VENUES","TEAMS","COMPETITIONS"]'),
   "Notifications require six category filters, including unread.");
-assert(screen.includes("PAGE_SIZE=30")&&screen.includes("hasMore")&&screen.includes("offset:items.length")
+assert(screen.includes("PAGE_SIZE=30")&&screen.includes("hasMore")&&screen.includes("cursor:nextCursor")
   &&screen.includes("notifications.loadMore"),"Inbox needs genuine paginated Load more.");
 assert(screen.includes('timeZone:"Asia/Kabul"')&&screen.includes('notifications.today')
   &&screen.includes('notifications.yesterday')&&screen.includes("formatPostTimeAgo"),
@@ -29,7 +29,7 @@ assert(screen.includes('router.push("/teams/invitations")')
   &&screen.includes('pathname:"/competitions/[competitionId]"')
   &&screen.includes('pathname:"/posts/[postId]"')
   &&screen.includes('pathname:"/venues/[venueId]"')
-  &&screen.includes('router.push("/bookings")'),"Type-specific notification routes must be preserved.");
+  &&screen.includes('pathname:"/bookings"'),"Type-specific notification routes must be preserved.");
 assert(prefs.includes("notificationApi.preferences")&&prefs.includes("notificationApi.updatePreferences")
   &&prefs.includes("promotionsEnabled")&&prefs.includes("pushEnabled")&&prefs.includes("inAppEnabled"),
   "Preferences must be in a dedicated screen with persisted delivery and content toggles.");

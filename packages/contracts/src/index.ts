@@ -2309,6 +2309,7 @@ export const notificationListResponseSchema=z.object({
   total:z.number().int().nonnegative(),
   unreadCount:z.number().int().nonnegative(),
   hasMore:z.boolean(),
+  nextCursor:z.string().nullable(),
   generatedAt:isoDateTimeSchema,
 });
 export type NotificationListResponse=z.infer<typeof notificationListResponseSchema>;

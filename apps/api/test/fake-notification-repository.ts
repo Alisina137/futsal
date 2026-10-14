@@ -40,7 +40,8 @@ export class FakeNotificationRepository implements NotificationRepository {
 
   private filtered(userId:string,filter:NotificationListFilter="ALL"){
     return this.notifications.filter(item=>{
-      if(item.data.userId!==userId)return false;
+      if(item.data.userId!==userId||
+        !this.deliveries.some(delivery=>delivery.notificationId===item.id&&delivery.channel==="IN_APP"))return false;
       if(filter==="UNREAD")return !item.readAt;
       if(filter==="BOOKINGS")return ["BOOKING_CONFIRMED","BOOKING_CANCELLED","BOOKING_REQUEST"].includes(item.type);
       if(filter==="VENUES")return item.type==="SLOT_PROMOTION"||item.type==="VENUE_POST";
@@ -49,8 +50,11 @@ export class FakeNotificationRepository implements NotificationRepository {
       return true;
     }).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id));
   }
-  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL"){
-    return this.filtered(userId,filter).slice(offset,offset+limit);
+  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL",
+    before?:{createdAt:Date;id:string}){
+    return this.filtered(userId,filter).filter(item=>!before||
+      item.createdAt<before.createdAt.toISOString()||
+      (item.createdAt===before.createdAt.toISOString()&&item.id<before.id)).slice(offset,offset+limit);
   }
   async countNotifications(userId:string,filter:NotificationListFilter="ALL"){
     return this.filtered(userId,filter).length;
@@ -61,7 +65,8 @@ export class FakeNotificationRepository implements NotificationRepository {
   async markAllRead(userId:string,readAt:Date){
     let updated=0;
     this.notifications=this.notifications.map(item=>{
-      if(item.data.userId!==userId||item.readAt)return item;
+      if(item.data.userId!==userId||item.readAt||
+        !this.deliveries.some(delivery=>delivery.notificationId===item.id&&delivery.channel==="IN_APP"))return item;
       updated++;return {...item,readAt:readAt.toISOString()};
     });
     return updated;
@@ -73,7 +78,8 @@ export class FakeNotificationRepository implements NotificationRepository {
   }
   async clearRead(userId:string){
     const previous=this.notifications.length;
-    this.notifications=this.notifications.filter(item=>item.data.userId!==userId||!item.readAt);
+    this.notifications=this.notifications.filter(item=>item.data.userId!==userId||!item.readAt||
+      !this.deliveries.some(delivery=>delivery.notificationId===item.id&&delivery.channel==="IN_APP"));
     return previous-this.notifications.length;
   }
 
@@ -84,6 +90,7 @@ export class FakeNotificationRepository implements NotificationRepository {
   async markRead(userId:string,notificationId:string,readAt:Date){
     const index=this.notifications.findIndex((item)=>item.id===notificationId&&(item.data.userId as string|undefined)===userId);
     if(index<0)return null;
+    if(this.notifications[index]?.readAt)return this.notifications[index]!;
     const next={...this.notifications[index]!,readAt:readAt.toISOString()};
     this.notifications[index]=next;
     return next;
@@ -97,7 +104,7 @@ export class FakeNotificationRepository implements NotificationRepository {
     ).length;
   }
 
-  async createNotification(input:NotificationCreateInput,createdAt:Date){
+  async createNotification(input:NotificationCreateInput,createdAt:Date,channels:Array<"IN_APP"|"PUSH">){
     const existing=this.notifications.find((item)=>
       (item.data.userId as string|undefined)===input.userId &&
       (item.data.dedupeKey as string|undefined)===input.dedupeKey
@@ -115,6 +122,7 @@ export class FakeNotificationRepository implements NotificationRepository {
       createdAt:createdAt.toISOString(),
     };
     this.notifications.push(notification);
+    await this.ensureDeliveries(notification.id,channels);
     return{notification,created:true};
   }
 
