@@ -21,8 +21,10 @@ assert(card.includes('onlineBookingEnabled!==false')&&card.includes('disabled={!
 assert(card.includes('focusAvailability:"1"')&&card.includes('venueId:id'),
   "Reserve Online must open the selected venue's availability section, not place an order.");
 const detailSections=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
-assert(detail.includes('focusAvailability==="1"')&&detail.includes('setMain("reserve")')
-  &&detail.includes('reserve:"slots"')&&detail.includes("<VenueReserveContent")
+const venueNavigation=read("apps/mobile/src/lib/venue-detail-navigation.ts");
+assert(detail.includes('focusAvailability==="1"')&&
+  detail.includes('switchVenueMain(current,"reserve","slots")')&&
+  venueNavigation.includes('reserve:"slots"')&&detail.includes("<VenueReserveContent")
   &&detailSections.includes('venueApi.availability(')&&screen.includes("scrollRef"),
   "Reserve Online must open Reserve > Available Slots and load real availability, never silently scroll to Media.");
 assert(listing.includes('venues.map(venue=><VenueResultCard')
