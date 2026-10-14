@@ -43,7 +43,7 @@ function FormBadges({results}:{results:LeagueFormResult[]}){
  * Vertical scrolling remains owned by the parent competition profile. */
 export function LeagueStandingsTable({competition,rows,stage="LEAGUE",qualifiers}:{
   competition:CompetitionDto;rows:CompetitionStandingRowDto[];
-  stage?:"LEAGUE"|"GROUP";qualifiers?:number;
+  stage?:"LEAGUE"|"GROUP"|undefined;qualifiers?:number|undefined;
 }){
   const {t,isRTL}=useLocale();
   const [preview,setPreview]=useState<{id:string;name:string;logo:string|null;x:number;y:number}|null>(null);
