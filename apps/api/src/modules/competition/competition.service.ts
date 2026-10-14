@@ -1,5 +1,6 @@
 import type {
   CompetitionCreateRequest,
+  CompetitionDiscoveryQuery,
   CompetitionFeeUpdateRequest,
   CompetitionInviteTeamRequest,
   CompetitionMediaPostCreateRequest,
@@ -204,6 +205,12 @@ export class CompetitionService {
     if (!["DRAFT", "REGISTRATION_OPEN", "REGISTRATION_CLOSED"].includes(competition.status)) {
       throw errors.conflict("COMPETITION_ALREADY_SCHEDULED", "Registration can no longer be changed.");
     }
+  }
+
+  async discoverPublic(filters:CompetitionDiscoveryQuery,userId?:string){
+    if(["mine","following","ongoingFollowedVenues"].includes(filters.scope)&&!userId)
+      throw errors.unauthorized();
+    return this.repository.discoverPublicCompetitions(filters,userId);
   }
 
   async listPublic() {
