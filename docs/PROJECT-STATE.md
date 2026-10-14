@@ -1,3 +1,12 @@
+## Venue Detail — Phase 1: navigation and data-state reliability (October 14, 2026)
+
+- Kept the existing five main tabs and current subtabs intact for Phases 2–6. The default is Media → Posts. Selecting another main tab now preserves each tab's previously selected subtab **within the current venue** rather than resetting it; opening a different venue resets selections to the defaults. Explicit booking and review deep links still choose Reserve → Available Slots or About → Reviews.
+- Fixed the confirmed header Location shortcut bug: it opens About → Location, even if About was previously on another subtab. Header Updates/Notifications shortcut explicitly opens Updates → Alerts; Reserve Online always opens Reserve → Available Slots. No unwanted vertical scroll-to-top; active main/subtab visibility still uses the existing RTL-aware horizontal focus hook.
+- Prevented stale venue responses from rendering another venue's header/content after rapid venue ID changes, manual retries or unmounts. Loading/error UI and automatic retry remain scoped to the current venue. Follow state is cleared on venue/account changes, and in-flight follow mutations cannot overwrite another account's/venue's displayed follow state. Follow errors appear near the header action instead of within unrelated tab content.
+- Added accessible main-tab labels/test IDs and pure typed navigation transitions with six functional node tests. Expanded existing Venue Detail and navigation-focus verifiers and registered `pnpm verify:venue-detail-phase1` in the full release check. No backend, contract, schema, or migration changes.
+- QA on actual devices still required: navigate among subtabs repeatedly in EN/Dari/Pashto; Location/Updates/Reserve shortcut while in another main tab; existing booking-date, promotion-time and review-booking deep links; switch venue pages rapidly on slow network; sign out/change account mid-follow; test empty content, landscape/narrow screens and Android back navigation.
+- Next planned Phase 2: About information architecture and server-backed facilities, hours, pricing, policies and public review improvements. Do not show invented facility facts or opening hours.
+
 ## Brand polish — borderless logo and 80% startup logo (October 14, 2026)
 
 - Removed logo-specific framing/background/border from the authentication hero and the hamburger drawer; the app-header emblem displays without rounded clipping. Only the logo image appears, with no logo box shadow.
