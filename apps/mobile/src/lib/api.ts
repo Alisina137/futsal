@@ -92,6 +92,8 @@ import type {
   CompetitionRewardsUpdateRequest,
   CompetitionPublicMatchDetail,
   CompetitionFeeUpdateRequest,
+  CompetitionDiscoveryQuery,
+  CompetitionDiscoveryResponse,
   CompetitionListItemDto,
   CompetitionMediaPostCreateRequest,
   CompetitionMediaPostDto,
