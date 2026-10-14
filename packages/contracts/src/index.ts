@@ -2210,6 +2210,52 @@ export const competitionListItemDtoSchema = competitionDtoSchema.omit({
 });
 export type CompetitionListItemDto = z.infer<typeof competitionListItemDtoSchema>;
 
+/** Server-filtered, paginated public competition discovery; private scopes require a token. */
+export const competitionDiscoveryScopeSchema=z.enum([
+  "all","registration","ongoing","popular","following","mine","ongoingFollowedVenues",
+]);
+export const competitionDiscoverySortSchema=z.enum([
+  "recommended","starting","popular","newest","closing","feeLow",
+]);
+const competitionDiscoveryDate=z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).refine(value=>{
+  const date=new Date(value+"T12:00:00Z");
+  return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;
+},"Invalid calendar date");
+export const competitionDiscoveryQuerySchema=z.object({
+  q:z.string().trim().max(120).default(""),
+  province:z.string().trim().max(80).default(""),
+  city:z.string().trim().max(80).default(""),
+  status:competitionStatusSchema.exclude(["DRAFT","CANCELLED"]).optional(),
+  format:competitionFormatSchema.optional(),
+  fee:z.enum(["any","free","paid"]).default("any"),
+  minFee:z.coerce.number().int().min(0).max(10_000_000).optional(),
+  maxFee:z.coerce.number().int().min(0).max(10_000_000).optional(),
+  from:competitionDiscoveryDate.optional(),
+  to:competitionDiscoveryDate.optional(),
+  sort:competitionDiscoverySortSchema.default("recommended"),
+  scope:competitionDiscoveryScopeSchema.default("all"),
+  page:z.coerce.number().int().min(1).max(500).default(1),
+  limit:z.coerce.number().int().min(1).max(30).default(12),
+}).superRefine((value,ctx)=>{
+  if(value.minFee!==undefined&&value.maxFee!==undefined&&value.minFee>value.maxFee)
+    ctx.addIssue({code:"custom",path:["maxFee"],message:"Maximum fee cannot be below minimum fee."});
+  if(value.from&&value.to&&value.from>value.to)
+    ctx.addIssue({code:"custom",path:["to"],message:"End date must be on or after start date."});
+});
+export type CompetitionDiscoveryQuery=z.infer<typeof competitionDiscoveryQuerySchema>;
+export const competitionDiscoveryItemSchema=competitionListItemDtoSchema.extend({
+  province:z.string(),city:z.string(),followerCount:z.number().int().nonnegative(),
+});
+export type CompetitionDiscoveryItem=z.infer<typeof competitionDiscoveryItemSchema>;
+export const competitionDiscoveryResponseSchema=z.object({
+  competitions:z.array(competitionDiscoveryItemSchema),
+  total:z.number().int().nonnegative(),page:z.number().int().positive(),
+  limit:z.number().int().positive(),hasMore:z.boolean(),
+  facets:z.object({provinces:z.array(z.string()),cities:z.array(z.string())}),
+});
+export type CompetitionDiscoveryResponse=z.infer<typeof competitionDiscoveryResponseSchema>;
+
+
 export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_AVAILABLE", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT", "ADMIN_ANNOUNCEMENT"]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
