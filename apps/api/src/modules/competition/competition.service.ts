@@ -213,6 +213,10 @@ export class CompetitionService {
     return this.repository.discoverPublicCompetitions(filters,userId);
   }
 
+  async venueMatches(venueId:string,query:import("@leaguekick/contracts").VenueMatchQuery){
+    return this.repository.listPublicVenueMatches(venueId,query,this.now());
+  }
+
   async listPublic() {
     const competitions = await this.repository.listPublicCompetitions();
     return {
