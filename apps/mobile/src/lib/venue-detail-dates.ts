@@ -28,3 +28,11 @@ export function isVenueBookingDay(day:string,today:string,advanceDays:number):bo
   const offset=(Date.parse(day+"T12:00:00Z")-Date.parse(today+"T12:00:00Z"))/86400000;
   return Number.isInteger(offset)&&offset>=0&&offset<=advanceDays;
 }
+
+/** Only use availability rows that belong to the currently selected venue/date. */
+export function isCurrentVenueAvailability(
+  value:{date:string;venue:{id:string}}|null|undefined,
+  venueId:string,day:string,
+):boolean{
+  return Boolean(value&&value.venue.id===venueId&&value.date===day);
+}
