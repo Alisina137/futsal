@@ -55,7 +55,7 @@ describe("Competition Phase 6 — permanent branding",()=>{
     expect(competitionListItemDtoSchema.parse(listing.competitions.find(c=>c.id===created.id)).logoUrl).toBe(logo);
     const discover=await service.discoverPublic({
       q:"",province:"",city:"",status:undefined,format:undefined,fee:"any",
-      sort:"recommended",scope:"all",page:1,limit:20,
+      sort:"recommended",scope:"all",phase:"all",page:1,limit:20,
     });
     expect(discover.competitions.find(c=>c.id===created.id)?.logoUrl).toBe(logo);
     expect((await service.update(owner,created.id,{logoUrl:newLogo})).coverImageUrl).toBe(cover);
