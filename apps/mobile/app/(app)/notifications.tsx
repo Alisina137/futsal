@@ -130,6 +130,7 @@ export default function NotificationsScreen(){
       return;
     }
     const changedFilter=loadedFilter.current!==filter;
+    setLoadingMore(false);
     if(mode==="initial")setLoading(true);
     if(mode==="refresh")setRefreshing(true);
     if(changedFilter){setItems([]);haveItems.current=false;setLoading(true);}
