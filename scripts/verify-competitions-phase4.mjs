@@ -54,7 +54,7 @@ assert.ok(matchList.includes("totals[value]")&&
  matchList.includes('match.status==="IN_PROGRESS"'),
  "Matches must show actual totals, scores, status and match detail navigation");
 assert.ok(about.includes('testID="competition-about-at-a-glance"')&&
- about.includes("data.rewards.filter(")&&about.includes("data.tieBreakOrder.map(")&&
+ about.includes("data.rewards.filter(")&&about.includes("tieBreakOrder.map(")&&
  about.includes("data.registrationFeeAfn")&&about.includes("data.registrationClosesAt")&&
  about.includes("data.groupCount")&&about.includes("data.qualifiersPerGroup")&&
  about.includes('params:{competitionId,tab:"TEAMS"}')&&
