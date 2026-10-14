@@ -4,6 +4,8 @@ import { createApp } from "../src/app.js";
 import { AuthService } from "../src/modules/auth/auth.service.js";
 import { TokenService } from "../src/modules/auth/token.service.js";
 import { TeamService } from "../src/modules/team/team.service.js";
+import {NotificationService} from "../src/modules/notifications/notification.service.js";
+import {FakeNotificationRepository} from "./fake-notification-repository.js";
 import { FakeAuthRepository } from "./fake-auth-repository.js";
 import { FakeTeamRepository } from "./fake-team-repository.js";
 
@@ -12,9 +14,11 @@ function setup(){
   const teamRepository=new FakeTeamRepository();
   const tokens=new TokenService("test-secret-that-is-longer-than-thirty-two-characters","test","test-mobile");
   const auth=new AuthService(authRepository,tokens);
-  const teams=new TeamService(teamRepository,()=>new Date("2026-10-10T00:00:00.000Z"));
+  const notificationRepository=new FakeNotificationRepository();
+  const notifications=new NotificationService(notificationRepository,()=>new Date("2026-10-10T00:00:00.000Z"));
+  const teams=new TeamService(teamRepository,()=>new Date("2026-10-10T00:00:00.000Z"),notifications);
   const app=createApp({authService:auth,tokenService:tokens,teamService:teams});
-  return {app,authRepository,teamRepository};
+  return {app,authRepository,teamRepository,notifications,notificationRepository};
 }
 
 async function register(ctx:ReturnType<typeof setup>,username:string,phone:string){
@@ -59,6 +63,10 @@ describe.each([
     expect(applied.status).toBe(201);
     expect(applied.body.request.status).toBe("PENDING");
     const requestId=applied.body.request.id as string;
+    const managerAlerts=await ctx.notifications.list(manager.userId,"TEAMS");
+    expect(managerAlerts.notifications).toMatchObject([{type:"TEAM_JOIN_REQUEST",
+      data:{requestId,teamId}}]);
+    expect((await ctx.notifications.list(outsider.userId)).notifications).toHaveLength(0);
 
     const listBefore=await request(ctx.app).get(`/api/v1/teams/${teamId}/join-requests`)
       .set("Authorization",`Bearer ${manager.token}`);
@@ -76,6 +84,9 @@ describe.each([
     expect(result.body.request.id).toBe(requestId);
     expect(result.body.request.status).toBe(expectedStatus);
     expect(result.body.request.respondedAt).not.toBeNull();
+    const playerAlerts=await ctx.notifications.list(player.userId,"TEAMS");
+    expect(playerAlerts.notifications).toMatchObject([{type:"TEAM_JOIN_DECISION",
+      data:{requestId,teamId,accepted:accept}}]);
 
     const listAfter=await request(ctx.app).get(`/api/v1/teams/${teamId}/join-requests`)
       .set("Authorization",`Bearer ${manager.token}`);
