@@ -154,7 +154,16 @@ export class TeamService {
 
     if(!(await this.repository.allowsJoinRequests(teamId)))throw errors.forbidden("TEAM_REQUESTS_DISABLED","This team is not accepting join requests.");
     await this.repository.ensurePlayerProfile(userId, user.displayName, this.now());
-    return this.repository.createJoinRequest(teamId, userId, this.now());
+    const request=await this.repository.createJoinRequest(teamId,userId,this.now());
+    try{
+      await this.notifications?.teamJoinRequest({
+        managerUserId:team.managerUserId,teamId,teamName:team.name,
+        requestId:request.id,requesterDisplayName:user.displayName,
+      });
+    }catch{
+      // Join requests must be committed even when notification delivery fails.
+    }
+    return request;
   }
 
   async listTeamJoinRequests(userId: string, teamId: string) {
@@ -167,6 +176,14 @@ export class TeamService {
     const request = await this.repository.respondJoinRequest(teamId, requestId, userId, accept, this.now());
     if (!request) {
       throw errors.conflict("TEAM_JOIN_REQUEST_UNAVAILABLE", "This join request is no longer available.");
+    }
+    try{
+      await this.notifications?.teamJoinDecision({
+        requesterUserId:request.requesterUserId,teamId,teamName:request.teamName,
+        requestId:request.id,accepted:accept,
+      });
+    }catch{
+      // A notification failure must never roll back manager's approval or rejection.
     }
     return request;
   }
