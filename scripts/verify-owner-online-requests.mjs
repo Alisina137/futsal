@@ -19,7 +19,7 @@ must(db,['async listPendingOnlineVenueBookings(venueId: string)','eq(bookings.ve
 must(fake,['async listPendingOnlineVenueBookings(venueId:string)']);
 must(api,['pendingBookings: (accessToken:string)','"/api/v1/owner/bookings/pending"','confirmBooking:','cancelBooking:']);
 must(cache,['pathname==="/api/v1/owner/bookings/pending"','pathname==="/api/v1/owner/timetable-calendar"']);
-must(calendar,['<OwnerPendingBookings token={token} onChanged={()=>void refresh()}/>','useFocusEffect(useCallback(()=>','slotPaletteFor(event)','pending={event.bookingStatus==="PENDING"}']);
+must(calendar,['<OwnerPendingBookings token={token} focusBookingId={params.bookingId} onChanged={()=>void refresh()}/>','useFocusEffect(useCallback(()=>','slotPaletteFor(event)','pending={event.bookingStatus==="PENDING"}']);
 must(dashboard,['<OwnerPendingBookings token={token} compact/>']);
 must(inbox,['ownerApi.pendingBookings(token)','useFocusEffect(useCallback(()=>','AppState.currentState==="active"','setInterval(()=>','onChanged?.()','ownerApi.confirmBooking(token,booking.id)','ownerApi.cancelBooking(token,booking.id,','Modal transparent visible={decision!==null}','Date.parse(booking.startsAt)<=Date.now()']);
 must(tests,['shows all pending online reservations in the correct owner','withoutAuth.status).toBe(401)','cannotRead.status).toBe(403)','inboxB.body.bookings','rejected.body.booking.status).toBe("CANCELLED")']);
