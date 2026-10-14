@@ -104,7 +104,7 @@ export class FakeNotificationRepository implements NotificationRepository {
     ).length;
   }
 
-  async createNotification(input:NotificationCreateInput,createdAt:Date){
+  async createNotification(input:NotificationCreateInput,createdAt:Date,channels:Array<"IN_APP"|"PUSH">){
     const existing=this.notifications.find((item)=>
       (item.data.userId as string|undefined)===input.userId &&
       (item.data.dedupeKey as string|undefined)===input.dedupeKey
@@ -122,6 +122,7 @@ export class FakeNotificationRepository implements NotificationRepository {
       createdAt:createdAt.toISOString(),
     };
     this.notifications.push(notification);
+    await this.ensureDeliveries(notification.id,channels);
     return{notification,created:true};
   }
 
