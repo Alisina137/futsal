@@ -59,7 +59,7 @@ includes(sections,[
   "bookingLoadSerial.current+=1",
   "if(sub===\"bookings\")void loadMine()",
   "venueApi.availabilityLive(venue.id,date)",
-  "item.promotionId===slot.promotionId&&item.priceAfn===slot.priceAfn",
+  "item.promotionId===slot.promotionId", "item.priceAfn===slot.priceAfn",
 ].filter(Boolean),"Reserve stale-response & server-confirmation protections");
 includes(competition,[
   "compMoreError","matchMoreError",
