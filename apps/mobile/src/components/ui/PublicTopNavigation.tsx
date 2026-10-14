@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing } from "@leaguekick/design-tokens";
 import { router, useFocusEffect, usePathname } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {AppState} from "react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 import { notificationApi } from "../../lib/api";
@@ -28,12 +28,18 @@ export function PublicTopNavigation(){
   const {t,isRTL}=useLocale();
   const pathname=usePathname();
   const [unread,setUnread]=useState(0);
+  const badgeAccount=useRef<string|null>(null);
 
   const isPlatformAdmin=session?.user.roles.includes("PLATFORM_ADMIN")??false;
   const token=!isPlatformAdmin?session?.accessToken:undefined;
+  const accountId=!isPlatformAdmin?session?.user.id??null:null;
 
   useFocusEffect(useCallback(()=>{
-    if(!token){setUnread(0);return;}
+    if(!token){setUnread(0);badgeAccount.current=null;return;}
+    if(accountId!==badgeAccount.current){
+      badgeAccount.current=accountId;
+      setUnread(0); // Never flash a previous account's private unread count.
+    }
     let active=true;
     let generation=0;
     const unsubscribe=onNotificationUnreadChange((source,count)=>{
@@ -58,7 +64,7 @@ export function PublicTopNavigation(){
       if(AppState.currentState==="active")reload();
     },30_000);
     return ()=>{active=false;generation++;clearInterval(timer);appState.remove();unsubscribe();};
-  },[token]));
+  },[token,accountId]));
 
   if(isPlatformAdmin)return null;
 
