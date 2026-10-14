@@ -127,6 +127,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
       const venueFollowed=Boolean(userId&&this.followedVenues.get(userId)?.has(item.venueId));
       return (!filters.province||filters.province==="Kabul")&&
         (!filters.city||filters.city==="Kabul")&&
+        (!filters.venueId||item.venueId===filters.venueId)&&
         (!filters.status||filters.status===item.status)&&
         (!filters.format||filters.format===item.format)&&
         (filters.fee!=="free"||item.registrationFeeAfn===0)&&
@@ -162,6 +163,31 @@ export class FakeCompetitionRepository implements CompetitionRepository {
       total,page:filters.page,limit:filters.limit,hasMore:filters.page*filters.limit<total,
       facets:{provinces,cities:filters.province&&filters.province!=="Kabul"?[]:cities},
     };
+  }
+
+  async listPublicVenueMatches(venueId:string,query:import("@leaguekick/contracts").VenueMatchQuery,now:Date){
+    const matches=[...this.matches.values()].filter(match=>{
+      const comp=this.competitions.get(match.competitionId);
+      const actualVenueId=(match as CompetitionMatchDto&{venueId?:string}).venueId??comp?.venueId;
+      return actualVenueId===venueId&&comp?.published&&
+        !["DRAFT","CANCELLED"].includes(comp.status)&&
+        (query.scope==="results"?["COMPLETED","CORRECTED"].includes(match.status):
+          match.status==="IN_PROGRESS"||
+          (match.status==="SCHEDULED"&&match.startsAt!==null&&Date.parse(match.startsAt)>=now.getTime()));
+    }).sort((a,b)=>query.scope==="results"
+      ?(b.startsAt??"").localeCompare(a.startsAt??"")||a.id.localeCompare(b.id)
+      :(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
+    const total=matches.length;
+    return {venueId,matches:matches.slice((query.page-1)*query.limit,query.page*query.limit)
+      .map(match=>({
+        id:match.id,competitionId:match.competitionId,
+        competitionName:this.competitions.get(match.competitionId)!.name,
+        startsAt:match.startsAt,endsAt:match.endsAt,
+        stage:match.stage,roundNumber:match.roundNumber,
+        homeTeamName:match.homeTeamName,awayTeamName:match.awayTeamName,
+        homeScore:match.homeScore,awayScore:match.awayScore,status:match.status,
+      })),total,page:query.page,limit:query.limit,
+      hasMore:query.page*query.limit<total};
   }
 
   async listMyPublicCompetitions(userId:string):Promise<CompetitionListItemDto[]>{
