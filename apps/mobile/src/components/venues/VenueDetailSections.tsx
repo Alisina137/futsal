@@ -375,6 +375,33 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
     {!venue.onlineBookingEnabled?<Empty icon="pause-circle-outline"
       title={tr("bookingPaused")} detail={tr("bookingPausedBody")}/>:<>
       <Card style={{gap:spacing.sm}}>
+        <SectionHeading icon="pricetags-outline" name={tr3("upcomingOffers")}/>
+        <AppText variant="caption" muted>{tr3("offersDisclaimer")}</AppText>
+        {promotionsLoading?<DataLoadingState variant="list" minHeight={100}/>:null}
+        {promotionsError?<AppText style={{color:colors.danger}}>{tr3("offersLoadError")}</AppText>:null}
+        {!promotionsLoading&&!promotionsError&&!promotions.length?
+          <AppText variant="caption" muted>{tr3("noUpcomingOffers")}</AppText>:null}
+        {promotions.slice(0,promotionLimit).map(promo=><View key={promo.id}
+          testID={"venue-offer-"+promo.id}
+          style={{gap:spacing.xs,borderTopWidth:1,borderColor:colors.border,
+            paddingTop:spacing.sm}}>
+          <AppText weight="bold">{promo.title}</AppText>
+          <AppText variant="caption" muted>{new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
+            timeZone:venue.timezone,weekday:"short",day:"numeric",month:"short",year:"numeric",
+          }).format(new Date(promo.startsAt))+" · "+
+            formatAppClock(promo.startsAt,venue.timezone)}</AppText>
+          <AppText weight="semibold">{promo.discountedPriceAfn+" AFN · "+
+            promo.discountPercent+"% "+tr("off")+" ("+promo.originalPriceAfn+" AFN)"}</AppText>
+          {promo.note?<AppText variant="caption" muted>{promo.note}</AppText>:null}
+          <Button label={tr3("viewOfferSlots")} variant="secondary"
+            onPress={()=>choosePromotion(promo)}/>
+        </View>)}
+        {promotions.length>promotionLimit?<Button label={tr3("moreOffers")}
+          variant="secondary" onPress={()=>setPromotionLimit(current=>current+8)}/>:null}
+        <Button variant="secondary" label={t("common.retry")}
+          disabled={promotionsLoading} onPress={()=>setPromotionReload(x=>x+1)}/>
+      </Card>
+      <Card style={{gap:spacing.sm}}>
         <SectionHeading icon="calendar-outline" name={tr("chooseDate")}/>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
           contentContainerStyle={{gap:spacing.xs,flexDirection:isRTL?"row-reverse":"row"}}>
@@ -412,22 +439,31 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
       {!loading?<View style={styles.offerGrid}>
         {slots.map(slot=><Pressable key={slot.areaId+"-"+slot.startsAt}
           accessibilityRole="button"
-          accessibilityState={{disabled:!fresh||!isOnline}}
+          accessibilityState={{disabled:!fresh||!isOnline||openingSlot!==null}}
           accessibilityLabel={formatSlotStartTime(slot.startsAt,venue.timezone)+
             ", "+formatSlotTilePrice(slot.priceAfn)+
             (slot.originalPriceAfn!==null&&slot.originalPriceAfn>slot.priceAfn?
               ", "+Math.round(100*(1-slot.priceAfn/slot.originalPriceAfn))+"% "+tr("off"):"")}
-          disabled={!fresh||!isOnline}
-          onPress={()=>openSlot(slot)}
+          disabled={!fresh||!isOnline||openingSlot!==null}
+          onPress={()=>void openSlot(slot)}
           style={({pressed})=>[
             styles.offerSlot,
             !fresh||!isOnline?styles.offerDisabled:null,
-            slot.promotionId===promotionId?styles.highlight:null,
+            (slot.promotionId===highlightPromo||slot.promotionId===promotionId)?styles.highlight:null,
             pressed&&styles.offerPressed,
           ]}>
           <SlotTileContent startsAt={slot.startsAt} timeZone={venue.timezone}
             priceAfn={slot.priceAfn} ink="#7E22CE"
             marker={<Ionicons name="pricetag-outline" size={15} color="#7E22CE"/>}/>
+          {promotions.find(p=>p.id===slot.promotionId)?.title?
+            <AppText variant="caption" weight="semibold" numberOfLines={2}>
+              {promotions.find(p=>p.id===slot.promotionId)?.title}
+            </AppText>:null}
+          {slot.originalPriceAfn!==null&&slot.originalPriceAfn>slot.priceAfn?
+            <AppText variant="caption" muted>
+              {slot.originalPriceAfn+" AFN · "+
+                Math.round(100*(1-slot.priceAfn/slot.originalPriceAfn))+"% "+tr("off")}
+            </AppText>:null}
         </Pressable>)}
       </View>:null}
     </>}
