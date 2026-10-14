@@ -20,7 +20,7 @@ export function OwnerPendingBookings({token,compact=false,onChanged,focusBooking
   token:string|undefined;
   compact?:boolean;
   onChanged?:()=>void;
-  focusBookingId?:string;
+  focusBookingId?:string|undefined;
 }){
   const {t,language,isRTL}=useLocale();
   const [bookings,setBookings]=useState<BookingDto[]>([]);
