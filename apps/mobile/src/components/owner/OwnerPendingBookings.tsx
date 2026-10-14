@@ -16,10 +16,11 @@ type Decision={booking:BookingDto;action:"approve"|"reject"};
 /** This is independent of a calendar date. An owner's approval inbox lists
  * every PENDING online booking at their venue, even if the requested date
  * lies in a future week or a different timetable view. */
-export function OwnerPendingBookings({token,compact=false,onChanged}:{
+export function OwnerPendingBookings({token,compact=false,onChanged,focusBookingId}:{
   token:string|undefined;
   compact?:boolean;
   onChanged?:()=>void;
+  focusBookingId?:string;
 }){
   const {t,language,isRTL}=useLocale();
   const [bookings,setBookings]=useState<BookingDto[]>([]);
@@ -119,7 +120,7 @@ export function OwnerPendingBookings({token,compact=false,onChanged}:{
       const time=formatRefereeScheduleParts(booking.startsAt,language);
       const expired=Date.parse(booking.startsAt)<=Date.now();
       return <View key={booking.id} testID={"owner-pending-"+booking.id}
-        style={styles.requestCard}>
+        style={[styles.requestCard,focusBookingId===booking.id&&{borderWidth:2,borderColor:colors.primary,borderRadius:radius.md}]}>
         <View style={[styles.requestHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <View style={styles.customer}>
             <AppText weight="bold" numberOfLines={2}>
