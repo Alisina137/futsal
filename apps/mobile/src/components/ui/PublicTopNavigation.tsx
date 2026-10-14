@@ -38,7 +38,7 @@ export function PublicTopNavigation(){
       if(active&&source===token)setUnread(count);
     });
     const reload=()=>{
-      notificationApi.list(token,{limit:1}).then(({unreadCount})=>{
+      notificationApi.unreadCount(token).then(({unreadCount})=>{
         if(active){setUnread(unreadCount);publishNotificationUnread(token,unreadCount);}
       }).catch(()=>{
         // Keep the last confirmed badge while offline; never show a fabricated zero.
