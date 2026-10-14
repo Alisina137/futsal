@@ -1,10 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {CompetitionListItemDto,SocialDirectoryDiscoveryResponse} from "@leaguekick/contracts";
+import type {CompetitionDiscoveryItem,CompetitionDiscoveryQuery,CompetitionDiscoveryResponse} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
-import {useCallback,useMemo,useState} from "react";
+import {useCallback,useEffect,useRef,useState} from "react";
 import {Pressable,ScrollView,StyleSheet,View,useWindowDimensions} from "react-native";
-import {competitionApi,marketingApi} from "../../lib/api";
+import {competitionApi} from "../../lib/api";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -18,112 +18,197 @@ import {SocialFollowedTile} from "./SocialFollowedTile";
 import {DirectoryFilterSelect} from "./DirectoryFilterSelect";
 
 type Mode="directory"|"following"|"popular"|"ongoing"|"registration"|"live"|"mine";
-type Sort="recommended"|"starting"|"popular";
-const empty:SocialDirectoryDiscoveryResponse={entityType:"COMPETITION",counts:[],followedIds:[]};
+type Scope=CompetitionDiscoveryQuery["scope"];
+const MAX_FOLLOWED=10;
+const defaults:CompetitionDiscoveryQuery={
+  q:"",province:"",city:"",fee:"any",sort:"recommended",scope:"all",page:1,limit:12,
+};
+const scopes:Record<Mode,Scope>={
+  directory:"all",following:"following",popular:"popular",
+  ongoing:"ongoingFollowedVenues",registration:"registration",live:"ongoing",mine:"mine",
+};
+const emptyFacets:CompetitionDiscoveryResponse["facets"]={provinces:[],cities:[]};
 const open=(id:string)=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:id}});
-const action=(item:CompetitionListItemDto,t:(key:any)=>string,canRegister:boolean)=>{
-  if(item.status==="REGISTRATION_OPEN"&&canRegister)return {
+const action=(item:CompetitionDiscoveryItem,t:(key:any)=>string,canRegister:boolean)=>{
+  if(item.status==="REGISTRATION_OPEN"&&canRegister)return{
     label:t("competition.register"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,tab:"TEAMS",focusRegistration:"1"}})};
-  if(item.status==="REGISTRATION_OPEN")return{
-    label:t("competition.phase1.viewRegistration"),to:()=>open(item.id)};
-  if(item.status==="IN_PROGRESS")return {
+  if(item.status==="REGISTRATION_OPEN")return{label:t("competition.phase1.viewRegistration"),to:()=>open(item.id)};
+  if(item.status==="IN_PROGRESS")return{
     label:t("competition.standings"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,tab:"STANDINGS"}})};
-  if(item.status==="COMPLETED")return {
+  if(item.status==="COMPLETED")return{
     label:t("competition.phase1.results"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,tab:"RESULTS"}})};
-  if(item.status==="SCHEDULED")return {
+  if(item.status==="SCHEDULED")return{
     label:t("competition.phase1.fixtures"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,tab:"MATCHES"}})};
   return {label:t("competition.viewCompetition"),to:()=>open(item.id)};
 };
-const MAX_FOLLOWED=10;
-const INITIAL_VISIBLE=12;
+const isoDay=/^\d{4}-\d{2}-\d{2}$/;
+function validDay(value:string){
+  if(!isoDay.test(value))return false;
+  const d=new Date(value+"T12:00:00Z");
+  return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;
+}
 
 export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
   const {width}=useWindowDimensions();
   const twoColumns=width>=720;
+  const token=session?.accessToken;
   const canRegister=Boolean(session?.user.roles.includes("TEAM_MANAGER"));
-  const [items,setItems]=useState<CompetitionListItemDto[]>([]);
-  const [meta,setMeta]=useState(empty);
-  const [followedVenueIds,setFollowedVenueIds]=useState<string[]>([]);
+  const modeScope=scopes[mode];
+  const [items,setItems]=useState<CompetitionDiscoveryItem[]>([]);
+  const [followed,setFollowed]=useState<CompetitionDiscoveryItem[]>([]);
+  const [followedTotal,setFollowedTotal]=useState(0);
+  const [facets,setFacets]=useState(emptyFacets);
+  const [total,setTotal]=useState(0);
+  const [hasMore,setHasMore]=useState(false);
+  const [currentPage,setCurrentPage]=useState(1);
   const [loading,setLoading]=useState(true);
+  const [loadingMore,setLoadingMore]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
   const [query,setQuery]=useState("");
-  const [search,setSearch]=useState("");
+  const [suggestions,setSuggestions]=useState<CompetitionDiscoveryItem[]>([]);
   const [suggestionsOpen,setSuggestionsOpen]=useState(false);
-  const [status,setStatus]=useState("");
-  const [sort,setSort]=useState<Sort>("recommended");
-  const [visibleCount,setVisibleCount]=useState(INITIAL_VISIBLE);
+  const [province,setProvince]=useState("");
+  const [city,setCity]=useState("");
+  const [status,setStatus]=useState<CompetitionDiscoveryQuery["status"]| "">("");
+  const [format,setFormat]=useState<CompetitionDiscoveryQuery["format"]| "">("");
+  const [fee,setFee]=useState<CompetitionDiscoveryQuery["fee"]>("any");
+  const [sort,setSort]=useState<CompetitionDiscoveryQuery["sort"]>("recommended");
+  const [minFee,setMinFee]=useState("");
+  const [maxFee,setMaxFee]=useState("");
+  const [from,setFrom]=useState("");
+  const [to,setTo]=useState("");
+  const [advanced,setAdvanced]=useState(false);
+  const [filterError,setFilterError]=useState<string|null>(null);
+  const applied=useRef<CompetitionDiscoveryQuery>({...defaults});
+  const requestId=useRef(0);
+  const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const followedRequestId=useRef(0);
+  const followPage={...defaults,scope:"following" as const,limit:11};
+  const privateScope=["following","mine","ongoingFollowedVenues"].includes(modeScope);
+  const mainToken=privateScope?token:undefined;
+
+  function clearTimer(){
+    if(timer.current){clearTimeout(timer.current);timer.current=null;}
+  }
+  const load=useCallback(async(filters:CompetitionDiscoveryQuery,page=1,append=false)=>{
+    const id=++requestId.current;
+    if(append)setLoadingMore(true);
+    else{setLoading(true);setError(null);}
+    if(privateScope&&!token){
+      if(requestId.current===id){
+        setItems([]);setTotal(0);setHasMore(false);setLoading(false);setLoadingMore(false);
+      }
+      return;
+    }
+    try{
+      const result=await competitionApi.discover({...filters,scope:modeScope,page},mainToken);
+      if(requestId.current!==id)return;
+      setItems(previous=>append?[...previous.filter(x=>!result.competitions.some(y=>y.id===x.id)),
+        ...result.competitions]:result.competitions);
+      setTotal(result.total);setCurrentPage(page);setHasMore(result.hasMore);
+      setFacets(result.facets);
+    }catch{
+      if(requestId.current===id)setError(t("competition.loadError"));
+    }finally{
+      if(requestId.current===id){setLoading(false);setLoadingMore(false);}
+    }
+  },[mainToken,modeScope,privateScope,token,t]);
+
+  const loadFollowed=useCallback(async()=>{
+    const id=++followedRequestId.current;
+    if(!token){setFollowed([]);setFollowedTotal(0);return;}
+    try{
+      const result=await competitionApi.discover(followPage,token);
+      if(id!==followedRequestId.current)return;
+      setFollowed(result.competitions);setFollowedTotal(result.total);
+    }catch{
+      if(id===followedRequestId.current){setFollowed([]);setFollowedTotal(0);}
+    }
+  },[token]);
 
   useFocusEffect(useCallback(()=>{
-    let active=true;
-    setError(null);setLoading(true);
-    const token=session?.accessToken;
-    void Promise.all([
-      mode==="mine"
-        ?token?competitionApi.mine(token):Promise.resolve({competitions:[] as CompetitionListItemDto[]})
-        :competitionApi.list(),
-      token?marketingApi.socialDirectoryDiscovery(token,"COMPETITION"):Promise.resolve(empty),
-      token?marketingApi.followedVenues(token):Promise.resolve({venues:[]}),
-    ]).then(([result,discovery,follows])=>{
-      if(active){
-        setItems(result.competitions);setMeta(discovery);
-        setFollowedVenueIds(follows.venues.map(venue=>venue.id));
-      }
-    }).catch(()=>{if(active)setError(t("competition.loadError"));})
-      .finally(()=>{if(active)setLoading(false);});
-    return()=>{active=false;};
-  },[session?.accessToken,mode,retry,t]));
+    void load(applied.current,1);
+    if(mode==="directory")void loadFollowed();
+    return()=>{clearTimer();++requestId.current;++followedRequestId.current;};
+  },[load,loadFollowed,mode,retry]));
 
-  const byId=useMemo(()=>new Map(items.map(item=>[item.id,item])),[items]);
-  const counts=useMemo(()=>new Map(meta.counts.map(x=>[x.id,x.count])),[meta.counts]);
-  // Followed rail may contain only currently published competitions.
-  const followed=meta.followedIds.map(id=>byId.get(id))
-    .filter((x):x is CompetitionListItemDto=>Boolean(x));
-  const statusOptions=[...new Set(items.map(x=>x.status))].sort();
-  const results=useMemo(()=>{
-    let result=mode==="popular"
-      ?[...items].sort((a,b)=>(counts.get(b.id)??0)-(counts.get(a.id)??0)
-        ||a.name.localeCompare(b.name))
-      :mode==="following"?followed
-      :mode==="ongoing"?items.filter(x=>x.status==="IN_PROGRESS"&&followedVenueIds.includes(x.venueId))
-        .sort((a,b)=>(b.startsAt??"").localeCompare(a.startsAt??"")||a.name.localeCompare(b.name)).slice(0,10)
-      :mode==="registration"?items.filter(x=>x.status==="REGISTRATION_OPEN")
-      :mode==="live"?items.filter(x=>x.status==="IN_PROGRESS")
-      :items;
-    if(mode==="directory")result=result.filter(x=>(!status||x.status===status)
-      &&(!search||x.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())));
-    if(mode==="directory"){
-      if(sort==="popular")result=[...result].sort((a,b)=>(counts.get(b.id)??0)-(counts.get(a.id)??0)
-        ||a.name.localeCompare(b.name));
-      if(sort==="starting")result=[...result].sort((a,b)=>
-        (a.startsAt??"9999").localeCompare(b.startsAt??"9999")||a.name.localeCompare(b.name));
+  useEffect(()=>()=>{clearTimer();++requestId.current;++followedRequestId.current;},[]);
+
+  // Suggestions are a separate 300ms server query. Out-of-date answers are ignored.
+  useEffect(()=>{
+    if(mode!=="directory"||!suggestionsOpen||!query.trim()){
+      setSuggestions([]);return;
     }
-    return result;
-  },[items,mode,counts,followedVenueIds,meta.followedIds,status,search,sort]);
-  const suggestions=query.trim()?items.filter(x=>(!status||x.status===status)
-    &&x.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).slice(0,8):[];
-  const applyStatus=(value:string)=>{setStatus(value);setVisibleCount(INITIAL_VISIBLE);};
-  function submit(value=query){setSearch(value.trim());setSuggestionsOpen(false);setVisibleCount(INITIAL_VISIBLE);}
-  function reset(){
-    setQuery("");setSearch("");setStatus("");setSort("recommended");
-    setSuggestionsOpen(false);setVisibleCount(INITIAL_VISIBLE);
+    let active=true;
+    const work=setTimeout(()=>{
+      void competitionApi.discover({...applied.current,q:query.trim(),page:1,limit:8,scope:"all"})
+        .then(result=>{if(active)setSuggestions(result.competitions);})
+        .catch(()=>{if(active)setSuggestions([]);});
+    },300);
+    return()=>{active=false;clearTimeout(work);};
+  },[mode,query,suggestionsOpen,province,city,status,format,fee]);
+
+  function apply(next:CompetitionDiscoveryQuery){
+    clearTimer();setSuggestionsOpen(false);setSuggestions([]);
+    applied.current={...next,scope:"all",page:1};
+    setFilterError(null);
+    void load(applied.current,1);
   }
-  const filtersActive=Boolean(search||status||sort!=="recommended");
-  const resultCount=results.length;
-  const visible=results.slice(0,mode==="ongoing"?10:visibleCount);
-  function render(item:CompetitionListItemDto,index:number){
-    const next=action(item,t,canRegister);
-    return <View key={item.id} style={[styles.result,twoColumns&&styles.gridItem]}>
-      {mode==="popular"?<AppText variant="caption" weight="semibold" style={styles.accent}>
-        #{index+1} · {t("social.followers",{count:counts.get(item.id)??0})}
-      </AppText>:null}
-      <CompetitionDirectoryCard competition={item}
-        detailsLabel={t("competition.viewCompetition")}
-        actionLabel={next.label} onDetails={()=>open(item.id)} onAction={next.to}/>
-    </View>;
+  function submit(value=query){apply({...applied.current,q:value.trim()});}
+  function typing(value:string){
+    setQuery(value);setSuggestionsOpen(true);setSuggestions([]);
+    clearTimer();
+    // Typing must invalidate an older response even before the debounce fires.
+    ++requestId.current;setLoading(false);setLoadingMore(false);setError(null);
+    timer.current=setTimeout(()=>{timer.current=null;submit(value);},2000);
   }
+  function pickProvince(value:string){
+    setProvince(value);setCity("");
+    apply({...applied.current,province:value,city:"",q:query.trim()});
+  }
+  function pickCity(value:string){
+    setCity(value);apply({...applied.current,city:value,q:query.trim()});
+  }
+  function pickStatus(value:string){
+    setStatus(value as typeof status);
+    apply({...applied.current,status:value?value as CompetitionDiscoveryQuery["status"]:undefined,q:query.trim()});
+  }
+  function pickFormat(value:string){
+    setFormat(value as typeof format);
+    apply({...applied.current,format:value?value as CompetitionDiscoveryQuery["format"]:undefined,q:query.trim()});
+  }
+  function pickFee(value:string){
+    const next=value as CompetitionDiscoveryQuery["fee"];setFee(next);
+    apply({...applied.current,fee:next,q:query.trim()});
+  }
+  function pickSort(value:CompetitionDiscoveryQuery["sort"]){
+    setSort(value);apply({...applied.current,sort:value,q:query.trim()});
+  }
+  function applyAdvanced(){
+    const min=minFee.trim(),max=maxFee.trim(),start=from.trim(),end=to.trim();
+    const numeric=value=>/^\d+$/.test(value)&&Number(value)<=10_000_000;
+    if((min&&!numeric(min))||(max&&!numeric(max))||
+      (min&&max&&Number(min)>Number(max))||
+      (start&&!validDay(start))||(end&&!validDay(end))||(start&&end&&start>end)){
+      setFilterError(t("competition.phase2.invalidFilters"));return;
+    }
+    apply({...applied.current,q:query.trim(),
+      minFee:min?Number(min):undefined,maxFee:max?Number(max):undefined,
+      from:start||undefined,to:end||undefined});
+  }
+  function clearFilters(){
+    setQuery("");setProvince("");setCity("");setStatus("");setFormat("");setFee("any");
+    setSort("recommended");setMinFee("");setMaxFee("");setFrom("");setTo("");
+    setFilterError(null);apply({...defaults});
+  }
+  const filtersActive=Boolean(applied.current.q||applied.current.province||applied.current.city||
+    applied.current.status||applied.current.format||applied.current.fee!=="any"||
+    applied.current.from||applied.current.to||applied.current.minFee!==undefined||
+    applied.current.maxFee!==undefined||applied.current.sort!=="recommended");
+
   const title=mode==="popular"?t("competition.mostFollowed")
     :mode==="ongoing"?t("competition.ongoingFollowedVenues")
     :mode==="following"?t("competition.followedCompetitions")
@@ -140,13 +225,24 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
     {id:"mine",label:t("competition.phase1.myCompetitions"),icon:"trophy-outline" as const,
       to:"/competitions/my" as const},
   ];
+  function render(item:CompetitionDiscoveryItem,index:number){
+    const next=action(item,t,canRegister);
+    return <View key={item.id} style={[styles.result,twoColumns&&styles.gridItem]}>
+      {mode==="popular"?<AppText variant="caption" weight="semibold" style={styles.accent}>
+        #{(currentPage-1)*applied.current.limit+index+1} · {t("social.followers",{count:item.followerCount})}
+      </AppText>:null}
+      <CompetitionDirectoryCard competition={item}
+        detailsLabel={t("competition.viewCompetition")}
+        actionLabel={next.label} onDetails={()=>open(item.id)} onAction={next.to}/>
+    </View>;
+  }
   return <Screen showHeader publicNav style={styles.page}>
     {mode!=="directory"?<View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <Pressable accessibilityRole="button" accessibilityLabel={t("competition.backToCompetitions")}
         onPress={()=>router.navigate("/competitions")} style={styles.back}>
         <Ionicons name={isRTL?"arrow-forward":"arrow-back"} size={21} color={colors.primary}/>
       </Pressable>
-      <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>{title}</AppText>
+      <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{title}</AppText>
     </View>:null}
     {mode==="directory"?<>
       <View testID="competitions-followed-strip" style={styles.panel}>
@@ -155,7 +251,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
             <AppText variant="bodyLarge" weight="bold">{t("competition.followedCompetitions")}</AppText>
             <AppText variant="caption" muted>{t("competition.phase1.followedSubtitle")}</AppText>
           </View>
-          {followed.length>0?<Pressable accessibilityRole="button"
+          {followedTotal>0?<Pressable accessibilityRole="button"
             testID="competitions-followed-all" onPress={()=>router.push("/competitions/following")}
             style={styles.headerAction}>
             <AppText variant="caption" weight="semibold" style={styles.accent}>
@@ -164,8 +260,8 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
             <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={17} color={colors.primary}/>
           </Pressable>:null}
         </View>
-        {loading?<DataLoadingState variant="list" minHeight={120}/>:followed.length===0?
-          <AppText muted variant="caption">{t("competition.followedEmpty")}</AppText>:
+        {loading&&followed.length===0?<DataLoadingState variant="list" minHeight={120}/>:
+        followedTotal===0?<AppText muted variant="caption">{t("competition.followedEmpty")}</AppText>:
           <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="competitions-followed-carousel"
             contentContainerStyle={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
             {followed.slice(0,10).map(item=>{
@@ -176,11 +272,11 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
                 kind="COMPETITION" detailsLabel={t("competition.viewCompetition")}
                 actionLabel={next.label} onDetails={()=>open(item.id)} onAction={next.to}/>;
             })}
-            {followed.length>MAX_FOLLOWED?<Pressable testID="competitions-followed-more"
+            {followedTotal>MAX_FOLLOWED?<Pressable testID="competitions-followed-more"
               accessibilityRole="button" onPress={()=>router.push("/competitions/following")} style={styles.more}>
               <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={24} color={colors.primary}/>
               <AppText variant="caption" weight="semibold">{t("competition.phase1.viewAll")}</AppText>
-              <AppText variant="caption" muted>+{followed.length-MAX_FOLLOWED}</AppText>
+              <AppText variant="caption" muted>+{followedTotal-MAX_FOLLOWED}</AppText>
             </Pressable>:null}
           </ScrollView>}
       </View>
@@ -211,36 +307,72 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
       <View testID="competitions-search-panel" style={styles.filters}>
         <View style={styles.titleCopy}>
           <AppText variant="bodyLarge" weight="bold">{t("competition.phase1.find")}</AppText>
-          <AppText variant="caption" muted>{t("competition.phase1.findSubtitle")}</AppText>
+          <AppText variant="caption" muted>{t("competition.phase2.searchSubtitle")}</AppText>
         </View>
-        <DirectoryFilterSelect testID="competition-status-select" label={t("competition.filterStatus")}
-          value={status} allLabel={t("competition.allStatuses")}
-          options={statusOptions.map(option=>({value:option,label:t(`competition.status.${option}` as never)}))}
-          onSelect={applyStatus}/>
-        <TextField testID="competition-name-search" label={t("competition.searchName")}
-          placeholder={t("competition.searchPlaceholder")} value={query} maxLength={120}
+        <TextField testID="competition-name-search" label={t("competition.phase2.searchLabel")}
+          placeholder={t("competition.phase2.searchPlaceholder")} value={query} maxLength={120}
           autoCorrect={false} returnKeyType="search" onFocus={()=>setSuggestionsOpen(true)}
-          onChangeText={text=>{setQuery(text);setSuggestionsOpen(true);}}
-          onSubmitEditing={()=>submit()}/>
+          onChangeText={typing} onSubmitEditing={()=>submit()}/>
         {suggestionsOpen&&suggestions.length>0?<View style={styles.suggestions}>
           {suggestions.map(item=><Pressable key={item.id} accessibilityRole="button"
-            onPress={()=>{setQuery(item.name);submit(item.name);}}
-            style={styles.suggestion}>
+            onPress={()=>{setQuery(item.name);submit(item.name);}} style={styles.suggestion}>
             <AppText weight="medium" numberOfLines={1}>{item.name}</AppText>
-            <AppText variant="caption" muted numberOfLines={1}>{item.venueName}</AppText>
+            <AppText variant="caption" muted numberOfLines={1}>{item.venueName} · {item.city}</AppText>
           </Pressable>)}
+        </View>:null}
+        <DirectoryFilterSelect testID="competition-province-select"
+          label={t("competition.phase2.province")} value={province}
+          allLabel={t("competition.phase2.allProvinces")}
+          options={facets.provinces.map(value=>({value,label:value}))} onSelect={pickProvince}/>
+        <DirectoryFilterSelect testID="competition-city-select"
+          label={t("competition.phase2.city")} value={city}
+          allLabel={t("competition.phase2.allCities")}
+          options={facets.cities.map(value=>({value,label:value}))} onSelect={pickCity}/>
+        <DirectoryFilterSelect testID="competition-status-select"
+          label={t("competition.filterStatus")} value={status}
+          allLabel={t("competition.allStatuses")}
+          options={(["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS","COMPLETED","ARCHIVED"] as const)
+            .map(value=>({value,label:t(`competition.status.${value}` as never)}))} onSelect={pickStatus}/>
+        <DirectoryFilterSelect testID="competition-format-select"
+          label={t("competition.format")} value={format}
+          allLabel={t("competition.phase2.allFormats")}
+          options={(["LEAGUE","KNOCKOUT","GROUP_KNOCKOUT"] as const)
+            .map(value=>({value,label:t(`competition.format.${value}` as never)}))} onSelect={pickFormat}/>
+        <DirectoryFilterSelect testID="competition-fee-select"
+          label={t("competition.registrationFee")} value={fee}
+          allLabel={t("competition.phase2.anyFee")}
+          options={["free","paid"].map(value=>({value,label:t(`competition.phase2.fee.${value}` as never)}))}
+          onSelect={pickFee}/>
+        <Pressable accessibilityRole="button" testID="competitions-advanced-filters"
+          onPress={()=>setAdvanced(x=>!x)}
+          style={[styles.advancedToggle,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="options-outline" size={19} color={colors.primary}/>
+          <AppText weight="semibold" style={styles.accent}>{t("competition.phase2.advanced")}</AppText>
+          <Ionicons name={advanced?"chevron-up":"chevron-down"} size={17} color={colors.primary}/>
+        </Pressable>
+        {advanced?<View style={styles.advanced}>
+          <TextField testID="competition-min-fee" label={t("competition.phase2.minimumFee")}
+            placeholder="0" keyboardType="numeric" value={minFee} onChangeText={setMinFee}/>
+          <TextField testID="competition-max-fee" label={t("competition.phase2.maximumFee")}
+            placeholder="10000" keyboardType="numeric" value={maxFee} onChangeText={setMaxFee}/>
+          <TextField testID="competition-start-from" label={t("competition.phase2.startsFrom")}
+            placeholder="YYYY-MM-DD" value={from} onChangeText={setFrom} maxLength={10}/>
+          <TextField testID="competition-start-to" label={t("competition.phase2.startsTo")}
+            placeholder="YYYY-MM-DD" value={to} onChangeText={setTo} maxLength={10}/>
+          {filterError?<AppText style={{color:colors.danger}}>{filterError}</AppText>:null}
+          <Button label={t("competition.phase2.applyAdvanced")} onPress={applyAdvanced}/>
         </View>:null}
         <Button label={t("competition.search")} onPress={()=>submit()} loading={loading}/>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           contentContainerStyle={[styles.sortRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          {(["recommended","starting","popular"] as const).map(option=>
+          {(["recommended","starting","popular","newest","closing","feeLow"] as const).map(option=>
             <Pressable key={option} testID={`competition-sort-${option}`}
               accessibilityRole="tab" accessibilityState={{selected:sort===option}}
-              onPress={()=>{setSort(option);setVisibleCount(INITIAL_VISIBLE);}}
+              onPress={()=>pickSort(option)}
               style={[styles.sortChip,sort===option&&styles.sortActive]}>
               <AppText variant="caption" weight="semibold"
                 style={{color:sort===option?"#FFFFFF":colors.primary}}>
-                {t(`competition.phase1.sort.${option}` as never)}
+                {t(`competition.phase2.sort.${option}` as never)}
               </AppText>
             </Pressable>)}
         </ScrollView>
@@ -253,7 +385,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
             {mode==="directory"?t("competition.phase1.explore"):title}
           </AppText>
           {!loading&&!error?<AppText variant="caption" muted>
-            {t("competition.phase1.resultsCount",{count:resultCount})}
+            {t("competition.phase1.resultsCount",{count:total})}
           </AppText>:null}
         </View>
         <Pressable testID="competitions-refresh-results" accessibilityRole="button"
@@ -268,20 +400,23 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
         <AppText style={{color:colors.danger,textAlign:"center"}}>{error}</AppText>
         <Button label={t("common.retry")} variant="secondary" onPress={()=>setRetry(n=>n+1)}/>
       </Card>:null}
-      {!loading&&!error&&resultCount===0?<Card style={styles.message}>
+      {!loading&&!error&&total===0?<Card style={styles.message}>
         <Ionicons name="trophy-outline" size={30} color={colors.primary}/>
         <AppText style={{textAlign:"center"}}>{mode==="ongoing"?
-          t("competition.noOngoingFollowed"):mode==="mine"&&!session?
+          t("competition.noOngoingFollowed"):privateScope&&!token?
           t("competition.phase1.signIn"):t("competition.noMatches")}</AppText>
         {mode==="directory"&&filtersActive?<Button
-          label={t("competition.phase1.clearFilters")} variant="secondary" onPress={reset}/>:null}
+          label={t("competition.phase1.clearFilters")} variant="secondary" onPress={clearFilters}/>:null}
       </Card>:null}
-      {!loading&&!error?<View testID="competitions-results-grid" style={[styles.grid,
-        {flexDirection:isRTL?"row-reverse":"row"}]}>{visible.map(render)}</View>:null}
-      {!loading&&!error&&resultCount>visible.length?<Button
-        variant="secondary"
-        label={t("competition.phase1.showMore")}
-        onPress={()=>setVisibleCount(n=>n+INITIAL_VISIBLE)}/>:null}
+      {!loading&&!error?<View testID="competitions-results-grid"
+        style={[styles.grid,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {items.map(render)}
+      </View>:null}
+      {!loading&&!error&&hasMore?<View testID="competitions-show-more">
+        <Button variant="secondary" label={t("competition.phase1.showMore")}
+          loading={loadingMore} disabled={loadingMore}
+          onPress={()=>void load(applied.current,currentPage+1,true)}/>
+      </View>:null}
     </View>
   </Screen>;
 }
@@ -290,8 +425,8 @@ const styles=StyleSheet.create({
   row:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
   heading:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
   titleCopy:{flex:1,minWidth:0,gap:3},
-  panel:{gap:spacing.sm,backgroundColor:colors.surface,borderRadius:radius.lg,padding:spacing.md,
-    borderWidth:1,borderColor:colors.border},
+  panel:{gap:spacing.sm,backgroundColor:colors.surface,borderRadius:radius.lg,
+    padding:spacing.md,borderWidth:1,borderColor:colors.border},
   headerAction:{flexDirection:"row",alignItems:"center",minHeight:44,gap:spacing.xs},
   accent:{color:colors.primary,flexShrink:1},
   quickSection:{gap:spacing.sm},
@@ -299,8 +434,7 @@ const styles=StyleSheet.create({
   shortcut:{width:"48.5%",minHeight:64,borderRadius:radius.md,
     backgroundColor:colors.primarySoft,borderWidth:1,borderColor:colors.border,
     padding:spacing.sm,flexDirection:"row",alignItems:"center",gap:spacing.xs},
-  followedVenues:{minHeight:44,flexDirection:"row",alignItems:"center",gap:spacing.sm,
-    paddingHorizontal:spacing.sm},
+  followedVenues:{minHeight:44,flexDirection:"row",alignItems:"center",gap:spacing.sm,paddingHorizontal:spacing.sm},
   filters:{gap:spacing.sm},
   suggestions:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   suggestion:{minHeight:48,justifyContent:"center",paddingHorizontal:spacing.md,
@@ -310,14 +444,17 @@ const styles=StyleSheet.create({
     paddingHorizontal:spacing.md,minHeight:42,alignItems:"center",justifyContent:"center",
     backgroundColor:colors.surface},
   sortActive:{backgroundColor:colors.primary},
+  advancedToggle:{alignItems:"center",gap:spacing.sm,minHeight:44,paddingHorizontal:spacing.sm},
+  advanced:{gap:spacing.sm},
   resultsSection:{gap:spacing.md},
   grid:{flexWrap:"wrap",alignItems:"stretch",gap:spacing.sm},
   gridItem:{width:"48.5%"},
   result:{width:"100%",gap:spacing.xs},
   message:{alignItems:"center",justifyContent:"center",gap:spacing.md,paddingVertical:spacing.xxl},
-  refresh:{width:44,height:44,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft,
-    borderRadius:radius.md},
-  back:{width:44,height:44,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft,borderRadius:22},
+  refresh:{width:44,height:44,alignItems:"center",justifyContent:"center",
+    backgroundColor:colors.primarySoft,borderRadius:radius.md},
+  back:{width:44,height:44,alignItems:"center",justifyContent:"center",
+    backgroundColor:colors.primarySoft,borderRadius:22},
   more:{width:148,minHeight:208,backgroundColor:colors.primarySoft,alignItems:"center",
     justifyContent:"center",borderRadius:radius.md,gap:spacing.sm},
   pressed:{opacity:.7},
