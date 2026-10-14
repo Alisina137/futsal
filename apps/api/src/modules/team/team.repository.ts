@@ -95,6 +95,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       id: users.id,
       displayName: users.displayName,
       username: users.username,
+      emailVerifiedAt: users.emailVerifiedAt,
     }).from(users).where(and(
       eq(users.status, "ACTIVE"),
       identifierCondition,
@@ -110,7 +111,8 @@ export class DrizzleTeamRepository implements TeamRepository {
       .filter((item) => item.status === "ACTIVE" && item.activeUntil && item.activeUntil.getTime() > Date.now())
       .map((item) => item.role));
     return {
-      ...row,
+      id:row.id,displayName:row.displayName,username:row.username,
+      emailVerified:Boolean(row.emailVerifiedAt),
       roles: roles.map((item) => item.role).filter((role) =>
         role !== "VENUE_OWNER" && role !== "TEAM_MANAGER" || activePaid.has(role),
       ),
