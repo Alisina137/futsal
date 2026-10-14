@@ -165,30 +165,39 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     return Number(row?.value ?? 0);
   }
 
-  async createNotification(input: NotificationCreateInput, createdAt: Date) {
+  async createNotification(input: NotificationCreateInput, createdAt: Date,
+    channels:Array<"IN_APP"|"PUSH">){
     try {
-      const [created] = await this.db.insert(notifications).values({
-        userId: input.userId,
-        type: input.type,
-        title: input.title,
-        body: input.body,
-        deepLink: input.deepLink,
-        data: input.data ?? {},
-        dedupeKey: input.dedupeKey,
-        createdAt,
-      }).returning();
-      if (!created) throw new Error("Notification could not be created.");
-      return { notification: dto(created), created: true };
-    } catch (error) {
+      return await this.db.transaction(async(tx)=>{
+        const [created] = await tx.insert(notifications).values({
+          userId: input.userId,
+          type: input.type,
+          title: input.title,
+          body: input.body,
+          deepLink: input.deepLink,
+          data: input.data ?? {},
+          dedupeKey: input.dedupeKey,
+          createdAt,
+        }).returning();
+        if (!created) throw new Error("Notification could not be created.");
+        // The inbox must not expose a row before its channel intents commit.
+        // Roll back both inserts if delivery persistence fails.
+        if(channels.length)await tx.insert(notificationDeliveries).values(channels.map(channel=>({
+          notificationId:created.id,channel,
+          status:channel==="IN_APP"?"SENT" as const:"PENDING" as const,
+          attempts:channel==="IN_APP"?1:0,
+          lastAttemptAt:channel==="IN_APP"?createdAt:null,
+        })));
+        return {notification:dto(created),created:true};
+      });
+    } catch(error){
       if ((error as { code?: string }).code !== "23505") throw error;
       const [existing] = await this.db.select().from(notifications)
-        .where(and(
-          eq(notifications.userId, input.userId),
-          eq(notifications.dedupeKey, input.dedupeKey),
-        ))
-        .limit(1);
-      if (!existing) throw error;
-      return { notification: dto(existing), created: false };
+        .where(and(eq(notifications.userId,input.userId),
+          eq(notifications.dedupeKey,input.dedupeKey))).limit(1);
+      if(!existing)throw error;
+      // A retry may not change the original audience/channel preference.
+      return {notification:dto(existing),created:false};
     }
   }
 
