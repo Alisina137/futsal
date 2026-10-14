@@ -4,6 +4,7 @@ import {useEffect} from "react";
 import {AppState,Platform} from "react-native";
 import {notificationApi} from "../lib/api";
 import {publishNotificationUnread} from "../lib/notification-events";
+import {safeNotificationDeepLink} from "../lib/notification-routing";
 import {onPushPreferenceChange} from "../lib/push-events";
 import {useAuth} from "../providers/AuthProvider";
 
@@ -29,10 +30,9 @@ export function PushNotificationsBridge(){
     };
     const navigateFromResponse=(data:Record<string,unknown>|undefined)=>{
       if(!alive)return;
-      const url=data?.url;
-      // Reject arbitrary/remote destinations. Only internal app paths are legal.
-      if(typeof url!=="string"||!/^\/(notifications|bookings|dashboard|owner|support|competitions|venues|posts|teams)(\/[^?#]*)?(\?[^#]*)?$/.test(url))return;
-      router.push(url as never);
+      const destination=safeNotificationDeepLink(data?.url);
+      if(!destination)return;
+      router.push(destination as never);
     };
     const start=async()=>{
       try{
