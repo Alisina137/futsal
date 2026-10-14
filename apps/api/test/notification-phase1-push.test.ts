@@ -18,7 +18,7 @@ describe("Notifications Phase 1 — actionable events",()=>{
     const ownerFeed=await service.list(owner,"BOOKINGS");
     expect(ownerFeed.notifications).toHaveLength(1);
     expect(ownerFeed.notifications[0]).toMatchObject({
-      type:"BOOKING_REQUEST",deepLink:"/owner/schedule",
+      type:"BOOKING_REQUEST",deepLink:`/owner/schedule?bookingId=${bookingId}`,
       data:{venueId,bookingId},
     });
     expect((await service.list(player)).notifications).toHaveLength(0);
@@ -31,7 +31,7 @@ describe("Notifications Phase 1 — actionable events",()=>{
     const mine=(await service.list(manager,"TEAMS")).notifications;
     expect(mine).toHaveLength(1);
     expect(mine[0]?.data).toMatchObject({teamId,requestId});
-    expect(mine[0]?.deepLink).toBe(`/teams/${teamId}/manage`);
+    expect(mine[0]?.deepLink).toBe(`/teams/${teamId}/manage?requestId=${requestId}`);
     await service.teamJoinDecision({requesterUserId:requester,teamId,teamName:"Golden FC",requestId,accepted:false});
     await service.teamJoinDecision({requesterUserId:requester,teamId,teamName:"Golden FC",requestId,accepted:false});
     const result=(await service.list(requester,"TEAMS")).notifications;
