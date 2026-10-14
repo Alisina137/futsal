@@ -42,9 +42,9 @@ export class FakeNotificationRepository implements NotificationRepository {
     return this.notifications.filter(item=>{
       if(item.data.userId!==userId)return false;
       if(filter==="UNREAD")return !item.readAt;
-      if(filter==="BOOKINGS")return item.type==="BOOKING_CONFIRMED"||item.type==="BOOKING_CANCELLED";
+      if(filter==="BOOKINGS")return ["BOOKING_CONFIRMED","BOOKING_CANCELLED","BOOKING_REQUEST"].includes(item.type);
       if(filter==="VENUES")return item.type==="SLOT_PROMOTION"||item.type==="VENUE_POST";
-      if(filter==="TEAMS")return item.type==="TEAM_INVITATION";
+      if(filter==="TEAMS")return ["TEAM_INVITATION","TEAM_JOIN_REQUEST","TEAM_JOIN_DECISION","TEAM_ACTIVITY","TEAM_CHALLENGE","TEAM_ANNOUNCEMENT"].includes(item.type);
       if(filter==="COMPETITIONS")return item.type==="COMPETITION_UPDATE";
       return true;
     }).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id));

@@ -442,6 +442,16 @@ export class BookingService {
       cancellationPolicySnapshot: venue.cancellationPolicy,
       idempotencyKey: input.idempotencyKey,
     });
+    if(created.status==="PENDING"&&venue.ownerUserId){
+      try{
+        await this.notifications?.bookingRequest({
+          ownerUserId:venue.ownerUserId,bookingId:created.id,venueId:venue.id,
+          venueName:venue.name,startsAt:created.startsAt,
+        });
+      }catch{
+        // The pending booking remains committed even if the owner's alert fails.
+      }
+    }
     if (created.status === "CONFIRMED") {
       try {
         await this.notifications?.bookingConfirmed({

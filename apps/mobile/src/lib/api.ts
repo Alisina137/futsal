@@ -660,6 +660,11 @@ export const marketingApi = {
 };
 
 export const notificationApi = {
+  registerDevice:(accessToken:string,input:{expoPushToken:string;platform:"ANDROID"|"IOS"})=>
+    request<void>("/api/v1/notifications/devices",{method:"POST",body:JSON.stringify(input)},accessToken),
+  unregisterDevice:(accessToken:string,expoPushToken:string)=>
+    request<void>("/api/v1/notifications/devices/unregister",
+      {method:"POST",body:JSON.stringify({expoPushToken})},accessToken),
   list: (accessToken:string,options?:{filter?:NotificationListFilter;limit?:number;offset?:number})=>{
     const query=new URLSearchParams();
     if(options?.filter)query.set("filter",options.filter);

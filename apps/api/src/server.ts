@@ -12,6 +12,7 @@ import { DrizzleMarketingRepository } from "./modules/marketing/marketing.reposi
 import { MarketingService } from "./modules/marketing/marketing.service.js";
 import { DrizzleNotificationRepository } from "./modules/notifications/notification.repository.js";
 import { NotificationService } from "./modules/notifications/notification.service.js";
+import {DrizzlePushDeliveryStore,PushDispatcher} from "./modules/notifications/push-delivery.js";
 import { DrizzleTeamRepository } from "./modules/team/team.repository.js";
 import { TeamService } from "./modules/team/team.service.js";
 import {TeamSlotsService} from "./modules/team/team-slots.js";
@@ -67,6 +68,21 @@ tokens.setAdminRoleValidator(async(userId)=>(await authRepository.getUserById(us
 const ownerRepository = new DrizzleOwnerOnboardingRepository(db);
 const notificationRepository = new DrizzleNotificationRepository(db);
 const notificationService = new NotificationService(notificationRepository);
+const pushDispatcher=new PushDispatcher(new DrizzlePushDeliveryStore(db));
+let pushTickBusy=false;
+const pushTimer=setInterval(()=>{
+  if(pushTickBusy)return;
+  pushTickBusy=true;
+  void pushDispatcher.run().catch(error=>console.error(JSON.stringify({
+    event:"push_dispatch_failed",message:error instanceof Error?error.message:String(error),
+  }))).finally(()=>{pushTickBusy=false;});
+},30_000);
+pushTimer.unref();
+// Dispatch on boot too, so pending notifications survive application restarts.
+void pushDispatcher.run().catch(error=>console.error(JSON.stringify({
+  event:"push_dispatch_startup_failed",message:error instanceof Error?error.message:String(error),
+})));
+
 const timetableRepository = new DrizzleTimetableRepository(db);
 const timetable = new TimetableService(timetableRepository);
 const bookingRepository = new DrizzleBookingRepository(db);

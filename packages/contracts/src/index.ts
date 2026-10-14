@@ -2287,7 +2287,7 @@ export const competitionDiscoveryResponseSchema=z.object({
 export type CompetitionDiscoveryResponse=z.infer<typeof competitionDiscoveryResponseSchema>;
 
 
-export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "SLOT_AVAILABLE", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT", "ADMIN_ANNOUNCEMENT"]);
+export const notificationTypeSchema = z.enum(["BOOKING_CONFIRMED", "BOOKING_CANCELLED", "BOOKING_REQUEST", "TEAM_JOIN_REQUEST", "TEAM_JOIN_DECISION", "SLOT_AVAILABLE", "SLOT_PROMOTION", "VENUE_POST", "TEAM_INVITATION", "COMPETITION_UPDATE", "TEAM_ACTIVITY", "TEAM_CHALLENGE", "TEAM_ANNOUNCEMENT", "ADMIN_ANNOUNCEMENT"]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
 export const notificationDtoSchema = z.object({

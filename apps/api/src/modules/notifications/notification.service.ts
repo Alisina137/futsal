@@ -102,6 +102,37 @@ export class NotificationService implements NotificationPublisher {
     });
   }
 
+  async bookingRequest(input:{ownerUserId:string;bookingId:string;venueId:string;venueName:string;startsAt:string}){
+    await this.publish({
+      userId:input.ownerUserId,type:"BOOKING_REQUEST",title:"New booking requires approval",
+      body:`${input.venueName} · ${input.startsAt}`,
+      deepLink:"/owner/schedule",
+      data:{bookingId:input.bookingId,venueId:input.venueId,venueName:input.venueName,startsAt:input.startsAt},
+      dedupeKey:`booking-request:${input.bookingId}`,marketing:false,
+    });
+  }
+
+  async teamJoinRequest(input:{managerUserId:string;teamId:string;teamName:string;requestId:string;requesterDisplayName:string}){
+    await this.publish({
+      userId:input.managerUserId,type:"TEAM_JOIN_REQUEST",title:"New team join request",
+      body:`${input.requesterDisplayName} wants to join ${input.teamName}.`,
+      deepLink:`/teams/${input.teamId}/manage`,
+      data:{teamId:input.teamId,requestId:input.requestId,teamName:input.teamName,requesterDisplayName:input.requesterDisplayName},
+      dedupeKey:`team-join-request:${input.requestId}`,marketing:false,
+    });
+  }
+
+  async teamJoinDecision(input:{requesterUserId:string;teamId:string;teamName:string;requestId:string;accepted:boolean}){
+    await this.publish({
+      userId:input.requesterUserId,type:"TEAM_JOIN_DECISION",
+      title:input.accepted?"Team request approved":"Team request declined",
+      body:`${input.teamName}: your request to join was ${input.accepted?"approved":"declined"}.`,
+      deepLink:`/teams/${input.teamId}`,
+      data:{teamId:input.teamId,requestId:input.requestId,teamName:input.teamName,accepted:input.accepted},
+      dedupeKey:`team-join-decision:${input.requestId}`,marketing:false,
+    });
+  }
+
   async bookingConfirmed(input: {
     userId: string;
     bookingId: string;

@@ -24,6 +24,7 @@ const FILTER_ICONS:Record<NotificationListFilter,IconName>={
 };
 const ICONS:Record<NotificationDto["type"],IconName>={
   BOOKING_CONFIRMED:"checkmark-circle-outline",BOOKING_CANCELLED:"close-circle-outline",
+  BOOKING_REQUEST:"calendar-outline",TEAM_JOIN_REQUEST:"person-add-outline",TEAM_JOIN_DECISION:"people-outline",
   SLOT_PROMOTION:"pricetag-outline",SLOT_AVAILABLE:"notifications-circle-outline",VENUE_POST:"megaphone-outline",
   TEAM_INVITATION:"people-outline",COMPETITION_UPDATE:"trophy-outline",
   TEAM_ACTIVITY:"calendar-outline",TEAM_CHALLENGE:"football-outline",TEAM_ANNOUNCEMENT:"megaphone-outline",
@@ -42,6 +43,9 @@ function target(item:NotificationDto):()=>void{
   const id=(key:string)=>typeof item.data[key]==="string"?item.data[key] as string:null;
   switch(item.type){
     case "BOOKING_CONFIRMED":case "BOOKING_CANCELLED":return ()=>router.push("/bookings");
+    case "BOOKING_REQUEST":return ()=>router.push("/owner/schedule");
+    case "TEAM_JOIN_REQUEST":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/manage",params:{teamId}});else router.push("/teams");};
+    case "TEAM_JOIN_DECISION":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]",params:{teamId}});else router.push("/teams");};
     case "TEAM_INVITATION":return ()=>router.push("/teams/invitations");
     case "ADMIN_ANNOUNCEMENT":return ()=>router.push("/support");
     case "TEAM_CHALLENGE":return ()=>router.push("/dashboard");
@@ -203,6 +207,24 @@ export default function NotificationsScreen(){
           :item.body.split(" · ")[0]||"";
         return t("notifications.message.bookingConfirmed",{venue,date:parts.date,time:parts.time});
       }
+    }
+    if(item.type==="BOOKING_REQUEST"){
+      const startsAt=typeof item.data.startsAt==="string"?item.data.startsAt:null;
+      const venue=typeof item.data.venueName==="string"?item.data.venueName:"";
+      if(startsAt){
+        const parts=formatLocalDateTimeParts(startsAt,language);
+        return t("notifications.message.bookingRequest",{venue,date:parts.date,time:parts.time});
+      }
+    }
+    if(item.type==="TEAM_JOIN_REQUEST"&&typeof item.data.teamName==="string"){
+      return t("notifications.message.teamJoinRequest",{
+        player:typeof item.data.requesterDisplayName==="string"?item.data.requesterDisplayName:"",
+        team:item.data.teamName,
+      });
+    }
+    if(item.type==="TEAM_JOIN_DECISION"&&typeof item.data.teamName==="string"){
+      return t(item.data.accepted===true?"notifications.message.teamJoinDecisionAccepted":
+        "notifications.message.teamJoinDecisionRejected",{team:item.data.teamName});
     }
     if(item.type==="BOOKING_CANCELLED"&&typeof item.data.venueName==="string")
       return t("notifications.message.bookingCancelled",{venue:item.data.venueName});
