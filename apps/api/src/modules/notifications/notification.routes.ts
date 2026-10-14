@@ -30,8 +30,9 @@ export function createNotificationRouter(notifications: NotificationService, tok
         filter:notificationListFilterSchema.default("ALL"),
         limit:z.coerce.number().int().min(1).max(100).default(30),
         offset:z.coerce.number().int().min(0).max(10000).default(0),
+        cursor:z.string().max(256).optional(),
       }).parse(request.query);
-      response.json(await notifications.list(request.auth!.userId,query.filter,query.limit,query.offset));
+      response.json(await notifications.list(request.auth!.userId,query.filter,query.limit,query.offset,query.cursor));
     }catch(error){next(error);}
   });
 
