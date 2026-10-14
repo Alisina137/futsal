@@ -84,7 +84,7 @@ includes(updates,[
   "venueApi.scheduleChanges(venue.id,from,to)",
 ],"Private venue alert and real schedule protections");
 includes(media,[
-  "marketingApi.venueMedia(venue.id,","post.visibility!==\"PRIVATE\"",
+  "marketingApi.venueMedia(venue.id,","p.visibility!==\"PRIVATE\"",
   "if(id!==requestId.current)return",
 ],"Published only/media account privacy protections");
 includes(backend,[
