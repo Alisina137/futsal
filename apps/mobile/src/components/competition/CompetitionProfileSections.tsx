@@ -2,10 +2,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {
   CompetitionDto,CompetitionMatchDto,CompetitionMediaPostDto,
-  CompetitionStandingRowDto,
 } from "@leaguekick/contracts";
 import {router} from "expo-router";
-import {useMemo,useState,type ReactNode} from "react";
+import {useState,type ReactNode} from "react";
 import {Image,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
