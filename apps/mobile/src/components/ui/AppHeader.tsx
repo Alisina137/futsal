@@ -133,9 +133,7 @@ export function AppHeader(){
               <AppText variant="bodyLarge" weight="bold">{t("common.appName")}</AppText>
               <AppText variant="caption" muted>{user?.displayName??""}</AppText>
             </View>
-            <View style={styles.drawerBrandIcon}>
-              <Image source={require("../../../assets/icon.png")} style={styles.drawerBrandLogo}/>
-            </View>
+            <Image source={require("../../../assets/icon.png")} style={styles.drawerBrandLogo} accessibilityLabel={t("common.appName")}/>
           </View>
 
           <ScrollView
@@ -217,7 +215,7 @@ const styles=StyleSheet.create({
   brandLogo:{
     width:33,
     height:33,
-    borderRadius:10,
+    resizeMode:"contain",
   },
   brandTitle:{
     color:colors.primary,
@@ -281,16 +279,7 @@ const styles=StyleSheet.create({
     flex:1,
     gap:2,
   },
-  drawerBrandIcon:{
-    width:38,
-    height:38,
-    borderRadius:12,
-    overflow:"hidden",
-    alignItems:"center",
-    justifyContent:"center",
-    backgroundColor:"#0B1D45",
-  },
-  drawerBrandLogo:{width:38,height:38},
+  drawerBrandLogo:{width:38,height:38,resizeMode:"contain"},
   closeButton:{
     width:touchTarget,
     height:touchTarget,

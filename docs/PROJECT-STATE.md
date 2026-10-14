@@ -1,3 +1,9 @@
+## Brand polish — borderless logo and 80% startup logo (October 14, 2026)
+
+- Removed logo-specific framing/background/border from the authentication hero and the hamburger drawer; the app-header emblem displays without rounded clipping. Only the logo image appears, with no logo box shadow.
+- Reduced the authentication entry logo from 52 px to 41.6 px and the native splash image width from 160 px to 128 px (both exactly 80%); both retain contain image sizing and existing approved logo artwork.
+- Extended scripts/verify-app-branding.mjs / pnpm verify:branding to guard the 80% sizing and absence of logo borders and shadows. No backend/database changes. Native splash configuration changes take effect in a rebuilt native binary; Expo Go's splash may not match standalone app behavior.
+
 ## Profile — Email-verified participation and role subscription eligibility (October 14, 2026)
 
 - Profile re-review improved the header, avatar/identity typography, action placement, verified/unverified email status cards, mobile/RTL spacing, and Edit Profile accessibility. Optional phone is not shown as an empty field, verified email appears as a readable identity field.
