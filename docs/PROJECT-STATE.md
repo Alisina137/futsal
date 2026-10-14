@@ -1,3 +1,12 @@
+## Venue Detail — Phase 3: Reserve, saved preferences and promotional discovery (October 14, 2026)
+
+- Reserve retains Available Slots, Offers and My Bookings, with a fourth **Saved Times & Alerts** subtab. The saved preferred start-time editor and per-user one-shot watched occupied slots are now together, with 12-hour AM/PM timestamps in the venue timezone. Users can remove watches, retry loads, and see the clear distinction between a watch and a real reservation. Account-scoped API requests are invalidated on user/venue changes.
+- Removed the previous About → Preferences subtab. No saved data is removed or migrated. Phase 1 selected-tab behavior, venue details and deep links are preserved.
+- New `GET /api/v1/promotions/venues/:venueId` endpoint exposes future ACTIVE discounts only for an active, entitled venue using existing stored promotion data (no new DB migration). Offers now show title, note, original/current AFN prices, discount percentage and formatted venue-local date/time, plus navigation to offer-date slots. Promotions are discovery only: **a tapped discounted slot must still match exact court, start/end, promo ID and price on a fresh network availability call** before entering the existing booking confirmation route. Changed or unavailable slots show a safe recovery message; server booking remains authoritative.
+- Reserve displays a clear INSTANT/APPROVAL distinction and a paused-booking explanation. The user's existing reservations remain accessible even when new booking is disabled. Existing cancellation, watch eligibility, idempotency and server pricing rules remain unchanged.
+- New English/Dari/Pashto strings; RTL-aware lists; updated release verification scripts and marketing route tests. Migration 0043 from Phase 2 remains a prerequisite if not yet applied.
+- Device QA pending: instant/pending/paused, new/expired/changed promotions, offline retry, watch management across sessions, date/time, RTL, booking deep links.
+
 ## Venue Detail — Phase 2: real About data and owner declarations (October 14, 2026)
 
 - About now has Overview, Facilities, Hours & Pricing, Location & Contact, Reviews, Policies, plus the temporary **My preferred time** compatibility subtab (to be moved to Reserve in Phase 3 without interrupting saved user preferences). Original main navigation and bookable grid remain unchanged. Improved RTL and 12-hour AM/PM handling.

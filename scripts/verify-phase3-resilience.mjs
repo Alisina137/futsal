@@ -22,7 +22,8 @@ const checks = [
   [service.includes("getVenueRecordByAreaId"), "direct area-to-venue lookup"],
   [service.includes("SLOT_UNAVAILABLE"), "server slot revalidation"],
   [venuePage.includes("<VenueReserveContent") &&
-   playerAvailability.includes("disabled={!fresh||!isOnline}") &&
+   playerAvailability.includes("disabled={!fresh||!isOnline||openingSlot!==null}") &&
+   playerAvailability.includes("venueApi.availabilityLive(venue.id,date)") &&
    playerAvailability.includes("availabilityDate!==date"), "cached/offline booking guard"],
   [playerAvailability.includes("writeAvailabilityCache") && cache.includes("AsyncStorage"), "availability cache"],
   [tests.includes("exactly one winner"), "concurrent winner test"],

@@ -13,10 +13,10 @@ const settings=read("apps/mobile/app/(app)/owner/settings.tsx");
 const about=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
 const navigation=read("apps/mobile/src/lib/venue-detail-navigation.ts");
 const locale=read("packages/localization/src/index.ts");
-const keys=["overview","facilities","hours","location","reviews","policies","preferences"];
-assert.ok(about.includes('about:["overview","facilities","hours","location","reviews","policies","preferences"]'),
+const keys=["overview","facilities","hours","location","reviews","policies"];
+assert.ok(about.includes('about:["overview","facilities","hours","location","reviews","policies"]'),
   "Phase 2 must add hours/policies and temporarily preserve saved-time access.");
-for(const sub of ["reviews","preferences","overview","facilities","hours","policies"]){
+for(const sub of ["reviews","overview","facilities","hours","policies"]){
   assert.ok(about.includes('if(sub==="'+sub+'")'),"About subtab must have real content: "+sub);
 }
 for(const item of ['verificationStatus:venue.verificationStatus??"PENDING"',
@@ -53,8 +53,11 @@ assert.ok(about.includes('tx("hoursDisclaimer")')&&about.includes('tx("priceDisc
   about.includes("venue.cancellationPolicy")&&about.includes("venue.minimumBookingNoticeMinutes")&&
   about.includes("venue.maximumAdvanceBookingDays")&&
   about.includes("venue.bookingMode"),"Do not confuse regular hours/base price with live inventory or omit booking policy.");
-assert.ok(navigation.includes("switchVenueMain")&&about.includes('if(sub==="preferences")return <VenueSavedTimePanel'),
-  "Phase 2 must preserve Phase 1 navigation and current saved-time access.");
+const reserveAlerts=read("apps/mobile/src/components/venues/VenueSavedTimesAndAlertsPanel.tsx");
+assert.ok(navigation.includes("switchVenueMain")&&
+  about.includes('if(sub==="saved")return <VenueSavedTimesAndAlertsPanel')&&
+  reserveAlerts.includes("<VenueSavedTimePanel"),
+  "Phase 3 moves saved time to Reserve while preserving Phase 1 navigation.");
 const route=read("apps/api/src/modules/booking/booking.routes.ts");
 const reviewRepo=read("apps/api/src/modules/booking/booking.repository.ts");
 const reviewUi=read("apps/mobile/src/components/venues/VenueCommunityPanels.tsx");

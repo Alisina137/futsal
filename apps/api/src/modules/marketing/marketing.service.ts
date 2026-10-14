@@ -267,6 +267,25 @@ export class MarketingService {
     return promotion;
   }
 
+  async venuePromotions(venueId:string){
+    const now=this.now();
+    await this.repository.refreshPromotionStates(now);
+    const venue=await this.repository.getVenue(venueId);
+    // Hidden, suspended or expired-subscription venues must not surface offers.
+    const eligible=venue?.status==="ACTIVE"&&venue.subscription&&(
+      (venue.subscription.status==="TRIAL"&&!!venue.subscription.trialEndsAt&&
+        venue.subscription.trialEndsAt.getTime()>now.getTime())||
+      (venue.subscription.status==="ACTIVE"&&!!venue.subscription.activeUntil&&
+        venue.subscription.activeUntil.getTime()>now.getTime()));
+    if(!eligible)throw errors.badRequest("VENUE_NOT_FOUND","Venue not found.");
+    const promotions=await this.repository.listActivePromotions([venueId]);
+    return {venueId,promotions:promotions.filter(promotion=>
+      promotion.venueId===venueId&&promotion.status==="ACTIVE"&&
+      Date.parse(promotion.startsAt)>now.getTime())
+      .sort((a,b)=>a.startsAt.localeCompare(b.startsAt)).slice(0,100),
+      generatedAt:now.toISOString()};
+  }
+
   async getPromotion(promotionId: string) {
     await this.repository.refreshPromotionStates(this.now());
     const promotion = await this.repository.getPromotion(promotionId);

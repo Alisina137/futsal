@@ -180,24 +180,28 @@ export function VenueSavedTimePanel({venue}:{
   const [preferred,setPreferred]=useState("18:00");
   const [saved,setSaved]=useState<string|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
+  const operation=useRef(0);
   const token=session?.accessToken;
   useEffect(()=>{
-    if(!token)return;
-    let active=true;
+    const id=++operation.current;
+    setSaved(null);setBusy(false);setError(null);setPreferred("18:00");
+    if(!token)return()=>{operation.current+=1;};
     void bookingApi.savedVenueTime(token,venue.id)
-      .then(result=>{if(active){setSaved(result.preferredStart);
-        if(result.preferredStart)setPreferred(result.preferredStart);}})
-      .catch(()=>{if(active)setError(tr("loadError"));});
-    return()=>{active=false;};
+      .then(result=>{
+        if(id===operation.current){setSaved(result.preferredStart);
+          if(result.preferredStart)setPreferred(result.preferredStart);}
+      }).catch(()=>{if(id===operation.current)setError(tr("loadError"));});
+    return()=>{operation.current+=1;};
   },[token,venue.id]);
   async function save(value:string|null){
     if(!token||busy)return;
+    const id=operation.current;
     setBusy(true);setError(null);
     try{
       const result=await bookingApi.saveVenueTime(token,venue.id,value);
-      setSaved(result.preferredStart);
-    }catch{setError(tr("saveError"));}
-    finally{setBusy(false);}
+      if(id===operation.current)setSaved(result.preferredStart);
+    }catch{if(id===operation.current)setError(tr("saveError"));}
+    finally{if(id===operation.current)setBusy(false);}
   }
   return <Card testID="venue-saved-time" style={styles.stack}>
     <AppText variant="bodyLarge" weight="bold">{tr("savedTime")}</AppText>

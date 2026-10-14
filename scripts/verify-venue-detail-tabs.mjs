@@ -23,10 +23,10 @@ check(listing.includes('focusAvailability:"1"')&&followed.includes('focusAvailab
   "Venue result and followed-venue reserve shortcuts must deep-link to available slots.");
 check(components.includes('export const venueSubtabs')&&
   components.includes('media:["posts","photos","videos"]')&&
-  components.includes('reserve:["slots","offers","bookings"]')&&
+  components.includes('reserve:["slots","offers","bookings","saved"]')&&
   components.includes('competitions:["upcoming","live","completed"]')&&
   components.includes('updates:["announcements","alerts"]')&&
-  components.includes('about:["overview","facilities","hours","location","reviews","policies","preferences"]'),
+  components.includes('about:["overview","facilities","hours","location","reviews","policies"]'),
   "Venue tab/subtab structure is incomplete.");
 for(const fragment of [
   "marketingApi.venuePosts","post.socialPostId","post.ctaTargetId",

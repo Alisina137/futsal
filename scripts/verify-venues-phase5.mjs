@@ -53,7 +53,8 @@ check(notification.includes('type:"SLOT_AVAILABLE"')&&
   notification.includes('marketing:false')&&
   notificationUi.includes('case "SLOT_AVAILABLE"'),
   "Slot reopened notifications must be transactional, user-requested and actionable.");
-check(sections.includes('about:["overview","facilities","hours","location","reviews","policies","preferences"]')&&
+check(sections.includes('about:["overview","facilities","hours","location","reviews","policies"]')&&
+  sections.includes('reserve:["slots","offers","bookings","saved"]')&&
   detail.includes("reviewBookingId")&&
   community.includes("<TimeOfDayPickerField")&&
   community.includes("bookingApi.review")&&

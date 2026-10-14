@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {BookingDto,CompetitionListItemDto,PublicVenueDto,VenueAvailabilityResponse,VenuePostDto} from "@leaguekick/contracts";
+import type {BookingDto,CompetitionListItemDto,PromotionDto,PublicVenueDto,VenueAvailabilityResponse,VenuePostDto} from "@leaguekick/contracts";
 import {router} from "expo-router";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Image,Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
@@ -13,12 +13,13 @@ import {useLocale} from "../../providers/LocaleProvider";
 import {useNetwork} from "../../providers/NetworkProvider";
 import {NearbyVenuesMap} from "./NearbyVenuesMap";
 import {VenueSlotTimetable} from "./VenueSlotTimetable";
-import {VenueReviewsPanel,VenueSavedTimePanel} from "./VenueCommunityPanels";
+import {VenueReviewsPanel} from "./VenueCommunityPanels";
+import {VenueSavedTimesAndAlertsPanel} from "./VenueSavedTimesAndAlertsPanel";
 import {SlotTileContent} from "../ui/SlotTileContent";
 import {softenSlotColor} from "../../lib/slot-color";
 import {ReservationsPanel} from "../bookings/ReservationsPanel";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
-import {formatClock12From24Hour} from "../../lib/clock-display";
+import {formatAppClock,formatClock12From24Hour} from "../../lib/clock-display";
 import {callVenueUrl,venueWhatsAppUrl} from "../../lib/venue-contact";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
@@ -28,20 +29,19 @@ import {TextField} from "../ui/TextField";
 
 export type VenueMainTab="media"|"reserve"|"competitions"|"updates"|"about";
 export type VenueMediaSub="posts"|"photos"|"videos";
-export type VenueReserveSub="slots"|"offers"|"bookings";
+export type VenueReserveSub="slots"|"offers"|"bookings"|"saved";
 export type VenueCompetitionSub="upcoming"|"live"|"completed";
 export type VenueUpdatesSub="announcements"|"alerts";
-/** Preferences temporarily remains accessible here until Reserve Phase 3 moves it. */
-export type VenueAboutSub="overview"|"facilities"|"hours"|"location"|"reviews"|"policies"|"preferences";
+export type VenueAboutSub="overview"|"facilities"|"hours"|"location"|"reviews"|"policies";
 export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}[]=[
   {id:"media",icon:"images-outline"},{id:"reserve",icon:"calendar-outline"},
   {id:"competitions",icon:"trophy-outline"},{id:"updates",icon:"notifications-outline"},
   {id:"about",icon:"information-circle-outline"},
 ];
 export const venueSubtabs:Record<VenueMainTab,string[]>={
-  media:["posts","photos","videos"],reserve:["slots","offers","bookings"],
+  media:["posts","photos","videos"],reserve:["slots","offers","bookings","saved"],
   competitions:["upcoming","live","completed"],updates:["announcements","alerts"],
-  about:["overview","facilities","hours","location","reviews","policies","preferences"],
+  about:["overview","facilities","hours","location","reviews","policies"],
 };
 export function todayAtKabul(){
   const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
@@ -206,12 +206,32 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   </>;
 }
 
+function ReserveStatusBanner({venue}:{venue:PublicVenueDto}){
+  const {t}=useLocale(),tr=(key:string)=>t(("vd3."+key) as never);
+  return <Card style={{gap:spacing.xs,backgroundColor:colors.primarySoft}}>
+    <View style={{flexDirection:"row",gap:spacing.sm,alignItems:"center"}}>
+      <Ionicons name={venue.onlineBookingEnabled
+        ?venue.bookingMode==="APPROVAL"?"hourglass-outline":"checkmark-circle-outline"
+        :"pause-circle-outline"} color={colors.primary} size={21}/>
+      <AppText weight="semibold" style={{flex:1}}>
+        {!venue.onlineBookingEnabled?tr("bookingPaused"):
+          venue.bookingMode==="APPROVAL"?tr("approvalMode"):tr("instantMode")}
+      </AppText>
+    </View>
+    <AppText variant="caption" muted>
+      {!venue.onlineBookingEnabled?tr("bookingPausedDescription"):
+        venue.bookingMode==="APPROVAL"?tr("approvalDescription"):tr("instantDescription")}
+    </AppText>
+  </Card>;
+}
+
 export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}:{
   venue:PublicVenueDto;sub:VenueReserveSub;startsAt?:string|undefined;promotionId?:string|undefined;
   bookingDate?:string|undefined;
 }){
   const {session}=useAuth(),{isOnline,reconnectVersion}=useNetwork();
   const {t,language,isRTL}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
+  const tr3=(key:string)=>t(("vd3."+key) as never);
   const [date,setDate]=useState(bookingDate??todayAtKabul());
   const [availability,setAvailability]=useState<VenueAvailabilityResponse|null>(null);
   const [availabilityDate,setAvailabilityDate]=useState<string|null>(null);
@@ -220,6 +240,16 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   const [bookings,setBookings]=useState<BookingDto[]>([]),[bookingsLoading,setBookingsLoading]=useState(true);
   const [bookingsActor,setBookingsActor]=useState<string|null>(null);
   const bookingLoadSerial=useRef(0);
+  const [promotions,setPromotions]=useState<PromotionDto[]>([]);
+  const [promotionsLoading,setPromotionsLoading]=useState(false);
+  const [promotionsError,setPromotionsError]=useState(false);
+  const [promotionReload,setPromotionReload]=useState(0);
+  const [promotionLimit,setPromotionLimit]=useState(8);
+  const [highlightPromo,setHighlightPromo]=useState<string|null>(promotionId??null);
+  const [openingSlot,setOpeningSlot]=useState<string|null>(null);
+  const offerRequestSerial=useRef(0);
+  const offerNavigationEpoch=useRef(0);
+  useEffect(()=>()=>{offerNavigationEpoch.current+=1;},[venue.id]);
   const [reload,setReload]=useState(0);
   const today=todayAtKabul();
   const maximum=shiftVenueDate(today,venue.maximumAdvanceBookingDays);
@@ -252,6 +282,18 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   // The time-grid has its own scoped 1- or 7-day availability loader.
   // Avoid a second parallel request from the Offers view loader.
   useEffect(()=>{if(sub==="offers")void load();},[sub,date,reconnectVersion,reload,load]);
+  useEffect(()=>{
+    const serial=++offerRequestSerial.current;
+    if(sub!=="offers"){setPromotions([]);setPromotionsLoading(false);return;}
+    setPromotions([]);setPromotionsError(false);setPromotionsLoading(true);
+    void marketingApi.venuePromotions(venue.id).then(result=>{
+      if(serial===offerRequestSerial.current)setPromotions(result.promotions.filter(item=>
+        item.venueId===venue.id&&item.status==="ACTIVE"&&
+        Date.parse(item.startsAt)>Date.now()).sort((a,b)=>a.startsAt.localeCompare(b.startsAt)));
+    }).catch(()=>{if(serial===offerRequestSerial.current)setPromotionsError(true);})
+      .finally(()=>{if(serial===offerRequestSerial.current)setPromotionsLoading(false);});
+    return()=>{offerRequestSerial.current+=1;};
+  },[sub,venue.id,promotionReload,reconnectVersion]);
   const loadMine=useCallback(async()=>{
     const serial=++bookingLoadSerial.current;
     if(!session){setBookings([]);setBookingsActor(null);setBookingsLoading(false);return;}
@@ -282,26 +324,89 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
       throw e;
     }
   }
-  function openSlot(slot:VenueAvailabilityResponse["slots"][number]){
-    if(!fresh||!isOnline||availabilityDate!==date)return;
-    router.push({pathname:"/booking/confirm",params:{
-      venueId:venue.id,areaId:slot.areaId,venueName:venue.name,
-      startsAt:slot.startsAt,endsAt:slot.endsAt,priceAfn:String(slot.priceAfn),
-      timeZone:venue.timezone,
-    }});
+  async function openSlot(slot:VenueAvailabilityResponse["slots"][number]){
+    if(!fresh||!isOnline||availabilityDate!==date||openingSlot)return;
+    const key=slot.areaId+"-"+slot.startsAt;
+    const epoch=offerNavigationEpoch.current;
+    setOpeningSlot(key);setError(null);
+    try{
+      const live=await venueApi.availabilityLive(venue.id,date);
+      if(epoch!==offerNavigationEpoch.current)return;
+      const verified=live.slots.find(item=>item.areaId===slot.areaId&&
+        item.startsAt===slot.startsAt&&item.endsAt===slot.endsAt&&
+        item.promotionId===slot.promotionId&&item.priceAfn===slot.priceAfn);
+      if(!verified||!live.venue.onlineBookingEnabled)throw Error("Offer changed");
+      router.push({pathname:"/booking/confirm",params:{
+        venueId:venue.id,areaId:verified.areaId,venueName:venue.name,
+        startsAt:verified.startsAt,endsAt:verified.endsAt,priceAfn:String(verified.priceAfn),
+        timeZone:venue.timezone,
+      }});
+    }catch{
+      if(epoch===offerNavigationEpoch.current){
+        setError(tr3("offerChanged"));
+        setFresh(false);
+        setReload(value=>value+1);
+        setPromotionReload(value=>value+1);
+      }
+    }finally{if(epoch===offerNavigationEpoch.current)setOpeningSlot(null);}
   }
-  if(sub==="slots")return <VenueSlotTimetable venue={venue} startsAt={startsAt}
-    promotionId={promotionId} initialDate={bookingDate}/>;
+  function choosePromotion(item:PromotionDto){
+    const parts=new Intl.DateTimeFormat("en-GB",{timeZone:venue.timezone,
+      year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(item.startsAt));
+    const values=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+    const target=values.year+"-"+values.month+"-"+values.day;
+    if(target<today||target>maximum){
+      setError(tr3("outsideBookingWindow"));return;
+    }
+    setError(null);setHighlightPromo(item.id);setDate(target);
+  }
+  if(sub==="saved")return <VenueSavedTimesAndAlertsPanel venue={venue}/>;
+  if(sub==="slots")return <View style={{gap:spacing.md}}>
+    <ReserveStatusBanner venue={venue}/>
+    <VenueSlotTimetable venue={venue} startsAt={startsAt}
+      promotionId={promotionId} initialDate={bookingDate}/>
+  </View>;
   const usable=availabilityDate===date?availability?.slots??[]:[];
   const slots=sub==="offers"?usable.filter(slot=>slot.promotionId!==null):usable;
-  if(sub==="bookings")return !session
-    ?<Empty icon="person-outline" title={tr("signInBookings")} detail={tr("signInBookingsHint")}/>
-    :<ReservationsPanel items={bookingsActor===session.user.id?bookings.filter(b=>b.venueId===venue.id):[]}
-      loading={bookingsLoading} error={error}
-      onRefresh={()=>void loadMine()} onCancel={cancel} scopedVenueId={venue.id}/>;
+  if(sub==="bookings")return <View style={{gap:spacing.md}}>
+    <ReserveStatusBanner venue={venue}/>
+    {!session
+      ?<Empty icon="person-outline" title={tr("signInBookings")} detail={tr("signInBookingsHint")}/>
+      :<ReservationsPanel items={bookingsActor===session.user.id?bookings.filter(b=>b.venueId===venue.id):[]}
+        loading={bookingsLoading} error={error}
+        onRefresh={()=>void loadMine()} onCancel={cancel} scopedVenueId={venue.id}/>}
+  </View>;
   return <>
+    <ReserveStatusBanner venue={venue}/>
     {!venue.onlineBookingEnabled?<Empty icon="pause-circle-outline"
       title={tr("bookingPaused")} detail={tr("bookingPausedBody")}/>:<>
+      <Card style={{gap:spacing.sm}}>
+        <SectionHeading icon="pricetags-outline" name={tr3("upcomingOffers")}/>
+        <AppText variant="caption" muted>{tr3("offersDisclaimer")}</AppText>
+        {promotionsLoading?<DataLoadingState variant="list" minHeight={100}/>:null}
+        {promotionsError?<AppText style={{color:colors.danger}}>{tr3("offersLoadError")}</AppText>:null}
+        {!promotionsLoading&&!promotionsError&&!promotions.length?
+          <AppText variant="caption" muted>{tr3("noUpcomingOffers")}</AppText>:null}
+        {promotions.slice(0,promotionLimit).map(promo=><View key={promo.id}
+          testID={"venue-offer-"+promo.id}
+          style={{gap:spacing.xs,borderTopWidth:1,borderColor:colors.border,
+            paddingTop:spacing.sm}}>
+          <AppText weight="bold">{promo.title}</AppText>
+          <AppText variant="caption" muted>{new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
+            timeZone:venue.timezone,weekday:"short",day:"numeric",month:"short",year:"numeric",
+          }).format(new Date(promo.startsAt))+" · "+
+            formatAppClock(promo.startsAt,venue.timezone)}</AppText>
+          <AppText weight="semibold">{promo.discountedPriceAfn+" AFN · "+
+            promo.discountPercent+"% "+tr("off")+" ("+promo.originalPriceAfn+" AFN)"}</AppText>
+          {promo.note?<AppText variant="caption" muted>{promo.note}</AppText>:null}
+          <Button label={tr3("viewOfferSlots")} variant="secondary"
+            onPress={()=>choosePromotion(promo)}/>
+        </View>)}
+        {promotions.length>promotionLimit?<Button label={tr3("moreOffers")}
+          variant="secondary" onPress={()=>setPromotionLimit(current=>current+8)}/>:null}
+        <Button variant="secondary" label={t("common.retry")}
+          disabled={promotionsLoading} onPress={()=>setPromotionReload(x=>x+1)}/>
+      </Card>
       <Card style={{gap:spacing.sm}}>
         <SectionHeading icon="calendar-outline" name={tr("chooseDate")}/>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0}}
@@ -340,22 +445,31 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
       {!loading?<View style={styles.offerGrid}>
         {slots.map(slot=><Pressable key={slot.areaId+"-"+slot.startsAt}
           accessibilityRole="button"
-          accessibilityState={{disabled:!fresh||!isOnline}}
+          accessibilityState={{disabled:!fresh||!isOnline||openingSlot!==null}}
           accessibilityLabel={formatSlotStartTime(slot.startsAt,venue.timezone)+
             ", "+formatSlotTilePrice(slot.priceAfn)+
             (slot.originalPriceAfn!==null&&slot.originalPriceAfn>slot.priceAfn?
               ", "+Math.round(100*(1-slot.priceAfn/slot.originalPriceAfn))+"% "+tr("off"):"")}
-          disabled={!fresh||!isOnline}
-          onPress={()=>openSlot(slot)}
+          disabled={!fresh||!isOnline||openingSlot!==null}
+          onPress={()=>void openSlot(slot)}
           style={({pressed})=>[
             styles.offerSlot,
             !fresh||!isOnline?styles.offerDisabled:null,
-            slot.promotionId===promotionId?styles.highlight:null,
+            (slot.promotionId===highlightPromo||slot.promotionId===promotionId)?styles.highlight:null,
             pressed&&styles.offerPressed,
           ]}>
           <SlotTileContent startsAt={slot.startsAt} timeZone={venue.timezone}
             priceAfn={slot.priceAfn} ink="#7E22CE"
             marker={<Ionicons name="pricetag-outline" size={15} color="#7E22CE"/>}/>
+          {promotions.find(p=>p.id===slot.promotionId)?.title?
+            <AppText variant="caption" weight="semibold" numberOfLines={2}>
+              {promotions.find(p=>p.id===slot.promotionId)?.title}
+            </AppText>:null}
+          {slot.originalPriceAfn!==null&&slot.originalPriceAfn>slot.priceAfn?
+            <AppText variant="caption" muted>
+              {slot.originalPriceAfn+" AFN · "+
+                Math.round(100*(1-slot.priceAfn/slot.originalPriceAfn))+"% "+tr("off")}
+            </AppText>:null}
         </Pressable>)}
       </View>:null}
     </>}
@@ -449,7 +563,7 @@ export function VenueAboutContent({venue,sub,reviewBookingId}:{
   const callUrl=callVenueUrl(venue.publicPhone);
   const whatsappUrl=venueWhatsAppUrl(venue,language);
   if(sub==="reviews")return <VenueReviewsPanel venue={venue} reviewBookingId={reviewBookingId}/>;
-  if(sub==="preferences")return <VenueSavedTimePanel venue={venue}/>;
+
   if(sub==="overview")return <>
     <Card style={{gap:spacing.sm}}>
       <SectionHeading name={tr("aboutVenue")} icon="information-circle-outline"/>
