@@ -93,6 +93,9 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
       await bookingApi.review(actor,{bookingId:selected,rating,body:body.trim()});
       if(request!==requestSequence.current)return;
       setSelected(null);setBody("");setRating(5);
+      // reload() intentionally advances the request sequence; do not leave
+      // the submission spinner stuck because its previous generation expired.
+      setBusy(false);
       await reload();
     }catch{
       if(request===requestSequence.current)setError(tr("submitError"));
