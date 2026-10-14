@@ -216,6 +216,24 @@ describe("Phase 4 marketing API", () => {
     expect(feed.status).toBe(200);
     expect(feed.body.items[0].type).toBe("PROMOTION");
     expect(feed.body.items[0].promotion.id).toBe(created.body.promotion.id);
+
+    const upcoming=await request(app).get(`/api/v1/promotions/venues/${venue.id}`);
+    expect(upcoming.status).toBe(200);
+    expect(upcoming.body.venueId).toBe(venue.id);
+    expect(upcoming.body.promotions).toHaveLength(1);
+    expect(upcoming.body.promotions[0]).toEqual(expect.objectContaining({
+      id:created.body.promotion.id,title:"Tonight discount",
+      originalPriceAfn:1800,discountedPriceAfn:1400,status:"ACTIVE",
+    }));
+    expect((await request(app).get("/api/v1/promotions/venues/invalid")).status).toBe(400);
+    const another=bookingRepository.seedVenue(owner.body.user.id).venue;
+    seedMarketingFromBooking(marketingRepository,another);
+    const otherList=await request(app).get(`/api/v1/promotions/venues/${another.id}`);
+    expect(otherList.status).toBe(200);
+    expect(otherList.body.promotions).toEqual([]);
+    marketingRepository.venues.get(venue.id)!.status="SUSPENDED";
+    const suspended=await request(app).get(`/api/v1/promotions/venues/${venue.id}`);
+    expect(suspended.status).toBe(400);
   });
 
   it("books a promoted slot at the discounted server price", async () => {
