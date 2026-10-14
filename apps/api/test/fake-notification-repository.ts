@@ -41,16 +41,18 @@ export class FakeNotificationRepository implements NotificationRepository {
   private filtered(userId:string,filter:NotificationListFilter="ALL"){
     return this.notifications.filter(item=>{
       if(item.data.userId!==userId)return false;
+      if(!this.deliveries.some(d=>d.notificationId===item.id&&d.channel==="IN_APP"))return false;
       if(filter==="UNREAD")return !item.readAt;
       if(filter==="BOOKINGS")return ["BOOKING_CONFIRMED","BOOKING_CANCELLED","BOOKING_REQUEST"].includes(item.type);
-      if(filter==="VENUES")return item.type==="SLOT_PROMOTION"||item.type==="VENUE_POST";
+      if(filter==="VENUES")return ["SLOT_PROMOTION","SLOT_AVAILABLE","VENUE_POST"].includes(item.type);
       if(filter==="TEAMS")return ["TEAM_INVITATION","TEAM_JOIN_REQUEST","TEAM_JOIN_DECISION","TEAM_ACTIVITY","TEAM_CHALLENGE","TEAM_ANNOUNCEMENT"].includes(item.type);
       if(filter==="COMPETITIONS")return item.type==="COMPETITION_UPDATE";
       return true;
     }).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id));
   }
-  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL"){
-    return this.filtered(userId,filter).slice(offset,offset+limit);
+  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL",cursor?:{createdAt:string;id:string}){
+    const items=this.filtered(userId,filter).filter(item=>!cursor||item.createdAt<cursor.createdAt||(item.createdAt===cursor.createdAt&&item.id<cursor.id));
+    return items.slice(cursor?0:offset,(cursor?0:offset)+limit);
   }
   async countNotifications(userId:string,filter:NotificationListFilter="ALL"){
     return this.filtered(userId,filter).length;
