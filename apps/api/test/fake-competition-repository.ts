@@ -168,7 +168,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   async listPublicVenueMatches(venueId:string,query:import("@leaguekick/contracts").VenueMatchQuery,now:Date){
     const matches=[...this.matches.values()].filter(match=>{
       const comp=this.competitions.get(match.competitionId);
-      const actualVenueId=(match as CompetitionMatchDto&{venueId?:string}).venueId??comp?.venueId;
+      const actualVenueId=(match as CompetitionMatchDto&{venueId?:string}).venueId;
       return actualVenueId===venueId&&comp?.published&&
         !["DRAFT","CANCELLED"].includes(comp.status)&&
         (query.scope==="results"?["COMPLETED","CORRECTED"].includes(match.status):
