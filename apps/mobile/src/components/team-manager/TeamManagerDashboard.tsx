@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { RoleSubscriptionOfferDto, TeamDto, TeamInvitationDto, TeamJoinRequestDto, TeamListItemDto, TeamPrivacy, PublicVenueDto } from "@leaguekick/contracts";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { ApiRequestError, authApi, notificationApi, marketingApi, resolveMediaImageUrl, teamApi, teamManagerApi, venueApi,
@@ -68,11 +68,13 @@ function Options({items,selected,onSelect}:{items:{id:string;label:string}[];sel
 }
 
 export function TeamManagerDashboard(){
+  const notificationTarget=useLocalSearchParams<{teamId?:string;tab?:string;challengeId?:string}>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
   const userId=session?.user.id;
   const [tab,setTab]=useState<Section>("overview");
+  useEffect(()=>{if(notificationTarget.tab==="matches")setTab("matches");},[notificationTarget.tab]);
   // Returning to About Team restores the last selected subtab.
   const [lastAboutTeamTab,setLastAboutTeamTab]=useState<AboutTeamSection>("players");
   const activeMain=mainSectionFor(tab);
@@ -161,14 +163,14 @@ export function TeamManagerDashboard(){
       if(!active)return;
       const owned=mine.teams.filter(item=>item.managerUserId===userId);
       setTeams(owned);
-      setSelectedId(previous=>owned.some(item=>item.id===previous)?previous:owned[0]?.id??null);
+      setSelectedId(previous=>notificationTarget.teamId&&owned.some(item=>item.id===notificationTarget.teamId)?notificationTarget.teamId:owned.some(item=>item.id===previous)?previous:owned[0]?.id??null);
       setOffer(offers.offers.find(item=>item.role==="TEAM_MANAGER")??null);
       setCapacity(quota);
       setError(null);
     }).catch(e=>{if(active)setError(e instanceof ApiRequestError?e.message:t("teams.loadError"));})
       .finally(()=>{if(active)setLoadingTeams(false);});
     return()=>{active=false;};
-  },[token,userId,teamListRefresh,t]));
+  },[token,userId,teamListRefresh,t,notificationTarget.teamId]));
 
   // A multi-team owner must not see or edit the previous team's roster,
   // approvals, media preview or unsaved settings during a team switch.
@@ -488,7 +490,7 @@ export function TeamManagerDashboard(){
       {(tab==="competitions"||tab==="matches"||tab==="schedule")&&token?<TeamCompetitionOps tab={tab} team={team} token={token} canWrite={canWrite} onSelectTab={chooseTab}/>:null}
 
       {(tab==="media"||tab==="statistics"||tab==="matches")&&token?
-        <TeamGrowthPanel tab={tab} team={team} token={token} canWrite={canWrite}/>:null}
+        <TeamGrowthPanel tab={tab} team={team} token={token} canWrite={canWrite} focusChallengeId={notificationTarget.challengeId}/>:null}
 
       {tab==="settings"?<>
         <Card>
