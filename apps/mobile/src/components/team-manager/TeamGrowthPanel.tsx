@@ -31,7 +31,7 @@ function Options({items,current,onChange}:{items:{id:string;name:string}[];curre
   </ScrollView>;
 }
 
-export function TeamGrowthPanel({tab,team,token,canWrite,focusChallengeId}:{tab:Tab;team:TeamDto;token:string;canWrite:boolean;focusChallengeId?:string}){
+export function TeamGrowthPanel({tab,team,token,canWrite,focusChallengeId}:{tab:Tab;team:TeamDto;token:string;canWrite:boolean;focusChallengeId?:string|undefined}){
   const {t,language}=useLocale();
   const tr=(key:string)=>t(`tm3.${key}` as never);
   const date=(x:string)=>formatCompetitionDateTime(x,language);
