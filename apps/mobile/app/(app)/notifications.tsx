@@ -105,6 +105,7 @@ export default function NotificationsScreen(){
   },[token]);
 
   const loadFirst=useCallback(async(mode:"initial"|"refresh"|"silent"="initial")=>{
+    if(mutationLock.current)return;
     const request=++generation.current;
     if(!token){
       haveItems.current=false;loadedFilter.current=null;
@@ -112,7 +113,6 @@ export default function NotificationsScreen(){
       setHasMore(false);setLoading(false);setRefreshing(false);setError(null);
       return;
     }
-    if(mutationLock.current)return;
     const changedFilter=loadedFilter.current!==filter;
     if(mode==="initial")setLoading(true);
     if(mode==="refresh")setRefreshing(true);
@@ -168,7 +168,7 @@ export default function NotificationsScreen(){
   function beginMutation(){
     if(mutationLock.current||loading)return null;
     mutationLock.current=true;setBusy(true);setLoadMoreError(null);
-    setLoadingMore(false);
+    setLoadingMore(false);setRefreshing(false);
     return ++generation.current;
   }
   function endMutation(){
@@ -393,6 +393,13 @@ export default function NotificationsScreen(){
     </View>:null}
 
     {loading?<DataLoadingState variant="list" minHeight={450}/>:null}
+    {loadMoreError&&!loading&&!error?<Card style={styles.error}>
+      <Ionicons name="cloud-offline-outline" size={23} color={colors.danger}/>
+      <AppText style={{color:colors.danger,flex:1}}>{loadMoreError}</AppText>
+      <Button label={t("common.retry")} variant="secondary" onPress={()=>{
+        if(hasMore)void more();else void refresh();
+      }}/>
+    </Card>:null}
     {error?<Card style={styles.error}>
       <Ionicons name="cloud-offline-outline" size={24} color={colors.danger}/>
       <AppText style={{color:colors.danger,flex:1}}>{error}</AppText>
