@@ -433,6 +433,66 @@ describe("Phase 4 marketing API", () => {
     expect(afterFollow.body.posts.map((post: { id: string }) => post.id)).toContain(created.body.post.id);
   });
 
+  it("pages venue Media after privacy, type, and gallery filters and protects follower-only photos",async()=>{
+    const {app,bookingRepository,marketingRepository,authRepository}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0703334463");
+    const player=await register(app,authRepository,"PLAYER","0703334464");
+    const {venue}=bookingRepository.seedVenue(owner.body.user.id);
+    seedMarketingFromBooking(marketingRepository,venue);
+    const posted=await request(app).post("/api/v1/owner/posts")
+      .set("Authorization",`Bearer ${owner.body.accessToken}`)
+      .send({body:"Venue opening week",postType:"GENERAL",visibility:"PUBLIC",
+        publishMode:"NOW",notifyFollowers:false});
+    expect(posted.status).toBe(201);
+    const template=posted.body.post as import("@leaguekick/contracts").VenuePostDto;
+    const {randomUUID}=await import("node:crypto");
+    const time=(n:number)=>new Date(Date.parse(template.publishedAt)+n*1000).toISOString();
+    for(let i=1;i<=16;i++){
+      const post={...template,id:randomUUID(),socialPostId:null,
+        body:i%2===0?"Watch https://youtu.be/abcdefghijk":"Court image",
+        imageUrl:i%2===0?null:"https://example.com/photo"+i+".png",
+        postType:i%3===0?"PROMOTION" as const:"GENERAL" as const,
+        visibility:i===15?"FOLLOWERS" as const:i===16?"PRIVATE" as const:"PUBLIC" as const,
+        publishedAt:time(i)};
+      marketingRepository.posts.set(post.id,post);
+    }
+    const url=`/api/v1/venues/${venue.id}/media`;
+    const photoPage=await request(app).get(url).query({kind:"photos",limit:3,page:1});
+    expect(photoPage.status).toBe(200);
+    expect(photoPage.body.total).toBe(7);
+    expect(photoPage.body.posts).toHaveLength(3);
+    expect(photoPage.body.posts.every((p:{imageUrl:string|null})=>!!p.imageUrl)).toBe(true);
+    const second=await request(app).get(url).query({kind:"photos",limit:3,page:2});
+    expect(second.body.hasMore).toBe(true);
+    expect(second.body.posts[0].id).not.toBe(photoPage.body.posts[0].id);
+    const videos=await request(app).get(url).query({kind:"videos",page:1,limit:12});
+    expect(videos.status).toBe(200);
+    expect(videos.body.total).toBe(7);
+    expect(videos.body.posts.every((p:{body:string})=>p.body.includes("youtu.be"))).toBe(true);
+    const promotions=await request(app).get(url).query({kind:"posts",postType:"PROMOTION"});
+    expect(promotions.body.total).toBe(4);
+    expect(promotions.body.posts.every((p:{postType:string})=>p.postType==="PROMOTION")).toBe(true);
+    const oldest=await request(app).get(url).query({sort:"oldest",limit:1});
+    expect(oldest.body.posts[0].id).toBe(template.id);
+    const hidden=marketingRepository.posts.get([...marketingRepository.posts.keys()].find(key=>
+      marketingRepository.posts.get(key)?.visibility==="FOLLOWERS")!)!;
+    expect(JSON.stringify(photoPage.body)).not.toContain(hidden.id);
+    await request(app).post(`/api/v1/venues/${venue.id}/follow`)
+      .set("Authorization",`Bearer ${player.body.accessToken}`);
+    const following=await request(app).get(url+"/following")
+      .set("Authorization",`Bearer ${player.body.accessToken}`)
+      .query({kind:"photos",limit:20});
+    expect(following.status).toBe(200);
+    expect(following.body.total).toBe(8);
+    expect(following.body.posts.map((p:{id:string})=>p.id)).toContain(hidden.id);
+    expect(following.body.posts.some((p:{visibility:string})=>p.visibility==="PRIVATE")).toBe(false);
+    expect((await request(app).get(url+"/following")).status).toBe(401);
+    expect((await request(app).get(url).query({kind:"bad"})).status).toBe(400);
+    expect((await request(app).get(url).query({page:0})).status).toBe(400);
+    expect((await request(app).get(url).query({limit:31})).status).toBe(400);
+    expect((await request(app).get(url).query({postType:"PRIVATE"})).status).toBe(400);
+  });
+
   it("executes scheduled media visibility and deletion actions from server time", async () => {
     const { app, bookingRepository, marketingRepository, authRepository, clock } = setup();
     const owner = await register(app, authRepository, "VENUE_OWNER", "0703334499");
