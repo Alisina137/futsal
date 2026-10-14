@@ -56,6 +56,8 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
       minimumBookingNoticeMinutes: row.minimumBookingNoticeMinutes,
       maximumAdvanceBookingDays: row.maximumAdvanceBookingDays,
       cancellationPolicy: row.cancellationPolicy,
+      amenities:row.amenities,
+      houseRules:row.houseRules,
       verificationStatus: row.verificationStatus,
       status: row.status,
       setupCompletedAt: row.setupCompletedAt,
@@ -251,6 +253,8 @@ export class DrizzleOwnerOnboardingRepository implements OwnerOnboardingReposito
         minimumBookingNoticeMinutes: input.settings.minimumBookingNoticeMinutes,
         maximumAdvanceBookingDays: input.settings.maximumAdvanceBookingDays,
         cancellationPolicy: input.settings.cancellationPolicy.trim(),
+        ...(input.settings.amenities!==undefined?{amenities:input.settings.amenities}:{}),
+        ...(input.settings.houseRules!==undefined?{houseRules:input.settings.houseRules?.trim()||null}:{}),
         updatedAt: input.updatedAt,
       }).where(eq(venues.id, venue.id));
 
