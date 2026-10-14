@@ -188,6 +188,12 @@ export class BookingService {
     };
   }
 
+  async publicScheduleChanges(venueId:string,from:string,to:string){
+    await this.getPublicVenue(venueId);
+    if(!this.timetable)return {venueId,from,to,changes:[]};
+    return this.timetable.publicScheduleChanges(venueId,from,to);
+  }
+
   /** Only real customers with ended CONFIRMED ONLINE bookings can review. */
   async venueReviews(venueId:string,page=1,sort:import("@leaguekick/contracts").VenueReviewSort="recent"){
     await this.getPublicVenue(venueId);
