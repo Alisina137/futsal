@@ -129,6 +129,10 @@ export class FakeCompetitionRepository implements CompetitionRepository {
         (!filters.from||Boolean(item.startsAt&&item.startsAt.slice(0,10)>=filters.from))&&
         (!filters.to||Boolean(item.startsAt&&item.startsAt.slice(0,10)<=filters.to))&&
         (!q||[item.name,item.venueName,"Kabul"].some(value=>value.toLocaleLowerCase().includes(q)))&&
+        (filters.phase==="all"||(
+          filters.phase==="active"&&["REGISTRATION_OPEN","IN_PROGRESS"].includes(item.status)||
+          filters.phase==="upcoming"&&["REGISTRATION_CLOSED","SCHEDULED"].includes(item.status)||
+          filters.phase==="history"&&["COMPLETED","ARCHIVED"].includes(item.status)))&&
         (filters.scope!=="registration"||item.status==="REGISTRATION_OPEN")&&
         (!["ongoing","ongoingFollowedVenues"].includes(filters.scope)||item.status==="IN_PROGRESS")&&
         (filters.scope!=="following"||isFollowed)&&
