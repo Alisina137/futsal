@@ -31,6 +31,7 @@ import {
   venueReferees,
   venueSubscriptions,
   venues,
+  venueMediaAssets,
 } from "@leaguekick/database";
 import { and, asc, count, desc, eq, exists, gt, gte, ilike, inArray, isNotNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
@@ -48,6 +49,8 @@ function toRecord(row: typeof competitions.$inferSelect): CompetitionRecord {
     createdByUserId: row.createdByUserId,
     name: row.name,
     description: row.description,
+    logoUrl: row.logoUrl,
+    coverImageUrl: row.coverImageUrl,
     format: row.format,
     status: row.status,
     published: row.published,
@@ -71,6 +74,16 @@ function toRecord(row: typeof competitions.$inferSelect): CompetitionRecord {
 
 export class DrizzleCompetitionRepository implements CompetitionRepository {
   constructor(private readonly db: Database) {}
+
+  async isOwnedBrandAsset(input:{venueId:string;ownerUserId:string;imageUrl:string;purpose:"PROFILE"|"COVER"}):Promise<boolean>{
+    const match=/^\/api\/v1\/media-assets\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{32,64})$/.exec(input.imageUrl);
+    if(!match)return false;
+    const [asset]=await this.db.select({id:venueMediaAssets.id}).from(venueMediaAssets)
+      .where(and(eq(venueMediaAssets.id,match[1]!),eq(venueMediaAssets.publicToken,match[2]!),
+        eq(venueMediaAssets.venueId,input.venueId),eq(venueMediaAssets.ownerUserId,input.ownerUserId),
+        eq(venueMediaAssets.purpose,input.purpose))).limit(1);
+    return Boolean(asset);
+  }
 
   async getOwnerVenue(ownerUserId: string): Promise<CompetitionVenueRecord | null> {
     const [venue] = await this.db.select().from(venues)
@@ -281,6 +294,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       venueName: row.venueName,
       name: row.competition.name,
       description: row.competition.description,
+      logoUrl:row.competition.logoUrl,
+      coverImageUrl:row.competition.coverImageUrl,
       format: row.competition.format,
       status: row.competition.status,
       published: row.competition.published,
@@ -340,6 +355,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         venueName: row.venueName,
         name: row.competition.name,
         description: row.competition.description,
+        logoUrl:row.competition.logoUrl,
         format: row.competition.format,
         status: row.competition.status,
         published: row.competition.published,
@@ -356,7 +372,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         startsAt: row.competition.startsAt?.toISOString() ?? null,
         endsAt: row.competition.endsAt?.toISOString() ?? null,
         acceptedTeams: Number(accepted?.value ?? 0),
-        coverImageUrl: images.get(row.competition.id)??null,
+        coverImageUrl: row.competition.coverImageUrl??images.get(row.competition.id)??null,
       });
     }
     return items.sort((a, b) => (a.startsAt ?? a.name).localeCompare(b.startsAt ?? b.name));
@@ -493,6 +509,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       competitions:rows.map(row=>({
         id:row.competition.id,venueId:row.competition.venueId,venueName:row.venueName,
         name:row.competition.name,description:row.competition.description,
+        logoUrl:row.competition.logoUrl,
         format:row.competition.format,status:row.competition.status,
         published:row.competition.published,maxTeams:row.competition.maxTeams,
         registrationFeeAfn:row.competition.registrationFeeAfn,
@@ -504,7 +521,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         matchDurationMinutes:row.competition.matchDurationMinutes,
         startsAt:row.competition.startsAt?.toISOString()??null,
         endsAt:row.competition.endsAt?.toISOString()??null,
-        acceptedTeams:Number(row.accepted),coverImageUrl:images.get(row.competition.id)??null,
+        acceptedTeams:Number(row.accepted),coverImageUrl:row.competition.coverImageUrl??images.get(row.competition.id)??null,
         province:row.province,city:row.city,followerCount:Number(row.followerCount),
       })),
       total,page:filters.page,limit:filters.limit,hasMore:filters.page*filters.limit<total,
@@ -624,6 +641,8 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     if (input.lossPoints !== undefined) patch.lossPoints = input.lossPoints;
     if (input.tieBreakOrder !== undefined) patch.tieBreakOrder = input.tieBreakOrder;
     if (input.rewards !== undefined) patch.rewards = input.rewards;
+    if (input.logoUrl !== undefined) patch.logoUrl = input.logoUrl;
+    if (input.coverImageUrl !== undefined) patch.coverImageUrl = input.coverImageUrl;
     if (input.groupCount !== undefined) patch.groupCount = input.groupCount;
     if (input.qualifiersPerGroup !== undefined) patch.qualifiersPerGroup = input.qualifiersPerGroup;
     if (input.registrationClosesAt !== undefined) patch.registrationClosesAt = input.registrationClosesAt;

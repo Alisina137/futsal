@@ -35,6 +35,8 @@ export type CompetitionRecord = {
   createdByUserId: string;
   name: string;
   description: string | null;
+  logoUrl: string | null;
+  coverImageUrl: string | null;
   format: CompetitionFormat;
   status: "DRAFT" | "REGISTRATION_OPEN" | "REGISTRATION_CLOSED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED" | "CANCELLED";
   published: boolean;
@@ -78,6 +80,7 @@ export interface CompetitionRepository {
   isVenueReferee(venueId: string, userId: string): Promise<boolean>;
   getCompetitionRecord(competitionId: string): Promise<CompetitionRecord | null>;
   getCompetitionDto(competitionId: string): Promise<CompetitionDto | null>;
+  isOwnedBrandAsset(input:{venueId:string;ownerUserId:string;imageUrl:string;purpose:"PROFILE"|"COVER"}):Promise<boolean>;
   listPublicMatchPlayerStats(matchId:string):Promise<CompetitionPublicMatchPlayer[]>;
   listOwnerCompetitions(ownerUserId: string): Promise<CompetitionListItemDto[]>;
   listPublicCompetitions(): Promise<CompetitionListItemDto[]>;
@@ -120,6 +123,8 @@ export interface CompetitionRepository {
     lossPoints?: number;
     tieBreakOrder?: CompetitionTieBreak[];
     rewards?:CompetitionRewardDto[];
+    logoUrl?:string|null;
+    coverImageUrl?:string|null;
     groupCount?: number | null;
     qualifiersPerGroup?: number | null;
     registrationClosesAt?: Date | null;

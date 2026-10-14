@@ -28,6 +28,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   playerMatchStats = new Map<string,CompetitionPublicMatchPlayer[]>();
   followedCompetitions = new Map<string,Set<string>>();
   followedVenues = new Map<string,Set<string>>();
+  brandAssets = new Map<string,{venueId:string;ownerUserId:string;purpose:"PROFILE"|"COVER"}>();
 
 
   seedVenue(ownerUserId:string, options?:{activeUntil?:Date|null;trialEndsAt?:Date|null;subscriptionStatus?:"TRIAL"|"ACTIVE"|"EXPIRED"|"CANCELLED";status?:CompetitionVenueRecord["status"]}) {
@@ -58,6 +59,10 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   async getOwnerVenue(ownerUserId:string){return this.venues.get(ownerUserId)??null;}
   async isVenueReferee(_venueId:string,_userId:string){return true;}
   async getCompetitionRecord(competitionId:string){return this.competitions.get(competitionId)??null;}
+  async isOwnedBrandAsset(input:{venueId:string;ownerUserId:string;imageUrl:string;purpose:"PROFILE"|"COVER"}){
+    const asset=this.brandAssets.get(input.imageUrl);
+    return Boolean(asset&&asset.venueId===input.venueId&&asset.ownerUserId===input.ownerUserId&&asset.purpose===input.purpose);
+  }
 
   private async dto(competitionId:string):Promise<CompetitionDto|null>{
     const row=this.competitions.get(competitionId);
@@ -71,6 +76,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
     const final=matches.find((item)=>item.stage==="KNOCKOUT"&&item.roundNumber===1);
     return {
       id:row.id,venueId:row.venueId,venueName:row.venueName,name:row.name,description:row.description,
+      logoUrl:row.logoUrl,coverImageUrl:row.coverImageUrl,
       format:row.format,status:row.status,published:row.published,maxTeams:row.maxTeams,
       registrationFeeAfn:row.registrationFeeAfn,winPoints:row.winPoints,drawPoints:row.drawPoints,lossPoints:row.lossPoints,
       tieBreakOrder:row.tieBreakOrder,rewards:row.rewards,groupCount:row.groupCount,qualifiersPerGroup:row.qualifiersPerGroup,
@@ -93,6 +99,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
       if(publicOnly&&!row.published)continue;
       out.push({
         id:row.id,venueId:row.venueId,venueName:row.venueName,name:row.name,description:row.description,
+        logoUrl:row.logoUrl,coverImageUrl:row.coverImageUrl,
         format:row.format,status:row.status,published:row.published,maxTeams:row.maxTeams,
         registrationFeeAfn:row.registrationFeeAfn,winPoints:row.winPoints,drawPoints:row.drawPoints,lossPoints:row.lossPoints,
         tieBreakOrder:row.tieBreakOrder,groupCount:row.groupCount,qualifiersPerGroup:row.qualifiersPerGroup,
@@ -206,7 +213,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
     const venue=[...this.venues.values()].find((item)=>item.id===input.venueId)!;
     const row:CompetitionRecord&{venueName:string}={
       id:randomUUID(),venueId:input.venueId,createdByUserId:input.createdByUserId,name:input.name,
-      description:input.description,format:input.format,status:"DRAFT",published:false,publishedAt:null,maxTeams:input.maxTeams,
+      description:input.description,logoUrl:null,coverImageUrl:null,format:input.format,status:"DRAFT",published:false,publishedAt:null,maxTeams:input.maxTeams,
       registrationFeeAfn:input.registrationFeeAfn,winPoints:input.winPoints,drawPoints:input.drawPoints,lossPoints:input.lossPoints,
       tieBreakOrder:input.tieBreakOrder,groupCount:input.groupCount,qualifiersPerGroup:input.qualifiersPerGroup,
       registrationClosesAt:input.registrationClosesAt,matchDurationMinutes:input.matchDurationMinutes,
@@ -220,7 +227,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
     const row=this.competitions.get(competitionId);
     if(!row)return null;
     const next={...row};
-    for(const key of ["name","description","format","maxTeams","registrationFeeAfn","winPoints","drawPoints","lossPoints","tieBreakOrder","rewards","groupCount","qualifiersPerGroup","registrationClosesAt","matchDurationMinutes","startsAt","endsAt"] as const){
+    for(const key of ["name","description","logoUrl","coverImageUrl","format","maxTeams","registrationFeeAfn","winPoints","drawPoints","lossPoints","tieBreakOrder","rewards","groupCount","qualifiersPerGroup","registrationClosesAt","matchDurationMinutes","startsAt","endsAt"] as const){
       if(input[key]!==undefined)(next as Record<string,unknown>)[key]=input[key];
     }
     this.competitions.set(competitionId,next);

@@ -268,9 +268,10 @@ export default function CompetitionDetailScreen(){
     ?competition.registrationClosesAt:competition?.startsAt;
   const eventDate=nextDate?formatCompetitionDateTime(nextDate,language):null;
   const capacityRatio=competition?.maxTeams?Math.min(1,accepted.length/competition.maxTeams):0;
-  // Competitions do not yet have a dedicated cover/avatar column. A real published
-  // competition media image is used as the cover; never fabricate a logo or photo.
-  const cover=resolveMediaImageUrl(mediaPosts.find(post=>post.imageUrl)?.imageUrl??null);
+  // Permanent organizer-controlled cover wins; older competitions retain a published
+  // media-image fallback. The image appears only on an already public competition.
+  const cover=resolveMediaImageUrl(competition?.coverImageUrl??mediaPosts.find(post=>post.imageUrl)?.imageUrl??null);
+  const logo=resolveMediaImageUrl(competition?.logoUrl??null);
 
   const registrationOpen=competition?.status==="REGISTRATION_OPEN"&&
     (!competition.registrationClosesAt||Date.parse(competition.registrationClosesAt)>Date.now());
@@ -431,8 +432,9 @@ export default function CompetitionDetailScreen(){
       </View>
       <View style={styles.identity}>
         <View style={styles.avatarFrame}>
-          <View style={styles.avatar}>
-            <Ionicons name="trophy" size={45} color={colors.primary}/>
+          <View style={styles.avatar} testID="competition-brand-logo">
+            {logo?<Image source={{uri:logo}} resizeMode="cover" style={styles.logoImage}/>:
+              <Ionicons name="trophy" size={45} color={colors.primary}/>}
           </View>
         </View>
         <AppText variant="title" weight="bold" style={styles.name}>{competition.name}</AppText>
@@ -608,7 +610,8 @@ const styles=StyleSheet.create({
   avatarFrame:{width:106,height:106,borderRadius:53,marginTop:-49,
     padding:4,backgroundColor:colors.surface},
   avatar:{width:"100%",height:"100%",borderRadius:49,backgroundColor:colors.primarySoft,
-    alignItems:"center",justifyContent:"center"},
+    alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  logoImage:{width:"100%",height:"100%"},
   name:{textAlign:"center",marginTop:6},
   venueLink:{gap:4,alignItems:"center",justifyContent:"center",
     minHeight:44,marginTop:spacing.xs,paddingHorizontal:spacing.sm},

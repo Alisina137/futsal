@@ -21,7 +21,9 @@ export function CompetitionDirectoryCard({
   competition,detailsLabel,actionLabel,onDetails,onAction,
 }:Props){
   const {t,isRTL,language}=useLocale();
-  const cover=resolveMediaImageUrl(competition.coverImageUrl??null);
+  // Preserve the user's 144px top-left square: permanent logo first,
+  // then organizer cover, then the genuine published-photo fallback from discovery.
+  const cover=resolveMediaImageUrl(competition.logoUrl??competition.coverImageUrl??null);
   const kickoff=competition.status==="REGISTRATION_OPEN"?
     competition.registrationClosesAt:competition.startsAt;
   const schedule=kickoff?formatLocalDateTimeParts(kickoff,language):null;
