@@ -531,7 +531,8 @@ export class TimetableService {
     ]);
     // Exceptions affect availability only on dates backed by an active
     // published timetable. Drafts and owner-only notes must never be public.
-    const changes=exceptions.filter(item=>!!recordForDate(timetables,item.date))
+    const changes=exceptions.filter(item=>!!recordForDate(timetables,item.date)&&
+      (item.areaId===null||venue.areas.some(area=>area.id===item.areaId&&area.active)))
       .map(item=>({
         date:item.date,isClosed:item.isClosed,
         areaName:item.areaId
