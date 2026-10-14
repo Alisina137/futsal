@@ -660,6 +660,8 @@ export const marketingApi = {
 };
 
 export const notificationApi = {
+  unreadCount:(accessToken:string)=>
+    request<{unreadCount:number}>("/api/v1/notifications/unread-count",{},accessToken),
   registerDevice:(accessToken:string,input:{expoPushToken:string;platform:"ANDROID"|"IOS"})=>
     request<void>("/api/v1/notifications/devices",{method:"POST",body:JSON.stringify(input)},accessToken),
   unregisterDevice:(accessToken:string,expoPushToken:string)=>
