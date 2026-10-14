@@ -16,6 +16,7 @@ import {VenueSlotTimetable} from "./VenueSlotTimetable";
 import {VenueReviewsPanel} from "./VenueCommunityPanels";
 import {VenueSavedTimesAndAlertsPanel} from "./VenueSavedTimesAndAlertsPanel";
 import {VenueCompetitionsPanel} from "./VenueCompetitionsPanel";
+import {VenueUpdatesPanel} from "./VenueUpdatesPanel";
 import {SlotTileContent} from "../ui/SlotTileContent";
 import {softenSlotColor} from "../../lib/slot-color";
 import {ReservationsPanel} from "../bookings/ReservationsPanel";
@@ -32,7 +33,7 @@ export type VenueMainTab="media"|"reserve"|"competitions"|"updates"|"about";
 export type VenueMediaSub="posts"|"photos"|"videos";
 export type VenueReserveSub="slots"|"offers"|"bookings"|"saved";
 export type VenueCompetitionSub="registration"|"upcoming"|"live"|"completed"|"matches";
-export type VenueUpdatesSub="announcements"|"alerts";
+export type VenueUpdatesSub="announcements"|"schedule"|"alerts";
 export type VenueAboutSub="overview"|"facilities"|"hours"|"location"|"reviews"|"policies";
 export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}[]=[
   {id:"media",icon:"images-outline"},{id:"reserve",icon:"calendar-outline"},
@@ -41,7 +42,7 @@ export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}
 ];
 export const venueSubtabs:Record<VenueMainTab,string[]>={
   media:["posts","photos","videos"],reserve:["slots","offers","bookings","saved"],
-  competitions:["registration","upcoming","live","completed","matches"],updates:["announcements","alerts"],
+  competitions:["registration","upcoming","live","completed","matches"],updates:["announcements","schedule","alerts"],
   about:["overview","facilities","hours","location","reviews","policies"],
 };
 export function todayAtKabul(){
@@ -91,7 +92,7 @@ function venueVideoLink(text:string){
   const match=text.match(/https:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]{7,}|youtu\.be\/[\w-]{7,}|vimeo\.com\/[0-9]{4,})[^\s]*/i);
   return match?.[0]??null;
 }
-type VenueContentProps={venue:PublicVenueDto;sub:VenueMediaSub|"announcements"|"alerts";onReserve:(startsAt?:string,promotionId?:string)=>void};
+type VenueContentProps={venue:PublicVenueDto;sub:VenueMediaSub|"announcements";onReserve:(startsAt?:string,promotionId?:string)=>void};
 export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   const {t,isRTL,language}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
   const tr5=(key:string)=>t(("vd5."+key) as never);
@@ -107,9 +108,10 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   const [page,setPage]=useState(1),[hasMore,setHasMore]=useState(false);
   const [loadingMore,setLoadingMore]=useState(false),[moreError,setMoreError]=useState(false);
   const requestId=useRef(0);
-  const isMedia=sub==="posts"||sub==="photos"||sub==="videos";
+  const isMedia=sub==="posts"||sub==="photos"||sub==="videos"||sub==="announcements";
   const kind=sub==="photos"?"photos":sub==="videos"?"videos":"posts";
-  const postType=sub==="posts"&&filter!=="all"?filter.toUpperCase() as VenuePostType:undefined;
+  const postType=sub==="announcements"?"ANNOUNCEMENT":
+    sub==="posts"&&filter!=="all"?filter.toUpperCase() as VenuePostType:undefined;
   const load=useCallback(async()=>{
     const id=++requestId.current;
     setLoading(true);setError(false);setMoreError(false);
@@ -153,7 +155,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
     const url=venueVideoLink(p.body);
     return url?[{...p,videoUrl:url}]:[];
   }),[posts]);
-  const filtered=useMemo(()=>sub==="announcements"||sub==="alerts"
+  const filtered=useMemo(()=>sub==="announcements"
     ?posts.filter(p=>p.postType==="ANNOUNCEMENT"):posts,[posts,sub]);
   const index=photos.findIndex(p=>p.id===photo);
   const selected=photos[index];
@@ -241,12 +243,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
     {videoError?<AppText style={{color:colors.danger}}>{tr5("videoOpenError")}</AppText>:null}
     {more}
   </View>;
-  if(sub==="alerts")return <>{!venue.onlineBookingEnabled?<Card>
-    <SectionHeading icon="alert-circle-outline" name={tr("bookingPaused")}/>
-    <AppText muted>{tr("bookingPausedBody")}</AppText>
-  </Card>:null}
-    <Empty icon="shield-checkmark-outline" title={tr("noAdditionalAlerts")}
-      detail={tr("updatesInfo")}/></>;
+
   if(sub==="announcements"&&filtered.length===0)
     return <Empty icon="megaphone-outline" title={tr("noAnnouncements")}/>;
   return <View style={{gap:spacing.md}} testID="venue-media-posts">
@@ -573,19 +570,9 @@ export function VenueCompetitionsContent({venue,sub}:{venue:PublicVenueDto;sub:V
 export function VenueUpdatesContent({venue,sub,onReserve}:{
   venue:PublicVenueDto;sub:VenueUpdatesSub;onReserve:()=>void;
 }){
-  const {t}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
-  return <>
-    {sub==="alerts"?<>
-      {!venue.onlineBookingEnabled?<Card>
-        <SectionHeading name={tr("bookingPaused")} icon="warning-outline"/>
-        <AppText muted>{tr("bookingPausedBody")}</AppText>
-      </Card>:<Empty icon="checkmark-circle-outline" title={tr("noAlerts")}
-        detail={tr("alertsDescription")}/>}
-    </>:<VenueMediaContent venue={venue} sub="announcements"
-      onReserve={()=>onReserve()}/>}
-    <Button label={tr("notificationSettings")} variant="secondary"
-      onPress={()=>router.push("/notifications/preferences")}/>
-  </>;
+  if(sub==="announcements")return <VenueMediaContent venue={venue}
+    sub="announcements" onReserve={()=>onReserve()}/>;
+  return <VenueUpdatesPanel venue={venue} sub={sub} onReserve={onReserve}/>;
 }
 
 export function VenueAboutContent({venue,sub,reviewBookingId}:{
