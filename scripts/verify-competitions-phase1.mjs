@@ -16,7 +16,7 @@ assert.ok(screen.indexOf("competitions-followed-strip")<
  screen.indexOf("competitions-quick-access")&&screen.indexOf("competitions-quick-access")<
  screen.indexOf("competitions-search-panel")&&screen.indexOf("competitions-search-panel")<
  screen.indexOf("competitions-results-section"),"Followed → Quick Access → Find → Explore order must stay stable");
-assert.ok(screen.includes("followed.slice(0,10)")&&screen.includes("followed.length>MAX_FOLLOWED")&&
+assert.ok(screen.includes("followed.slice(0,10)")&&screen.includes("followedTotal>MAX_FOLLOWED")&&
  screen.includes('router.push("/competitions/following")'),"Followed carousel must cap at ten and offer full list");
 for(const id of ["registration","live","popular","mine"]){
  assert.ok(screen.includes('id:"'+id+'"')&&read("apps/mobile/app/(app)/competitions/"+(
@@ -24,11 +24,11 @@ for(const id of ["registration","live","popular","mine"]){
  "Missing functional quick-access route: "+id);
 }
 assert.ok(screen.includes('router.push("/competitions/ongoing")')&&
- screen.includes('status==="IN_PROGRESS"&&followedVenueIds.includes(x.venueId)'),
+ screen.includes('ongoing:"ongoingFollowedVenues"'),
  "Keep ongoing at followed venues as a separate existing shortcut");
 assert.ok(screen.includes('testID="competitions-refresh-results"')&&
  screen.includes("competition.phase1.clearFilters")&&screen.includes("competition.phase1.showMore")&&
- screen.includes("setVisibleCount(INITIAL_VISIBLE)"),"Refresh, reset and more controls missing");
+ screen.includes("load(applied.current,currentPage+1,true)"),"Refresh, reset and more controls missing");
 assert.ok(screen.includes("twoColumns=width>=720")&&
  screen.includes('flexWrap:"wrap"')&&screen.includes('styles.gridItem'),
  "One-column phone and two-column tablet/desktop layouts required");
@@ -45,7 +45,7 @@ assert.ok(card.includes("resolveMediaImageUrl(competition.coverImageUrl??null)")
  repo.includes('eq(socialPosts.status,"PUBLISHED")')&&repo.includes("images.get(row.competition.id)??null")&&
  contracts.includes("coverImageUrl: z.string().nullable().optional()"),
  "Competition images must originate from actual published media, not a fake asset");
-assert.ok(screen.includes('mode==="mine"')&&api.includes("competitionApi")&&
+assert.ok(screen.includes('mine:"mine"')&&api.includes("competitionApi")&&
  api.includes('"/api/v1/competitions/mine"')&&
  routes.includes('router.get("/competitions/mine",auth')&&
  repo.includes('eq(teamMemberships.userId,userId)')&&
