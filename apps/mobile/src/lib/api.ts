@@ -676,6 +676,10 @@ export const marketingApi = {
 };
 
 export const notificationApi = {
+  venue:(accessToken:string,venueId:string,page=1)=>
+    networkRequest<import("@leaguekick/contracts").VenueNotificationPage>(
+      `/api/v1/notifications/venues/${encodeURIComponent(venueId)}?page=${page}&limit=12`,
+      {cache:"no-store"},accessToken),
   unreadCount:(accessToken:string)=>
     request<{unreadCount:number}>("/api/v1/notifications/unread-count",{},accessToken),
   registerDevice:(accessToken:string,input:{expoPushToken:string;platform:"ANDROID"|"IOS"})=>
