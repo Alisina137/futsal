@@ -17,6 +17,8 @@ import {VenueAboutContent,VenueCompetitionsContent,VenueMediaContent,
   VenueReserveContent,VenueUpdatesContent,venueNavItems,venueSubtabs,
   type VenueMainTab,type VenueMediaSub,type VenueReserveSub,type VenueCompetitionSub,
   type VenueUpdatesSub,type VenueAboutSub} from "../../../src/components/venues/VenueDetailSections";
+import {initialVenueNavigation,switchVenueMain,switchVenueSub,
+  type VenueDetailSubtabState} from "../../../src/lib/venue-detail-navigation";
 
 export default function VenueDetailScreen(){
   const {venueId,focusAvailability,startsAt,promotionId,bookingDate,reviewBookingId}=useLocalSearchParams<{
@@ -28,82 +30,97 @@ export default function VenueDetailScreen(){
   const tr=(key:string)=>t(("vd."+key) as never);
   const targetId=typeof venueId==="string"?venueId:"";
   const bookingDeepLink=focusAvailability==="1"||!!startsAt||!!promotionId||!!bookingDate;
-  const [main,setMain]=useState<VenueMainTab>(bookingDeepLink?"reserve":reviewBookingId?"about":"media");
-  const [sub,setSub]=useState<Record<VenueMainTab,string>>({
-    media:"posts",reserve:"slots",competitions:"upcoming",updates:"announcements",about:reviewBookingId?"reviews":"overview",
-  });
+  const [navigation,setNavigation]=useState(()=>initialVenueNavigation(bookingDeepLink,reviewBookingId));
+  const {main,sub}=navigation;
   const [venue,setVenue]=useState<PublicVenueDto|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);
   const [followState,setFollowState]=useState<FollowStateDto|null>(null),[followBusy,setFollowBusy]=useState(false);
+  const [followError,setFollowError]=useState<string|null>(null);
   const [reserveStartsAt,setReserveStartsAt]=useState<string|undefined>(startsAt);
   const [reservePromotionId,setReservePromotionId]=useState<string|undefined>(promotionId);
   const [reserveDate,setReserveDate]=useState<string|undefined>(bookingDate);
   const initialVenue=useRef(targetId);
+  const venueLoadSequence=useRef(0),followActionSequence=useRef(0);
   const mainNav=useVisibleTab<VenueMainTab>(main);
   const subNav=useVisibleTab<string>(sub[main]??venueSubtabs[main][0]!);
   const loadVenue=useCallback(async()=>{
-    if(!targetId)return;
-    setLoading(true);setError(null);
+    const requestId=++venueLoadSequence.current;
+    setLoading(true);setError(null);setVenue(null);
     try{
+      if(!targetId)throw new Error("Missing venue");
       const result=await venueApi.get(targetId);
+      if(requestId!==venueLoadSequence.current)return;
+      // Old or mis-scoped responses must never replace the newly selected venue.
+      if(result.venue.id!==targetId)throw new Error("Venue response mismatch");
       setVenue(result.venue);
-    }catch{setError(tr("venueError"));}
-    finally{setLoading(false);}
+    }catch{
+      if(requestId===venueLoadSequence.current)setError(tr("venueError"));
+    }finally{
+      if(requestId===venueLoadSequence.current)setLoading(false);
+    }
   },[targetId,t]);
-  useEffect(()=>{void loadVenue();},[loadVenue]);
+  useEffect(()=>{
+    void loadVenue();
+    return()=>{venueLoadSequence.current+=1;};
+  },[loadVenue]);
   useEffect(()=>{
     if(initialVenue.current!==targetId){
       initialVenue.current=targetId;
-      setMain(bookingDeepLink?"reserve":reviewBookingId?"about":"media");
-      setSub({media:"posts",reserve:"slots",competitions:"upcoming",
-        updates:"announcements",about:reviewBookingId?"reviews":"overview"});
-      setVenue(null);setFollowState(null);
+      // A new venue resets the menu, but ordinary tab changes do not.
+      setNavigation(initialVenueNavigation(bookingDeepLink,reviewBookingId));
+      setReserveStartsAt(startsAt);setReservePromotionId(promotionId);
+      setReserveDate(bookingDate);
+      setVenue(null);setFollowState(null);setFollowError(null);
     }
-  },[targetId]);
+  },[targetId,bookingDeepLink,reviewBookingId,startsAt,promotionId,bookingDate]);
   // Clicking "Reserve Online" from any venue result/followed card must open
   // Reserve > Available Slots, not the default Media feed.
   useEffect(()=>{
     if(!bookingDeepLink)return;
     setReserveStartsAt(startsAt);setReservePromotionId(promotionId);
     setReserveDate(bookingDate);
-    setMain("reserve");setSub(value=>({...value,reserve:"slots"}));
+    setNavigation(current=>switchVenueMain(current,"reserve","slots"));
   },[targetId,focusAvailability,startsAt,promotionId,bookingDate]);
   useEffect(()=>{
     if(!reviewBookingId||bookingDeepLink)return;
-    setMain("about");setSub(value=>({...value,about:"reviews"}));
+    setNavigation(current=>switchVenueMain(current,"about","reviews"));
   },[targetId,reviewBookingId,bookingDeepLink]);
   useEffect(()=>{
-    if(!session||!targetId)return;
+    // Follow UI belongs only to the current signed-in user and current venue.
+    followActionSequence.current+=1;
+    setFollowState(null);setFollowBusy(false);setFollowError(null);
+    if(!session?.accessToken||!targetId)return;
     let active=true;
     void marketingApi.followState(session.accessToken,targetId).then(value=>{
       if(active)setFollowState(value);
     }).catch(()=>{});
     return()=>{active=false;};
   },[session?.accessToken,targetId]);
-  function chooseMain(id:VenueMainTab){
-    // Tab changes are local state transitions, not new screen navigation.
-    // Never move the page vertically; focus only the horizontal selected tab.
-    if(id!==main){
-      setSub(current=>({...current,[id]:venueSubtabs[id][0]!}));
-      setMain(id);
-    }
+  function chooseMain<T extends VenueMainTab>(id:T,target?:VenueDetailSubtabState[T]){
+    // Ordinary taps preserve per-tab selection; shortcuts specify a destination.
+    // Only the horizontal menu focuses; never scroll the page vertically.
+    setNavigation(current=>switchVenueMain(current,id,target));
     mainNav.focus(id,true);
   }
   function reserve(date?:string,promo?:string){
     setReserveStartsAt(date);setReservePromotionId(promo);
-    if(!date)setReserveDate(undefined);
-    setSub(current=>({...current,reserve:"slots"}));
-    chooseMain("reserve");
+    setReserveDate(undefined);
+    chooseMain("reserve","slots");
   }
   async function toggleFollow(){
-    if(!session||!followState)return;
-    setFollowBusy(true);setError(null);
+    if(!session||!followState||followBusy)return;
+    const actionId=++followActionSequence.current;
+    setFollowBusy(true);setFollowError(null);
     try{
-      setFollowState(followState.following
+      const next=followState.following
         ?await marketingApi.unfollow(session.accessToken,targetId)
-        :await marketingApi.follow(session.accessToken,targetId));
-    }catch{setError(t("feed.followError"));}
-    finally{setFollowBusy(false);}
+        :await marketingApi.follow(session.accessToken,targetId);
+      if(actionId===followActionSequence.current)setFollowState(next);
+    }catch{
+      if(actionId===followActionSequence.current)setFollowError(t("feed.followError"));
+    }finally{
+      if(actionId===followActionSequence.current)setFollowBusy(false);
+    }
   }
   async function share(){
     if(!venue)return;
@@ -111,8 +128,9 @@ export default function VenueDetailScreen(){
       await Share.share({message:venue.name+"\n"+venue.address+"\nleaguekick://venues/"+venue.id});
     }catch{}
   }
-  if(loading&&!venue)return <Screen showHeader><DataLoadingState variant="detail" minHeight={460}/></Screen>;
-  if(!venue)return <Screen showHeader><Card style={{gap:spacing.md}}>
+  if(loading&&(!venue||venue.id!==targetId))
+    return <Screen showHeader><DataLoadingState variant="detail" minHeight={460}/></Screen>;
+  if(!venue||venue.id!==targetId)return <Screen showHeader><Card style={{gap:spacing.md}}>
     <AppText style={{color:colors.danger}}>{error||tr("venueError")}</AppText>
     <Button variant="secondary" label={t("common.retry")} onPress={()=>void loadVenue()}/>
   </Card></Screen>;
@@ -153,9 +171,12 @@ export default function VenueDetailScreen(){
           <Button style={styles.primaryAction} label={t("booking.reserveOnline")}
             variant="secondary" onPress={()=>reserve()}/>
         </View>
+        {followError?<AppText variant="caption" style={{color:colors.danger,textAlign:"center"}}>
+          {followError}
+        </AppText>:null}
         <View style={[styles.secondaryActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Pressable style={styles.iconButton} accessibilityRole="button"
-            accessibilityLabel={tr("notifications")} onPress={()=>chooseMain("updates")}>
+            accessibilityLabel={tr("notifications")} onPress={()=>chooseMain("updates","alerts")}>
             <Ionicons name="notifications-outline" color={colors.primary} size={21}/>
             <AppText variant="caption" weight="medium">{tr("notifications")}</AppText>
           </Pressable>
@@ -165,7 +186,7 @@ export default function VenueDetailScreen(){
             <AppText variant="caption" weight="medium">{tr("share")}</AppText>
           </Pressable>
           <Pressable style={styles.iconButton} accessibilityRole="button"
-            accessibilityLabel={tr("location")} onPress={()=>{setSub(s=>({...s,about:"location"}));chooseMain("about");}}>
+            accessibilityLabel={tr("location")} onPress={()=>chooseMain("about","location")}>
             <Ionicons name="map-outline" color={colors.primary} size={21}/>
             <AppText variant="caption" weight="medium">{tr("location")}</AppText>
           </Pressable>
@@ -181,6 +202,8 @@ export default function VenueDetailScreen(){
         {venueNavItems.map(item=>{
           const active=main===item.id;
           return <Pressable key={item.id} accessibilityRole="tab"
+            testID={"venue-main-tab-"+item.id}
+            accessibilityLabel={tr("tab."+item.id)}
             onLayout={event=>mainNav.cellLayout(item.id,event)}
             accessibilityState={{selected:active}}
             onPress={()=>chooseMain(item.id)}
@@ -206,7 +229,10 @@ export default function VenueDetailScreen(){
           accessibilityState={{selected:sub[main]===item}}
           style={({pressed})=>[styles.subItem,sub[main]===item&&styles.subActive,
             pressed&&styles.subPressed]}
-          onPress={()=>{setSub(current=>({...current,[main]:item}));subNav.focus(item,true);}}>
+          onPress={()=>{
+            setNavigation(current=>switchVenueSub(current,main,item as VenueDetailSubtabState[typeof main]));
+            subNav.focus(item,true);
+          }}>
           <AppText variant="body" weight="semibold" numberOfLines={2}
             style={{color:sub[main]===item?colors.surface:colors.text,textAlign:"center"}}>
             {tr("sub."+main+"."+item)}
