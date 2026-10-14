@@ -1,3 +1,13 @@
+## Notifications Center — Phase 1: native push gateway and actionable event delivery (October 14, 2026)
+
+- Existing notification center styling, six category filters, unread interactions, preferences and localized dates are preserved.
+- Added new actionable types **BOOKING_REQUEST**, **TEAM_JOIN_REQUEST**, and **TEAM_JOIN_DECISION**, emitted only **after successful operations**: pending online reservations notify the host owner, team join requests notify the owning manager, decisions notify the requester. These are per-user, idempotent and fail open for completed business writes. Booking opens the actual owner pending calendar, team request opens its manager screen, decision opens the team profile.
+- Added English/Dari/Pashto message keys, updated relevant Bookings/Teams category handling, and migration `0042_notification_action_events` (apply before starting updated API).
+- Native app now includes SDK 57 `expo-notifications`, authenticates push-token enrollment, handles token changes, safely handles notification taps and unregisters devices on logout. Android Expo Go **does not support remote push**: EAS project ID plus FCM/APNs credentials and a development/production binary are required. No credentials are stored in the repo.
+- Added PostgreSQL-backed leased Expo push dispatcher with retry cap/expired-device cleanup; API drains the existing durable push queue, initially on startup and then every 30s. Expo ticket acceptance is not proof of phone delivery; manual device verification remains required.
+- Added `apps/api/test/notification-phase1-push.test.ts`, extended team join-request action tests and root `pnpm verify:notifications-phase1` verification. See `docs/QA-NOTIFICATIONS-PHASE1.md` for native setup, manual test cases and known boundaries.
+- Next proposed Phase 2: inbox visibility based on delivery preferences, reliable unread reconciliation, refresh-on-resume, stable pagination and deeper direct links. Phase 3: full language/RTL/device regression.
+
 ## Competitions redesign — Phase 7: security, regression & release readiness (October 14, 2026)
 
 - Implemented release hardening in the real competition backend/mobile, preserving the Phase 1–6 design and existing APIs. Owner competitions no longer incur one accepted-count query **per competition**; two batched queries return accepted counts and the most recent public image. Directory and discovery fallback excludes posts whose audience visibility is private.
