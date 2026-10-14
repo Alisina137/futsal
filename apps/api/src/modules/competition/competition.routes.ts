@@ -19,6 +19,7 @@ import {
   competitionRewardsUpdateRequestSchema,
 } from "@leaguekick/contracts";
 import { requireAuth } from "../../middleware/auth.js";
+import {errors} from "../../lib/errors.js";
 import type { TokenService } from "../auth/token.service.js";
 import type { CompetitionService } from "./competition.service.js";
 
@@ -39,7 +40,7 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
     try{
       const filters=competitionDiscoveryQuerySchema.parse(request.query);
       if(["mine","following","ongoingFollowedVenues"].includes(filters.scope))
-        throw new Error("Private competition discovery scopes require authentication.");
+        throw errors.unauthorized();
       response.json(await service.discoverPublic(filters));
     }catch(error){next(error);}
   });
