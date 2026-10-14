@@ -21,7 +21,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, lte, or } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type { MarketingRepository, MarketingSocialEntityRecord, MarketingVenueRecord } from "./marketing.types.js";
 import { selectPersonalizedSocialPosts } from "./social-feed-ranking.js";
@@ -490,6 +490,37 @@ export class DrizzleMarketingRepository implements MarketingRepository {
       eq(venues.status,"ACTIVE"),
     )).orderBy(desc(venuePosts.publishedAt));
     return Promise.all(rows.map((row)=>this.hydrateProjectedPost(row)));
+  }
+
+  async browseVenueMedia(
+    venueId:string,visibility:"PUBLIC"|"PUBLIC_OR_FOLLOWERS",
+    query:import("@leaguekick/contracts").VenueMediaBrowseQuery,
+  ){
+    const audience=visibility==="PUBLIC"?eq(venuePosts.visibility,"PUBLIC")
+      :inArray(venuePosts.visibility,["PUBLIC","FOLLOWERS"]);
+    // Image/video/media-type predicates MUST be applied before LIMIT/OFFSET
+    // and count so each gallery really shows all matching published content.
+    const mediaPredicate=query.kind==="photos"?isNotNull(venuePosts.imageUrl)
+      :query.kind==="videos"?or(
+        ilike(venuePosts.body,"%youtube.com/watch?v=%"),
+        ilike(venuePosts.body,"%youtu.be/%"),
+        ilike(venuePosts.body,"%vimeo.com/%"),
+      ):undefined;
+    const where=and(eq(venuePosts.venueId,venueId),
+      eq(venues.status,"ACTIVE"),eq(venuePosts.status,"PUBLISHED"),
+      audience,query.postType?eq(venuePosts.postType,query.postType):undefined,
+      mediaPredicate)!;
+    const [rows,counts]=await Promise.all([
+      this.postProjection().where(where)
+        .orderBy(query.sort==="oldest"?asc(venuePosts.publishedAt):desc(venuePosts.publishedAt),
+          query.sort==="oldest"?asc(venuePosts.id):desc(venuePosts.id))
+        .limit(query.limit).offset((query.page-1)*query.limit),
+      this.db.select({total:count()}).from(venuePosts)
+        .innerJoin(venues,eq(venuePosts.venueId,venues.id)).where(where),
+    ]);
+    const total=Number(counts[0]?.total??0);
+    return {venueId,posts:await Promise.all(rows.map(row=>this.hydrateProjectedPost(row))),
+      total,page:query.page,limit:query.limit,hasMore:query.page*query.limit<total};
   }
 
   async getPost(postId: string) {
