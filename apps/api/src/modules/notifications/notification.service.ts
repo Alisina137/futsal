@@ -106,7 +106,7 @@ export class NotificationService implements NotificationPublisher {
     await this.publish({
       userId:input.ownerUserId,type:"BOOKING_REQUEST",title:"New booking requires approval",
       body:`${input.venueName} · ${input.startsAt}`,
-      deepLink:"/dashboard",
+      deepLink:"/owner/schedule",
       data:{bookingId:input.bookingId,venueId:input.venueId,venueName:input.venueName,startsAt:input.startsAt},
       dedupeKey:`booking-request:${input.bookingId}`,marketing:false,
     });
