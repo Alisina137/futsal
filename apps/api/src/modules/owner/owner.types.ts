@@ -29,6 +29,8 @@ export type OwnerVenueRecord = {
   minimumBookingNoticeMinutes: number;
   maximumAdvanceBookingDays: number;
   cancellationPolicy: string;
+  amenities:import("@leaguekick/contracts").VenueAmenity[];
+  houseRules:string|null;
   verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
   status: "DRAFT" | "READY" | "ACTIVE" | "SUSPENDED";
   setupCompletedAt: Date | null;
