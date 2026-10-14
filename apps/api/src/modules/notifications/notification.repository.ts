@@ -12,7 +12,7 @@ import {
   notifications,
   pushDevices,
 } from "@leaguekick/database";
-import { and, count, desc, eq, gt, inArray, isNull, isNotNull } from "drizzle-orm";
+import { and, count, desc, eq, exists, gt, inArray, isNull, isNotNull, lt, or } from "drizzle-orm";
 import type { NotificationCreateInput, NotificationRepository } from "./notification.types.js";
 
 function dto(row: typeof notifications.$inferSelect): NotificationDto {
@@ -76,19 +76,31 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     return next;
   }
 
+  /** Push-only events are not part of the in-app inbox or its unread badge. */
+  private inAppDelivery(){
+    return exists(this.db.select({id:notificationDeliveries.notificationId})
+      .from(notificationDeliveries).where(and(
+        eq(notificationDeliveries.notificationId,notifications.id),
+        eq(notificationDeliveries.channel,"IN_APP"),
+      )));
+  }
+
   private filtered(userId:string,filter:NotificationListFilter="ALL"){
     const kind=filter==="BOOKINGS"?["BOOKING_CONFIRMED","BOOKING_CANCELLED","BOOKING_REQUEST"] as const:
       filter==="VENUES"?["SLOT_PROMOTION","SLOT_AVAILABLE","VENUE_POST"] as const:
       filter==="TEAMS"?["TEAM_INVITATION","TEAM_JOIN_REQUEST","TEAM_JOIN_DECISION","TEAM_ACTIVITY","TEAM_CHALLENGE","TEAM_ANNOUNCEMENT"] as const:
       filter==="COMPETITIONS"?["COMPETITION_UPDATE"] as const:null;
-    return and(eq(notifications.userId,userId),
+    return and(eq(notifications.userId,userId),this.inAppDelivery(),
       filter==="UNREAD"?isNull(notifications.readAt):undefined,
       kind?inArray(notifications.type,[...kind]):undefined);
   }
 
-  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL"){
+  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL",
+    before?:{createdAt:Date;id:string}){
     const rows=await this.db.select().from(notifications)
-      .where(this.filtered(userId,filter))
+      .where(and(this.filtered(userId,filter),before?
+        or(lt(notifications.createdAt,before.createdAt),
+          and(eq(notifications.createdAt,before.createdAt),lt(notifications.id,before.id))):undefined))
       .orderBy(desc(notifications.createdAt),desc(notifications.id))
       .limit(limit).offset(offset);
     return rows.map(dto);
@@ -102,13 +114,13 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async countUnreadNotifications(userId:string){
     const [row]=await this.db.select({value:count()}).from(notifications)
-      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt)));
+      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt),this.inAppDelivery()));
     return Number(row?.value??0);
   }
 
   async markAllRead(userId:string,readAt:Date){
     const rows=await this.db.update(notifications).set({readAt})
-      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt)))
+      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt),this.inAppDelivery()))
       .returning({id:notifications.id});
     return rows.length;
   }
@@ -122,7 +134,7 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async clearRead(userId:string){
     const rows=await this.db.delete(notifications)
-      .where(and(eq(notifications.userId,userId),isNotNull(notifications.readAt)))
+      .where(and(eq(notifications.userId,userId),isNotNull(notifications.readAt),this.inAppDelivery()))
       .returning({id:notifications.id});
     return rows.length;
   }
@@ -136,9 +148,11 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async markRead(userId: string, notificationId: string, readAt: Date) {
     const [row] = await this.db.update(notifications).set({ readAt })
-      .where(and(eq(notifications.userId, userId), eq(notifications.id, notificationId)))
+      .where(and(eq(notifications.userId, userId), eq(notifications.id, notificationId),
+        isNull(notifications.readAt),this.inAppDelivery()))
       .returning();
-    return row ? dto(row) : null;
+    // Idempotent retry preserves the original readAt timestamp.
+    return row ? dto(row) : this.getNotification(userId,notificationId);
   }
 
   async countRecentMarketingNotifications(userId: string, since: Date) {
