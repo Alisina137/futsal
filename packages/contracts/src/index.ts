@@ -187,6 +187,15 @@ export type AuthResponse = z.infer<typeof authResponseSchema>;
 
 const hhmmSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm time.");
 
+/** Venue owners explicitly declare amenities. Empty means not yet listed. */
+export const venueAmenitySchema=z.enum([
+  "LIGHTING","PARKING","CHANGING_ROOM","SHOWERS","TOILETS",
+  "SEATING","DRINKING_WATER","EQUIPMENT_RENTAL",
+]);
+export type VenueAmenity=z.infer<typeof venueAmenitySchema>;
+export const venueAmenitiesSchema=z.array(venueAmenitySchema).max(8).refine(
+  values=>new Set(values).size===values.length,"Duplicate amenities are not allowed.",
+);
 export const venueAreaInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
   defaultSessionDurationMinutes: z.number().int().min(30).max(240),
@@ -253,6 +262,8 @@ export const ownerVenueDtoSchema = z.object({
   minimumBookingNoticeMinutes: z.number().int().min(0).max(10_080),
   maximumAdvanceBookingDays: z.number().int().min(1).max(180),
   cancellationPolicy: z.string(),
+  amenities:venueAmenitiesSchema,
+  houseRules:z.string().nullable(),
   verificationStatus: z.enum(["PENDING","VERIFIED","REJECTED"]),
   status: z.enum(["DRAFT", "READY", "ACTIVE", "SUSPENDED"]),
   setupCompletedAt: z.string().nullable(),
@@ -299,6 +310,8 @@ export const ownerVenueSettingsUpdateRequestSchema = z.object({
   minimumBookingNoticeMinutes: z.number().int().min(0).max(10_080),
   maximumAdvanceBookingDays: z.number().int().min(1).max(180),
   cancellationPolicy: z.string().trim().min(8).max(1_000),
+  amenities:venueAmenitiesSchema.optional(),
+  houseRules:z.string().trim().max(1_000).nullable().optional(),
 }).superRefine((value,ctx)=>{
   if((value.latitude===null)!==(value.longitude===null)){
     ctx.addIssue({code:"custom",path:["latitude"],message:"Latitude and longitude must be provided together."});
@@ -323,6 +336,8 @@ export const ownerVenueSettingsDtoSchema = z.object({
   minimumBookingNoticeMinutes: z.number().int().min(0),
   maximumAdvanceBookingDays: z.number().int().min(1),
   cancellationPolicy: z.string(),
+  amenities:venueAmenitiesSchema,
+  houseRules:z.string().nullable(),
   verificationStatus: z.enum(["PENDING","VERIFIED","REJECTED"]),
   venueStatus: z.enum(["DRAFT","READY","ACTIVE","SUSPENDED"]),
   court: z.object({
@@ -958,6 +973,11 @@ export const publicVenueDtoSchema = z.object({
   minimumBookingNoticeMinutes: z.number().int().min(0),
   maximumAdvanceBookingDays: z.number().int().min(1),
   cancellationPolicy: z.string(),
+  verificationStatus:venueVerificationStatusSchema,
+  amenities:venueAmenitiesSchema,
+  houseRules:z.string().nullable(),
+  /** Regular weekly hours; special dates and timetable exceptions can override these. */
+  openingHours:z.array(venueOpeningHourDtoSchema),
   areas: z.array(venueAreaDtoSchema),
 });
 export type PublicVenueDto = z.infer<typeof publicVenueDtoSchema>;
