@@ -331,24 +331,27 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     // Fetch one image per competition from genuine published photo posts.
     // A single bounded-by-competition-ID query avoids N+1 media requests.
     const images=new Map<string,string>();
+    const acceptedCounts=new Map<string,number>();
     if(rows.length){
-      const media=await this.db.select({id:socialPosts.entityId,imageUrl:socialPosts.imageUrl})
-        .from(socialPosts).where(and(
-          eq(socialPosts.entityType,"COMPETITION"),
-          eq(socialPosts.status,"PUBLISHED"),
-          isNotNull(socialPosts.imageUrl),
-          inArray(socialPosts.entityId,rows.map(row=>row.competition.id)),
-        )).orderBy(desc(socialPosts.publishedAt));
-      for(const post of media){
-        if(post.imageUrl&&!images.has(post.id))images.set(post.id,post.imageUrl);
-      }
+      const ids=rows.map(row=>row.competition.id);
+      // One SQL query for all registration totals instead of one per competition.
+      // Do not fetch entire media histories just to display each competition's latest photo.
+      const [counts,media]=await Promise.all([
+        this.db.select({id:competitionTeams.competitionId,total:sql<number>`count(*)::int`})
+          .from(competitionTeams).where(and(eq(competitionTeams.status,"ACCEPTED"),
+            inArray(competitionTeams.competitionId,ids))).groupBy(competitionTeams.competitionId),
+        this.db.selectDistinctOn([socialPosts.entityId],
+          {id:socialPosts.entityId,imageUrl:socialPosts.imageUrl}).from(socialPosts)
+          .where(and(eq(socialPosts.entityType,"COMPETITION"),
+            eq(socialPosts.status,"PUBLISHED"),eq(socialPosts.visibility,"PUBLIC"),
+            isNotNull(socialPosts.imageUrl),inArray(socialPosts.entityId,ids)))
+          .orderBy(socialPosts.entityId,desc(socialPosts.publishedAt),desc(socialPosts.id)),
+      ]);
+      for(const countRow of counts)acceptedCounts.set(countRow.id,Number(countRow.total));
+      for(const post of media)if(post.imageUrl)images.set(post.id,post.imageUrl);
     }
     const items: CompetitionListItemDto[] = [];
     for (const row of rows) {
-      const [accepted] = await this.db.select({ value: count() }).from(competitionTeams).where(and(
-        eq(competitionTeams.competitionId, row.competition.id),
-        eq(competitionTeams.status, "ACCEPTED"),
-      ));
       items.push({
         id: row.competition.id,
         venueId: row.competition.venueId,
@@ -371,7 +374,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         matchDurationMinutes: row.competition.matchDurationMinutes,
         startsAt: row.competition.startsAt?.toISOString() ?? null,
         endsAt: row.competition.endsAt?.toISOString() ?? null,
-        acceptedTeams: Number(accepted?.value ?? 0),
+        acceptedTeams: acceptedCounts.get(row.competition.id)??0,
         coverImageUrl: row.competition.coverImageUrl??images.get(row.competition.id)??null,
       });
     }
@@ -388,12 +391,16 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
 
   /** Only published competitions involving the authenticated user's active team membership. */
   async listMyPublicCompetitions(userId:string):Promise<CompetitionListItemDto[]>{
+    // Team managers are not required to hold a separate ACTIVE team_memberships
+    // row. Include their teams, or active members, without duplicating competitions.
     const links=await this.db.selectDistinct({competitionId:competitionTeams.competitionId})
       .from(competitionTeams)
-      .innerJoin(teamMemberships,eq(teamMemberships.teamId,competitionTeams.teamId))
+      .innerJoin(teams,eq(teams.id,competitionTeams.teamId))
+      .leftJoin(teamMemberships,and(eq(teamMemberships.teamId,teams.id),
+        eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE")))
       .innerJoin(competitions,eq(competitions.id,competitionTeams.competitionId))
-      .where(and(eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE"),
-        eq(competitions.published,true)));
+      .where(and(eq(competitions.published,true),eq(teams.status,"ACTIVE"),
+        or(eq(teams.managerUserId,userId),isNotNull(teamMemberships.userId))));
     if(!links.length)return [];
     return this.listItems(and(eq(competitions.published,true),
       inArray(competitions.id,links.map(link=>link.competitionId)))!);
@@ -497,12 +504,14 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     ]);
     const images=new Map<string,string>();
     if(rows.length){
-      const media=await this.db.select({id:socialPosts.entityId,imageUrl:socialPosts.imageUrl})
-        .from(socialPosts).where(and(eq(socialPosts.entityType,"COMPETITION"),
-          eq(socialPosts.status,"PUBLISHED"),isNotNull(socialPosts.imageUrl),
+      const media=await this.db.selectDistinctOn([socialPosts.entityId],
+        {id:socialPosts.entityId,imageUrl:socialPosts.imageUrl}).from(socialPosts)
+        .where(and(eq(socialPosts.entityType,"COMPETITION"),
+          eq(socialPosts.status,"PUBLISHED"),eq(socialPosts.visibility,"PUBLIC"),
+          isNotNull(socialPosts.imageUrl),
           inArray(socialPosts.entityId,rows.map(row=>row.competition.id))))
-        .orderBy(desc(socialPosts.publishedAt));
-      for(const post of media)if(post.imageUrl&&!images.has(post.id))images.set(post.id,post.imageUrl);
+        .orderBy(socialPosts.entityId,desc(socialPosts.publishedAt),desc(socialPosts.id));
+      for(const post of media)if(post.imageUrl)images.set(post.id,post.imageUrl);
     }
     const total=Number(totalRows[0]?.total??0);
     return {
@@ -649,7 +658,24 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     if (input.matchDurationMinutes !== undefined) patch.matchDurationMinutes = input.matchDurationMinutes;
     if (input.startsAt !== undefined) patch.startsAt = input.startsAt;
     if (input.endsAt !== undefined) patch.endsAt = input.endsAt;
-    await this.db.update(competitions).set(patch).where(eq(competitions.id, competitionId));
+    if(input.maxTeams!==undefined){
+      // Serialize limit reductions against approvals and invitation acceptances.
+      // They lock this same competition row before checking capacity.
+      await this.db.transaction(async tx=>{
+        const [row]=await tx.select({id:competitions.id}).from(competitions)
+          .where(eq(competitions.id,competitionId)).for("update").limit(1);
+        if(!row)return;
+        const [accepted]=await tx.select({value:count()}).from(competitionTeams)
+          .where(and(eq(competitionTeams.competitionId,competitionId),
+            eq(competitionTeams.status,"ACCEPTED")));
+        if(Number(accepted?.value??0)>input.maxTeams!)
+          throw errors.conflict("TEAM_LIMIT_BELOW_ACCEPTED",
+            "Team limit cannot be lower than accepted registrations.");
+        await tx.update(competitions).set(patch).where(eq(competitions.id,competitionId));
+      });
+    }else{
+      await this.db.update(competitions).set(patch).where(eq(competitions.id,competitionId));
+    }
     return this.getCompetitionDto(competitionId);
   }
 
@@ -832,10 +858,12 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       .where(and(
         eq(socialPosts.entityType, "COMPETITION"),
         eq(socialPosts.entityId, competitionId),
+        // Public media must be public both in status and audience visibility.
+        includeUnpublished?undefined:eq(socialPosts.status,"PUBLISHED"),
+        includeUnpublished?undefined:eq(socialPosts.visibility,"PUBLIC"),
       ))
       .orderBy(desc(socialPosts.publishedAt));
     return rows
-      .filter((row) => includeUnpublished || row.status === "PUBLISHED")
       .map((row) => ({
         id: row.id,
         competitionId,
