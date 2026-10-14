@@ -45,7 +45,7 @@ for(const fragment of [
 for(const tab of ["media","reserve","competitions","updates","about"])
   assert.ok(sub.includes('{id:"'+tab+'"'),"Missing existing main tab "+tab);
 assert.ok(sub.includes('reserve:["slots","offers","bookings"]')&&
-  sub.includes('about:["overview","facilities","location","reviews","preferences"]'),
+  sub.includes('about:["overview","facilities","hours","location","reviews","policies","preferences"]'),
   "Phase 1 must preserve existing subtabs and behavior.");
 assert.ok(!screen.includes("scrollTo({y:0")&&!screen.includes("scrollToEnd("),
   "Main tab navigation must not scroll the parent page vertically.");
