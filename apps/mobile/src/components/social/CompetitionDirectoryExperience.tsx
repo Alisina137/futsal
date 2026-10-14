@@ -22,7 +22,7 @@ type Mode="directory"|"following"|"popular"|"ongoing"|"registration"|"live"|"min
 type Scope=CompetitionDiscoveryQuery["scope"];
 const MAX_FOLLOWED=10;
 const defaults:CompetitionDiscoveryQuery={
-  q:"",province:"",city:"",fee:"any",sort:"recommended",scope:"all",page:1,limit:12,
+  q:"",province:"",city:"",fee:"any",sort:"recommended",scope:"all",phase:"all",page:1,limit:12,
 };
 const scopes:Record<Mode,Scope>={
   directory:"all",following:"following",popular:"popular",
@@ -31,9 +31,11 @@ const scopes:Record<Mode,Scope>={
 const emptyFacets:CompetitionDiscoveryResponse["facets"]={provinces:[],cities:[]};
 const open=(id:string)=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:id}});
 const action=(item:CompetitionDiscoveryItem,t:(key:any)=>string,canRegister:boolean)=>{
-  if(item.status==="REGISTRATION_OPEN"&&canRegister)return{
+  if(item.status==="REGISTRATION_OPEN"&&canRegister&&item.acceptedTeams<item.maxTeams&&
+    (!item.registrationClosesAt||Date.parse(item.registrationClosesAt)>Date.now()))return{
     label:t("competition.register"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,tab:"TEAMS",focusRegistration:"1"}})};
-  if(item.status==="REGISTRATION_OPEN")return{label:t("competition.phase1.viewRegistration"),to:()=>open(item.id)};
+  if(item.status==="REGISTRATION_OPEN")return{label:t(item.acceptedTeams>=item.maxTeams?
+    "competition.phase3.fullShort":"competition.phase1.viewRegistration"),to:()=>open(item.id)};
   if(item.status==="IN_PROGRESS")return{
     label:t("competition.standings"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,tab:"STANDINGS"}})};
   if(item.status==="COMPLETED")return{
