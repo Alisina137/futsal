@@ -2210,6 +2210,25 @@ export const competitionListItemDtoSchema = competitionDtoSchema.omit({
 });
 export type CompetitionListItemDto = z.infer<typeof competitionListItemDtoSchema>;
 
+/** Only returned to an authenticated user for a team they actively belong to or manage.
+ * No private fee reference or other team's application is exposed. */
+export const competitionParticipationDtoSchema=z.object({
+  competitionId:z.string().uuid(),
+  teamId:z.string().uuid(),
+  teamName:z.string(),
+  status:competitionRegistrationStatusSchema,
+  feeStatus:competitionFeeStatusSchema,
+  isManager:z.boolean(),
+  canRespond:z.boolean(),
+  canWithdraw:z.boolean(),
+});
+export type CompetitionParticipationDto=z.infer<typeof competitionParticipationDtoSchema>;
+export const competitionParticipationsResponseSchema=z.object({
+  participations:z.array(competitionParticipationDtoSchema),
+});
+export type CompetitionParticipationsResponse=z.infer<typeof competitionParticipationsResponseSchema>;
+
+
 /** Server-filtered, paginated public competition discovery; private scopes require a token. */
 export const competitionDiscoveryScopeSchema=z.enum([
   "all","registration","ongoing","popular","following","mine","ongoingFollowedVenues",
@@ -2234,6 +2253,7 @@ export const competitionDiscoveryQuerySchema=z.object({
   to:competitionDiscoveryDate.optional(),
   sort:competitionDiscoverySortSchema.default("recommended"),
   scope:competitionDiscoveryScopeSchema.default("all"),
+  phase:z.enum(["all","active","upcoming","history"]).default("all"),
   page:z.coerce.number().int().min(1).max(500).default(1),
   limit:z.coerce.number().int().min(1).max(30).default(12),
 }).superRefine((value,ctx)=>{

@@ -1,5 +1,6 @@
 import type {
   CompetitionDto,
+  CompetitionParticipationDto,
   CompetitionDiscoveryQuery,
   CompetitionDiscoveryResponse,
   CompetitionRewardDto,
@@ -403,6 +404,12 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       constraints.push(or(ilike(competitions.name,literal),ilike(venues.name,literal),
         ilike(venues.province,literal),ilike(venues.city,literal))!);
     }
+    if(filters.phase==="active")constraints.push(inArray(competitions.status,
+      ["REGISTRATION_OPEN","IN_PROGRESS"]));
+    if(filters.phase==="upcoming")constraints.push(inArray(competitions.status,
+      ["REGISTRATION_CLOSED","SCHEDULED"]));
+    if(filters.phase==="history")constraints.push(inArray(competitions.status,
+      ["COMPLETED","ARCHIVED"]));
     if(filters.scope==="registration")constraints.push(eq(competitions.status,"REGISTRATION_OPEN"));
     if(filters.scope==="ongoing"||filters.scope==="ongoingFollowedVenues")
       constraints.push(eq(competitions.status,"IN_PROGRESS"));
@@ -412,9 +419,11 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         eq(socialFollows.entityId,competitions.id)))));
     if(filters.scope==="mine"&&userId)constraints.push(exists(this.db
       .select({id:competitionTeams.competitionId}).from(competitionTeams)
-      .innerJoin(teamMemberships,eq(teamMemberships.teamId,competitionTeams.teamId))
+      .innerJoin(teams,eq(teams.id,competitionTeams.teamId))
+      .leftJoin(teamMemberships,and(eq(teamMemberships.teamId,teams.id),
+        eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE")))
       .where(and(eq(competitionTeams.competitionId,competitions.id),
-        eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE")))));
+        or(eq(teams.managerUserId,userId),isNotNull(teamMemberships.userId))))));
     if(filters.scope==="ongoingFollowedVenues"&&userId)constraints.push(exists(this.db
       .select({id:socialFollows.entityId}).from(socialFollows)
       .where(and(eq(socialFollows.userId,userId),eq(socialFollows.entityType,"VENUE"),
@@ -496,6 +505,78 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       total,page:filters.page,limit:filters.limit,hasMore:filters.page*filters.limit<total,
       facets:{provinces:provinces.map(item=>item.value),cities:cities.map(item=>item.value)},
     };
+  }
+
+
+  async listMyCompetitionParticipations(userId:string,competitionId?:string):Promise<CompetitionParticipationDto[]>{
+    // Query ONLY team memberships of the authenticated caller and teams they manage.
+    // Joining the matching active membership rather than filtering in JS avoids data leaks.
+    const rows=await this.db.select({
+      competitionId:competitionTeams.competitionId,teamId:competitionTeams.teamId,
+      teamName:teams.name,status:competitionTeams.status,feeStatus:competitionTeams.feeStatus,
+      managerUserId:teams.managerUserId,memberId:teamMemberships.userId,
+      competitionStatus:competitions.status,
+    }).from(competitionTeams)
+      .innerJoin(teams,eq(teams.id,competitionTeams.teamId))
+      .innerJoin(competitions,eq(competitions.id,competitionTeams.competitionId))
+      .leftJoin(teamMemberships,and(eq(teamMemberships.teamId,teams.id),
+        eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE")))
+      .where(and(eq(competitions.published,true),ne(competitions.status,"DRAFT"),
+        or(eq(teams.managerUserId,userId),isNotNull(teamMemberships.userId)),
+        competitionId?eq(competitions.id,competitionId):undefined))
+      .orderBy(desc(competitionTeams.updatedAt));
+    return rows.map(row=>{
+      const isManager=row.managerUserId===userId;
+      const mutable=["REGISTRATION_OPEN","REGISTRATION_CLOSED"].includes(row.competitionStatus);
+      return {
+        competitionId:row.competitionId,teamId:row.teamId,teamName:row.teamName,
+        status:row.status,feeStatus:row.feeStatus,isManager,
+        canRespond:isManager&&mutable&&row.status==="INVITED",
+        canWithdraw:isManager&&mutable&&["INVITED","APPLIED","ACCEPTED"].includes(row.status),
+      };
+    });
+  }
+
+  async acceptRegistrationWithCapacity(input:Parameters<CompetitionRepository["acceptRegistrationWithCapacity"]>[0]){
+    await this.db.transaction(async tx=>{
+      // PostgreSQL row lock serializes concurrent organizer approvals and invitation
+      // acceptances so both requests cannot take the same final team slot.
+      const [competition]=await tx.select({status:competitions.status,published:competitions.published,
+        maxTeams:competitions.maxTeams,venueId:competitions.venueId})
+        .from(competitions).where(eq(competitions.id,input.competitionId))
+        .for("update").limit(1);
+      if(!competition||!competition.published||
+        !["REGISTRATION_OPEN","REGISTRATION_CLOSED"].includes(competition.status))
+        throw errors.conflict("REGISTRATION_CLOSED","Registration can no longer be accepted.");
+      const [registration]=await tx.select({status:competitionTeams.status})
+        .from(competitionTeams).where(and(eq(competitionTeams.competitionId,input.competitionId),
+          eq(competitionTeams.teamId,input.teamId))).limit(1);
+      if(!registration||(input.kind==="INVITATION"?registration.status!=="INVITED":
+        !["APPLIED","PENDING"].includes(registration.status)))
+        throw errors.conflict("REGISTRATION_NOT_PENDING","The registration is no longer awaiting this decision.");
+      if(input.kind==="INVITATION"){
+        const [team]=await tx.select({managerUserId:teams.managerUserId,status:teams.status})
+          .from(teams).where(eq(teams.id,input.teamId)).limit(1);
+        if(!team||team.status!=="ACTIVE"||team.managerUserId!==input.actorUserId)
+          throw errors.forbidden("TEAM_MANAGER_REQUIRED","Only the active team manager can accept.");
+      }else{
+        const [venue]=await tx.select({ownerUserId:venues.ownerUserId})
+          .from(venues).where(eq(venues.id,competition.venueId)).limit(1);
+        if(!venue||venue.ownerUserId!==input.actorUserId)
+          throw errors.forbidden("VENUE_OWNER_REQUIRED","Only this competition's organizer may accept.");
+      }
+      const [accepted]=await tx.select({value:count()}).from(competitionTeams)
+        .where(and(eq(competitionTeams.competitionId,input.competitionId),
+          eq(competitionTeams.status,"ACCEPTED")));
+      if(Number(accepted?.value??0)>=competition.maxTeams)
+        throw errors.conflict("COMPETITION_FULL","This competition has reached its team capacity.");
+      await tx.update(competitionTeams).set({
+        status:"ACCEPTED",
+        ...(input.kind==="APPROVAL"?{seed:input.seed}:{ }),
+        respondedByUserId:input.actorUserId,respondedAt:input.now,updatedAt:input.now,
+      }).where(and(eq(competitionTeams.competitionId,input.competitionId),
+        eq(competitionTeams.teamId,input.teamId)));
+    });
   }
 
   async createCompetition(input: Parameters<CompetitionRepository["createCompetition"]>[0]) {

@@ -1,5 +1,6 @@
 import type {
   CompetitionDto,
+  CompetitionParticipationDto,
   CompetitionDiscoveryQuery,
   CompetitionDiscoveryResponse,
   CompetitionRewardDto,
@@ -82,6 +83,12 @@ export interface CompetitionRepository {
   listPublicCompetitions(): Promise<CompetitionListItemDto[]>;
   discoverPublicCompetitions(filters:CompetitionDiscoveryQuery,userId?:string):Promise<CompetitionDiscoveryResponse>;
   listMyPublicCompetitions(userId:string): Promise<CompetitionListItemDto[]>;
+  listMyCompetitionParticipations(userId:string,competitionId?:string):Promise<CompetitionParticipationDto[]>;
+  /** Perform capacity check and acceptance under one competition-row lock. */
+  acceptRegistrationWithCapacity(input:{
+    competitionId:string;teamId:string;actorUserId:string;
+    kind:"INVITATION"|"APPROVAL";seed:number|null;now:Date;
+  }):Promise<void>;
   createCompetition(input: {
     venueId: string;
     createdByUserId: string;

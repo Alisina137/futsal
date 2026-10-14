@@ -94,6 +94,7 @@ import type {
   CompetitionFeeUpdateRequest,
   CompetitionDiscoveryQuery,
   CompetitionDiscoveryResponse,
+  CompetitionParticipationsResponse,
   CompetitionListItemDto,
   CompetitionMediaPostCreateRequest,
   CompetitionMediaPostDto,
@@ -246,7 +247,7 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   if (isSafeRead(init)) {
     // Sensitive live administration must never be served from the app's offline
     // cache, and stale page queries must obey the caller's abort signal.
-    if(path.startsWith("/api/v1/admin/")||path.startsWith("/api/v1/venues/search?")||path.startsWith("/api/v1/competitions/discover"))
+    if(path.startsWith("/api/v1/admin/")||path.startsWith("/api/v1/venues/search?")||path.startsWith("/api/v1/competitions/discover")||path.endsWith("/participation"))
       return networkRequest<T>(path,init,accessToken);
     return cachedApiRead(path, accessToken, () => networkRequest<T>(path, init, accessToken));
   }
@@ -1217,6 +1218,12 @@ export const manualTeamApi = {
 };
 
 export const competitionApi = {
+  myParticipations:(accessToken:string,competitionId?:string)=>
+    request<CompetitionParticipationsResponse>(
+      competitionId?`/api/v1/competitions/${competitionId}/participation`:
+        "/api/v1/competitions/participation",
+      {cache:"no-store"},accessToken),
+
   discover:(options:CompetitionDiscoveryQuery,accessToken?:string)=>
     request<CompetitionDiscoveryResponse>(
       "/api/v1/competitions/discover"+(accessToken?"/private":"")+

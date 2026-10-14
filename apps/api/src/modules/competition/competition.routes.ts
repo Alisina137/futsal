@@ -56,6 +56,17 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
     catch (error) { next(error); }
   });
 
+  router.get("/competitions/participation",auth,async(request,response,next)=>{
+    try{response.json(await service.myParticipations(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+  router.get("/competitions/:competitionId/participation",auth,async(request,response,next)=>{
+    try{
+      const id=idSchema.parse(request.params.competitionId);
+      response.json(await service.myParticipations(request.auth!.userId,id));
+    }catch(error){next(error);}
+  });
+
   router.get("/competitions/mine",auth,async(request,response,next)=>{
     try {response.json(await service.listMyPublic(request.auth!.userId));}
     catch(error){next(error);}

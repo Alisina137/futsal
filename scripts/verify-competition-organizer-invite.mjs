@@ -15,7 +15,8 @@ assert(page.includes("teamApi.directory(session.accessToken)")
   && page.includes("!representedIds.has(team.id)"),
   "Organizer picker must list active teams not currently represented.");
 assert(page.includes("competitionApi.inviteTeam(session.accessToken,competitionId,{teamId:invitedTeamId,seed:null})")
-  && page.includes("competitionApi.register(session.accessToken,competitionId,selectedTeamId)"),
+  && page.includes("competitionApi.register(session.accessToken,competitionId,item.teamId)")
+  && page.includes('if(item.kind==="register")'),
   "Organizer invitations and manager applications must stay separate.");
 assert(page.includes('t("competition.organizerInviteHint")')
   && page.includes('t("competition.organizerInvitationSent")')
