@@ -71,7 +71,7 @@ export class FakeTeamRepository implements TeamRepository {
       (input.phoneE164 && item.phoneE164 === input.phoneE164) ||
       (input.emailNormalized && item.emailNormalized === input.emailNormalized)
     );
-    return user ? { id: user.id, displayName: user.displayName, username: user.username, roles: user.roles } : null;
+    return user ? { id: user.id, displayName: user.displayName, username: user.username, emailVerified:user.emailVerified, roles: user.roles } : null;
   }
 
   private playerTeams(userId: string, publicOnly: boolean) {
