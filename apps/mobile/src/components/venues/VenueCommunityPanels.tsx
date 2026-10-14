@@ -103,7 +103,7 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
           <AppText variant="caption" weight="medium">{"★ "+rating}</AppText>
           <View style={{flex:1,minWidth:60,height:7,backgroundColor:colors.surfaceMuted,borderRadius:4,overflow:"hidden"}}>
             <View style={{backgroundColor:"#B7791F",height:"100%",
-              width:(summary.reviewCount?100*(summary.ratingCounts[rating-1]??0)/summary.reviewCount:0)+"%"}}/>
+              width:`${summary.reviewCount?100*(summary.ratingCounts[rating-1]??0)/summary.reviewCount:0}%` as `${number}%`}}/>
           </View>
           <AppText variant="caption" muted>{summary.ratingCounts[rating-1]??0}</AppText>
         </View>)}
