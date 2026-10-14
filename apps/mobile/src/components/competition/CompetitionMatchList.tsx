@@ -40,6 +40,12 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
   const {t,language,isRTL}=useLocale();
   const [filter,setFilter]=useState<MatchFilter>(initialFilter);
   const teams=useMemo(()=>new Map(competition.teams.map(team=>[team.teamId,team])),[competition.teams]);
+  const totals={
+    ALL:competition.matches.length,
+    UPCOMING:competition.matches.filter(upcoming).length,
+    LIVE:competition.matches.filter(match=>match.status==="IN_PROGRESS").length,
+    FINISHED:competition.matches.filter(done).length,
+  };
   const matches=useMemo(()=>order(competition.matches.filter(match=>
     filter==="ALL"?true:
       filter==="FINISHED"?done(match):
@@ -69,6 +75,11 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
           style={{color:filter===value?"#FFFFFF":colors.text}}>
           {t(`competition.matchList.filter.${value}` as never)}
         </AppText>
+        <View style={[styles.filterCount,filter===value&&styles.filterCountSelected]}>
+          <AppText variant="caption" weight="bold" style={{color:filter===value?"#FFFFFF":colors.primary}}>
+            {totals[value]}
+          </AppText>
+        </View>
       </Pressable>)}
     </ScrollView>
     {matches.length===0?<Card style={styles.empty}>
@@ -105,7 +116,9 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
           accessibilityRole="button"
           accessibilityLabel={`${match.homeTeamName??t("competition.tbd")}, ${match.awayTeamName??t("competition.tbd")}`}
           onPress={()=>open(match)}
-          style={({pressed})=>[styles.matchRow,pressed&&styles.pressed]}>
+          style={({pressed})=>[styles.matchRow,
+            match.status==="IN_PROGRESS"&&styles.matchLive,
+            done(match)&&styles.matchFinished,pressed&&styles.pressed]}>
           <View style={[styles.rowInner,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <View style={styles.teams}>
               <View style={[styles.teamLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -131,10 +144,15 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
               {fixtureTime?<AppText variant="caption" weight="medium" style={styles.fixtureClock}
                 numberOfLines={1} forceLtr>{fixtureTime.time}</AppText>:null}
               {match.status==="IN_PROGRESS"
-                ?<AppText variant="caption" weight="bold" style={styles.liveTag}>
-                  {t("competition.profile.liveBadge")}
-                </AppText>
-                :null}
+                ?<View style={styles.liveIndicator}>
+                  <View style={styles.liveDot}/>
+                  <AppText variant="caption" weight="bold" style={styles.liveTag}>
+                    {t("competition.profile.liveBadge")}
+                  </AppText>
+                </View>
+                :<AppText variant="caption" weight="semibold" style={styles.fixtureState} numberOfLines={2}>
+                  {t(`competition.matchStatus.${match.status}` as never)}
+                </AppText>}
               {match.groupName&&group.stage==="GROUP"
                 ?<AppText variant="caption" muted numberOfLines={1} style={styles.groupName}>
                   {match.groupName}
@@ -142,10 +160,14 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
                 :null}
             </View>
           </View>
-          {match.status==="POSTPONED"||match.status==="CANCELLED"?
-            <AppText variant="caption" muted>
-              {t(`competition.matchStatus.${match.status}` as never)}
-            </AppText>:null}
+          <View style={[styles.matchFooter,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            {match.groupName?<AppText variant="caption" muted numberOfLines={1}
+              style={{flex:1}}>{match.groupName}</AppText>:<View style={{flex:1}}/>}
+            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+              {t("competition.phase4.matchDetails")}
+            </AppText>
+            <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={16} color={colors.primary}/>
+          </View>
         </Pressable>;
       })}
     </View>)}
@@ -155,9 +177,12 @@ const styles=StyleSheet.create({
   container:{gap:spacing.md},
   filterViewport:{height:50,minHeight:50,maxHeight:50,flexGrow:0,flexShrink:0},
   filters:{gap:spacing.sm,alignItems:"center",paddingVertical:3},
-  chip:{minHeight:44,paddingHorizontal:spacing.md,alignItems:"center",justifyContent:"center",
+  chip:{minHeight:44,paddingHorizontal:spacing.md,alignItems:"center",justifyContent:"center",gap:5,flexDirection:"row",
     borderRadius:radius.pill,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border},
   selected:{backgroundColor:colors.primary,borderColor:colors.primary},
+  filterCount:{minWidth:23,height:23,paddingHorizontal:4,alignItems:"center",justifyContent:"center",
+    backgroundColor:colors.primarySoft,borderRadius:12},
+  filterCountSelected:{backgroundColor:"rgba(255,255,255,.22)"},
   empty:{alignItems:"center",gap:spacing.md,padding:spacing.lg},
   roundGroup:{gap:spacing.xs},
   roundHeader:{minHeight:42,gap:spacing.sm,alignItems:"center",paddingHorizontal:spacing.sm,
@@ -165,7 +190,9 @@ const styles=StyleSheet.create({
   dayCount:{minWidth:27,height:27,borderRadius:14,alignItems:"center",justifyContent:"center",
     backgroundColor:colors.surface,paddingHorizontal:5},
   matchRow:{borderRadius:radius.md,backgroundColor:colors.surface,borderWidth:1,
-    borderColor:colors.border,padding:spacing.sm,gap:spacing.xs},
+    borderColor:colors.border,padding:spacing.md,gap:spacing.xs},
+  matchLive:{borderColor:"#D84D4D",borderWidth:1.5},
+  matchFinished:{borderColor:colors.primarySoft},
   rowInner:{gap:spacing.sm,alignItems:"stretch"},
   teams:{flex:1,gap:spacing.xs,minWidth:0},
   teamLine:{alignItems:"center",gap:spacing.sm,minHeight:37},
@@ -180,6 +207,11 @@ const styles=StyleSheet.create({
   fixtureDate:{textAlign:"center",color:colors.primary,lineHeight:17},
   fixtureClock:{textAlign:"center",color:colors.text,lineHeight:17},
   liveTag:{textAlign:"center",color:colors.danger},
+  liveIndicator:{flexDirection:"row",alignItems:"center",gap:5},
+  liveDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.danger},
+  fixtureState:{textAlign:"center",color:colors.textMuted},
+  matchFooter:{gap:spacing.xs,alignItems:"center",paddingTop:spacing.xs,
+    borderTopWidth:1,borderTopColor:colors.border},
   groupName:{textAlign:"center",lineHeight:16},
   pressed:{backgroundColor:colors.primarySoft},
 });
