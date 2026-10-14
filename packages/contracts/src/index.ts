@@ -1964,7 +1964,7 @@ export type CompetitionCreateRequest = z.infer<typeof competitionCreateRequestSc
 /** Only permanent image assets uploaded to the host venue may be assigned as branding.
  * Null removes the custom image. Arbitrary external URLs are not accepted. */
 export const competitionBrandImageRefSchema=z.string().regex(
-  /^\\/api\\/v1\\/media-assets\\/[0-9a-f-]{36}\\/[A-Za-z0-9_-]{32,64}$/,
+  /^\/api\/v1\/media-assets\/[0-9a-f-]{36}\/[A-Za-z0-9_-]{32,64}$/,
   "Upload an image through the organizer media picker.",
 );
 export const competitionUpdateRequestSchema = competitionConfigSchema.partial().extend({
