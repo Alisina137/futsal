@@ -136,8 +136,12 @@ export class TeamService {
 
   async requestToJoin(userId: string, teamId: string) {
     const user = await this.identity(userId);
-    if (user.roles.includes("REFEREE")) throw errors.forbidden("REFEREE_ROLE_EXCLUSIVE",
-      "Referees cannot request player membership.");
+    if(!user.emailVerified)
+      throw errors.forbidden("EMAIL_VERIFICATION_REQUIRED",
+        "Verify your email in Profile before requesting to join a team.");
+    if(user.roles.length>0)
+      throw errors.forbidden("TEAM_JOIN_BASIC_ACCOUNT_REQUIRED",
+        "Only verified basic accounts without an assigned role can request to join a team.");
     const team = await this.team(teamId);
     if (team.status !== "ACTIVE") throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
     if (team.managerUserId === userId) {
