@@ -524,6 +524,10 @@ export const ownerApi = {
 
 
 export const venueApi = {
+  scheduleChanges:(venueId:string,from:string,to:string)=>
+    networkRequest<import("@leaguekick/contracts").PublicVenueScheduleChangesResponse>(
+      `/api/v1/venues/${encodeURIComponent(venueId)}/schedule-changes?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      {cache:"no-store"}),
   reviews:(venueId:string,page=1,sort:"recent"|"highest"|"lowest"="recent")=>
     networkRequest<VenueReviewSummary>(
       `/api/v1/venues/${encodeURIComponent(venueId)}/reviews?page=${page}&sort=${sort}`),
