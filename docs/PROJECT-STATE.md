@@ -1,3 +1,11 @@
+## Notifications Phase 2 hotfix — inbox error isolation (2026-10-14)
+
+- Fixed a confirmed UI failure path in the Notifications tab: when loading an older page failed, the generic page error hid all previously loaded notification cards. The page now keeps those cards visible and provides a local retry for the failed page.
+- Individual notification read actions now reconcile the server unread badge through a lightweight authenticated `/api/v1/notifications/unread-count` endpoint without resetting pagination/scroll, and unread-count fetch failures no longer present a misleading read failure.
+- Public top navigation and native push bridge use the same count-only endpoint instead of fetching notifications just to refresh the badge.
+- Bulk mark-all and clear-read operations now affect only notifications with an actual IN_APP delivery, matching list and unread-count semantics; push-only records are untouched. Added regression coverage to `apps/api/test/notification.test.ts`.
+- No schema migration or new mobile dependency required. The main Release Readiness check and physical-device QA remain the release gates.
+
 ## Notifications Phase 2 — Inbox accuracy and reliability (2026-10-14)
 
 - Notification reads bypass the in-memory API cache and refresh the top-navigation badge on app resume; offline reads retain the last confirmed count rather than falsely showing zero.
