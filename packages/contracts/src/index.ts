@@ -2405,6 +2405,16 @@ export const notificationListResponseSchema=z.object({
   generatedAt:isoDateTimeSchema,
 });
 export type NotificationListResponse=z.infer<typeof notificationListResponseSchema>;
+export const venueNotificationPageSchema=z.object({
+  venueId:z.string().uuid(),
+  notifications:z.array(notificationDtoSchema),
+  total:z.number().int().nonnegative(),
+  unreadCount:z.number().int().nonnegative(),
+  page:z.number().int().positive(),
+  limit:z.number().int().positive(),
+  hasMore:z.boolean(),
+});
+export type VenueNotificationPage=z.infer<typeof venueNotificationPageSchema>;
 
 export const notificationPreferencesSchema = z.object({
   inAppEnabled: z.boolean(),
