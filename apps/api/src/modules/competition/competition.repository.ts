@@ -418,7 +418,9 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       startsAt:match.startsAt?.toISOString()??null,endsAt:match.endsAt?.toISOString()??null,
       stage:match.stage,roundNumber:match.roundNumber,
       homeTeamName:homeName??null,awayTeamName:awayName??null,
-      homeScore:match.homeScore,awayScore:match.awayScore,status:match.status,
+      homeScore:["COMPLETED","CORRECTED","IN_PROGRESS"].includes(match.status)?match.homeScore:null,
+      awayScore:["COMPLETED","CORRECTED","IN_PROGRESS"].includes(match.status)?match.awayScore:null,
+      status:match.status,
     })),total,page:query.page,limit:query.limit,hasMore:query.page*query.limit<total};
   }
 
