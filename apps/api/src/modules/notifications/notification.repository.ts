@@ -77,9 +77,9 @@ export class DrizzleNotificationRepository implements NotificationRepository {
   }
 
   private filtered(userId:string,filter:NotificationListFilter="ALL"){
-    const kind=filter==="BOOKINGS"?["BOOKING_CONFIRMED","BOOKING_CANCELLED"] as const:
+    const kind=filter==="BOOKINGS"?["BOOKING_CONFIRMED","BOOKING_CANCELLED","BOOKING_REQUEST"] as const:
       filter==="VENUES"?["SLOT_PROMOTION","SLOT_AVAILABLE","VENUE_POST"] as const:
-      filter==="TEAMS"?["TEAM_INVITATION","TEAM_ACTIVITY","TEAM_CHALLENGE","TEAM_ANNOUNCEMENT"] as const:
+      filter==="TEAMS"?["TEAM_INVITATION","TEAM_JOIN_REQUEST","TEAM_JOIN_DECISION","TEAM_ACTIVITY","TEAM_CHALLENGE","TEAM_ANNOUNCEMENT"] as const:
       filter==="COMPETITIONS"?["COMPETITION_UPDATE"] as const:null;
     return and(eq(notifications.userId,userId),
       filter==="UNREAD"?isNull(notifications.readAt):undefined,
