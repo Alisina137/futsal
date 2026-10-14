@@ -20,7 +20,7 @@ import type {VenueCompetitionSub} from "./VenueDetailSections";
 const PAGE_SIZE=12;
 type MatchScope="upcoming"|"results";
 
-function queryFor(venueId:string,sub:Exclude<VenueCompetitionSub,"matches">,page:number)
+function queryFor(venueId:string,sub:VenueCompetitionSub,page:number)
   :CompetitionDiscoveryQuery{
   const common:CompetitionDiscoveryQuery={
     venueId,q:"",province:"",city:"",fee:"any",sort:"starting",
