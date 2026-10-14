@@ -42,13 +42,28 @@ function dayKey(value:Date){
 function target(item:NotificationDto):()=>void{
   const id=(key:string)=>typeof item.data[key]==="string"?item.data[key] as string:null;
   switch(item.type){
-    case "BOOKING_CONFIRMED":case "BOOKING_CANCELLED":return ()=>router.push("/bookings");
-    case "BOOKING_REQUEST":return ()=>router.push("/owner/schedule");
-    case "TEAM_JOIN_REQUEST":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/manage",params:{teamId}});else router.push("/teams");};
+    case "BOOKING_CONFIRMED":case "BOOKING_CANCELLED":return ()=>{
+      const bookingId=id("bookingId");
+      router.push({pathname:"/bookings",params:{...(bookingId?{bookingId}:{})}});
+    };
+    case "BOOKING_REQUEST":return ()=>{
+      const bookingId=id("bookingId");
+      router.push({pathname:"/owner/schedule",params:{...(bookingId?{bookingId}:{})}});
+    };
+    case "TEAM_JOIN_REQUEST":return ()=>{
+      const teamId=id("teamId"),requestId=id("requestId");
+      if(teamId)router.push({pathname:"/teams/[teamId]/manage",
+        params:{teamId,...(requestId?{requestId}:{})}});
+      else router.push("/teams");
+    };
     case "TEAM_JOIN_DECISION":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]",params:{teamId}});else router.push("/teams");};
     case "TEAM_INVITATION":return ()=>router.push("/teams/invitations");
     case "ADMIN_ANNOUNCEMENT":return ()=>router.push("/support");
-    case "TEAM_CHALLENGE":return ()=>router.push("/dashboard");
+    case "TEAM_CHALLENGE":return ()=>{
+      const teamId=id("teamId"),challengeId=id("challengeId");
+      router.push({pathname:"/dashboard",params:{tab:"matches",
+        ...(teamId?{teamId}:{}),...(challengeId?{challengeId}:{})}});
+    };
     case "TEAM_ANNOUNCEMENT":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/announcements",params:{teamId}});else router.push("/teams");};
     case "TEAM_ACTIVITY":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/activities",params:{teamId}});else router.push("/teams");};
     case "COMPETITION_UPDATE":return ()=>{
@@ -93,6 +108,7 @@ export default function NotificationsScreen(){
   const [loadMoreError,setLoadMoreError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
   const [actionId,setActionId]=useState<string|null>(null);
+  const [expandedNoticeId,setExpandedNoticeId]=useState<string|null>(null);
   // Superseded requests may not overwrite a new filter, account or mutation.
   const generation=useRef(0);
   const mutationLock=useRef(false);
@@ -192,6 +208,10 @@ export default function NotificationsScreen(){
   }
   async function openItem(item:NotificationDto){
     if(!item.readAt)await markRead(item);
+    if(item.type==="ADMIN_ANNOUNCEMENT"&&item.data.moderation!==true){
+      setExpandedNoticeId(previous=>previous===item.id?null:item.id);
+      return;
+    }
     target(item)();
   }
   async function markAll(){
@@ -437,7 +457,7 @@ export default function NotificationsScreen(){
                 <AppText weight="bold" numberOfLines={2} style={{flex:1}}>{title(item)}</AppText>
                 {!item.readAt?<View style={styles.dot}/>:null}
               </View>
-              <AppText muted={Boolean(item.readAt)} numberOfLines={3}>{body(item)}</AppText>
+              <AppText muted={Boolean(item.readAt)} numberOfLines={expandedNoticeId===item.id?undefined:3}>{body(item)}</AppText>
               <AppText variant="caption" muted>
                 {formatPostTimeAgo(item.createdAt,language)}
               </AppText>
