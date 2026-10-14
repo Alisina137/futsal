@@ -90,19 +90,21 @@ export default function NotificationsScreen(){
   const [loadMoreError,setLoadMoreError]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
+  const [actionError,setActionError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
   const [actionId,setActionId]=useState<string|null>(null);
   const [cursor,setCursor]=useState<string|null>(null);
   const requestSequence=useRef(0);
   const actionPending=useRef(false);
-  const refreshCount=useCallback(async()=>{
+  const refreshCount=useCallback(async(sequence:number)=>{
     if(!token)return;
     try{
       const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE});
+      if(sequence!==requestSequence.current)return;
       setItems(result.notifications);setTotal(result.total);setHasMore(result.hasMore);
       setCursor(result.nextCursor??null);setUnreadCount(result.unreadCount);
       publishNotificationUnread(token,result.unreadCount);setError(null);
-    }catch{setError(t("notifications.loadError"));}
+    }catch{if(sequence===requestSequence.current)setActionError(t("notifications.loadError"));}
   },[token,filter,t]);
 
   useFocusEffect(useCallback(()=>{
@@ -112,7 +114,7 @@ export default function NotificationsScreen(){
       return()=>{active=false;};
     }
     const sequence=++requestSequence.current;
-    setLoading(true);setError(null);setLoadMoreError(false);setCursor(null);
+    setLoading(true);setError(null);setActionError(null);setLoadMoreError(false);setCursor(null);
     void notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0}).then(result=>{
       if(!active||sequence!==requestSequence.current)return;
       setCursor(result.nextCursor??null);
@@ -124,8 +126,8 @@ export default function NotificationsScreen(){
     }).finally(()=>{if(active)setLoading(false);});
     const appState=AppState.addEventListener("change",state=>{
       if(state==="active"&&active){
-        ++requestSequence.current;
-        void refreshCount();
+        const reloadId=++requestSequence.current;
+        void refreshCount(reloadId);
       }
     });
     return()=>{active=false;++requestSequence.current;appState.remove();};
@@ -133,7 +135,7 @@ export default function NotificationsScreen(){
 
   async function refresh(){
     if(!token||refreshing)return;
-    setRefreshing(true);setLoadMoreError(false);
+    setRefreshing(true);setLoadMoreError(false);setActionError(null);
     const sequence=++requestSequence.current;
     try{
       const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0});
@@ -168,7 +170,7 @@ export default function NotificationsScreen(){
   }
   async function markRead(item:NotificationDto){
     if(!token||item.readAt||actionPending.current)return;
-    actionPending.current=true;
+    actionPending.current=true;setActionError(null);
     try{
       const {notification}=await notificationApi.markRead(token,item.id);
       if(filter==="UNREAD"){setItems(prev=>prev.filter(x=>x.id!==item.id));setTotal(n=>Math.max(0,n-1));}
@@ -180,7 +182,7 @@ export default function NotificationsScreen(){
       }catch{
         updateUnread(Math.max(0,unreadCount-1));
       }
-    }catch{setError(t("notifications.actionError"));}
+    }catch{setActionError(t("notifications.actionError"));}
     finally{actionPending.current=false;}
   }
   async function openItem(item:NotificationDto){
@@ -189,14 +191,14 @@ export default function NotificationsScreen(){
   }
   async function markAll(){
     if(!token||busy||unreadCount===0)return;
-    setBusy(true);setError(null);
+    setBusy(true);setActionError(null);
     try{
       const result=await notificationApi.markAllRead(token);
       updateUnread(result.unreadCount);
       setCursor(null);++requestSequence.current;
       if(filter==="UNREAD"){setItems([]);setTotal(0);setHasMore(false);}
       else setItems(prev=>prev.map(x=>x.readAt?x:{...x,readAt:new Date().toISOString()}));
-    }catch{setError(t("notifications.actionError"));}
+    }catch{setActionError(t("notifications.actionError"));}
     finally{setBusy(false);}
   }
   function remove(item:NotificationDto){
@@ -210,7 +212,7 @@ export default function NotificationsScreen(){
           setItems(prev=>prev.filter(x=>x.id!==item.id));
           setTotal(n=>Math.max(0,n-1));
           updateUnread(result.unreadCount);
-        }catch{setError(t("notifications.actionError"));}
+        }catch{setActionError(t("notifications.actionError"));}
         finally{setBusy(false);}
       })()},
     ]);
@@ -224,16 +226,26 @@ export default function NotificationsScreen(){
         try{
           const result=await notificationApi.clearRead(token);
           updateUnread(result.unreadCount);setRetry(n=>n+1);
-        }catch{setError(t("notifications.actionError"));}
+        }catch{setActionError(t("notifications.actionError"));}
         finally{setBusy(false);}
       })()},
     ]);
   }
   function title(item:NotificationDto){
-    return item.type==="SLOT_PROMOTION"||item.type==="VENUE_POST"||item.type==="COMPETITION_UPDATE"
+    return item.type==="SLOT_PROMOTION"||item.type==="VENUE_POST"||item.type==="COMPETITION_UPDATE"||item.type==="ADMIN_ANNOUNCEMENT"
       ?item.title:t(`notifications.type.${item.type}` as never);
   }
   function body(item:NotificationDto){
+    if(item.type==="SLOT_AVAILABLE"&&typeof item.data.startsAt==="string"){
+      const startsAt=item.data.startsAt;
+      const parts=formatLocalDateTimeParts(startsAt,language);
+      const venue=typeof item.data.venueName==="string"?item.data.venueName:"";
+      return t("notifications.message.slotAvailable",{venue,date:parts.date,time:parts.time});
+    }
+    if(item.type==="SLOT_PROMOTION"){
+      const venue=typeof item.data.venueName==="string"?item.data.venueName:"";
+      return venue?t("notifications.message.slotPromotion",{venue}):t("notifications.body.SLOT_PROMOTION");
+    }
     if(item.type==="BOOKING_CONFIRMED"){
       const startsAt=typeof item.data.startsAt==="string"?item.data.startsAt:null;
       if(startsAt){
@@ -268,6 +280,9 @@ export default function NotificationsScreen(){
       return t("notifications.message.teamInvitation",{team:item.data.teamName});
     if(item.type==="VENUE_POST"&&typeof item.data.venueName==="string")
       return t("notifications.message.venuePost",{venue:item.data.venueName});
+    // Team activities, team announcements, competitions and platform notices can
+    // contain user-authored content. Preserve that content, rather than
+    // incorrectly "translating" a person's own message.
     return item.body||t(`notifications.body.${item.type}` as never);
   }
 
@@ -372,6 +387,12 @@ export default function NotificationsScreen(){
     </View>:null}
 
     {loading?<DataLoadingState variant="list" minHeight={450}/>:null}
+    {actionError&&!loading?<Card style={styles.error} accessibilityRole="alert">
+      <Ionicons name="alert-circle-outline" size={22} color={colors.danger}/>
+      <AppText style={{color:colors.danger,flex:1}}>{actionError}</AppText>
+      <Button label={t("common.retry")} variant="secondary"
+        onPress={()=>{setActionError(null);setRetry(n=>n+1);}}/>
+    </Card>:null}
     {error?<Card style={styles.error}>
       <Ionicons name="cloud-offline-outline" size={24} color={colors.danger}/>
       <AppText style={{color:colors.danger,flex:1}}>{error}</AppText>
@@ -400,6 +421,7 @@ export default function NotificationsScreen(){
         <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Pressable accessibilityRole="button" onPress={()=>void openItem(item)}
             accessibilityLabel={`${title(item)}. ${body(item)}`}
+            accessibilityState={{busy:actionPending.current}}
             style={[styles.itemPress,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <View style={[styles.typeIcon,{backgroundColor:!item.readAt?colors.primarySoft:colors.surfaceMuted}]}>
               <Ionicons name={ICONS[item.type]} size={23} color={colors.primary}/>
@@ -417,6 +439,7 @@ export default function NotificationsScreen(){
           </Pressable>
           <Pressable testID={`notification-actions-${item.id}`} accessibilityRole="button"
             accessibilityLabel={t("notifications.moreActions")}
+            accessibilityState={{expanded:actionId===item.id}}
             onPress={()=>setActionId(id=>id===item.id?null:item.id)}
             style={({pressed})=>[styles.moreIcon,actionId===item.id&&styles.moreIconActive,
               pressed&&styles.pressed]}>
