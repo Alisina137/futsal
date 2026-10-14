@@ -257,7 +257,10 @@ export class CompetitionService {
     if(!match)throw errors.badRequest("MATCH_NOT_FOUND","Match not found in this competition.");
     const playerStats=match.status==="COMPLETED"||match.status==="CORRECTED"
       ?await this.repository.listPublicMatchPlayerStats(match.id):[];
-    return {match,playerStats};
+    const acceptedTeamIds=new Set(competition.teams.map(team=>team.teamId));
+    // Corrections/old match events can retain stats for a team subsequently
+    // removed from registration: never expose that team's private player data.
+    return {match,playerStats:playerStats.filter(stat=>acceptedTeamIds.has(stat.teamId))};
   }
 
   async replaceRewards(ownerUserId:string,competitionId:string,

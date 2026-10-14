@@ -6,12 +6,24 @@ on:
     paths:
       - "packages/database/scripts/seed-competition-story.mjs"
       - "scripts/test-competition-story-db.mjs"
+      - "apps/api/scripts/competition-phase7-db.ts"
+      - "apps/api/src/modules/competition/**"
+      - "apps/api/test/competition-phase7-security.test.ts"
+      - "packages/database/src/schema.ts"
+      - "packages/database/drizzle/0041_competition_branding.sql"
+      - "scripts/verify-competitions-phase7.mjs"
       - ".github/workflows/qa-competition-db.yml"
   push:
     branches: [main]
     paths:
       - "packages/database/scripts/seed-competition-story.mjs"
       - "scripts/test-competition-story-db.mjs"
+      - "apps/api/scripts/competition-phase7-db.ts"
+      - "apps/api/src/modules/competition/**"
+      - "apps/api/test/competition-phase7-security.test.ts"
+      - "packages/database/src/schema.ts"
+      - "packages/database/drizzle/0041_competition_branding.sql"
+      - "scripts/verify-competitions-phase7.mjs"
       - ".github/workflows/qa-competition-db.yml"
 
 permissions:
@@ -51,3 +63,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:migrate
       - run: node scripts/test-competition-story-db.mjs
+      - run: pnpm --filter @leaguekick/api exec tsx scripts/competition-phase7-db.ts

@@ -35,6 +35,14 @@ describe("Public competition match detail visibility",()=>{
     const other=await service.create(owner,{...input,name:"Other League"});
     const team1=repo.seedTeam(randomUUID(),"Blue");
     const team2=repo.seedTeam(randomUUID(),"Red");
+    // A published match may display verified player statistics only for an
+    // accepted participant. An unrelated or removed team's stats stay private.
+    repo.registrations.set(`${competition.id}:${team1.id}`,{
+      competitionId:competition.id,teamId:team1.id,teamName:team1.name,logoUrl:null,
+      managerUserId:team1.managerUserId,teamPrivacy:"PUBLIC",offlineVenueId:null,claimedAt:null,
+      status:"ACCEPTED",seed:1,groupId:null,groupName:null,feeStatus:"UNPAID",
+      feePaymentReference:null,feeConfirmedAt:null,
+    });
     const match=fixture(competition.id,team1.id,team2.id,"COMPLETED");
     repo.matches.set(match.id,match);
     const otherMatch=fixture(other.id,team1.id,team2.id,"COMPLETED");

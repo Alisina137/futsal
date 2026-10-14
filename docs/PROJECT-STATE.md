@@ -1,3 +1,12 @@
+## Competitions redesign — Phase 7: security, regression & release readiness (October 14, 2026)
+
+- Implemented release hardening in the real competition backend/mobile, preserving the Phase 1–6 design and existing APIs. Owner competitions no longer incur one accepted-count query **per competition**; two batched queries return accepted counts and the most recent public image. Directory and discovery fallback excludes posts whose audience visibility is private.
+- My Competitions now includes team managers without an ACTIVE team-membership row as well as current ACTIVE members, scoped to ACTIVE teams and published competitions. Public media SQL filters on **both status=PUBLISHED and visibility=PUBLIC**; public match statistics exclude teams not currently accepted.
+- Prevented race between a limit reduction and simultaneous team approvals by locking the same competition row in the limit-reduction transaction as the acceptance transaction. A second authoritative count inside the transaction rejects decreases below accepted teams. Existing idempotency and accepted registration rules are kept.
+- Failed incremental pagination now leaves previously loaded competition cards visible and offers Retry; race response IDs, RTL card alignment, 720px 2-column breakpoint and 144×144 physical top-left image are preserved.
+- Added `apps/api/test/competition-phase7-security.test.ts`, `scripts/verify-competitions-phase7.mjs` to root verify, and real PostgreSQL integration `apps/api/scripts/competition-phase7-db.ts` on throwaway CI DB via the competition QA workflow. No new migration for Phase 7; Phase 6 migration 0041 is still required.
+- Release manual steps and limitations: `docs/QA-COMPETITIONS-PHASE7.md`. **Device RTL/Android/iOS verification must be performed by a person**, and cannot be certified solely from CI.
+
 ## Competitions redesign — Phase 6: permanent logo & cover branding (October 14, 2026)
 
 - New optional **competition.logoUrl** and **competition.coverImageUrl** persist independently on the `competitions` row. Added `0041_competition_branding.sql` with two nullable columns and a registered Drizzle journal entry; existing competitions remain valid without migrating old published posts.

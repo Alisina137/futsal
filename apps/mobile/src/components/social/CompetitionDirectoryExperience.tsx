@@ -78,6 +78,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   const [currentPage,setCurrentPage]=useState(1);
   const [loading,setLoading]=useState(true);
   const [loadingMore,setLoadingMore]=useState(false);
+  const [loadMoreError,setLoadMoreError]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
   const [query,setQuery]=useState("");
@@ -108,8 +109,8 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   }
   const load=useCallback(async(filters:CompetitionDiscoveryQuery,page=1,append=false)=>{
     const id=++requestId.current;
-    if(append)setLoadingMore(true);
-    else{setLoading(true);setError(null);}
+    if(append){setLoadingMore(true);setLoadMoreError(false);}
+    else{setLoading(true);setError(null);setLoadMoreError(false);}
     if(privateScope&&!token){
       if(requestId.current===id){
         setItems([]);setTotal(0);setHasMore(false);setLoading(false);setLoadingMore(false);
@@ -124,7 +125,11 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
       setTotal(result.total);setCurrentPage(page);setHasMore(result.hasMore);
       setFacets(result.facets);
     }catch{
-      if(requestId.current===id)setError(t("competition.loadError"));
+      if(requestId.current===id){
+        // A failed next page must never erase already-loaded competitions.
+        if(append)setLoadMoreError(true);
+        else setError(t("competition.loadError"));
+      }
     }finally{
       if(requestId.current===id){setLoading(false);setLoadingMore(false);}
     }
@@ -501,8 +506,13 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
         style={[styles.grid,{flexDirection:isRTL?"row-reverse":"row"}]}>
         {items.map(render)}
       </View>:null}
-      {!loading&&!error&&hasMore?<View testID="competitions-show-more">
-        <Button variant="secondary" label={t("competition.phase1.showMore")}
+      {!loading&&!error&&hasMore?<View testID="competitions-show-more" style={{gap:spacing.sm}}>
+        {loadMoreError?<Card testID="competitions-pagination-error">
+          <AppText style={{color:colors.danger}} accessibilityLiveRegion="polite">
+            {t("competition.loadError")}
+          </AppText>
+        </Card>:null}
+        <Button variant="secondary" label={loadMoreError?t("common.retry"):t("competition.phase1.showMore")}
           loading={loadingMore} disabled={loadingMore}
           onPress={()=>void load(applied.current,currentPage+1,true)}/>
       </View>:null}
