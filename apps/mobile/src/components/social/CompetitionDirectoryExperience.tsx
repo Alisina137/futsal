@@ -329,12 +329,12 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
           allLabel={t("competition.phase2.allCities")}
           options={facets.cities.map(value=>({value,label:value}))} onSelect={pickCity}/>
         <DirectoryFilterSelect testID="competition-status-select"
-          label={t("competition.filterStatus")} value={status}
+          label={t("competition.filterStatus")} value={status??""}
           allLabel={t("competition.allStatuses")}
           options={(["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS","COMPLETED","ARCHIVED"] as const)
             .map(value=>({value,label:t(`competition.status.${value}` as never)}))} onSelect={pickStatus}/>
         <DirectoryFilterSelect testID="competition-format-select"
-          label={t("competition.format")} value={format}
+          label={t("competition.format")} value={format??""}
           allLabel={t("competition.phase2.allFormats")}
           options={(["LEAGUE","KNOCKOUT","GROUP_KNOCKOUT"] as const)
             .map(value=>({value,label:t(`competition.format.${value}` as never)}))} onSelect={pickFormat}/>
