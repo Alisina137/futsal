@@ -207,7 +207,8 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
         detail={[team.city,team.district,team.province].filter(Boolean).join(" · ")}
         badge={t("teams.members",{count:team.rosterCount})}
         statusLabel={a.status??""} statusTone={a.tone}
-        detailsLabel={t("teams.viewTeam")} actionLabel={a.label}
+        detailsLabel={t("teams.viewTeam")}
+        actionLabel={!canRequestTeamJoin&&!team.myMembershipRole&&!team.joinRequestStatus?"":a.label}
         actionDisabled={a.disabled||!token||joiningId!==null} busy={joiningId===team.id}
         onDetails={()=>open(team.id)} onAction={()=>void (team.joinRequestStatus==="PENDING"?cancel(team.id):join(team.id))}/>
     </View>;
