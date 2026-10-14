@@ -55,6 +55,21 @@ assert.ok(about.includes('tx("hoursDisclaimer")')&&about.includes('tx("priceDisc
   about.includes("venue.bookingMode"),"Do not confuse regular hours/base price with live inventory or omit booking policy.");
 assert.ok(navigation.includes("switchVenueMain")&&about.includes('if(sub==="preferences")return <VenueSavedTimePanel'),
   "Phase 2 must preserve Phase 1 navigation and current saved-time access.");
+const route=read("apps/api/src/modules/booking/booking.routes.ts");
+const reviewRepo=read("apps/api/src/modules/booking/booking.repository.ts");
+const reviewUi=read("apps/mobile/src/components/venues/VenueCommunityPanels.tsx");
+const reviewApi=read("apps/mobile/src/lib/api.ts");
+assert.ok(contracts.includes("ratingCounts:z.array(z.number().int().nonnegative()).length(5)")&&
+  contracts.includes('venueReviewSortSchema=z.enum(["recent","highest","lowest"])')&&
+  route.includes('max(500).default(1)')&&route.includes("venueReviewSortSchema.default")&&
+  reviewRepo.includes("page*limit<count")&&reviewRepo.includes(".offset((page-1)*limit)")&&
+  reviewUi.includes("venueApi.reviews(venue.id,summary.page+1,sort)")&&
+  reviewUi.includes("setEligibleLimit(n=>n+10)")&&
+  reviewApi.includes('sort:"recent"|"highest"|"lowest"="recent"'),
+  "Verified reviews must be paged, sorted and user-private without leaking booking identity.");
+for(const key of ["vd2.reviewSort.recent","vd2.reviewSort.highest","vd2.reviewSort.lowest",
+  "vd2.moreReviews","vd2.moreEligible"])
+  assert.equal(locale.split('"'+key+'"').length-1,3,"Missing new review translation "+key);
 for(const key of ["vd.sub.about.hours","vd.sub.about.policies","vd.sub.about.location",
   "vd2.verified","vd2.amenities","vd2.owner.houseRules","vd2.owner.amenities",
   "vd2.hoursDisclaimer","vd2.priceDisclaimer","vd2.amenity.LIGHTING","vd2.day.0"]){
