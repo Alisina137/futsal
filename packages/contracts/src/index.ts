@@ -1015,10 +1015,15 @@ export const venueReviewDtoSchema=z.object({
   verified:z.literal(true),
 });
 export type VenueReviewDto=z.infer<typeof venueReviewDtoSchema>;
+export const venueReviewSortSchema=z.enum(["recent","highest","lowest"]);
+export type VenueReviewSort=z.infer<typeof venueReviewSortSchema>;
 export const venueReviewSummarySchema=z.object({
   venueId:z.string().uuid(),
   averageRating:z.number().min(0).max(5),
   reviewCount:z.number().int().nonnegative(),
+  ratingCounts:z.array(z.number().int().nonnegative()).length(5),
+  page:z.number().int().positive(),
+  hasMore:z.boolean(),
   reviews:z.array(venueReviewDtoSchema),
 });
 export type VenueReviewSummary=z.infer<typeof venueReviewSummarySchema>;
