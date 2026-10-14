@@ -16,6 +16,7 @@ export type TeamIdentityUser = {
   id: string;
   displayName: string;
   username: string | null;
+  emailVerified: boolean;
   roles: UserRole[];
 };
 

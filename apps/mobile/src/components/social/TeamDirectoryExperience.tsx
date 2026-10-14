@@ -30,6 +30,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
   const {width:windowWidth}=useWindowDimensions();
   const twoColumns=windowWidth>=720;
   const token=session?.accessToken;
+  const canRequestTeamJoin=session?.user.emailVerified===true&&session.user.roles.length===0;
   const [teams,setTeams]=useState<TeamDiscoveryItem[]>([]);
   const [followed,setFollowed]=useState<TeamDiscoveryItem[]>([]);
   const [followedTotal,setFollowedTotal]=useState(0);
@@ -168,7 +169,7 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
     }finally{setJoiningId(null);}
   }
   async function join(id:string){
-    if(!token||joiningId)return;
+    if(!token||joiningId||!canRequestTeamJoin)return;
     setJoiningId(id);setError(null);
     try{
       await teamApi.requestJoin(token,id);
@@ -185,6 +186,9 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
     }:team.joinRequestStatus==="PENDING"?{
       label:t("teams.phase4.cancelRequest"),disabled:false,
       status:t("teams.phase4.pendingReview"),tone:"warning" as const,
+    }:!canRequestTeamJoin?{
+      label:t(session?.user.emailVerified?"teams.invitationOnly":"settings.joinTeamVerifyHint"),
+      disabled:true,status:null,tone:"muted" as const,
     }:!team.allowJoinRequests?{
       label:t("teams.invitationOnly"),disabled:true,
       status:t("teams.invitationOnly"),tone:"muted" as const,
@@ -203,7 +207,8 @@ export function TeamDirectoryExperience({mode}:{mode:Mode}){
         detail={[team.city,team.district,team.province].filter(Boolean).join(" · ")}
         badge={t("teams.members",{count:team.rosterCount})}
         statusLabel={a.status??""} statusTone={a.tone}
-        detailsLabel={t("teams.viewTeam")} actionLabel={a.label}
+        detailsLabel={t("teams.viewTeam")}
+        actionLabel={!canRequestTeamJoin&&!team.myMembershipRole&&!team.joinRequestStatus?"":a.label}
         actionDisabled={a.disabled||!token||joiningId!==null} busy={joiningId===team.id}
         onDetails={()=>open(team.id)} onAction={()=>void (team.joinRequestStatus==="PENDING"?cancel(team.id):join(team.id))}/>
     </View>;

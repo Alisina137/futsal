@@ -38,7 +38,9 @@ async function register(ctx:ReturnType<typeof setup>,username:string,phone:strin
   expect(session.status).toBe(200);
   ctx.teamRepository.seedUser({
     id:session.body.user.id,displayName:username,username,
-    phoneE164:session.body.user.phone,roles:["TEAM_MANAGER"],
+    phoneE164:session.body.user.phone,
+    emailVerified:true,
+    roles:/(?:manager|mgr|_other)/.test(username)?["TEAM_MANAGER"]:[],
   });
   return {token:session.body.accessToken as string,userId:session.body.user.id as string};
 }

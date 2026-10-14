@@ -74,13 +74,13 @@ export function SocialDirectoryCard({
           <AppText variant="caption" numberOfLines={2} weight="semibold"
             style={styles.detailsText}>{detailsLabel}</AppText>
         </Pressable>
-        <Pressable testID={`social-action-${id}`} accessibilityRole="button" accessibilityLabel={actionLabel}
+        {actionLabel?<Pressable testID={`social-action-${id}`} accessibilityRole="button" accessibilityLabel={actionLabel}
           accessibilityState={{disabled:actionDisabled||busy}}
           disabled={actionDisabled||busy} onPress={onAction}
           style={({pressed})=>[styles.button,styles.primary,(actionDisabled||busy)&&styles.disabled,pressed&&styles.pressed]}>
           <AppText variant="caption" weight="bold" numberOfLines={2}
             style={styles.actionText}>{actionLabel}</AppText>
-        </Pressable>
+        </Pressable>:null}
       </View>
     </View>
   </View>;
