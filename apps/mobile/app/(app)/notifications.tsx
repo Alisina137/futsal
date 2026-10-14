@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {NotificationDto,NotificationListFilter} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
-import {useCallback,useMemo,useState} from "react";
-import {Alert,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {useCallback,useMemo,useRef,useState} from "react";
+import {Alert,AppState,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {notificationApi} from "../../src/lib/api";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../src/lib/date-time";
 import {publishNotificationUnread} from "../../src/lib/notification-events";
@@ -91,6 +91,18 @@ export default function NotificationsScreen(){
   const [error,setError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
   const [actionId,setActionId]=useState<string|null>(null);
+  const [cursor,setCursor]=useState<string|null>(null);
+  const requestSequence=useRef(0);
+  const actionPending=useRef(false);
+  const refreshCount=useCallback(async()=>{
+    if(!token)return;
+    try{
+      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE});
+      setItems(result.notifications);setTotal(result.total);setHasMore(result.hasMore);
+      setCursor(result.nextCursor??null);setUnreadCount(result.unreadCount);
+      publishNotificationUnread(token,result.unreadCount);setError(null);
+    }catch{setError(t("notifications.loadError"));}
+  },[token,filter,t]);
 
   useFocusEffect(useCallback(()=>{
     let active=true;
@@ -98,24 +110,35 @@ export default function NotificationsScreen(){
       setItems([]);setTotal(0);setUnreadCount(0);setHasMore(false);setLoading(false);
       return()=>{active=false;};
     }
-    setLoading(true);setError(null);
+    const sequence=++requestSequence.current;
+    setLoading(true);setError(null);setCursor(null);
     void notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0}).then(result=>{
-      if(!active)return;
+      if(!active||sequence!==requestSequence.current)return;
+      setCursor(result.nextCursor??null);
       setItems(result.notifications);setTotal(result.total);
       setHasMore(result.hasMore);setUnreadCount(result.unreadCount);
       publishNotificationUnread(token,result.unreadCount);
     }).catch(()=>{
-      if(active)setError(t("notifications.loadError"));
+      if(active&&sequence===requestSequence.current)setError(t("notifications.loadError"));
     }).finally(()=>{if(active)setLoading(false);});
-    return()=>{active=false;};
-  },[token,filter,retry,t]));
+    const appState=AppState.addEventListener("change",state=>{
+      if(state==="active"&&active){
+        ++requestSequence.current;
+        void refreshCount();
+      }
+    });
+    return()=>{active=false;++requestSequence.current;appState.remove();};
+  },[token,filter,retry,t,refreshCount]));
 
   async function refresh(){
     if(!token||refreshing)return;
     setRefreshing(true);
+    const sequence=++requestSequence.current;
     try{
       const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0});
+      if(sequence!==requestSequence.current)return;
       setItems(result.notifications);setTotal(result.total);setHasMore(result.hasMore);
+      setCursor(result.nextCursor??null);
       setUnreadCount(result.unreadCount);publishNotificationUnread(token,result.unreadCount);
       setError(null);
     }catch{setError(t("notifications.loadError"));}
@@ -124,13 +147,15 @@ export default function NotificationsScreen(){
   async function more(){
     if(!token||!hasMore||loadingMore||loading||busy)return;
     setLoadingMore(true);
+    const sequence=requestSequence.current;
     try{
-      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:items.length});
+      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,...(cursor?{cursor}:{offset:items.length})});
+      if(sequence!==requestSequence.current)return;
       setItems(current=>{
         const ids=new Set(current.map(x=>x.id));
         return [...current,...result.notifications.filter(x=>!ids.has(x.id))];
       });
-      setTotal(result.total);setHasMore(result.hasMore);
+      setTotal(result.total);setHasMore(result.hasMore);setCursor(result.nextCursor??null);
       setUnreadCount(result.unreadCount);publishNotificationUnread(token,result.unreadCount);
     }catch{setError(t("notifications.loadError"));}
     finally{setLoadingMore(false);}
@@ -140,13 +165,15 @@ export default function NotificationsScreen(){
     if(token)publishNotificationUnread(token,count);
   }
   async function markRead(item:NotificationDto){
-    if(!token||item.readAt)return;
+    if(!token||item.readAt||actionPending.current)return;
+    actionPending.current=true;
     try{
       const {notification}=await notificationApi.markRead(token,item.id);
       if(filter==="UNREAD"){setItems(prev=>prev.filter(x=>x.id!==item.id));setTotal(n=>Math.max(0,n-1));}
       else setItems(prev=>prev.map(x=>x.id===item.id?notification:x));
-      updateUnread(Math.max(0,unreadCount-1));
+      await refreshCount();
     }catch{setError(t("notifications.actionError"));}
+    finally{actionPending.current=false;}
   }
   async function openItem(item:NotificationDto){
     if(!item.readAt)await markRead(item);
@@ -158,6 +185,7 @@ export default function NotificationsScreen(){
     try{
       const result=await notificationApi.markAllRead(token);
       updateUnread(result.unreadCount);
+      setCursor(null);++requestSequence.current;
       if(filter==="UNREAD"){setItems([]);setTotal(0);setHasMore(false);}
       else setItems(prev=>prev.map(x=>x.readAt?x:{...x,readAt:new Date().toISOString()}));
     }catch{setError(t("notifications.actionError"));}
