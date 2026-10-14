@@ -220,7 +220,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
               <View style={[styles.teamLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
                 <Pressable accessibilityRole={match.homeTeamId&&!home?.offline?"button":"text"}
                   disabled={!match.homeTeamId||Boolean(home?.offline)}
-                  onPress={()=>match.homeTeamId&&router.push({pathname:"/teams/[teamId]",params:{teamId:match.homeTeamId}})}
+                  onPress={event=>{event.stopPropagation();if(match.homeTeamId)router.push({pathname:"/teams/[teamId]",params:{teamId:match.homeTeamId}});}}
                   style={[styles.teamButton,{flexDirection:isRTL?"row-reverse":"row"}]}>
                   <TeamLogo uri={home?.logoUrl}/>
                   <AppText weight="semibold" numberOfLines={1} style={styles.teamText}>
@@ -232,7 +232,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
               <View style={[styles.teamLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
                 <Pressable accessibilityRole={match.awayTeamId&&!away?.offline?"button":"text"}
                   disabled={!match.awayTeamId||Boolean(away?.offline)}
-                  onPress={()=>match.awayTeamId&&router.push({pathname:"/teams/[teamId]",params:{teamId:match.awayTeamId}})}
+                  onPress={event=>{event.stopPropagation();if(match.awayTeamId)router.push({pathname:"/teams/[teamId]",params:{teamId:match.awayTeamId}});}}
                   style={[styles.teamButton,{flexDirection:isRTL?"row-reverse":"row"}]}>
                   <TeamLogo uri={away?.logoUrl}/>
                   <AppText weight="semibold" numberOfLines={1} style={styles.teamText}>
@@ -272,9 +272,9 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
             </View>
           </View>
           <View style={[styles.matchFooter,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <Pressable accessibilityRole="button" onPress={()=>router.push({
+            <Pressable accessibilityRole="button" onPress={event=>{event.stopPropagation();router.push({
               pathname:"/venues/[venueId]",params:{venueId:competition.venueId},
-            })} style={[styles.venueLink,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            });}} style={[styles.venueLink,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <Ionicons name="location-outline" size={15} color={colors.primary}/>
               <AppText variant="caption" numberOfLines={1} style={{color:colors.primary,flexShrink:1}}>
                 {match.areaName?`${competition.venueName} · ${match.areaName}`:competition.venueName}
