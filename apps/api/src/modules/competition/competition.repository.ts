@@ -76,7 +76,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
   constructor(private readonly db: Database) {}
 
   async isOwnedBrandAsset(input:{venueId:string;ownerUserId:string;imageUrl:string;purpose:"PROFILE"|"COVER"}):Promise<boolean>{
-    const match=/^\\/api\\/v1\\/media-assets\\/([0-9a-f-]{36})\\/([A-Za-z0-9_-]{32,64})$/.exec(input.imageUrl);
+    const match=/^\/api\/v1\/media-assets\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{32,64})$/.exec(input.imageUrl);
     if(!match)return false;
     const [asset]=await this.db.select({id:venueMediaAssets.id}).from(venueMediaAssets)
       .where(and(eq(venueMediaAssets.id,match[1]!),eq(venueMediaAssets.publicToken,match[2]!),
