@@ -2281,6 +2281,8 @@ export const competitionDiscoveryQuerySchema=z.object({
   province:z.string().trim().max(80).default(""),
   city:z.string().trim().max(80).default(""),
   status:competitionStatusSchema.exclude(["DRAFT","CANCELLED"]).optional(),
+  /** Apply the venue constraint in SQL before pagination, counts and results. */
+  venueId:z.string().uuid().optional(),
   format:competitionFormatSchema.optional(),
   fee:z.enum(["any","free","paid"]).default("any"),
   minFee:z.coerce.number().int().min(0).max(10_000_000).optional(),
@@ -2299,6 +2301,36 @@ export const competitionDiscoveryQuerySchema=z.object({
     ctx.addIssue({code:"custom",path:["to"],message:"End date must be on or after start date."});
 });
 export type CompetitionDiscoveryQuery=z.infer<typeof competitionDiscoveryQuerySchema>;
+
+/** One paginated list of public matches played at this actual venue, not other fields. */
+export const venueMatchQuerySchema=z.object({
+  scope:z.enum(["upcoming","results"]).default("upcoming"),
+  page:z.coerce.number().int().min(1).max(500).default(1),
+  limit:z.coerce.number().int().min(1).max(25).default(12),
+});
+export type VenueMatchQuery=z.infer<typeof venueMatchQuerySchema>;
+export const venueMatchItemSchema=z.object({
+  id:z.string().uuid(),
+  competitionId:z.string().uuid(),
+  competitionName:z.string(),
+  startsAt:isoDateTimeSchema.nullable(),
+  endsAt:isoDateTimeSchema.nullable(),
+  stage:competitionMatchStageSchema,
+  roundNumber:z.number().int().min(1),
+  homeTeamName:z.string().nullable(),
+  awayTeamName:z.string().nullable(),
+  homeScore:z.number().int().nullable(),
+  awayScore:z.number().int().nullable(),
+  status:competitionMatchStatusSchema,
+});
+export type VenueMatchItem=z.infer<typeof venueMatchItemSchema>;
+export const venueMatchPageSchema=z.object({
+  venueId:z.string().uuid(),
+  matches:z.array(venueMatchItemSchema),
+  total:z.number().int().nonnegative(),page:z.number().int().positive(),
+  limit:z.number().int().positive(),hasMore:z.boolean(),
+});
+export type VenueMatchPage=z.infer<typeof venueMatchPageSchema>;
 export const competitionDiscoveryItemSchema=competitionListItemDtoSchema.extend({
   province:z.string(),city:z.string(),followerCount:z.number().int().nonnegative(),
 });
