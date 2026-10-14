@@ -109,9 +109,8 @@ export class NotificationService implements NotificationPublisher {
     if (preferences.pushEnabled && await this.repository.hasActivePushDevice(input.userId)) channels.push("PUSH");
     if (channels.length === 0) return;
 
-    const { notification, created } = await this.repository.createNotification(input, this.now());
-    if (!created) return;
-    await this.repository.ensureDeliveries(notification.id, channels);
+    // Persist the event and its intended delivery channels in one transaction.
+    await this.repository.createNotification(input, this.now(), channels);
   }
 
   async slotAvailable(input:{userId:string;watchId:string;venueId:string;areaId:string;
