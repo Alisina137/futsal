@@ -208,6 +208,24 @@ export default function NotificationsScreen(){
         return t("notifications.message.bookingConfirmed",{venue,date:parts.date,time:parts.time});
       }
     }
+    if(item.type==="BOOKING_REQUEST"){
+      const startsAt=typeof item.data.startsAt==="string"?item.data.startsAt:null;
+      const venue=typeof item.data.venueName==="string"?item.data.venueName:"";
+      if(startsAt){
+        const parts=formatLocalDateTimeParts(startsAt,language);
+        return t("notifications.message.bookingRequest",{venue,date:parts.date,time:parts.time});
+      }
+    }
+    if(item.type==="TEAM_JOIN_REQUEST"&&typeof item.data.teamName==="string"){
+      return t("notifications.message.teamJoinRequest",{
+        player:typeof item.data.requesterDisplayName==="string"?item.data.requesterDisplayName:"",
+        team:item.data.teamName,
+      });
+    }
+    if(item.type==="TEAM_JOIN_DECISION"&&typeof item.data.teamName==="string"){
+      return t(item.data.accepted===true?"notifications.message.teamJoinDecisionAccepted":
+        "notifications.message.teamJoinDecisionRejected",{team:item.data.teamName});
+    }
     if(item.type==="BOOKING_CANCELLED"&&typeof item.data.venueName==="string")
       return t("notifications.message.bookingCancelled",{venue:item.data.venueName});
     if(item.type==="TEAM_INVITATION"&&typeof item.data.teamName==="string")
