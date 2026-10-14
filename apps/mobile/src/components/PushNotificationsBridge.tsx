@@ -29,7 +29,7 @@ export function PushNotificationsBridge(){
       if(!alive)return;
       const url=data?.url;
       // Reject arbitrary/remote destinations. Only internal app paths are legal.
-      if(typeof url!=="string"||!/^\/(notifications|bookings|dashboard|competitions|venues|posts|teams)(\/[^?#]*)?(\?[^#]*)?$/.test(url))return;
+      if(typeof url!=="string"||!/^\/(notifications|bookings|dashboard|owner|support|competitions|venues|posts|teams)(\/[^?#]*)?(\?[^#]*)?$/.test(url))return;
       router.push(url as never);
     };
     const start=async()=>{
