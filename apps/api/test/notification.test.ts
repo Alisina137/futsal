@@ -5,6 +5,34 @@ import { NotificationService, MARKETING_LIMIT_PER_24H } from "../src/modules/not
 import { FakeBookingRepository } from "./fake-booking-repository.js";
 import { FakeNotificationRepository } from "./fake-notification-repository.js";
 
+describe("Notification Phase 2 hotfix — scoped bulk operations",()=>{
+  it("does not alter push-only rows through inbox bulk read/clear",async()=>{
+    const repository=new FakeNotificationRepository();
+    const now=new Date("2026-10-14T09:00:00.000Z");
+    const service=new NotificationService(repository,()=>now);
+    const userId=randomUUID(),otherId=randomUUID();
+    await repository.registerDevice(userId,{expoPushToken:"ExponentPushToken[test-0123456789]",platform:"ANDROID"},now);
+    await service.updatePreferences(userId,{inAppEnabled:false,pushEnabled:true});
+    const pushBooking=randomUUID();
+    await service.bookingCancelled({userId,bookingId:pushBooking,venueName:"Push only"});
+    const [pushOnly]=repository.notifications;
+    expect(pushOnly).toBeDefined();
+    expect((await service.list(userId)).notifications).toHaveLength(0);
+    await service.updatePreferences(userId,{inAppEnabled:true,pushEnabled:false});
+    await service.bookingCancelled({userId,bookingId:randomUUID(),venueName:"In app"});
+    await service.bookingCancelled({userId:otherId,bookingId:randomUUID(),venueName:"Other account"});
+    expect(await service.unreadCount(userId)).toEqual({unreadCount:1});
+    expect(await service.markAllRead(userId)).toEqual({updated:1,unreadCount:0});
+    expect(repository.notifications.find(item=>item.id===pushOnly!.id)?.readAt).toBeNull();
+    // Directly make the inaccessible PUSH-only record read to prove Clear read
+    // only operates on records with an IN_APP delivery.
+    await repository.markRead(userId,pushOnly!.id,now);
+    expect(await service.clearRead(userId)).toEqual({deleted:1,unreadCount:0});
+    expect(repository.notifications.some(item=>item.id===pushOnly!.id)).toBe(true);
+    expect((await service.list(otherId)).notifications).toHaveLength(1);
+  });
+});
+
 describe("Phase 4 notification policy", () => {
   it("paginates and category-filters account-specific notifications with an accurate global unread count",async()=>{
     const repo=new FakeNotificationRepository();
