@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {BookingDto,CompetitionListItemDto,PromotionDto,PublicVenueDto,VenueAvailabilityResponse,VenuePostDto} from "@leaguekick/contracts";
+import type {BookingDto,PromotionDto,PublicVenueDto,VenueAvailabilityResponse,VenuePostDto} from "@leaguekick/contracts";
 import {router} from "expo-router";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Image,Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
@@ -15,6 +15,7 @@ import {NearbyVenuesMap} from "./NearbyVenuesMap";
 import {VenueSlotTimetable} from "./VenueSlotTimetable";
 import {VenueReviewsPanel} from "./VenueCommunityPanels";
 import {VenueSavedTimesAndAlertsPanel} from "./VenueSavedTimesAndAlertsPanel";
+import {VenueCompetitionsPanel} from "./VenueCompetitionsPanel";
 import {SlotTileContent} from "../ui/SlotTileContent";
 import {softenSlotColor} from "../../lib/slot-color";
 import {ReservationsPanel} from "../bookings/ReservationsPanel";
@@ -30,7 +31,7 @@ import {TextField} from "../ui/TextField";
 export type VenueMainTab="media"|"reserve"|"competitions"|"updates"|"about";
 export type VenueMediaSub="posts"|"photos"|"videos";
 export type VenueReserveSub="slots"|"offers"|"bookings"|"saved";
-export type VenueCompetitionSub="upcoming"|"live"|"completed";
+export type VenueCompetitionSub="registration"|"upcoming"|"live"|"completed"|"matches";
 export type VenueUpdatesSub="announcements"|"alerts";
 export type VenueAboutSub="overview"|"facilities"|"hours"|"location"|"reviews"|"policies";
 export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -40,7 +41,7 @@ export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}
 ];
 export const venueSubtabs:Record<VenueMainTab,string[]>={
   media:["posts","photos","videos"],reserve:["slots","offers","bookings","saved"],
-  competitions:["upcoming","live","completed"],updates:["announcements","alerts"],
+  competitions:["registration","upcoming","live","completed","matches"],updates:["announcements","alerts"],
   about:["overview","facilities","hours","location","reviews","policies"],
 };
 export function todayAtKabul(){
@@ -477,37 +478,7 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
 }
 
 export function VenueCompetitionsContent({venue,sub}:{venue:PublicVenueDto;sub:VenueCompetitionSub}){
-  const {t,language}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
-  const [items,setItems]=useState<CompetitionListItemDto[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(false);
-  const load=useCallback(async()=>{
-    setLoading(true);setError(false);
-    try{
-      const result=await competitionApi.list();
-      setItems(result.competitions.filter(c=>c.published&&c.venueId===venue.id));
-    }catch{setError(true);}
-    finally{setLoading(false);}
-  },[venue.id]);
-  useEffect(()=>{void load();},[load]);
-  if(loading)return <DataLoadingState variant="list" minHeight={210}/>;
-  if(error)return <Empty icon="cloud-offline-outline" title={tr("competitionError")} action={()=>void load()}/>;
-  const chosen=items.filter(c=>sub==="completed"?["COMPLETED","ARCHIVED"].includes(c.status):
-    sub==="live"?c.status==="IN_PROGRESS":
-      ["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED"].includes(c.status));
-  if(chosen.length===0)return <Empty icon="trophy-outline" title={tr("noCompetitions")}/>;
-  return <>{chosen.map(c=><Card key={c.id} style={{gap:spacing.sm}}>
-    <View style={styles.heading}>
-      <Ionicons name="trophy-outline" size={22} color={colors.primary}/>
-      <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{c.name}</AppText>
-    </View>
-    <AppText variant="caption" muted>{tr("competitionStatus")+" · "+c.status.replace(/_/g," ")}</AppText>
-    {c.startsAt?<MetaRow icon="calendar-outline"
-      value={formatCompetitionDateTime(c.startsAt,language)}/>:null}
-    {c.registrationClosesAt&&sub==="upcoming"?<MetaRow icon="timer-outline"
-      value={tr("registrationDeadline")+": "+formatCompetitionDateTime(c.registrationClosesAt,language)}/>:null}
-    <MetaRow icon="people-outline" value={c.acceptedTeams+"/"+c.maxTeams+" "+tr("teams")}/>
-    <Button variant="secondary" label={tr("viewCompetition")} onPress={()=>
-      router.push({pathname:"/competitions/[competitionId]",params:{competitionId:c.id}})}/>
-  </Card>)}</>;
+  return <VenueCompetitionsPanel venue={venue} sub={sub}/>;
 }
 
 export function VenueUpdatesContent({venue,sub,onReserve}:{
