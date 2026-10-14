@@ -114,6 +114,7 @@ export default function NotificationsScreen(){
   const generation=useRef(0);
   const mutationLock=useRef(false);
   const haveItems=useRef(false);
+  const loadedToken=useRef<string|undefined>(undefined);
   const loadedFilter=useRef<NotificationListFilter|null>(null);
 
   const updateUnread=useCallback((count:number)=>{
@@ -122,6 +123,16 @@ export default function NotificationsScreen(){
   },[token]);
 
   const loadFirst=useCallback(async(mode:"initial"|"refresh"|"silent"="initial")=>{
+    if(loadedToken.current!==token){
+      loadedToken.current=token;
+      generation.current++;
+      // A sign-out/account change must immediately discard every private item
+      // even if the new account's first network request fails.
+      mutationLock.current=false;setBusy(false);
+      haveItems.current=false;loadedFilter.current=null;
+      setItems([]);setTotal(0);setUnreadCount(0);setNextCursor(null);
+      setHasMore(false);setLoadMoreError(null);setActionError(null);
+    }
     if(mutationLock.current)return;
     const request=++generation.current;
     if(!token){
