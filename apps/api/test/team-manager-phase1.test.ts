@@ -8,7 +8,7 @@ describe("Team Manager Phase 1 join request preference",()=>{
     const repo=new FakeTeamRepository();
     const managerId=randomUUID(),playerId=randomUUID();
     repo.seedUser({id:managerId,displayName:"Manager",username:"manager",phoneE164:"+93700000001",roles:["TEAM_MANAGER"]});
-    repo.seedUser({id:playerId,displayName:"Player",username:"player",phoneE164:"+93700000002",roles:["PLAYER"]});
+    repo.seedUser({id:playerId,displayName:"Player",username:"player",phoneE164:"+93700000002",roles:[],emailVerified:true});
     const service=new TeamService(repo,()=>new Date("2026-10-10T00:00:00.000Z"));
     const team=await service.createTeam(managerId,{name:"Kabul Stars",city:"Kabul",privacy:"PUBLIC"});
     repo.joinRequestsAllowed.set(team.id,false);
