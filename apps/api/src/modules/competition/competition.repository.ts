@@ -212,7 +212,12 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       .innerJoin(users, eq(playerMatchStats.playerUserId, users.id))
       .leftJoin(playerProfiles, eq(playerMatchStats.playerUserId, playerProfiles.userId))
       .innerJoin(teams, eq(playerMatchStats.teamId, teams.id))
-      .where(eq(competitionMatches.competitionId, competitionId))
+      // Only finalized official results contribute to public leaderboards.
+      // Draft/live/postponed fixtures cannot expose unverified player figures.
+      .where(and(
+        eq(competitionMatches.competitionId, competitionId),
+        inArray(competitionMatches.status, ["COMPLETED", "CORRECTED"]),
+      ))
       .groupBy(
         playerMatchStats.playerUserId,
         playerProfiles.publicDisplayName,

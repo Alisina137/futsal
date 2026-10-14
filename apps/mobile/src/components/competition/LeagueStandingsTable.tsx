@@ -41,8 +41,9 @@ function FormBadges({results}:{results:LeagueFormResult[]}){
  * All numeric data, including the last five results, moves inside one horizontal
  * ScrollView so every row and heading uses the exact same scroll position.
  * Vertical scrolling remains owned by the parent competition profile. */
-export function LeagueStandingsTable({competition,rows}:{
+export function LeagueStandingsTable({competition,rows,stage="LEAGUE",qualifiers}:{
   competition:CompetitionDto;rows:CompetitionStandingRowDto[];
+  stage?:"LEAGUE"|"GROUP"|undefined;qualifiers?:number|undefined;
 }){
   const {t,isRTL}=useLocale();
   const [preview,setPreview]=useState<{id:string;name:string;logo:string|null;x:number;y:number}|null>(null);
@@ -63,7 +64,8 @@ export function LeagueStandingsTable({competition,rows}:{
   const forms=useMemo(()=>new Map(table.map(row=>[row.teamId,lastFiveLeagueResults(
     competition.matches,
     row.teamId,
-  )])),[competition.matches,table]);
+    stage,
+  )])),[competition.matches,table,stage]);
 
   const columns:Column[]=[
     {key:"played",label:t("competition.played"),width:NUMERIC_WIDTH},
@@ -84,6 +86,11 @@ export function LeagueStandingsTable({competition,rows}:{
         {t("competition.standingsSwipeHint")}
       </AppText>
     </View>
+    {stage==="GROUP"&&qualifiers!==undefined&&qualifiers>0?<View
+      testID="group-qualification-legend" style={[styles.qualifierLegend,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={styles.qualifierDot}/>
+      <AppText variant="caption" muted style={{flex:1}}>{t("competition.phase5.qualificationPlaces",{count:qualifiers})}</AppText>
+    </View>:null}
     <View style={[styles.tableBody,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <View testID="league-pinned-team-column" style={[styles.teamPane,
         isRTL?styles.teamPaneRTL:styles.teamPaneLTR]}>
@@ -96,9 +103,11 @@ export function LeagueStandingsTable({competition,rows}:{
           const logo=resolveMediaImageUrl(teams.get(row.teamId)?.logoUrl??null);
           return <View key={row.teamId} ref={node=>{rowRefs.current.set(row.teamId,node);}}
             style={[styles.teamRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <AppText variant="caption" weight="semibold" style={styles.position} forceLtr>
-              {row.position}
-            </AppText>
+            <View style={[styles.rankPosition,stage==="GROUP"&&qualifiers!==undefined&&row.position<=qualifiers&&styles.qualifyingPosition]}>
+              <AppText variant="caption" weight="semibold"
+                style={[styles.position,stage==="GROUP"&&qualifiers!==undefined&&row.position<=qualifiers&&styles.qualifyingText]}
+                forceLtr>{row.position}</AppText>
+            </View>
             <Pressable testID={`league-team-${row.teamId}`} accessibilityRole="button"
               accessibilityLabel={`${row.teamName}. ${t("competition.standingsTeamPreview")}`}
               onPress={()=>showPreview(row.teamId,row.teamName,logo)}
@@ -206,6 +215,12 @@ const styles=StyleSheet.create({
   teamRow:{height:ROW_HEIGHT,paddingHorizontal:5,alignItems:"center",gap:5,
     borderTopWidth:1,borderTopColor:colors.border},
   position:{width:22,textAlign:"center",color:colors.textMuted},
+  rankPosition:{width:26,height:26,alignItems:"center",justifyContent:"center",borderRadius:7},
+  qualifyingPosition:{backgroundColor:"#D9F5E6"},
+  qualifyingText:{color:"#146B39"},
+  qualifierLegend:{gap:6,alignItems:"center",paddingHorizontal:spacing.sm,paddingVertical:7,
+    backgroundColor:"#F0FAF4",borderTopColor:colors.border,borderTopWidth:1},
+  qualifierDot:{width:11,height:11,borderRadius:3,backgroundColor:"#22965B"},
   logo:{width:28,height:28,borderRadius:14,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",overflow:"hidden"},
   logoImage:{width:"100%",height:"100%"},

@@ -8,8 +8,8 @@ const tests=read("packages/contracts/src/league-form.test.ts");
 const locale=read("packages/localization/src/index.ts");
 assert(sections.includes('competition.format==="LEAGUE"')
   &&sections.includes("<LeagueStandingsTable competition={competition}")
-  &&sections.includes(":<StandingTable rows="),
-  "League-only table must not replace knockout/group-stage render paths.");
+  &&sections.includes('stage={competition.format==="LEAGUE"?"LEAGUE":"GROUP"}'),
+  "Pinned league/group tables must preserve knockout render paths and stage-specific form.");
 assert(board.includes('testID="league-pinned-team-column"')
   &&board.includes('testID="league-scrollable-stats"')
   &&board.includes("<ScrollView")
@@ -30,12 +30,13 @@ assert(board.includes('t("competition.standingsLastFive")')
   &&board.includes("resolveMediaImageUrl")
   &&board.includes('pathname:"/teams/[teamId]"'),
   "League rows need real team badges, links and actual latest five results.");
-assert(form.includes('match.stage==="LEAGUE"')
+assert(form.includes('match.stage===stage &&')
+  &&form.includes('stage:"LEAGUE"|"GROUP"="LEAGUE"')
   &&form.includes('match.status==="COMPLETED"||match.status==="CORRECTED"')
   &&form.includes("match.homeScore!==null && match.awayScore!==null")
   &&form.includes(".slice(0,5).reverse()")
   &&tests.includes("correct home or away perspective"),
-  "Recent form cannot include pending or cross-competition results.");
+  "Recent form cannot include pending or other-stage results.");
 for(const key of ["competition.standingsGoalsFor","competition.standingsGoalsAgainst",
   "competition.standingsLastFive","competition.standingsSwipeHint",
   "competition.standingsForm.W","competition.standingsForm.D","competition.standingsForm.L"]){
@@ -52,4 +53,4 @@ assert(board.includes('testID="league-team-tooltip"')
   &&board.includes("styles.tooltipAction")
   &&board.includes("setPreview(null)"),
   "Names truncated by the fixed column must open a full-name crest tooltip on hover/touch and dismiss safely.");
-console.log("League standings verified: fixed team pane, scrollable synchronized metrics and last-5 form, 3-language RTL support, real-score filtering and preserved other competition formats.");
+console.log("League/group standings verified: fixed team pane, scrollable synchronized metrics and stage-specific last-5 form, 3-language RTL support and preserved knockout format.");

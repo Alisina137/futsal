@@ -240,14 +240,14 @@ export class CompetitionService {
     }
     const competition = this.derive(await this.repository.getCompetitionDto(competitionId));
     if (!competition) throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
+    const publicTeams=competition.teams.filter(team=>team.status==="ACCEPTED");
+    const acceptedIds=new Set(publicTeams.map(team=>team.teamId));
     return {
       ...competition,
-      teams: competition.teams
-        .filter((team) => team.status === "ACCEPTED")
-        .map((team) => ({
-          ...team,
-          feePaymentReference: null,
-        })),
+      // A removed/non-accepted team's statistics are not public even if
+      // historical result rows remain in the database.
+      playerStats:competition.playerStats.filter(stat=>acceptedIds.has(stat.teamId)),
+      teams: publicTeams.map(team=>({...team,feePaymentReference:null})),
     };
   }
 

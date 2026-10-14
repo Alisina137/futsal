@@ -50,6 +50,19 @@ describe("league last-five form (real completed matches only)",()=>{
     expect(lastFiveLeagueResults([],A)).toEqual([]);
   });
 
+  it("reports group-stage form separately without mixing league or knockout results",()=>{
+    const matches=[
+      fixture(1,A,B,1,0,"COMPLETED","LEAGUE"),
+      fixture(2,A,B,2,0,"COMPLETED","GROUP"),
+      fixture(3,A,B,0,3,"CORRECTED","GROUP"),
+      fixture(4,A,B,1,0,"POSTPONED","GROUP"),
+      fixture(5,A,B,1,0,"COMPLETED","KNOCKOUT"),
+    ];
+    expect(lastFiveLeagueResults(matches,A,"GROUP")).toEqual(["W","L"]);
+    expect(lastFiveLeagueResults(matches,B,"GROUP")).toEqual(["L","W"]);
+    expect(lastFiveLeagueResults(matches,A)).toEqual(["W"]);
+  });
+
   it("uses round and slot order deterministically if match dates are missing",()=>{
     const noDate=[fixture(3,A,B,2,0),fixture(1,A,B,0,2),fixture(2,A,B,0,0)]
       .map(match=>({...match,startsAt:null,endsAt:null}));

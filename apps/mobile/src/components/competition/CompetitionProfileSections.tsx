@@ -2,10 +2,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {
   CompetitionDto,CompetitionMatchDto,CompetitionMediaPostDto,
-  CompetitionStandingRowDto,
 } from "@leaguekick/contracts";
 import {router} from "expo-router";
-import {useMemo,useState,type ReactNode} from "react";
+import {useState,type ReactNode} from "react";
 import {Image,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
@@ -17,7 +16,8 @@ import {Card} from "../ui/Card";
 
 export type CompetitionProfileTab="HOME"|"MATCHES"|"STANDINGS"|"STATS"|"TEAMS";
 type Stage="GROUPS"|"KNOCKOUT";
-type StatMetric="GOALS"|"ASSISTS";
+type StatMetric="goals"|"assists"|"appearances"|"cleanSheets"|"yellowCards"|"redCards"|"playerOfMatchAwards";
+const STAT_METRICS:StatMetric[]=["goals","assists","appearances","cleanSheets","yellowCards","redCards","playerOfMatchAwards"];
 type Props={
   competition:CompetitionDto;
   posts:CompetitionMediaPostDto[];
@@ -72,6 +72,15 @@ function MatchCard({match,offlineIds}:{match:CompetitionMatchDto;offlineIds:Set<
           {t(`competition.matchStatus.${match.status}` as never)}
         </AppText>
       </View>
+      <Pressable accessibilityRole="button" testID={`bracket-match-detail-${match.id}`}
+        onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
+          params:{competitionId:match.competitionId,matchId:match.id}})}
+        style={styles.detailsLink}>
+        <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+          {t("competition.phase4.matchDetails")}
+        </AppText>
+        <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={14} color={colors.primary}/>
+      </Pressable>
     </View>
     <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <Pressable accessibilityRole={match.homeTeamId&&!offlineIds.has(match.homeTeamId)?"button":"text"}
@@ -101,55 +110,36 @@ function MatchCard({match,offlineIds}:{match:CompetitionMatchDto;offlineIds:Set<
       <AppText variant="caption" muted>{date.date} · {date.time}</AppText>
       {match.areaName?<AppText variant="caption" muted numberOfLines={1}>· {match.areaName}</AppText>:null}
     </View>:null}
+    {match.stage==="KNOCKOUT"&&match.nextMatchId?<Pressable accessibilityRole="button"
+      testID={`bracket-next-match-${match.id}`}
+      onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
+        params:{competitionId:match.competitionId,matchId:match.nextMatchId!}})}
+      style={[styles.progressionLink,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <Ionicons name="git-branch-outline" size={16} color={colors.primary}/>
+      <AppText variant="caption" weight="semibold" style={{color:colors.primary,flex:1}}>
+        {t("competition.phase5.nextKnockoutMatch")}
+      </AppText>
+      <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={15} color={colors.primary}/>
+    </Pressable>:null}
   </Card>;
 }
 
-function StandingTable({rows,offlineIds}:{rows:CompetitionStandingRowDto[];offlineIds:Set<string>}){
-  const {t,isRTL}=useLocale();
-  const col=(label:string,width:number)=><AppText variant="caption" weight="semibold" muted
-    style={{width,textAlign:"center"}}>{label}</AppText>;
-  return <View style={styles.standingsTable}>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{minWidth:"100%"}}>
-      <View style={{minWidth:350}}>
-        <View style={[styles.tableHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <AppText variant="caption" muted style={{width:25,textAlign:"center"}}>#</AppText>
-          <AppText variant="caption" weight="semibold" muted style={{flex:1}}>
-            {t("competition.teams")}
-          </AppText>
-          {col(t("competition.played"),30)}{col(t("competition.goalDifference"),34)}
-          {col(t("competition.points"),34)}
-        </View>
-        {rows.slice().sort((a,b)=>a.position-b.position).map(row=>
-          <Pressable key={row.teamId} accessibilityRole={offlineIds.has(row.teamId)?"text":"button"}
-            disabled={offlineIds.has(row.teamId)} onPress={()=>!offlineIds.has(row.teamId)&&openTeam(row.teamId)}
-            style={[styles.tableRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            <AppText variant="caption" weight="bold" style={{width:25,textAlign:"center"}}>
-              {row.position}
-            </AppText>
-            <AppText numberOfLines={1} weight="semibold" style={{flex:1}}>{row.teamName}</AppText>
-            <AppText variant="caption" style={styles.numberCell}>{row.played}</AppText>
-            <AppText variant="caption" style={[styles.numberCell,{width:34}]}>{row.goalDifference}</AppText>
-            <AppText weight="bold" variant="caption"
-              style={[styles.numberCell,{width:34,color:colors.primary}]}>{row.points}</AppText>
-          </Pressable>)}
-      </View>
-    </ScrollView>
-  </View>;
-}
-
 function CompetitionStandings({competition,initialStage}:{competition:CompetitionDto;initialStage?:Stage|undefined}){
-  const {t}=useLocale();
+  const {t,isRTL}=useLocale();
   const mixed=competition.format==="GROUP_KNOCKOUT";
   const knockoutOnly=competition.format==="KNOCKOUT";
   const [stage,setStage]=useState<Stage>(initialStage??(knockoutOnly?"KNOCKOUT":"GROUPS"));
+  const [roundSelection,setRoundSelection]=useState<number|null>(null);
   const offlineIds=new Set(competition.teams.filter(team=>team.offline).map(team=>team.teamId));
+  // In the official knockout engine, round 1 is the final; higher values precede it.
   const knockout=competition.matches.filter(match=>match.stage==="KNOCKOUT")
     .sort((a,b)=>b.roundNumber-a.roundNumber||a.slotNumber-b.slotNumber);
+  const rounds=[...new Set(knockout.map(match=>match.roundNumber))];
+  const currentRound=roundSelection!==null&&rounds.includes(roundSelection)?roundSelection:rounds[0];
   const groups=[...new Set(competition.standings.map(row=>row.groupName??""))];
-  return <View style={styles.stack}>
-    <SectionHeading title={t(mixed?"competition.profile.stages":"competition.standings")}
-      icon="podium-outline"/>
-    {mixed?<View style={styles.stageSwitch}>
+  return <View style={styles.stack} testID="competition-phase5-standings">
+    <SectionHeading title={t(mixed?"competition.profile.stages":"competition.standings")} icon="podium-outline"/>
+    {mixed?<View style={[styles.stageSwitch,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {(["GROUPS","KNOCKOUT"] as const).map(option=>
         <Pressable key={option} testID={`competition-stage-${option}`} accessibilityRole="tab"
           accessibilityState={{selected:stage===option}} onPress={()=>setStage(option)}
@@ -161,14 +151,27 @@ function CompetitionStandings({competition,initialStage}:{competition:Competitio
     </View>:null}
     {knockoutOnly||mixed&&stage==="KNOCKOUT"?<>
       {knockout.length===0?<Placeholder title={t("competition.noBracket")} icon="git-branch-outline"/>:null}
-      {[...new Set(knockout.map(m=>m.roundNumber))].map(round=>
-        <View key={round} style={styles.stack}>
-          <AppText variant="bodyLarge" weight="semibold">
+      {rounds.length>0?<ScrollView horizontal showsHorizontalScrollIndicator={false}
+        testID="competition-bracket-round-selector"
+        contentContainerStyle={[styles.bracketRounds,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {rounds.map(round=><Pressable key={round} accessibilityRole="tab"
+          accessibilityState={{selected:currentRound===round}}
+          testID={`bracket-round-${round}`} onPress={()=>setRoundSelection(round)}
+          style={[styles.roundChip,currentRound===round&&styles.roundChipActive]}>
+          <AppText variant="caption" weight="semibold"
+            style={{color:currentRound===round?"#FFFFFF":colors.primary}}>
             {t("competition.round",{number:round})}
           </AppText>
-          {knockout.filter(m=>m.roundNumber===round).map(match=>
-            <MatchCard key={match.id} match={match} offlineIds={offlineIds}/>)}
-        </View>)}
+        </Pressable>)}
+      </ScrollView>:null}
+      {currentRound!==undefined?<View style={styles.stack}>
+        <AppText variant="bodyLarge" weight="semibold">
+          {t("competition.round",{number:currentRound})}
+        </AppText>
+        <AppText variant="caption" muted>{t("competition.phase5.bracketProgression")}</AppText>
+        {knockout.filter(match=>match.roundNumber===currentRound).map(match=>
+          <MatchCard key={match.id} match={match} offlineIds={offlineIds}/>)}
+      </View>:null}
     </>:<>
       {competition.standings.length===0?<Placeholder title={t("competition.noStandings")}
         icon="podium-outline"/>:null}
@@ -176,40 +179,70 @@ function CompetitionStandings({competition,initialStage}:{competition:Competitio
         {group?<AppText variant="bodyLarge" weight="bold">
           {t("competition.group",{name:group})}
         </AppText>:null}
-        {competition.format==="LEAGUE"
-          ?<LeagueStandingsTable competition={competition}
-            rows={competition.standings.filter(row=>(row.groupName??"")===group)}/>
-          :<StandingTable rows={competition.standings.filter(row=>(row.groupName??"")===group)} offlineIds={offlineIds}/>}
+        <LeagueStandingsTable competition={competition}
+          stage={competition.format==="LEAGUE"?"LEAGUE":"GROUP"}
+          qualifiers={competition.format==="GROUP_KNOCKOUT"?competition.qualifiersPerGroup??undefined:undefined}
+          rows={competition.standings.filter(row=>(row.groupName??"")===group)}/>
       </Card>)}
     </>}
   </View>;
 }
 
+const STAT_ICONS:Record<StatMetric,keyof typeof Ionicons.glyphMap>={
+  goals:"football-outline",assists:"ribbon-outline",appearances:"walk-outline",
+  cleanSheets:"shield-checkmark-outline",yellowCards:"alert-circle-outline",
+  redCards:"close-circle-outline",playerOfMatchAwards:"medal-outline",
+};
+
 function CompetitionStats({competition}:{competition:CompetitionDto}){
   const {t,isRTL}=useLocale();
-  const [metric,setMetric]=useState<StatMetric>("GOALS");
-  const sorted=competition.playerStats.slice().sort((a,b)=>
-    metric==="GOALS"
-      ?b.goals-a.goals||b.assists-a.assists||a.publicDisplayName.localeCompare(b.publicDisplayName)
-      :b.assists-a.assists||b.goals-a.goals||a.publicDisplayName.localeCompare(b.publicDisplayName));
-  return <View style={styles.stack}>
+  const [metric,setMetric]=useState<StatMetric>("goals");
+  const [teamId,setTeamId]=useState("ALL");
+  const teams=competition.teams.filter(team=>team.status==="ACCEPTED");
+  const recorded=competition.playerStats.filter(stat=>teams.some(team=>team.teamId===stat.teamId));
+  const sorted=recorded.filter(stat=>(teamId==="ALL"||stat.teamId===teamId)&&stat[metric]>0)
+    .sort((a,b)=>b[metric]-a[metric]||b.goals-a.goals||
+      a.publicDisplayName.localeCompare(b.publicDisplayName)||a.playerUserId.localeCompare(b.playerUserId));
+  return <View style={styles.stack} testID="competition-phase5-leaderboards">
     <SectionHeading title={t("competition.stats")} icon="stats-chart-outline"/>
-    <View style={[styles.stageSwitch,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      {(["GOALS","ASSISTS"] as const).map(value=>
-        <Pressable key={value} testID={`competition-stats-${value}`}
-          accessibilityRole="tab" accessibilityState={{selected:metric===value}}
-          onPress={()=>setMetric(value)}
-          style={[styles.stageButton,metric===value&&styles.stageActive]}>
-          <Ionicons name={value==="GOALS"?"football-outline":"ribbon-outline"} size={17}
-            color={metric===value?"#FFFFFF":colors.primary}/>
-          <AppText variant="caption" weight="semibold"
-            style={{color:metric===value?"#FFFFFF":colors.primary}}>
-            {t(value==="GOALS"?"competition.goals":"competition.assists")}
-          </AppText>
-        </Pressable>)}
-    </View>
-    {sorted.length===0?<Placeholder title={t("competition.noStats")} icon="stats-chart-outline"/>:null}
-    {sorted.map((stat,index)=><Pressable key={stat.playerUserId} accessibilityRole="button"
+    <Card style={styles.verifiedBanner}>
+      <Ionicons name="checkmark-circle-outline" size={20} color={colors.primary}/>
+      <AppText variant="caption" muted style={{flex:1}}>
+        {t("competition.phase5.verifiedOnly")}
+      </AppText>
+    </Card>
+    <ScrollView horizontal testID="competition-stat-metrics" showsHorizontalScrollIndicator={false}
+      contentContainerStyle={[styles.statChips,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {STAT_METRICS.map(value=><Pressable key={value} testID={`competition-stats-${value}`}
+        accessibilityRole="tab" accessibilityState={{selected:metric===value}}
+        onPress={()=>setMetric(value)}
+        style={[styles.roundChip,metric===value&&styles.roundChipActive]}>
+        <Ionicons name={STAT_ICONS[value]} size={17}
+          color={metric===value?"#FFFFFF":colors.primary}/>
+        <AppText variant="caption" weight="semibold"
+          style={{color:metric===value?"#FFFFFF":colors.primary}}>
+          {t(`competition.phase5.metric.${value}` as never)}
+        </AppText>
+      </Pressable>)}
+    </ScrollView>
+    {teams.length>1?<ScrollView horizontal testID="competition-stat-team-filter"
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={[styles.statChips,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <Pressable accessibilityRole="tab" accessibilityState={{selected:teamId==="ALL"}}
+        onPress={()=>setTeamId("ALL")} style={[styles.teamFilterChip,teamId==="ALL"&&styles.teamFilterActive]}>
+        <AppText variant="caption" weight="semibold" style={{color:teamId==="ALL"?"#FFFFFF":colors.primary}}>
+          {t("competition.phase5.allTeams")}
+        </AppText>
+      </Pressable>
+      {teams.map(team=><Pressable key={team.teamId} accessibilityRole="tab"
+        accessibilityState={{selected:teamId===team.teamId}} onPress={()=>setTeamId(team.teamId)}
+        style={[styles.teamFilterChip,teamId===team.teamId&&styles.teamFilterActive]}>
+        <AppText variant="caption" weight="semibold" numberOfLines={1}
+          style={{color:teamId===team.teamId?"#FFFFFF":colors.primary}}>{team.teamName}</AppText>
+      </Pressable>)}
+    </ScrollView>:null}
+    {sorted.length===0?<Placeholder title={t("competition.phase5.noRecordedMetric")} icon="stats-chart-outline"/>:null}
+    {sorted.map((stat,index)=><Pressable key={`${stat.playerUserId}:${stat.teamId}`} accessibilityRole="button"
       onPress={()=>router.push({pathname:"/players/[playerId]",params:{playerId:stat.playerUserId}})}>
       <Card style={styles.statEntry}>
         <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -219,10 +252,8 @@ function CompetitionStats({competition}:{competition:CompetitionDto}){
             <AppText variant="caption" muted numberOfLines={1}>{stat.teamName}</AppText>
           </View>
           <View style={{alignItems:"center",minWidth:50}}>
-            <AppText variant="title" weight="bold" style={{color:colors.primary}}>
-              {metric==="GOALS"?stat.goals:stat.assists}
-            </AppText>
-            <AppText variant="caption" muted>{t(metric==="GOALS"?"competition.goals":"competition.assists")}</AppText>
+            <AppText variant="title" weight="bold" style={{color:colors.primary}}>{stat[metric]}</AppText>
+            <AppText variant="caption" muted>{t(`competition.phase5.metric.${metric}` as never)}</AppText>
           </View>
         </View>
       </Card>
@@ -442,6 +473,20 @@ const styles=StyleSheet.create({
     alignItems:"center",justifyContent:"center"},
   matchCard:{gap:spacing.sm},
   matchMeta:{gap:spacing.sm,alignItems:"center"},
+  detailsLink:{gap:4,flexDirection:"row",alignItems:"center",minHeight:44,paddingHorizontal:6},
+  progressionLink:{gap:6,alignItems:"center",padding:spacing.sm,backgroundColor:colors.primarySoft,
+    borderRadius:radius.sm,minHeight:44},
+  bracketRounds:{gap:spacing.sm,paddingVertical:3,alignItems:"center"},
+  roundChip:{minHeight:44,minWidth:72,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,
+    paddingHorizontal:spacing.md,flexDirection:"row",alignItems:"center",gap:6,justifyContent:"center",
+    backgroundColor:colors.surface},
+  roundChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},
+  verifiedBanner:{minHeight:56,flexDirection:"row",alignItems:"center",gap:spacing.sm,
+    padding:spacing.sm,backgroundColor:colors.primarySoft},
+  statChips:{gap:spacing.sm,paddingVertical:4,alignItems:"center"},
+  teamFilterChip:{maxWidth:178,minHeight:40,borderRadius:radius.md,paddingHorizontal:spacing.md,
+    borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,justifyContent:"center"},
+  teamFilterActive:{backgroundColor:colors.primary,borderColor:colors.primary},
   statusBadge:{backgroundColor:colors.primarySoft,paddingHorizontal:spacing.sm,
     paddingVertical:4,borderRadius:radius.pill},
   scoreRow:{alignItems:"center",gap:spacing.sm},
