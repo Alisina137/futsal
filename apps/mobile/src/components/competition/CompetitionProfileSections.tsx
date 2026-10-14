@@ -6,7 +6,7 @@ import type {
 } from "@leaguekick/contracts";
 import {router} from "expo-router";
 import {useMemo,useState,type ReactNode} from "react";
-import {Image,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {Image,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -266,10 +266,67 @@ function CompetitionTeams({competition,registration}:{competition:CompetitionDto
 function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"onTabChange">){
   const offlineIds=new Set(competition.teams.filter(team=>team.offline).map(team=>team.teamId));
   const {t,isRTL,language}=useLocale();
+  const [feedView,setFeedView]=useState<"UPDATES"|"PHOTOS">("UPDATES");
+  const [lightbox,setLightbox]=useState<string|null>(null);
   const live=competition.matches.filter(match=>match.status==="IN_PROGRESS")
     .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
   const updates=posts.slice().sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)||b.id.localeCompare(a.id));
+  const photos=updates.filter(post=>Boolean(resolveMediaImageUrl(post.imageUrl)));
+  const registrationDate=displayTime(competition.registrationClosesAt,language);
+  const startDate=displayTime(competition.startsAt,language);
+  const accepted=competition.teams.filter(team=>team.status==="ACCEPTED").length;
   return <View style={styles.stack} testID="competition-home-feed">
+    <Card testID="competition-home-overview" style={styles.overview}>
+      <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.headingIcon}><Ionicons name="information-circle-outline" size={20} color={colors.primary}/></View>
+        <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>
+          {t("competition.profile.overview")}
+        </AppText>
+        <Pressable accessibilityRole="button"
+          accessibilityLabel={t("competition.phase4.fullAbout")}
+          onPress={()=>router.push({pathname:"/competitions/[competitionId]/about",params:{competitionId:competition.id}})}
+          style={styles.aboutLink}>
+          <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+            {t("competition.phase4.fullAbout")}
+          </AppText>
+          <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={15} color={colors.primary}/>
+        </Pressable>
+      </View>
+      <AppText muted numberOfLines={4}>
+        {competition.description?.trim()||t("competition.profile.noDescription")}
+      </AppText>
+      <View style={[styles.snapshotGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.snapshotItem}>
+          <Ionicons name="people-outline" size={18} color={colors.primary}/>
+          <AppText variant="caption" muted>{t("competition.profile.registeredTeams")}</AppText>
+          <AppText weight="bold">{accepted}/{competition.maxTeams}</AppText>
+        </View>
+        <View style={styles.snapshotItem}>
+          <Ionicons name="wallet-outline" size={18} color={colors.primary}/>
+          <AppText variant="caption" muted>{t("competition.registrationFee")}</AppText>
+          <AppText weight="bold">{competition.registrationFeeAfn===0?t("competition.profile.free"):
+            `${competition.registrationFeeAfn} AFN`}</AppText>
+        </View>
+      </View>
+      {startDate?<View style={[styles.overviewDate,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="calendar-outline" size={17} color={colors.primary}/>
+        <AppText variant="caption" muted>{t("competition.startsAt")}: {startDate.date} · {startDate.time}</AppText>
+      </View>:null}
+      {competition.status==="REGISTRATION_OPEN"&&registrationDate?
+        <View style={[styles.overviewDate,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="time-outline" size={17} color={colors.primary}/>
+          <AppText variant="caption" muted>{t("competition.registrationDeadline")}: {registrationDate.date} · {registrationDate.time}</AppText>
+        </View>:null}
+      <Pressable testID="competition-home-view-matches" accessibilityRole="button"
+        onPress={()=>onTabChange("MATCHES")}
+        style={[styles.matchesShortcut,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="calendar-outline" size={18} color={colors.primary}/>
+        <AppText variant="caption" weight="semibold" style={{flex:1,color:colors.primary}}>
+          {t("competition.phase4.viewFixtures")}
+        </AppText>
+        <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={17} color={colors.primary}/>
+      </Pressable>
+    </Card>
     {competition.status==="REGISTRATION_OPEN"?<Pressable testID="competition-registration-cta"
       accessibilityRole="button" onPress={()=>onTabChange("TEAMS")}
       style={[styles.registrationCta,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -298,9 +355,27 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
       </View>
       {live.map(match=><MatchCard key={match.id} match={match} offlineIds={offlineIds}/>)}
     </View>:null}
-    <SectionHeading title={t("competition.profile.allPosts")} icon="newspaper-outline" count={updates.length}/>
-    {updates.length===0?<Placeholder title={t("competition.publicMediaEmpty")} icon="newspaper-outline"/>:null}
-    {updates.map(post=><Card key={post.id} testID={`competition-post-${post.id}`} style={styles.post}>
+    <View testID="competition-home-media-tabs" style={[styles.mediaSwitcher,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {(["UPDATES","PHOTOS"] as const).map(view=><Pressable key={view}
+        testID={`competition-home-view-${view}`}
+        accessibilityRole="tab" accessibilityState={{selected:feedView===view}}
+        onPress={()=>setFeedView(view)}
+        style={[styles.mediaTab,feedView===view&&styles.mediaTabActive]}>
+        <Ionicons name={view==="UPDATES"?"newspaper-outline":"images-outline"} size={17}
+          color={feedView===view?"#FFFFFF":colors.primary}/>
+        <AppText weight="semibold" variant="caption"
+          style={{color:feedView===view?"#FFFFFF":colors.primary}}>
+          {t(view==="UPDATES"?"competition.phase4.updates":"competition.phase4.photos")}
+        </AppText>
+        <AppText variant="caption" style={{color:feedView===view?"#FFFFFF":colors.textMuted}}>
+          {view==="UPDATES"?updates.length:photos.length}
+        </AppText>
+      </Pressable>)}
+    </View>
+    {feedView==="UPDATES"?<>
+      <SectionHeading title={t("competition.profile.allPosts")} icon="newspaper-outline" count={updates.length}/>
+      {updates.length===0?<Placeholder title={t("competition.publicMediaEmpty")} icon="newspaper-outline"/>:null}
+      {updates.map(post=><Card key={post.id} testID={`competition-post-${post.id}`} style={styles.post}>
       <View style={[styles.postHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.postAvatar}><Ionicons name="trophy-outline" color={colors.primary} size={23}/></View>
         <View style={{flex:1,gap:2,minWidth:0}}>
@@ -308,10 +383,41 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
           <AppText variant="caption" muted>{formatPostTimeAgo(post.publishedAt,language)}</AppText>
         </View>
       </View>
-      <AppText>{post.body}</AppText>
-      {resolveMediaImageUrl(post.imageUrl)?<Image
-        source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={styles.postImage} resizeMode="cover"/>:null}
+      {post.body.trim()?<AppText>{post.body}</AppText>:null}
+      {resolveMediaImageUrl(post.imageUrl)?<Pressable accessibilityRole="button"
+        accessibilityLabel={t("competition.phase4.openPhoto")}
+        onPress={()=>setLightbox(resolveMediaImageUrl(post.imageUrl))}
+        style={styles.imageButton}>
+        <Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}}
+          style={styles.postImage} resizeMode="cover"/>
+      </Pressable>:null}
     </Card>)}
+    </>:<>
+      <SectionHeading title={t("competition.phase4.photos")} icon="images-outline" count={photos.length}/>
+      {photos.length===0?<Placeholder title={t("competition.phase4.noPhotos")} icon="images-outline"/>:null}
+      <View testID="competition-photo-gallery" style={[styles.gallery,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {photos.map(post=><Pressable key={post.id} accessibilityRole="button"
+          accessibilityLabel={t("competition.phase4.openPhoto")}
+          testID={`competition-gallery-photo-${post.id}`}
+          onPress={()=>setLightbox(resolveMediaImageUrl(post.imageUrl))}
+          style={styles.galleryTile}>
+          <Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}}
+            style={styles.galleryImage} resizeMode="cover"/>
+          <View style={styles.galleryBadge}><Ionicons name="expand-outline" size={16} color="#FFFFFF"/></View>
+        </Pressable>)}
+      </View>
+    </>}
+    <Modal visible={Boolean(lightbox)} transparent animationType="fade"
+      onRequestClose={()=>setLightbox(null)}>
+      <View style={styles.lightbox}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")}
+          testID="competition-photo-close" onPress={()=>setLightbox(null)}
+          style={styles.lightboxClose}>
+          <Ionicons name="close" size={27} color="#FFFFFF"/>
+        </Pressable>
+        {lightbox?<Image source={{uri:lightbox}} resizeMode="contain" style={styles.lightboxImage}/>:null}
+      </View>
+    </Modal>
   </View>;
 }
 
@@ -379,4 +485,30 @@ const styles=StyleSheet.create({
   postAvatar:{width:42,height:42,borderRadius:21,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
   postImage:{width:"100%",height:235,borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
+  overview:{gap:spacing.md},
+  aboutLink:{flexDirection:"row",gap:3,alignItems:"center",minHeight:44,paddingHorizontal:spacing.xs},
+  snapshotGrid:{gap:spacing.sm,flexWrap:"wrap"},
+  snapshotItem:{flexGrow:1,flexBasis:"44%",minWidth:125,minHeight:83,padding:spacing.sm,
+    gap:3,backgroundColor:colors.primarySoft,borderRadius:radius.md},
+  overviewDate:{alignItems:"center",gap:spacing.xs,flexWrap:"wrap"},
+  matchesShortcut:{alignItems:"center",gap:spacing.sm,minHeight:44,
+    backgroundColor:colors.primarySoft,borderRadius:radius.md,paddingHorizontal:spacing.md},
+  mediaSwitcher:{gap:spacing.sm},
+  mediaTab:{flex:1,minHeight:46,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5,
+    backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:radius.md},
+  mediaTabActive:{backgroundColor:colors.primary,borderColor:colors.primary},
+  imageButton:{width:"100%",overflow:"hidden",borderRadius:radius.md},
+  gallery:{flexWrap:"wrap",gap:spacing.sm},
+  galleryTile:{width:"48.5%",aspectRatio:1,borderRadius:radius.md,overflow:"hidden",
+    backgroundColor:colors.primarySoft},
+  galleryImage:{width:"100%",height:"100%"},
+  galleryBadge:{position:"absolute",bottom:6,right:6,padding:6,borderRadius:16,
+    backgroundColor:"rgba(0,0,0,.6)"},
+  lightbox:{flex:1,backgroundColor:"rgba(5,12,25,.97)",
+    alignItems:"center",justifyContent:"center",padding:spacing.md},
+  lightboxClose:{position:"absolute",top:52,right:spacing.lg,width:48,height:48,zIndex:2,
+    alignItems:"center",justifyContent:"center",borderRadius:24,
+    backgroundColor:"rgba(255,255,255,.15)"},
+  lightboxImage:{width:"100%",height:"82%"},
+
 });

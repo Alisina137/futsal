@@ -65,6 +65,7 @@ export default function CompetitionAboutScreen(){
   const live=data?.matches.filter(x=>x.status==="IN_PROGRESS").length??0;
   const champion=data?.teams.find(x=>x.teamId===data.championTeamId);
   const order=data?.tieBreakOrder.map(rule=>t(`competition.profile.tieBreak.${rule}` as never)).join(" · ")??"";
+  const capacityRatio=data?.maxTeams?Math.min(1,accepted.length/data.maxTeams):0;
 
   return <Screen showHeader style={styles.page}>
     <View style={[styles.header,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -85,6 +86,53 @@ export default function CompetitionAboutScreen(){
       <Button label={t("common.retry")} onPress={()=>setRetry(n=>n+1)}/>
     </Card>:null}
     {data?<>
+      <Card testID="competition-about-at-a-glance" style={styles.glance}>
+        <View style={[styles.glanceHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.glanceIcon}><Ionicons name="trophy-outline" color={colors.primary} size={28}/></View>
+          <View style={{flex:1,gap:4,minWidth:0}}>
+            <AppText variant="bodyLarge" weight="bold" numberOfLines={3}>{data.name}</AppText>
+            <AppText variant="caption" muted>{data.venueName}</AppText>
+          </View>
+        </View>
+        <View style={[styles.glanceBadges,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.glancePill}><AppText variant="caption" weight="semibold"
+            style={{color:colors.primary}}>
+            {t(`competition.status.${data.status}` as never)}
+          </AppText></View>
+          <View style={styles.glancePill}><AppText variant="caption" weight="semibold"
+            style={{color:colors.primary}}>
+            {t(`competition.format.${data.format}` as never)}
+          </AppText></View>
+        </View>
+        <View style={[styles.glanceDetails,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.glanceDetail}>
+            <AppText variant="caption" muted>{t("competition.startsAt")}</AppText>
+            <AppText weight="semibold" numberOfLines={3}>{date(data.startsAt)}</AppText>
+          </View>
+          <View style={styles.glanceDetail}>
+            <AppText variant="caption" muted>{t("competition.registrationFee")}</AppText>
+            <AppText weight="semibold">{data.registrationFeeAfn===0?
+              t("competition.profile.free"):`${data.registrationFeeAfn} AFN`}</AppText>
+          </View>
+        </View>
+        <View style={[styles.progressHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <AppText variant="caption" muted>{t("competition.profile.registeredTeams")}</AppText>
+          <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
+            {accepted.length}/{data.maxTeams}
+          </AppText>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill,{width:`${Math.round(capacityRatio*100)}%`}]}/>
+        </View>
+        <View style={[styles.glanceActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Button label={t("competition.phase4.viewFixtures")} variant="secondary"
+            onPress={()=>router.push({pathname:"/competitions/[competitionId]",
+              params:{competitionId,tab:"MATCHES"}})} style={{flex:1}}/>
+          <Button label={t("competition.teams")} variant="secondary"
+            onPress={()=>router.push({pathname:"/competitions/[competitionId]",
+              params:{competitionId,tab:"TEAMS"}})} style={{flex:1}}/>
+        </View>
+      </Card>
       <AboutSection title={t("competition.profile.overview")} icon="information-circle-outline">
         <AppText weight="bold" variant="bodyLarge">{data.name}</AppText>
         {data.description?<AppText>{data.description}</AppText>:
@@ -107,7 +155,7 @@ export default function CompetitionAboutScreen(){
         <Info label={t("competition.profile.registrationStatus")}
           value={t(data.status==="REGISTRATION_OPEN"
             ?"competition.status.REGISTRATION_OPEN":"competition.profile.registrationNotOpen")}/>
-        {data.status==="REGISTRATION_OPEN"?<Button label={t("competition.register")} onPress={()=>
+        {data.status==="REGISTRATION_OPEN"&&(!data.registrationClosesAt||Date.parse(data.registrationClosesAt)>Date.now())&&accepted.length<data.maxTeams?<Button label={t("competition.register")} onPress={()=>
           router.push({pathname:"/competitions/[competitionId]",
             params:{competitionId,tab:"TEAMS",focusRegistration:"1"}})}/>:null}
       </AboutSection>
@@ -181,6 +229,20 @@ const styles=StyleSheet.create({
     borderTopWidth:1,borderTopColor:colors.border},
   value:{flex:1,textAlign:"auto"},
   pressed:{opacity:.7},
+  glance:{gap:spacing.md,borderColor:colors.primary},
+  glanceHeading:{alignItems:"center",gap:spacing.md},
+  glanceIcon:{height:58,width:58,borderRadius:radius.md,
+    backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  glanceBadges:{alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
+  glancePill:{paddingHorizontal:spacing.md,paddingVertical:7,
+    backgroundColor:colors.primarySoft,borderRadius:radius.pill},
+  glanceDetails:{gap:spacing.md,flexWrap:"wrap"},
+  glanceDetail:{minWidth:126,flex:1,gap:4},
+  progressHeading:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
+  progressTrack:{height:8,borderRadius:radius.pill,overflow:"hidden",backgroundColor:colors.primarySoft},
+  progressFill:{height:"100%",backgroundColor:colors.primary,borderRadius:radius.pill},
+  glanceActions:{alignItems:"center",gap:spacing.sm},
+
   rewardGroup:{gap:spacing.sm},
   rewardGroupHeading:{gap:spacing.sm,alignItems:"center"},
   rewardItem:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
