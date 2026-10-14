@@ -112,7 +112,8 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async markAllRead(userId:string,readAt:Date){
     const rows=await this.db.update(notifications).set({readAt})
-      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt)))
+      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt),
+        sql`EXISTS (SELECT 1 FROM notification_deliveries nd WHERE nd.notification_id=${notifications.id} AND nd.channel='IN_APP')`))
       .returning({id:notifications.id});
     return rows.length;
   }
@@ -126,7 +127,8 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async clearRead(userId:string){
     const rows=await this.db.delete(notifications)
-      .where(and(eq(notifications.userId,userId),isNotNull(notifications.readAt)))
+      .where(and(eq(notifications.userId,userId),isNotNull(notifications.readAt),
+        sql`EXISTS (SELECT 1 FROM notification_deliveries nd WHERE nd.notification_id=${notifications.id} AND nd.channel='IN_APP')`))
       .returning({id:notifications.id});
     return rows.length;
   }
