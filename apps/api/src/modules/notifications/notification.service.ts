@@ -42,6 +42,10 @@ export class NotificationService implements NotificationPublisher {
       nextCursor,generatedAt:this.now().toISOString()};
   }
 
+  async unreadCount(userId:string){
+    return {unreadCount:await this.repository.countUnreadNotifications(userId)};
+  }
+
   async markAllRead(userId:string){
     const updated=await this.repository.markAllRead(userId,this.now());
     return {updated,unreadCount:await this.repository.countUnreadNotifications(userId)};
