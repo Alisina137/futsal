@@ -31,7 +31,7 @@ for(const anchor of ['eq(competitions.published,true)','ne(competitions.status,"
  'hasMore:filters.page*filters.limit<total']){
  assert.ok(repo.includes(anchor),"Discovery SQL must enforce: "+anchor);
 }
-assert.ok(repo.includes('filters.q.replace(/[\\%_]/g,"\\$&")'),
+assert.ok(repo.includes(String.raw`filters.q.replace(/[\\%_]/g,"\\$&")`),
  "Literal search must escape SQL LIKE wildcards");
 assert.ok(repo.includes('eq(socialPosts.status,"PUBLISHED")')&&
  repo.includes("inArray(socialPosts.entityId,rows.map(row=>row.competition.id))"),
