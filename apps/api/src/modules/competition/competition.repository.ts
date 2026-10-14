@@ -399,7 +399,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       constraints.push(lt(competitions.startsAt,end));
     }
     if(filters.q){
-      const literal="%"+filters.q.replace(/[\\%_]/g,"\\  async createCompetition(input: Parameters<CompetitionRepository["createCompetition"]>[0]) {")+"%";
+      const literal="%"+filters.q.replace(/[\\%_]/g,"\\$&")+"%";
       constraints.push(or(ilike(competitions.name,literal),ilike(venues.name,literal),
         ilike(venues.province,literal),ilike(venues.city,literal))!);
     }
