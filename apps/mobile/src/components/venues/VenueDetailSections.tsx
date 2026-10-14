@@ -108,7 +108,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   const [loadingMore,setLoadingMore]=useState(false),[moreError,setMoreError]=useState(false);
   const requestId=useRef(0);
   const isMedia=sub==="posts"||sub==="photos"||sub==="videos";
-  const kind=isMedia?sub:"posts";
+  const kind=sub==="photos"?"photos":sub==="videos"?"videos":"posts";
   const postType=sub==="posts"&&filter!=="all"?filter.toUpperCase() as VenuePostType:undefined;
   const load=useCallback(async()=>{
     const id=++requestId.current;
