@@ -198,7 +198,7 @@ export class NotificationService implements NotificationPublisher {
       title: input.title,
       body: `${input.venueName} published a discounted futsal slot.`,
       deepLink: `/venues/${input.venueId}?promotionId=${input.promotionId}`,
-      data: { venueId: input.venueId, promotionId: input.promotionId },
+      data: { venueId: input.venueId, promotionId: input.promotionId, venueName: input.venueName },
       dedupeKey: `promotion:${input.promotionId}`,
       marketing: true,
     })));
