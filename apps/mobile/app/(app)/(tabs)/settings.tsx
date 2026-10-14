@@ -42,6 +42,9 @@ export default function ProfileScreen(){
   const user=session?.user;
   const owner=user?.roles.includes("VENUE_OWNER")??false;
   const admin=user?.roles.includes("PLATFORM_ADMIN")??false;
+  const emailVerified=user?.emailVerified===true;
+  const canRequestTeamJoin=emailVerified&&(user?.roles.length??-1)===0;
+  const refereeExclusive=user?.roles.includes("REFEREE")??false;
   const dashboardChoices=availableDashboardRoles(user?.roles??[]);
 
   const initials=useMemo(()=>{
@@ -66,28 +69,13 @@ export default function ProfileScreen(){
   }
 
   function selectRole(role:PaidRole){
+    if(!emailVerified||refereeExclusive)return;
     router.push(role==="VENUE_OWNER"?"/role-subscriptions/venue-owner":"/role-subscriptions/team-owner");
   }
 
   const direction={flexDirection:isRTL?"row-reverse":"row"} as const;
 
-  return <Screen showHeader>
-    {!user?.emailVerified?<Card style={[styles.sectionCard,{gap:spacing.sm,borderColor:colors.warning}]}>
-      <View style={[{alignItems:"center",gap:spacing.sm},direction]}>
-        <Ionicons name="shield-outline" size={26} color={colors.warning}/>
-        <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>{t("security.emailTitle")}</AppText>
-      </View>
-      <AppText muted>{t("security.emailWarning")}</AppText>
-      <Button label={t("security.emailAdd")} onPress={()=>router.push("/profile/email")}
-        icon={<Ionicons name="mail-outline" size={19} color="#FFFFFF"/>}/>
-    </Card>:<Card style={[styles.sectionCard,{gap:spacing.xs}]}>
-      <AppText style={{color:colors.success}} weight="bold">
-        {t("security.emailVerified")}
-      </AppText>
-      <AppText forceLtr>{user.email}</AppText>
-      <Button variant="secondary" label={t("security.emailChange")}
-        onPress={()=>router.push("/profile/email")}/>
-    </Card>}
+  return <Screen showHeader style={styles.profilePage}>
 
     <View style={styles.hero}>
       <View style={[styles.heroTop,direction]}>
@@ -98,7 +86,8 @@ export default function ProfileScreen(){
           </View>}
         <View style={styles.heroIdentity}>
           <AppText variant="bodyLarge" weight="bold" style={{color:"#FFFFFF"}}>{user?.displayName??""}</AppText>
-          <AppText style={{color:"#DCE8FF"}} forceLtr>{user?.phone??""}</AppText>
+          {user?.email?<AppText variant="caption" style={styles.heroSubLabel} numberOfLines={1} forceLtr>{user.email}</AppText>:null}
+          {!user?.email&&user?.phone?<AppText variant="caption" style={styles.heroSubLabel} forceLtr>{user.phone}</AppText>:null}
           {user?.username?<AppText variant="caption" style={{color:"#DCE8FF"}} forceLtr>@{user.username}</AppText>:null}
         </View>
       </View>
@@ -111,34 +100,85 @@ export default function ProfileScreen(){
         />
         <StatusBadge
           icon="shield-checkmark-outline"
-          label={t("settings.secureSession")}
-          positive
+          label={t(emailVerified?"security.emailVerified":"security.emailUnverified")}
+          positive={emailVerified}
         />
+        <Pressable accessibilityRole="button" accessibilityLabel={t("profile.accountEditTitle")}
+          onPress={()=>router.push("/profile/account")} style={styles.heroEdit}>
+          <Ionicons name="create-outline" color="#FFFFFF" size={16}/>
+          <AppText weight="semibold" variant="caption" style={{color:"#FFFFFF"}}>
+            {t("profile.accountEditTitle")}
+          </AppText>
+        </Pressable>
       </View>
     </View>
+
+    {!emailVerified?<Card style={styles.emailAttention}>
+      <View style={[styles.emailAttentionRow,direction]}>
+        <View style={styles.emailAttentionIcon}>
+          <Ionicons name="mail-unread-outline" size={24} color={colors.warning}/>
+        </View>
+        <View style={{flex:1,gap:4}}>
+          <AppText variant="bodyLarge" weight="bold">{t("security.emailTitle")}</AppText>
+          <AppText muted variant="caption">{t("security.emailWarning")}</AppText>
+        </View>
+      </View>
+      <Button label={t("security.emailAdd")} onPress={()=>router.push("/profile/email")}
+        icon={<Ionicons name="mail-outline" size={19} color="#FFFFFF"/>}/>
+    </Card>:<Card style={styles.emailVerifiedCard}>
+      <View style={[styles.emailAttentionRow,direction]}>
+        <View style={styles.emailVerifiedIcon}>
+          <Ionicons name="checkmark-circle-outline" size={23} color={colors.success}/>
+        </View>
+        <View style={{flex:1,gap:2,minWidth:0}}>
+          <AppText weight="bold" style={{color:colors.success}}>{t("security.emailVerified")}</AppText>
+          {user?.email?<AppText forceLtr numberOfLines={1}>{user.email}</AppText>:null}
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("security.emailChange")}
+          style={styles.emailChangeButton} onPress={()=>router.push("/profile/email")}>
+          <Ionicons name="create-outline" size={20} color={colors.primary}/>
+        </Pressable>
+      </View>
+    </Card>}
 
     <SectionHeader icon="person-circle-outline" title={t("settings.account")} subtitle={t("settings.accountSubtitle")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
       {hasConfiguredDisplayName?<><InfoRow icon="person-outline" label={t("auth.displayName")} value={user?.displayName??""} rtl={isRTL}/><Divider/></>:null}
       {user?.username?<><InfoRow icon="at-outline" label={t("settings.username")} value={`@${user.username}`} rtl={isRTL} ltr/><Divider/></>:null}
-      <InfoRow icon="call-outline" label={t("auth.phone")} value={user?.phone??""} rtl={isRTL} ltr/>
-      <Divider/>
+      {user?.phone?<><InfoRow icon="call-outline" label={t("auth.phone")} value={user.phone} rtl={isRTL} ltr/><Divider/></>:null}
+      {user?.email?<><InfoRow icon="mail-outline" label={t("profile.email")} value={user.email} rtl={isRTL} ltr/><Divider/></>:null}
       <InfoRow icon="id-card-outline" label={t("home.accountRole")} value={roles} rtl={isRTL}/>
       <Divider/>
       <ActionRow icon="create-outline" title={t("profile.accountEditTitle")} subtitle={t("profile.accountEditSubtitle")} rtl={isRTL} onPress={()=>router.push("/profile/account")}/>
     </Card>
 
+
     <SectionHeader icon="layers-outline" title={t("settings.roles")} subtitle={t("settings.rolesBody")} rtl={isRTL}/>
     <Card style={styles.sectionCard}>
-      {!user?.emailVerified?<AppText muted>{t("security.roleLocked")}</AppText>:<RoleSelector
-        activeRoles={user?.roles??[]}
+      {!emailVerified?<View testID="profile-roles-locked" style={styles.lockedRolesNotice}>
+        <View style={[styles.roleRow,direction]}>
+          <Ionicons name="lock-closed-outline" size={20} color={colors.warning}/>
+          <View style={{flex:1,gap:3}}>
+            <AppText weight="semibold">{t("security.roleLocked")}</AppText>
+            <AppText variant="caption" muted>{t("profile.roleUnlockHint")}</AppText>
+          </View>
+        </View>
+        <Button variant="secondary" label={t("security.emailAdd")}
+          onPress={()=>router.push("/profile/email")}/>
+      </View>:null}
+      {refereeExclusive?<View style={styles.lockedRolesNotice}>
+        <AppText variant="caption" muted>{t("profile.refereeRoleRestriction")}</AppText>
+      </View>:null}
+      <RoleSelector activeRoles={user?.roles??[]}
+        emailVerified={emailVerified}
+        refereeExclusive={refereeExclusive}
         rtl={isRTL}
         t={t}
         onSelect={selectRole}
-      />}
-      {/* Joining an existing team is free, unlike paid management roles.
-          Do not offer the shortcut after a role has been assigned. */}
-      {(user?.roles.length??-1)===0?<>
+      />
+      {/* Only a verified, role-free basic account may apply to join a team.
+          Other roles see paid role subscription options only. */}
+      {canRequestTeamJoin?<>
         <Divider/>
         <View testID="profile-join-team" style={styles.joinTeamCallout}>
           <View style={[styles.roleRow,direction]}>
@@ -148,9 +188,6 @@ export default function ProfileScreen(){
             <View style={styles.roleCopy}>
               <AppText variant="bodyLarge" weight="bold">{t("settings.joinTeam")}</AppText>
               <AppText variant="caption" muted>{t("settings.joinTeamBody")}</AppText>
-              {!user?.emailVerified?<AppText variant="caption" style={styles.joinTeamHint}>
-                {t("settings.joinTeamVerifyHint")}
-              </AppText>:null}
             </View>
           </View>
           <View testID="profile-join-team-action">
@@ -293,11 +330,15 @@ export default function ProfileScreen(){
 
 function RoleSelector({
   activeRoles,
+  emailVerified,
+  refereeExclusive,
   rtl,
   t,
   onSelect,
 }:{
   activeRoles:string[];
+  emailVerified:boolean;
+  refereeExclusive:boolean;
   rtl:boolean;
   t:(key:any,params?:Record<string,string|number>)=>string;
   onSelect:(role:PaidRole)=>void;
@@ -310,13 +351,18 @@ function RoleSelector({
   return <View style={styles.roleList}>
     {options.map((option,index)=>{
       const active=activeRoles.includes(option.role);
-      return <View key={option.role} style={styles.roleItem}>
+      const locked=!active&&(!emailVerified||refereeExclusive);
+      return <View key={option.role} style={[styles.roleItem,locked&&styles.roleItemLocked]}>
         {index>0?<Divider/>:null}
         <View style={[styles.roleRow,{flexDirection:rtl?"row-reverse":"row"}]}>
           <IconBox name={option.icon} positive={active}/>
           <View style={styles.roleCopy}>
             <View style={[styles.roleTitleRow,{flexDirection:rtl?"row-reverse":"row"}]}>
               <AppText weight="semibold">{t(option.role==="VENUE_OWNER"?"roles.venueOwner":"roles.teamOwner")}</AppText>
+              {locked?<View style={styles.lockedBadge}>
+                <Ionicons name="lock-closed-outline" size={13} color={colors.textMuted}/>
+                <AppText variant="caption" weight="semibold" muted>{t("profile.subscriptionLocked")}</AppText>
+              </View>:null}
               {active?<View style={styles.activeRoleBadge}>
                 <Ionicons name="checkmark-circle" size={14} color={colors.success}/>
                 <AppText variant="caption" weight="semibold" style={{color:colors.success}}>{t("roles.active")}</AppText>
@@ -329,6 +375,7 @@ function RoleSelector({
         <Button
           label={active?t("roles.manageSubscription"):t("roles.viewSubscription")}
           onPress={()=>onSelect(option.role)}
+          disabled={locked}
           variant={active?"secondary":"primary"}
         />
       </View>;
@@ -395,6 +442,7 @@ function Divider(){
 }
 
 const styles=StyleSheet.create({
+  profilePage:{paddingTop:spacing.lg,gap:spacing.md},
   hero:{
     backgroundColor:colors.primary,
     borderRadius:radius.lg,
@@ -430,8 +478,38 @@ const styles=StyleSheet.create({
   },
   heroIdentity:{
     flex:1,
-    gap:2,
+    minWidth:0,
+    gap:3,
   },
+  heroSubLabel:{color:"#DCE8FF"},
+  heroEdit:{
+    minHeight:36,paddingHorizontal:spacing.md,paddingVertical:spacing.xs,
+    flexDirection:"row",alignItems:"center",gap:spacing.xs,
+    borderRadius:radius.pill,backgroundColor:"rgba(255,255,255,0.17)",
+    borderWidth:1,borderColor:"rgba(255,255,255,0.2)",
+  },
+  emailAttention:{
+    gap:spacing.md,borderColor:"#F1CC78",backgroundColor:"#FFF9E9",
+  },
+  emailVerifiedCard:{
+    gap:spacing.sm,borderColor:"#B8E2C5",backgroundColor:"#F1FBF5",
+  },
+  emailAttentionRow:{alignItems:"center",gap:spacing.sm},
+  emailAttentionIcon:{width:46,height:46,backgroundColor:"#FFF0CD",
+    borderRadius:radius.md,alignItems:"center",justifyContent:"center"},
+  emailVerifiedIcon:{width:42,height:42,backgroundColor:"#DEF5E6",
+    borderRadius:radius.md,alignItems:"center",justifyContent:"center"},
+  emailChangeButton:{width:44,height:44,alignItems:"center",justifyContent:"center",
+    borderRadius:radius.md,backgroundColor:colors.primarySoft},
+  lockedRolesNotice:{
+    backgroundColor:"#FFF9E9",borderRadius:radius.md,borderWidth:1,
+    borderColor:"#F1D8A0",padding:spacing.md,gap:spacing.sm,
+    marginBottom:spacing.sm,
+  },
+  lockedBadge:{minHeight:25,paddingHorizontal:spacing.sm,
+    flexDirection:"row",alignItems:"center",gap:4,borderRadius:radius.pill,
+    backgroundColor:colors.surfaceMuted},
+  roleItemLocked:{opacity:0.7},
   heroBadges:{
     flexWrap:"wrap",
     gap:spacing.sm,
