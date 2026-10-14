@@ -612,6 +612,13 @@ export const marketingApi = {
   venuePromotions:(venueId:string)=>networkRequest<{
     venueId:string;promotions:PromotionDto[];generatedAt:string;
   }>(`/api/v1/promotions/venues/${encodeURIComponent(venueId)}`,{cache:"no-store"}),
+  venueMedia:(venueId:string,options:import("@leaguekick/contracts").VenueMediaBrowseQuery,
+    accessToken?:string)=>
+    networkRequest<import("@leaguekick/contracts").VenueMediaBrowseResponse>(
+      `/api/v1/venues/${encodeURIComponent(venueId)}/media`+
+      (accessToken?"/following":"")+"?"+new URLSearchParams(Object.entries(options)
+        .filter(([,value])=>value!==undefined).map(([key,value])=>[key,String(value)])).toString(),
+      {cache:"no-store"},accessToken),
   venuePosts: (venueId: string, accessToken?: string) =>
     request<{ posts: VenuePostDto[]; generatedAt: string }>(
       accessToken ? `/api/v1/venues/${venueId}/posts/following` : `/api/v1/venues/${venueId}/posts`,
