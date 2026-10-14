@@ -2,8 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {NotificationDto,NotificationListFilter} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
-import {useCallback,useMemo,useState} from "react";
-import {Alert,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {useCallback,useMemo,useRef,useState} from "react";
+import {Alert,AppState,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {notificationApi} from "../../src/lib/api";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../src/lib/date-time";
 import {publishNotificationUnread} from "../../src/lib/notification-events";
@@ -84,112 +84,169 @@ export default function NotificationsScreen(){
   const [unreadCount,setUnreadCount]=useState(0);
   const [total,setTotal]=useState(0);
   const [hasMore,setHasMore]=useState(false);
+  const [nextCursor,setNextCursor]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
   const [refreshing,setRefreshing]=useState(false);
   const [loadingMore,setLoadingMore]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
+  const [loadMoreError,setLoadMoreError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
   const [actionId,setActionId]=useState<string|null>(null);
+  // Superseded requests may not overwrite a new filter, account or mutation.
+  const generation=useRef(0);
+  const mutationLock=useRef(false);
+  const haveItems=useRef(false);
+  const loadedFilter=useRef<NotificationListFilter|null>(null);
 
-  useFocusEffect(useCallback(()=>{
-    let active=true;
-    if(!token){
-      setItems([]);setTotal(0);setUnreadCount(0);setHasMore(false);setLoading(false);
-      return()=>{active=false;};
-    }
-    setLoading(true);setError(null);
-    void notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0}).then(result=>{
-      if(!active)return;
-      setItems(result.notifications);setTotal(result.total);
-      setHasMore(result.hasMore);setUnreadCount(result.unreadCount);
-      publishNotificationUnread(token,result.unreadCount);
-    }).catch(()=>{
-      if(active)setError(t("notifications.loadError"));
-    }).finally(()=>{if(active)setLoading(false);});
-    return()=>{active=false;};
-  },[token,filter,retry,t]));
-
-  async function refresh(){
-    if(!token||refreshing)return;
-    setRefreshing(true);
-    try{
-      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0});
-      setItems(result.notifications);setTotal(result.total);setHasMore(result.hasMore);
-      setUnreadCount(result.unreadCount);publishNotificationUnread(token,result.unreadCount);
-      setError(null);
-    }catch{setError(t("notifications.loadError"));}
-    finally{setRefreshing(false);}
-  }
-  async function more(){
-    if(!token||!hasMore||loadingMore||loading||busy)return;
-    setLoadingMore(true);
-    try{
-      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:items.length});
-      setItems(current=>{
-        const ids=new Set(current.map(x=>x.id));
-        return [...current,...result.notifications.filter(x=>!ids.has(x.id))];
-      });
-      setTotal(result.total);setHasMore(result.hasMore);
-      setUnreadCount(result.unreadCount);publishNotificationUnread(token,result.unreadCount);
-    }catch{setError(t("notifications.loadError"));}
-    finally{setLoadingMore(false);}
-  }
-  function updateUnread(count:number){
+  const updateUnread=useCallback((count:number)=>{
     setUnreadCount(count);
     if(token)publishNotificationUnread(token,count);
+  },[token]);
+
+  const loadFirst=useCallback(async(mode:"initial"|"refresh"|"silent"="initial")=>{
+    const request=++generation.current;
+    if(!token){
+      haveItems.current=false;loadedFilter.current=null;
+      setItems([]);setTotal(0);setUnreadCount(0);setNextCursor(null);
+      setHasMore(false);setLoading(false);setRefreshing(false);setError(null);
+      return;
+    }
+    if(mutationLock.current)return;
+    const changedFilter=loadedFilter.current!==filter;
+    if(mode==="initial")setLoading(true);
+    if(mode==="refresh")setRefreshing(true);
+    if(changedFilter){setItems([]);haveItems.current=false;setLoading(true);}
+    setError(null);
+    try{
+      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE});
+      if(request!==generation.current)return;
+      loadedFilter.current=filter;
+      setItems(result.notifications);haveItems.current=result.notifications.length>0;
+      setTotal(result.total);setHasMore(result.hasMore);
+      setNextCursor(result.nextCursor);setLoadMoreError(null);
+      updateUnread(result.unreadCount);
+    }catch{
+      if(request!==generation.current)return;
+      if(!haveItems.current||changedFilter)setError(t("notifications.loadError"));
+      else setLoadMoreError(t("notifications.loadError"));
+    }finally{
+      if(request===generation.current){setLoading(false);setRefreshing(false);}
+    }
+  },[token,filter,t,updateUnread]);
+
+  useFocusEffect(useCallback(()=>{
+    void loadFirst("initial");
+    const appState=AppState.addEventListener("change",state=>{
+      if(state==="active"&&!mutationLock.current)void loadFirst("refresh");
+    });
+    return ()=>{generation.current++;appState.remove();};
+  },[loadFirst,retry]));
+
+  async function refresh(){
+    if(refreshing||mutationLock.current)return;
+    await loadFirst("refresh");
+  }
+  async function more(){
+    if(!token||!nextCursor||!hasMore||loadingMore||loading||mutationLock.current)return;
+    const request=generation.current;
+    setLoadingMore(true);setLoadMoreError(null);
+    try{
+      const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,cursor:nextCursor});
+      if(request!==generation.current)return;
+      setItems(previous=>{
+        const ids=new Set(previous.map(x=>x.id));
+        return [...previous,...result.notifications.filter(x=>!ids.has(x.id))];
+      });
+      setTotal(result.total);setHasMore(result.hasMore);
+      setNextCursor(result.nextCursor);
+      updateUnread(result.unreadCount);
+    }catch{
+      if(request===generation.current)setLoadMoreError(t("notifications.loadError"));
+    }finally{if(request===generation.current)setLoadingMore(false);}
+  }
+  function beginMutation(){
+    if(mutationLock.current||loading)return null;
+    mutationLock.current=true;setBusy(true);setLoadMoreError(null);
+    setLoadingMore(false);
+    return ++generation.current;
+  }
+  function endMutation(){
+    mutationLock.current=false;setBusy(false);
   }
   async function markRead(item:NotificationDto){
     if(!token||item.readAt)return;
+    const request=beginMutation();
+    if(request===null)return;
     try{
-      const {notification}=await notificationApi.markRead(token,item.id);
-      if(filter==="UNREAD"){setItems(prev=>prev.filter(x=>x.id!==item.id));setTotal(n=>Math.max(0,n-1));}
-      else setItems(prev=>prev.map(x=>x.id===item.id?notification:x));
-      updateUnread(Math.max(0,unreadCount-1));
-    }catch{setError(t("notifications.actionError"));}
+      const {notification,unreadCount:count}=await notificationApi.markRead(token,item.id);
+      if(request!==generation.current)return;
+      if(filter==="UNREAD"){
+        setItems(previous=>previous.filter(x=>x.id!==item.id));
+        setTotal(n=>Math.max(0,n-1));
+      }else setItems(previous=>previous.map(x=>x.id===item.id?notification:x));
+      updateUnread(count);
+    }catch{
+      if(request===generation.current)setError(t("notifications.actionError"));
+    }finally{endMutation();}
   }
   async function openItem(item:NotificationDto){
     if(!item.readAt)await markRead(item);
     target(item)();
   }
   async function markAll(){
-    if(!token||busy||unreadCount===0)return;
-    setBusy(true);setError(null);
+    if(!token||unreadCount===0)return;
+    const request=beginMutation();
+    if(request===null)return;
+    setError(null);
     try{
       const result=await notificationApi.markAllRead(token);
+      if(request!==generation.current)return;
       updateUnread(result.unreadCount);
-      if(filter==="UNREAD"){setItems([]);setTotal(0);setHasMore(false);}
-      else setItems(prev=>prev.map(x=>x.readAt?x:{...x,readAt:new Date().toISOString()}));
-    }catch{setError(t("notifications.actionError"));}
-    finally{setBusy(false);}
+      if(filter==="UNREAD"){
+        setItems([]);setTotal(0);setHasMore(false);setNextCursor(null);
+        haveItems.current=false;
+      }else setItems(previous=>previous.map(x=>x.readAt?x:{...x,readAt:new Date().toISOString()}));
+    }catch{if(request===generation.current)setError(t("notifications.actionError"));}
+    finally{endMutation();}
   }
   function remove(item:NotificationDto){
-    if(!token||busy)return;
+    if(!token||mutationLock.current)return;
     Alert.alert(t("notifications.deleteOne"),t("notifications.confirmDeleteOne"),[
       {text:t("common.cancel"),style:"cancel"},
       {text:t("notifications.deleteOne"),style:"destructive",onPress:()=>void (async()=>{
-        setBusy(true);setActionId(null);
+        const request=beginMutation();
+        if(request===null)return;
+        setActionId(null);
         try{
           const result=await notificationApi.remove(token,item.id);
-          setItems(prev=>prev.filter(x=>x.id!==item.id));
+          if(request!==generation.current)return;
+          setItems(previous=>previous.filter(x=>x.id!==item.id));
           setTotal(n=>Math.max(0,n-1));
           updateUnread(result.unreadCount);
-        }catch{setError(t("notifications.actionError"));}
-        finally{setBusy(false);}
+        }catch{if(request===generation.current)setError(t("notifications.actionError"));}
+        finally{endMutation();}
       })()},
     ]);
   }
   function clearRead(){
-    if(!token||busy||!items.some(x=>x.readAt)&&filter==="ALL"&&total===unreadCount)return;
+    if(!token||mutationLock.current||!items.some(x=>x.readAt)&&filter==="ALL"&&total===unreadCount)return;
     Alert.alert(t("notifications.clearRead"),t("notifications.confirmClearRead"),[
       {text:t("common.cancel"),style:"cancel"},
       {text:t("notifications.clearRead"),style:"destructive",onPress:()=>void (async()=>{
-        setBusy(true);setActionId(null);
+        const request=beginMutation();
+        if(request===null)return;
+        setActionId(null);
         try{
           const result=await notificationApi.clearRead(token);
-          updateUnread(result.unreadCount);setRetry(n=>n+1);
-        }catch{setError(t("notifications.actionError"));}
-        finally{setBusy(false);}
+          if(request!==generation.current)return;
+          updateUnread(result.unreadCount);
+          // The server changes the page shape: restart at cursor page one.
+          endMutation();
+          await loadFirst("refresh");
+          return;
+        }catch{if(request===generation.current)setError(t("notifications.actionError"));}
+        finally{if(mutationLock.current)endMutation();}
       })()},
     ]);
   }
