@@ -960,6 +960,8 @@ export const competitions = pgTable(
     createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
     name: varchar("name", { length: 140 }).notNull(),
     description: text("description"),
+    logoUrl: text("logo_url"),
+    coverImageUrl: text("cover_image_url"),
     format: competitionFormatEnum("format").notNull(),
     status: competitionStatusEnum("status").notNull().default("DRAFT"),
     published: boolean("published").notNull().default(false),
