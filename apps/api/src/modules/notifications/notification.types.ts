@@ -41,7 +41,10 @@ export interface NotificationPublisher {
   slotAvailable(input:{userId:string;watchId:string;venueId:string;areaId:string;
     venueName:string;startsAt:string}):Promise<void>;
 
-  bookingConfirmed(input: {
+  bookingRequest(input:{ownerUserId:string;bookingId:string;venueId:string;venueName:string;startsAt:string}):Promise<void>;
+  teamJoinRequest(input:{managerUserId:string;teamId:string;teamName:string;requestId:string;requesterDisplayName:string}):Promise<void>;
+  teamJoinDecision(input:{requesterUserId:string;teamId:string;teamName:string;requestId:string;accepted:boolean}):Promise<void>;
+    bookingConfirmed(input: {
     userId: string;
     bookingId: string;
     venueName: string;
