@@ -323,6 +323,8 @@ export const venues = pgTable(
     minimumBookingNoticeMinutes: integer("minimum_booking_notice_minutes").notNull().default(0),
     maximumAdvanceBookingDays: integer("maximum_advance_booking_days").notNull().default(30),
     cancellationPolicy: text("cancellation_policy").notNull().default("Cancellation is allowed before the booking start time."),
+    amenities:jsonb("amenities").$type<import("@leaguekick/contracts").VenueAmenity[]>().notNull().default([]),
+    houseRules:text("house_rules"),
     pageProfileImageUrl: text("page_profile_image_url"),
     pageCoverImageUrl: text("page_cover_image_url"),
     pageBio: varchar("page_bio", { length: 500 }),

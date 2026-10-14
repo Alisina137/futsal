@@ -38,6 +38,9 @@ export type BookingVenueRecord = {
   minimumBookingNoticeMinutes: number;
   maximumAdvanceBookingDays: number;
   cancellationPolicy: string;
+  amenities?:import("@leaguekick/contracts").VenueAmenity[];
+  houseRules?:string|null;
+  verificationStatus?:"PENDING"|"VERIFIED"|"REJECTED";
   status: "DRAFT" | "READY" | "ACTIVE" | "SUSPENDED";
   areas: BookingAreaRecord[];
   openingHours: VenueOpeningHourInput[];
@@ -85,8 +88,9 @@ export type VenueDiscoveryRecord = Pick<BookingVenueRecord, "id"|"name"|"provinc
 export interface BookingRepository {
   /** Private review ownership, used only by the authenticated player. */
   listReviewedBookingIds(userId:string,venueId:string):Promise<string[]>;
-  listVerifiedReviews(venueId:string,limit:number):Promise<{
-    averageRating:number;reviewCount:number;reviews:import("@leaguekick/contracts").VenueReviewDto[];
+  listVerifiedReviews(venueId:string,limit:number,page?:number,sort?:import("@leaguekick/contracts").VenueReviewSort):Promise<{
+    averageRating:number;reviewCount:number;ratingCounts:number[];page:number;hasMore:boolean;
+    reviews:import("@leaguekick/contracts").VenueReviewDto[];
   }>;
   createVerifiedReview(input:{venueId:string;bookingId:string;userId:string;
     rating:number;body:string;createdAt:Date}):Promise<import("@leaguekick/contracts").VenueReviewDto>;
@@ -158,6 +162,10 @@ export function toPublicVenueDto(venue: BookingVenueRecord): PublicVenueDto {
     minimumBookingNoticeMinutes: venue.minimumBookingNoticeMinutes,
     maximumAdvanceBookingDays: venue.maximumAdvanceBookingDays,
     cancellationPolicy: venue.cancellationPolicy,
+    verificationStatus:venue.verificationStatus??"PENDING",
+    amenities:venue.amenities??[],
+    houseRules:venue.houseRules??null,
+    openingHours:venue.openingHours,
     areas: venue.areas.filter((area) => area.active).map((area) => ({
       id: area.id,
       name: area.name,

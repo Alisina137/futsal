@@ -18,6 +18,8 @@ import {SlotTileContent} from "../ui/SlotTileContent";
 import {softenSlotColor} from "../../lib/slot-color";
 import {ReservationsPanel} from "../bookings/ReservationsPanel";
 import {formatSlotStartTime,formatSlotTilePrice} from "../../lib/slot-display";
+import {formatClock12From24Hour} from "../../lib/clock-display";
+import {callVenueUrl,venueWhatsAppUrl} from "../../lib/venue-contact";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -29,7 +31,8 @@ export type VenueMediaSub="posts"|"photos"|"videos";
 export type VenueReserveSub="slots"|"offers"|"bookings";
 export type VenueCompetitionSub="upcoming"|"live"|"completed";
 export type VenueUpdatesSub="announcements"|"alerts";
-export type VenueAboutSub="overview"|"facilities"|"location"|"reviews"|"preferences";
+/** Preferences temporarily remains accessible here until Reserve Phase 3 moves it. */
+export type VenueAboutSub="overview"|"facilities"|"hours"|"location"|"reviews"|"policies"|"preferences";
 export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}[]=[
   {id:"media",icon:"images-outline"},{id:"reserve",icon:"calendar-outline"},
   {id:"competitions",icon:"trophy-outline"},{id:"updates",icon:"notifications-outline"},
@@ -38,7 +41,7 @@ export const venueNavItems:{id:VenueMainTab;icon:keyof typeof Ionicons.glyphMap}
 export const venueSubtabs:Record<VenueMainTab,string[]>={
   media:["posts","photos","videos"],reserve:["slots","offers","bookings"],
   competitions:["upcoming","live","completed"],updates:["announcements","alerts"],
-  about:["overview","facilities","location","reviews","preferences"],
+  about:["overview","facilities","hours","location","reviews","policies","preferences"],
 };
 export function todayAtKabul(){
   const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
@@ -414,8 +417,18 @@ export function VenueUpdatesContent({venue,sub,onReserve}:{
 export function VenueAboutContent({venue,sub,reviewBookingId}:{
   venue:PublicVenueDto;sub:VenueAboutSub;reviewBookingId?:string|undefined;
 }){
-  const {t,isRTL}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
-  const [mapReady,setMapReady]=useState(false),[mapFailed,setMapFailed]=useState(false);
+  const {t,isRTL,language}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
+  const tx=(key:string)=>t(("vd2."+key) as never);
+  const [mapFailed,setMapFailed]=useState(false);
+  const [linkFailed,setLinkFailed]=useState(false);
+  const [reviewFacts,setReviewFacts]=useState<{averageRating:number;reviewCount:number}|null>(null);
+  useEffect(()=>{
+    let active=true;setReviewFacts(null);
+    if(sub==="overview")void venueApi.reviews(venue.id).then(result=>{
+      if(active)setReviewFacts({averageRating:result.averageRating,reviewCount:result.reviewCount});
+    }).catch(()=>{});
+    return()=>{active=false;};
+  },[venue.id,sub]);
   const position=venue.latitude!==null&&venue.longitude!==null?
     {latitude:venue.latitude,longitude:venue.longitude}:null;
   const mapVenue=useMemo(()=>position?[{id:venue.id,name:venue.name,city:venue.city,
@@ -424,60 +437,120 @@ export function VenueAboutContent({venue,sub,reviewBookingId}:{
     distanceKm:0,onlineBookingEnabled:venue.onlineBookingEnabled}]:[],
     [venue.id,venue.name,venue.city,venue.province,venue.pageProfileImageUrl,
       venue.latitude,venue.longitude,venue.onlineBookingEnabled]);
-  async function maps(){
-    if(!position)return;
-    const address=encodeURIComponent(position.latitude+","+position.longitude);
-    await Linking.openURL("https://www.google.com/maps/search/?api=1&query="+address);
+  async function openLink(url:string){
+    setLinkFailed(false);
+    try{await Linking.openURL(url);}catch{setLinkFailed(true);}
   }
+  function maps(){
+    if(!position)return;
+    void openLink("https://www.google.com/maps/search/?api=1&query="+
+      encodeURIComponent(position.latitude+","+position.longitude));
+  }
+  const callUrl=callVenueUrl(venue.publicPhone);
+  const whatsappUrl=venueWhatsAppUrl(venue,language);
   if(sub==="reviews")return <VenueReviewsPanel venue={venue} reviewBookingId={reviewBookingId}/>;
   if(sub==="preferences")return <VenueSavedTimePanel venue={venue}/>;
   if(sub==="overview")return <>
-    <Card><SectionHeading name={tr("aboutVenue")} icon="information-circle-outline"/>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={tr("aboutVenue")} icon="information-circle-outline"/>
+      {venue.verificationStatus==="VERIFIED"?<View style={[styles.meta,{alignSelf:"flex-start"}]}>
+        <Ionicons name="shield-checkmark" color="#15803D" size={20}/>
+        <AppText weight="semibold" style={{color:"#15803D"}}>{tx("verified")}</AppText>
+      </View>:null}
       <AppText>{venue.pageBio||tr("noBio")}</AppText>
-      <MetaRow icon="location-outline" value={venue.address}/>
-      <MetaRow icon="call-outline" value={venue.publicPhone} forceLtr/>
-      <Button variant="secondary" label={tr("callVenue")} onPress={()=>
-        void Linking.openURL("tel:"+venue.publicPhone.replace(/[^\d+]/g,""))}/>
+      <MetaRow icon="location-outline" value={[venue.city,venue.province].filter(Boolean).join(", ")}/>
+      <MetaRow icon="football-outline" value={tr("oneCourt")}/>
+      <MetaRow icon={venue.onlineBookingEnabled?"checkmark-circle-outline":"pause-circle-outline"}
+        value={venue.onlineBookingEnabled?tx("onlineOpen"):tr("bookingPaused")}/>
     </Card>
-    <Card><SectionHeading name={tr("bookingRules")} icon="calendar-outline"/>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={tx("customerReviews")} icon="star-outline"/>
+      <AppText variant="bodyLarge" weight="bold">{reviewFacts&&reviewFacts.reviewCount>0
+        ?reviewFacts.averageRating.toFixed(1)+" / 5 · "+reviewFacts.reviewCount
+        :tx("ratingNotAvailable")}</AppText>
+      <AppText variant="caption" muted>{tx("verifiedReviewsOnly")}</AppText>
+    </Card>
+  </>;
+  if(sub==="facilities")return <>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={tr("courtAndFacilities")} icon="football-outline"/>
+      {venue.areas.map(a=><View key={a.id} style={{gap:spacing.xs}}>
+        <AppText weight="bold">{a.name}</AppText>
+        <MetaRow icon="time-outline" value={a.defaultSessionDurationMinutes+" "+tr("minutes")}/>
+        <MetaRow icon="pricetag-outline" value={a.basePriceAfn+" AFN · "+tr("baseRate")}/>
+      </View>)}
+      <AppText variant="caption" muted>{tr("oneCourt")}</AppText>
+    </Card>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={tx("amenities")} icon="checkmark-done-outline"/>
+      {venue.amenities.length?venue.amenities.map(item=>
+        <MetaRow key={item} icon="checkmark-circle-outline" value={tx("amenity."+item)}/>
+      ):<AppText muted>{tr("facilitiesNotListed")}</AppText>}
+      <AppText variant="caption" muted>{tx("ownerDeclared")}</AppText>
+    </Card>
+  </>;
+  if(sub==="hours")return <>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={tx("regularHours")} icon="time-outline"/>
+      {venue.openingHours.length?venue.openingHours
+        .slice().sort((a,b)=>((a.dayOfWeek+6)%7)-((b.dayOfWeek+6)%7))
+        .map(hour=><View key={hour.dayOfWeek}
+          style={[styles.meta,{justifyContent:"space-between",flexDirection:isRTL?"row-reverse":"row"}]}>
+          <AppText weight="semibold">{tx("day."+hour.dayOfWeek)}</AppText>
+          <AppText forceLtr>{hour.isClosed||!hour.opensAt||!hour.closesAt
+            ?tx("closed")
+            :formatClock12From24Hour(hour.opensAt)+" – "+formatClock12From24Hour(hour.closesAt)}</AppText>
+        </View>):<AppText muted>{tx("hoursNotListed")}</AppText>}
+      <AppText variant="caption" muted>{tx("hoursDisclaimer")}</AppText>
+    </Card>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={tx("basePricing")} icon="pricetag-outline"/>
+      {venue.areas.map(area=><View key={area.id} style={{gap:spacing.xs}}>
+        <AppText weight="bold">{area.name}</AppText>
+        <MetaRow icon="pricetag-outline" value={area.basePriceAfn+" AFN"}/>
+        <MetaRow icon="time-outline" value={area.defaultSessionDurationMinutes+" "+tr("minutes")}/>
+      </View>)}
+      <AppText variant="caption" muted>{tx("priceDisclaimer")}</AppText>
+    </Card>
+  </>;
+  if(sub==="policies")return <>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={tr("bookingRules")} icon="calendar-outline"/>
       <MetaRow icon="checkmark-circle-outline"
         value={t(("publicProfile.bookingMode."+venue.bookingMode) as never)}/>
       <MetaRow icon="time-outline" value={t("venueSettings.minimumNoticeValue",{
         minutes:venue.minimumBookingNoticeMinutes})}/>
       <MetaRow icon="calendar-outline" value={t("venueSettings.advanceDaysValue",{
         days:venue.maximumAdvanceBookingDays})}/>
-      <AppText weight="semibold">{t("venueSettings.cancellationPolicy")}</AppText>
+      {!venue.onlineBookingEnabled?<AppText style={{color:colors.warning}}>
+        {tr("bookingPausedBody")}</AppText>:null}
+    </Card>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={t("venueSettings.cancellationPolicy")} icon="document-text-outline"/>
       <AppText>{venue.cancellationPolicy}</AppText>
+      <AppText variant="caption" muted>{tx("policySnapshot")}</AppText>
+    </Card>
+    <Card style={{gap:spacing.sm}}>
+      <SectionHeading name={tx("houseRules")} icon="shield-checkmark-outline"/>
+      <AppText>{venue.houseRules||tx("noHouseRules")}</AppText>
     </Card>
   </>;
-  if(sub==="facilities")return <Card>
-    <SectionHeading name={tr("courtAndFacilities")} icon="football-outline"/>
-    <MetaRow icon="football-outline" value={tr("oneCourt")}/>
-    {venue.areas.map(a=><View key={a.id} style={{gap:spacing.xs}}>
-      <AppText weight="bold">{a.name}</AppText>
-      <MetaRow icon="time-outline" value={a.defaultSessionDurationMinutes+" "+tr("minutes")}/>
-      <MetaRow icon="pricetag-outline" value={a.basePriceAfn+" AFN · "+tr("baseRate")}/>
-    </View>)}
-    <AppText variant="caption" muted>{tr("facilitiesNotListed")}</AppText>
+  return <Card style={{gap:spacing.sm}}>
+    <SectionHeading name={tx("locationContact")} icon="map-outline"/>
+    {position?<>
+      {!mapFailed?<View style={styles.map}>
+        <NearbyVenuesMap position={position} venues={mapVenue} onSelect={maps}
+          onReady={()=>{}} onFailed={()=>setMapFailed(true)}/>
+      </View>:<AppText muted>{tr("mapUnavailable")}</AppText>}
+      <Button variant="secondary" label={tr("openMaps")} onPress={maps}/>
+    </>:<AppText muted>{tr("locationNotSet")}</AppText>}
+    <MetaRow icon="location-outline" value={[venue.address,venue.city,venue.province].filter(Boolean).join(", ")}/>
+    {callUrl?<Button variant="secondary" label={tr("callVenue")}
+      onPress={()=>void openLink(callUrl)}/>:null}
+    {whatsappUrl?<Button variant="secondary" label={tx("whatsapp")}
+      onPress={()=>void openLink(whatsappUrl)}/>:null}
+    {linkFailed?<AppText style={{color:colors.danger}}>{tx("contactFailed")}</AppText>:null}
   </Card>;
-  return <>
-    <Card>
-      <SectionHeading name={tr("venueLocation")} icon="map-outline"/>
-      {position?<>
-        {!mapFailed?<View style={styles.map}>
-          <NearbyVenuesMap position={position} venues={mapVenue} onSelect={()=>void maps()}
-            onReady={()=>setMapReady(true)} onFailed={()=>setMapFailed(true)}/>
-        </View>:<AppText muted>{tr("mapUnavailable")}</AppText>}
-        <Button variant="secondary" label={tr("openMaps")} onPress={()=>void maps()}/>
-      </>:<AppText muted>{tr("locationNotSet")}</AppText>}
-      <MetaRow icon="location-outline" value={[venue.address,venue.city,venue.province].filter(Boolean).join(", ")}/>
-    </Card>
-    <Card><SectionHeading name={tr("venueRules")} icon="document-text-outline"/>
-      <AppText>{venue.cancellationPolicy}</AppText>
-      <MetaRow icon="calendar-outline" value={t("venueSettings.advanceDaysValue",{
-        days:venue.maximumAdvanceBookingDays})}/>
-    </Card>
-  </>;
 }
 const styles=StyleSheet.create({
   empty:{minHeight:140,padding:spacing.lg,alignItems:"center",justifyContent:"center",gap:spacing.sm},

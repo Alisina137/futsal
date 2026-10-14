@@ -189,9 +189,9 @@ export class BookingService {
   }
 
   /** Only real customers with ended CONFIRMED ONLINE bookings can review. */
-  async venueReviews(venueId:string){
+  async venueReviews(venueId:string,page=1,sort:import("@leaguekick/contracts").VenueReviewSort="recent"){
     await this.getPublicVenue(venueId);
-    return {venueId,...await this.repository.listVerifiedReviews(venueId,30)};
+    return {venueId,...await this.repository.listVerifiedReviews(venueId,20,page,sort)};
   }
   async myReviewedVenueBookings(userId:string,venueId:string){
     await this.getPublicVenue(venueId);

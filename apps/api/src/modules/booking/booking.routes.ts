@@ -9,6 +9,7 @@ import {
   venueBlockRequestSchema,
   venueDirectoryFiltersSchema,
   venueReviewCreateSchema,
+  venueReviewSortSchema,
   venueSlotWatchCreateSchema,
   venueSavedTimeSchema,
 } from "@leaguekick/contracts";
@@ -81,8 +82,11 @@ export function createPublicVenueRouter(booking: BookingService) {
   });
 
   router.get("/:venueId/reviews",async(request,response,next)=>{
-    try{response.json(await booking.venueReviews(routeIdSchema.parse(request.params.venueId)));}
-    catch(error){next(error);}
+    try{
+      const page=z.coerce.number().int().min(1).max(500).default(1).parse(request.query.page);
+      const sort=venueReviewSortSchema.default("recent").parse(request.query.sort);
+      response.json(await booking.venueReviews(routeIdSchema.parse(request.params.venueId),page,sort));
+    }catch(error){next(error);}
   });
 
   router.get("/:venueId/availability", async (request, response, next) => {

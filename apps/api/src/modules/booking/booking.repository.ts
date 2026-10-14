@@ -15,7 +15,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, desc, eq, gt, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   BookingRepository,
@@ -87,15 +87,27 @@ export class DrizzleBookingRepository implements BookingRepository {
       .where(and(eq(venueReviews.userId,userId),eq(venueReviews.venueId,venueId)));
     return rows.map(row=>row.bookingId);
   }
-  async listVerifiedReviews(venueId:string,limit:number){
-    const [summary]=await this.db.select({
-      average:sql<number>`coalesce(avg(${venueReviews.rating}),0)::float8`,
-      total:sql<number>`count(*)::int`,
-    }).from(venueReviews).where(eq(venueReviews.venueId,venueId));
-    const reviews=await this.db.select().from(venueReviews).where(eq(venueReviews.venueId,venueId))
-      .orderBy(desc(venueReviews.createdAt),desc(venueReviews.id)).limit(limit);
+  async listVerifiedReviews(venueId:string,limit:number,page=1,sort:import("@leaguekick/contracts").VenueReviewSort="recent"){
+    const [summary,stars,reviews]=await Promise.all([
+      this.db.select({
+        average:sql<number>`coalesce(avg(${venueReviews.rating}),0)::float8`,
+        total:sql<number>`count(*)::int`,
+      }).from(venueReviews).where(eq(venueReviews.venueId,venueId)).then(rows=>rows[0]),
+      this.db.select({rating:venueReviews.rating,total:sql<number>`count(*)::int`})
+        .from(venueReviews).where(eq(venueReviews.venueId,venueId)).groupBy(venueReviews.rating),
+      this.db.select().from(venueReviews).where(eq(venueReviews.venueId,venueId))
+        .orderBy(...(sort==="highest"
+          ?[desc(venueReviews.rating),desc(venueReviews.createdAt),desc(venueReviews.id)]
+          :sort==="lowest"
+          ?[asc(venueReviews.rating),desc(venueReviews.createdAt),desc(venueReviews.id)]
+          :[desc(venueReviews.createdAt),desc(venueReviews.id)]))
+        .limit(limit).offset((page-1)*limit),
+    ]);
+    const count=Number(summary?.total??0);
     return {
-      averageRating:Number(summary?.average??0),reviewCount:Number(summary?.total??0),
+      averageRating:Number(summary?.average??0),reviewCount:count,
+      ratingCounts:[1,2,3,4,5].map(n=>Number(stars.find(row=>row.rating===n)?.total??0)),
+      page,hasMore:page*limit<count,
       reviews:reviews.map(row=>({id:row.id,venueId:row.venueId,
         rating:row.rating,body:row.body,createdAt:row.createdAt.toISOString(),verified:true as const})),
     };
@@ -192,6 +204,9 @@ export class DrizzleBookingRepository implements BookingRepository {
       minimumBookingNoticeMinutes: row.minimumBookingNoticeMinutes,
       maximumAdvanceBookingDays: row.maximumAdvanceBookingDays,
       cancellationPolicy: row.cancellationPolicy,
+      verificationStatus:row.verificationStatus,
+      amenities:row.amenities,
+      houseRules:row.houseRules,
       status: row.status,
       areas: areas.map((area) => ({
         id: area.id,

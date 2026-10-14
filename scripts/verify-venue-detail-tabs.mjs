@@ -26,7 +26,7 @@ check(components.includes('export const venueSubtabs')&&
   components.includes('reserve:["slots","offers","bookings"]')&&
   components.includes('competitions:["upcoming","live","completed"]')&&
   components.includes('updates:["announcements","alerts"]')&&
-  components.includes('about:["overview","facilities","location","reviews","preferences"]'),
+  components.includes('about:["overview","facilities","hours","location","reviews","policies","preferences"]'),
   "Venue tab/subtab structure is incomplete.");
 for(const fragment of [
   "marketingApi.venuePosts","post.socialPostId","post.ctaTargetId",

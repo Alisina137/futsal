@@ -523,8 +523,9 @@ export const ownerApi = {
 
 
 export const venueApi = {
-  reviews:(venueId:string)=>networkRequest<VenueReviewSummary>(
-    `/api/v1/venues/${encodeURIComponent(venueId)}/reviews`),
+  reviews:(venueId:string,page=1,sort:"recent"|"highest"|"lowest"="recent")=>
+    networkRequest<VenueReviewSummary>(
+      `/api/v1/venues/${encodeURIComponent(venueId)}/reviews?page=${page}&sort=${sort}`),
   search: (filters:VenueDirectoryFilters)=>{
     const params=new URLSearchParams();
     params.set("date",filters.date);

@@ -57,6 +57,50 @@ async function register(
 }
 
 describe("Phase 3 availability and booking API", () => {
+  it("publishes actual venue About facts and paginates verified ratings without identity leakage",async()=>{
+    const {app,bookingRepository,authRepository}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0709980394");
+    const {venue}=bookingRepository.seedVenue(owner.body.user.id);
+    venue.verificationStatus="VERIFIED";
+    venue.amenities=["LIGHTING","PARKING"];
+    venue.houseRules="Clean indoor shoes required.";
+    const publicVenue=await request(app).get(`/api/v1/venues/${venue.id}`);
+    expect(publicVenue.status).toBe(200);
+    expect(publicVenue.body.venue.verificationStatus).toBe("VERIFIED");
+    expect(publicVenue.body.venue.amenities).toEqual(["LIGHTING","PARKING"]);
+    expect(publicVenue.body.venue.houseRules).toBe("Clean indoor shoes required.");
+    expect(publicVenue.body.venue.openingHours).toHaveLength(7);
+    expect(publicVenue.body.venue.openingHours[0].opensAt).toBe("08:00");
+    expect(publicVenue.body.venue.areas[0].basePriceAfn).toBe(1800);
+    expect(JSON.stringify(publicVenue.body)).not.toContain(owner.body.user.id);
+
+    for(let i=0;i<25;i++){
+      const id="00000000-0000-4000-a000-"+String(i+1).padStart(12,"0");
+      bookingRepository.reviews.set("booking-"+i,{
+        id,venueId:venue.id,rating:i%5+1,body:"Public review "+i,
+        createdAt:new Date(Date.UTC(2026,9,2,0,i,0)).toISOString(),verified:true,
+      });
+    }
+    const first=await request(app).get(`/api/v1/venues/${venue.id}/reviews`)
+      .query({page:1,sort:"highest"});
+    const second=await request(app).get(`/api/v1/venues/${venue.id}/reviews`)
+      .query({page:2,sort:"highest"});
+    expect(first.status).toBe(200);
+    expect(first.body.reviewCount).toBe(25);
+    expect(first.body.ratingCounts).toEqual([5,5,5,5,5]);
+    expect(first.body.reviews).toHaveLength(20);
+    expect(first.body.hasMore).toBe(true);
+    expect(second.body.reviews).toHaveLength(5);
+    expect(second.body.hasMore).toBe(false);
+    expect(first.body.reviews[0].rating).toBe(5);
+    expect(second.body.reviews.every((review:{rating:number})=>review.rating===1)).toBe(true);
+    expect((await request(app).get(`/api/v1/venues/${venue.id}/reviews`)
+      .query({page:0})).status).toBe(400);
+    expect((await request(app).get(`/api/v1/venues/${venue.id}/reviews`)
+      .query({sort:"invalid"})).status).toBe(400);
+    expect(JSON.stringify(first.body)).not.toContain(owner.body.user.id);
+  });
+
   it("returns the nearest ten permitted venues with saved map pins, excluding expired and suspended venues",async()=>{
     const {app,bookingRepository,authRepository,clock}=setup();
     const owner=await register(app,authRepository,"VENUE_OWNER","0705556601");
