@@ -23,7 +23,7 @@ export function PushNotificationsBridge(){
     let refreshDevice:(()=>Promise<void>)|null=null;
     const refreshUnread=async()=>{
       try{
-        const response=await notificationApi.list(accessToken);
+        const response=await notificationApi.unreadCount(accessToken);
         if(alive)publishNotificationUnread(accessToken,response.unreadCount);
       }catch{/* In-app inbox remains accessible when network is offline. */}
     };
