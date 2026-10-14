@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {isValidVenueDay,isVenueBookingDay,venueDayKey} from
+import {isCurrentVenueAvailability,isValidVenueDay,isVenueBookingDay,venueDayKey} from
   "../../apps/mobile/src/lib/venue-detail-dates.ts";
 
 test("Kabul local date is not UTC date near midnight",()=>{
@@ -25,4 +25,12 @@ test("inclusive booking advance window cannot overflow calendar/month/year",()=>
   assert.equal(isVenueBookingDay("2026-02-29","2026-02-27",3),false);
   assert.equal(isVenueBookingDay("2026-12-31","2026-12-31",0),true);
   assert.equal(isVenueBookingDay("2027-01-01","2026-12-31",-1),false);
+});
+
+test("offers data must match the active venue and exact local calendar day",()=>{
+  const current={venue:{id:"venue-one"},date:"2026-10-15"};
+  assert.equal(isCurrentVenueAvailability(current,"venue-one","2026-10-15"),true);
+  assert.equal(isCurrentVenueAvailability(current,"venue-two","2026-10-15"),false);
+  assert.equal(isCurrentVenueAvailability(current,"venue-one","2026-10-16"),false);
+  assert.equal(isCurrentVenueAvailability(null,"venue-one","2026-10-15"),false);
 });
