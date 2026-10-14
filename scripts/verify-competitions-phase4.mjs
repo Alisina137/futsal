@@ -36,7 +36,7 @@ for(const marker of ["competition-home-overview","competition-home-feed",
 assert.ok(sections.includes('updates.map(post=>')&&
  sections.includes('const updates=posts.slice().sort(')&&
  sections.includes('photos=updates.filter(post=>Boolean(resolveMediaImageUrl(post.imageUrl)))')&&
- sections.includes('testID={\`competition-gallery-photo-\${post.id}\`}')===false,
+ sections.includes("competition-gallery-photo-"),
  "Home must keep every published post and only show actual media in its gallery");
 assert.ok(sections.includes("setLightbox(resolveMediaImageUrl(post.imageUrl))")&&
  sections.includes('<Modal visible={Boolean(lightbox)}')&&
@@ -48,7 +48,7 @@ assert.ok(sections.includes('live.length>0?<View testID="competition-live-scoreb
  "Home keeps live-only match scores and the complete post timeline");
 assert.ok(matchList.includes("totals[value]")&&
  matchList.includes('testID="competition-matches-list"')&&
- matchList.includes('testID={\`competition-match-\${match.id}\`}')===false&&
+ matchList.includes("competition-match-")&&
  matchList.includes('router.push({')&&
  matchList.includes('competition.phase4.matchDetails')&&
  matchList.includes('match.status==="IN_PROGRESS"'),
