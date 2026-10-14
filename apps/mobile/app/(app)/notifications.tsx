@@ -43,7 +43,7 @@ function target(item:NotificationDto):()=>void{
   const id=(key:string)=>typeof item.data[key]==="string"?item.data[key] as string:null;
   switch(item.type){
     case "BOOKING_CONFIRMED":case "BOOKING_CANCELLED":return ()=>router.push("/bookings");
-    case "BOOKING_REQUEST":return ()=>router.push({pathname:"/dashboard",params:{tab:"bookings"}});
+    case "BOOKING_REQUEST":return ()=>router.push("/owner/schedule");
     case "TEAM_JOIN_REQUEST":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/manage",params:{teamId}});else router.push("/teams");};
     case "TEAM_JOIN_DECISION":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]",params:{teamId}});else router.push("/teams");};
     case "TEAM_INVITATION":return ()=>router.push("/teams/invitations");
