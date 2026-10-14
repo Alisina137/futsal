@@ -48,15 +48,6 @@ export function PublicTopNavigation(){
       if(state==="active")reload();
     });
     reload();
-    /* previous redundant request removed */
-    /*
-    notificationApi.list(token).then(({unreadCount})=>{
-      if(active){setUnread(unreadCount);publishNotificationUnread(token,unreadCount);}
-    }).catch(()=>{
-      // No fabricated badge when offline. Navigation remains usable.
-      if(active)setUnread(0);
-    });
-    */
     return ()=>{active=false;unsubscribe();resume.remove();};
   },[token]));
 
