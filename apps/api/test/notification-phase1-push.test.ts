@@ -16,7 +16,7 @@ describe("Notifications Phase 1 — actionable events",()=>{
     const ownerFeed=await service.list(owner,"BOOKINGS");
     expect(ownerFeed.notifications).toHaveLength(1);
     expect(ownerFeed.notifications[0]).toMatchObject({
-      type:"BOOKING_REQUEST",deepLink:"/dashboard",
+      type:"BOOKING_REQUEST",deepLink:"/owner/schedule",
       data:{venueId,bookingId},
     });
     expect((await service.list(player)).notifications).toHaveLength(0);
