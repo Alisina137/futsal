@@ -41,10 +41,10 @@ assert.ok(card.includes("competition.name")&&card.includes("competition.venueNam
  card.includes("competition.acceptedTeams")&&card.includes("competition.registrationFeeAfn")&&
  card.includes("competition.registrationClosesAt"),
  "Name and venue share image header; remaining real competition metadata sits below");
-assert.ok(card.includes("resolveMediaImageUrl(competition.coverImageUrl??null)")&&
+assert.ok(card.includes("resolveMediaImageUrl(competition.logoUrl??competition.coverImageUrl??null)")&&
  repo.includes('eq(socialPosts.status,"PUBLISHED")')&&repo.includes("images.get(row.competition.id)??null")&&
  contracts.includes("coverImageUrl: z.string().nullable().optional()"),
- "Competition images must originate from actual published media, not a fake asset");
+ "Competition images must prioritize venue-owned logo/cover or genuine published media, never fake images");
 assert.ok(screen.includes('mine:"mine"')&&api.includes("competitionApi")&&
  api.includes('"/api/v1/competitions/mine"')&&
  routes.includes('router.get("/competitions/mine",auth')&&
