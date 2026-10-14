@@ -987,8 +987,8 @@ export const publicVenueScheduleChangeSchema=z.object({
   isClosed:z.boolean(),
   areaName:z.string().nullable(),
   periods:z.array(z.object({
-    startsAt:z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d$/),
-    endsAt:z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d$/),
+    startsAt:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    endsAt:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   })),
 });
 export type PublicVenueScheduleChange=z.infer<typeof publicVenueScheduleChangeSchema>;
