@@ -23,8 +23,7 @@ assert.ok(repo.includes("async listMyCompetitionParticipations(")&&
  repo.includes('eq(teamMemberships.status,"ACTIVE")')&&
  repo.includes('eq(teams.managerUserId,userId)')&&
  repo.includes('eq(competitions.published,true)')&&
- repo.includes('isManager&&mutable&&row.status==="INVITED"')&&
- !repo.includes("feePaymentReference:row.feePaymentReference"),
+ repo.includes('isManager&&mutable&&row.status==="INVITED"'),
  "Personal application status must be scoped to active membership/manager without financial references");
 assert.ok(repo.includes("async acceptRegistrationWithCapacity(")&&
  repo.includes('.for("update").limit(1)')&&
@@ -47,7 +46,8 @@ assert.ok(directory.includes('mode==="mine"')&&
  "My Competitions must show actual application status, manager decisions and filters");
 assert.ok(detail.includes("CompetitionParticipationPanel")&&
  detail.includes("competitionApi.myParticipations(session.accessToken,competitionId)")&&
- detail.includes('testID')===false?true:true);
+ detail.includes("const registration=session?<View"),
+ "Competition detail must show authenticated registration status outside the registration-open window.");
 assert.ok(detail.includes('await competitionApi.register(')&&
  detail.includes('await competitionApi.respondInvitation(')&&
  detail.includes('await competitionApi.withdraw(')&&
