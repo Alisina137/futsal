@@ -21,7 +21,8 @@ export type NotificationCreateInput = {
 export interface NotificationRepository {
   getPreferences(userId: string): Promise<NotificationPreferences>;
   updatePreferences(userId: string, input: NotificationPreferencesUpdate, updatedAt: Date): Promise<NotificationPreferences>;
-  listNotifications(userId:string,limit:number,offset?:number,filter?:NotificationListFilter):Promise<NotificationDto[]>;
+  listNotifications(userId:string,limit:number,offset?:number,filter?:NotificationListFilter,
+    before?:{createdAt:Date;id:string}):Promise<NotificationDto[]>;
   countNotifications(userId:string,filter?:NotificationListFilter):Promise<number>;
   countUnreadNotifications(userId:string):Promise<number>;
   markAllRead(userId:string,readAt:Date):Promise<number>;
