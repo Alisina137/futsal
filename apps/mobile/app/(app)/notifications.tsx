@@ -106,6 +106,7 @@ export default function NotificationsScreen(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [loadMoreError,setLoadMoreError]=useState<string|null>(null);
+  const [actionError,setActionError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
   const [actionId,setActionId]=useState<string|null>(null);
   const [expandedNoticeId,setExpandedNoticeId]=useState<string|null>(null);
@@ -141,7 +142,7 @@ export default function NotificationsScreen(){
       loadedFilter.current=filter;
       setItems(result.notifications);haveItems.current=result.notifications.length>0;
       setTotal(result.total);setHasMore(result.hasMore);
-      setNextCursor(result.nextCursor);setLoadMoreError(null);
+      setNextCursor(result.nextCursor);setLoadMoreError(null);setActionError(null);
       updateUnread(result.unreadCount);
     }catch{
       if(request!==generation.current)return;
@@ -184,7 +185,7 @@ export default function NotificationsScreen(){
   }
   function beginMutation(){
     if(mutationLock.current||loading)return null;
-    mutationLock.current=true;setBusy(true);setLoadMoreError(null);
+    mutationLock.current=true;setBusy(true);setLoadMoreError(null);setActionError(null);
     setLoadingMore(false);setRefreshing(false);
     return ++generation.current;
   }
@@ -204,7 +205,7 @@ export default function NotificationsScreen(){
       }else setItems(previous=>previous.map(x=>x.id===item.id?notification:x));
       updateUnread(count);
     }catch{
-      if(request===generation.current)setError(t("notifications.actionError"));
+      if(request===generation.current)setActionError(t("notifications.actionError"));
     }finally{endMutation();}
   }
   async function openItem(item:NotificationDto){
@@ -228,7 +229,7 @@ export default function NotificationsScreen(){
         setItems([]);setTotal(0);setHasMore(false);setNextCursor(null);
         haveItems.current=false;
       }else setItems(previous=>previous.map(x=>x.readAt?x:{...x,readAt:new Date().toISOString()}));
-    }catch{if(request===generation.current)setError(t("notifications.actionError"));}
+    }catch{if(request===generation.current)setActionError(t("notifications.actionError"));}
     finally{endMutation();}
   }
   function remove(item:NotificationDto){
@@ -245,7 +246,7 @@ export default function NotificationsScreen(){
           setItems(previous=>previous.filter(x=>x.id!==item.id));
           setTotal(n=>Math.max(0,n-1));
           updateUnread(result.unreadCount);
-        }catch{if(request===generation.current)setError(t("notifications.actionError"));}
+        }catch{if(request===generation.current)setActionError(t("notifications.actionError"));}
         finally{endMutation();}
       })()},
     ]);
@@ -266,7 +267,7 @@ export default function NotificationsScreen(){
           endMutation();
           await loadFirst("refresh");
           return;
-        }catch{if(request===generation.current)setError(t("notifications.actionError"));}
+        }catch{if(request===generation.current)setActionError(t("notifications.actionError"));}
         finally{if(mutationLock.current)endMutation();}
       })()},
     ]);
@@ -414,6 +415,12 @@ export default function NotificationsScreen(){
     </View>:null}
 
     {loading?<DataLoadingState variant="list" minHeight={450}/>:null}
+    {actionError&&!loading?<Card style={styles.error}>
+      <Ionicons name="warning-outline" size={23} color={colors.danger}/>
+      <AppText style={{color:colors.danger,flex:1}}>{actionError}</AppText>
+      <Button label={t("common.retry")} variant="secondary"
+        onPress={()=>void loadFirst("refresh")}/>
+    </Card>:null}
     {loadMoreError&&!loading&&!error?<Card style={styles.error}>
       <Ionicons name="cloud-offline-outline" size={23} color={colors.danger}/>
       <AppText style={{color:colors.danger,flex:1}}>{loadMoreError}</AppText>
