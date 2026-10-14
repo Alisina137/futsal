@@ -37,13 +37,13 @@ check(matchList.includes('filter==="FINISHED"?done(match)')
 check(sections.includes('competition.format==="GROUP_KNOCKOUT"')
   &&sections.includes('competition.format==="KNOCKOUT"')
   &&sections.includes('testID={`competition-stage-${option}`}')
-  &&sections.includes('match.stage==="KNOCKOUT"')&&sections.includes('StandingTable'),
+  &&sections.includes('match.stage==="KNOCKOUT"')&&sections.includes('LeagueStandingsTable'),
   "League, knockout, and group+knockout formats must show appropriate standings/stages.");
 check(sections.includes('competition.format==="LEAGUE"')&&sections.includes("<LeagueStandingsTable")
   &&leagueBoard.includes('testID="league-scrollable-stats"'),
   "League standings must keep teams fixed and make statistics horizontally swipeable.");
 check(sections.includes('testID={`competition-stats-${value}`}')
-  &&sections.includes('b.goals-a.goals')&&sections.includes('b.assists-a.assists')
+  &&sections.includes('"goals","assists","appearances"')&&sections.includes('b[metric]-a[metric]')
   &&sections.includes('pathname:"/players/[playerId]"'),
   "Goal and assist leaderboards must be separately sortable and link to player profiles.");
 check(sections.includes('team.status==="ACCEPTED"')&&sections.includes("resolveMediaImageUrl(team.logoUrl)")
