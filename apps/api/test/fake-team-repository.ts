@@ -41,6 +41,7 @@ export class FakeTeamRepository implements TeamRepository {
     username?: string | null;
     phoneE164: string;
     email?: string | null;
+    emailVerified?: boolean;
     roles?: UserRole[];
   }) {
     this.users.set(input.id, {
@@ -50,6 +51,7 @@ export class FakeTeamRepository implements TeamRepository {
       usernameNormalized: input.username?.toLowerCase() ?? null,
       phoneE164: input.phoneE164,
       emailNormalized:input.email?.trim().toLowerCase()??null,
+      emailVerified:input.emailVerified??true,
       roles: input.roles ?? ["PLAYER"],
     });
   }
@@ -60,7 +62,7 @@ export class FakeTeamRepository implements TeamRepository {
 
   async getUserIdentity(userId: string) {
     const user = this.users.get(userId);
-    return user ? { id: user.id, displayName: user.displayName, username: user.username, roles: user.roles } : null;
+    return user ? { id: user.id, displayName: user.displayName, username: user.username, emailVerified:user.emailVerified, roles: user.roles } : null;
   }
 
   async getUserByNormalizedIdentifier(input: { usernameNormalized?: string; phoneE164?: string; emailNormalized?: string }) {
