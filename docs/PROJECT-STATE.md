@@ -1,3 +1,11 @@
+## Notifications Phase 2 — Inbox accuracy and reliability (2026-10-14)
+
+- Notification reads bypass the in-memory API cache and refresh the top-navigation badge on app resume; offline reads retain the last confirmed count rather than falsely showing zero.
+- Notification list, category totals and unread counts only include deliveries with an IN_APP channel. Push-only notifications stay out of the in-app inbox.
+- New optional opaque cursor / nextCursor supports stable created_at/id pagination when incoming events are inserted between pages; existing offset clients remain supported. No database migration required.
+- Notification screen reloads when the app returns to foreground, ignores stale async list responses, reloads after mark-read, and uses the continuation cursor for older entries. The existing notification layout, filters, translations, and role controls remain in place.
+- Added regression cases for push-only visibility and cursor stability in the notification service tests. Device-level regression (Android/iOS, intermittent network, RTL) is still required before release.
+
 ## Notifications Center — Phase 1: native push gateway and actionable event delivery (October 14, 2026)
 
 - Existing notification center styling, six category filters, unread interactions, preferences and localized dates are preserved.

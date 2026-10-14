@@ -2306,6 +2306,7 @@ export const notificationListFilterSchema=z.enum(["ALL","UNREAD","BOOKINGS","VEN
 export type NotificationListFilter=z.infer<typeof notificationListFilterSchema>;
 export const notificationListResponseSchema=z.object({
   notifications:z.array(notificationDtoSchema),
+  nextCursor:z.string().nullable().optional(),
   total:z.number().int().nonnegative(),
   unreadCount:z.number().int().nonnegative(),
   hasMore:z.boolean(),

@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing } from "@leaguekick/design-tokens";
 import { router, useFocusEffect, usePathname } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { AppState, Pressable, StyleSheet, View } from "react-native";
 import { notificationApi } from "../../lib/api";
 import { onNotificationUnreadChange, publishNotificationUnread } from "../../lib/notification-events";
 import { useAuth } from "../../providers/AuthProvider";
@@ -37,13 +37,18 @@ export function PublicTopNavigation(){
     const unsubscribe=onNotificationUnreadChange((source,count)=>{
       if(active&&source===token)setUnread(count);
     });
-    notificationApi.list(token).then(({unreadCount})=>{
-      if(active){setUnread(unreadCount);publishNotificationUnread(token,unreadCount);}
-    }).catch(()=>{
-      // No fabricated badge when offline. Navigation remains usable.
-      if(active)setUnread(0);
+    const reload=()=>{
+      notificationApi.list(token,{limit:1}).then(({unreadCount})=>{
+        if(active){setUnread(unreadCount);publishNotificationUnread(token,unreadCount);}
+      }).catch(()=>{
+        // Keep the last confirmed badge while offline; never show a fabricated zero.
+      });
+    };
+    const resume=AppState.addEventListener("change",state=>{
+      if(state==="active")reload();
     });
-    return ()=>{active=false;unsubscribe();};
+    reload();
+    return ()=>{active=false;unsubscribe();resume.remove();};
   },[token]));
 
   if(isPlatformAdmin)return null;

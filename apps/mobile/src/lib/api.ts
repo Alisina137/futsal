@@ -665,11 +665,12 @@ export const notificationApi = {
   unregisterDevice:(accessToken:string,expoPushToken:string)=>
     request<void>("/api/v1/notifications/devices/unregister",
       {method:"POST",body:JSON.stringify({expoPushToken})},accessToken),
-  list: (accessToken:string,options?:{filter?:NotificationListFilter;limit?:number;offset?:number})=>{
+  list: (accessToken:string,options?:{filter?:NotificationListFilter;limit?:number;offset?:number;cursor?:string})=>{
     const query=new URLSearchParams();
     if(options?.filter)query.set("filter",options.filter);
     if(options?.limit!==undefined)query.set("limit",String(options.limit));
     if(options?.offset!==undefined)query.set("offset",String(options.offset));
+    if(options?.cursor)query.set("cursor",options.cursor);
     const path=`/api/v1/notifications${query.toString()?`?${query}`:""}`;
     return request<NotificationListResponse>(path,{},accessToken);
   },

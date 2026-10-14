@@ -81,7 +81,7 @@ function cachePolicy(path: string, accessToken?: string): CachePolicy | null {
   // fetching while navigating without writing customer, billing, notification,
   // or owner-operation data to unencrypted AsyncStorage.
   if (pathname.startsWith("/api/v1/owner/")) return { ttlMs: 20_000, persist: false };
-  if (pathname.startsWith("/api/v1/notifications")) return { ttlMs: 10_000, persist: false };
+  if (pathname.startsWith("/api/v1/notifications")) return null;
   return null;
 }
 

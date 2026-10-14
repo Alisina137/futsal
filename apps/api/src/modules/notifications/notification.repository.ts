@@ -12,7 +12,7 @@ import {
   notifications,
   pushDevices,
 } from "@leaguekick/database";
-import { and, count, desc, eq, gt, inArray, isNull, isNotNull } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, isNotNull, lt, or, sql } from "drizzle-orm";
 import type { NotificationCreateInput, NotificationRepository } from "./notification.types.js";
 
 function dto(row: typeof notifications.$inferSelect): NotificationDto {
@@ -77,20 +77,23 @@ export class DrizzleNotificationRepository implements NotificationRepository {
   }
 
   private filtered(userId:string,filter:NotificationListFilter="ALL"){
+    const visible=sql`EXISTS (SELECT 1 FROM notification_deliveries nd WHERE nd.notification_id=${notifications.id} AND nd.channel='IN_APP')`;
     const kind=filter==="BOOKINGS"?["BOOKING_CONFIRMED","BOOKING_CANCELLED","BOOKING_REQUEST"] as const:
       filter==="VENUES"?["SLOT_PROMOTION","SLOT_AVAILABLE","VENUE_POST"] as const:
       filter==="TEAMS"?["TEAM_INVITATION","TEAM_JOIN_REQUEST","TEAM_JOIN_DECISION","TEAM_ACTIVITY","TEAM_CHALLENGE","TEAM_ANNOUNCEMENT"] as const:
       filter==="COMPETITIONS"?["COMPETITION_UPDATE"] as const:null;
-    return and(eq(notifications.userId,userId),
+    return and(eq(notifications.userId,userId),visible,
       filter==="UNREAD"?isNull(notifications.readAt):undefined,
       kind?inArray(notifications.type,[...kind]):undefined);
   }
 
-  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL"){
+  async listNotifications(userId:string,limit:number,offset=0,filter:NotificationListFilter="ALL",cursor?:{createdAt:string;id:string}){
+    const position=cursor?or(lt(notifications.createdAt,new Date(cursor.createdAt)),
+      and(eq(notifications.createdAt,new Date(cursor.createdAt)),lt(notifications.id,cursor.id))):undefined;
     const rows=await this.db.select().from(notifications)
-      .where(this.filtered(userId,filter))
+      .where(and(this.filtered(userId,filter),position))
       .orderBy(desc(notifications.createdAt),desc(notifications.id))
-      .limit(limit).offset(offset);
+      .limit(limit).offset(cursor?0:offset);
     return rows.map(dto);
   }
 
@@ -102,7 +105,8 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async countUnreadNotifications(userId:string){
     const [row]=await this.db.select({value:count()}).from(notifications)
-      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt)));
+      .where(and(eq(notifications.userId,userId),isNull(notifications.readAt),
+        sql`EXISTS (SELECT 1 FROM notification_deliveries nd WHERE nd.notification_id=${notifications.id} AND nd.channel='IN_APP')`));
     return Number(row?.value??0);
   }
 
