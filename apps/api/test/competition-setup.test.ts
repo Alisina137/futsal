@@ -136,14 +136,20 @@ describe("Phase 6 competition setup and registration",()=>{
     const created=await service.create(ownerId,input({maxTeams:1}));
     await service.changeState(ownerId,created.id,{action:"OPEN_REGISTRATION"});
 
+    // Pending applications may coexist before the organizer fills the last slot.
     await service.apply(managerA,created.id,{teamId:teamA.id});
+    await service.apply(managerB,created.id,{teamId:teamB.id});
     const accepted=await service.decideRegistration(ownerId,created.id,teamA.id,{status:"ACCEPTED",seed:1});
     expect(accepted?.status).toBe("ACCEPTED");
 
-    await service.apply(managerB,created.id,{teamId:teamB.id});
     await expect(
       service.decideRegistration(ownerId,created.id,teamB.id,{status:"ACCEPTED",seed:2}),
     ).rejects.toMatchObject({code:"COMPETITION_FULL",statusCode:409});
+    // Phase 3 prevents applications for a competition with no remaining slots.
+    const managerC="99999999-9999-4999-8999-999999999999";
+    const teamC=repository.seedTeam(managerC,"C");
+    await expect(service.apply(managerC,created.id,{teamId:teamC.id}))
+      .rejects.toMatchObject({code:"COMPETITION_FULL",statusCode:409});
   });
 
   it("supports owner invite and manager response without bypassing manager scope",async()=>{
