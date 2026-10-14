@@ -43,6 +43,10 @@ assert.ok(screen.includes("generation.current")&&screen.includes("mutationLock.c
   screen.includes("loadMoreError")&&screen.includes("AppState.addEventListener")&&
   screen.includes("result.unreadCount"),
   "Inbox must prevent overlapping mutations and stale out-of-order pages");
+assert.ok(screen.includes("loadedToken.current!==token")&&
+  screen.includes("setItems([]);setTotal(0);setUnreadCount(0);setNextCursor(null)")&&
+  nav.includes("badgeAccount.current=accountId"),
+  "Account switching must erase previous user's inbox and badge before async requests");
 assert.ok(nav.includes("AppState.addEventListener")&&nav.includes("30_000")&&
   nav.includes("generation++")&&nav.includes("clearInterval(timer)"),
   "Badge must revalidate on foreground/focus and clean up periodic checks");
