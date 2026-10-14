@@ -19,14 +19,27 @@ export class NotificationService implements NotificationPublisher {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async list(userId:string,filter:NotificationListFilter="ALL",limit=30,offset=0){
+  async list(userId:string,filter:NotificationListFilter="ALL",limit=30,offset=0,cursor?:string){
+    let position:{createdAt:string;id:string}|undefined;
+    if(cursor){
+      try{
+        const parsed=JSON.parse(Buffer.from(cursor,"base64url").toString("utf8")) as {createdAt:string;id:string};
+        if(!parsed||!Number.isFinite(Date.parse(parsed.createdAt))||
+          !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(parsed.id))throw Error("invalid cursor");
+        position=parsed;
+      }catch{throw errors.badRequest("NOTIFICATION_CURSOR_INVALID","Invalid notification cursor.");}
+    }
     const [notifications,total,unreadCount]=await Promise.all([
-      this.repository.listNotifications(userId,limit,offset,filter),
+      this.repository.listNotifications(userId,limit,offset,filter,position),
       this.repository.countNotifications(userId,filter),
       this.repository.countUnreadNotifications(userId),
     ]);
-    return {notifications,total,unreadCount,hasMore:offset+notifications.length<total,
-      generatedAt:this.now().toISOString()};
+    const nextCursor=notifications.length===limit&&notifications.length>0?
+      Buffer.from(JSON.stringify({createdAt:notifications[notifications.length-1]!.createdAt,
+        id:notifications[notifications.length-1]!.id})).toString("base64url"):null;
+    return {notifications,total,unreadCount,
+      hasMore:position?notifications.length===limit:offset+notifications.length<total,
+      nextCursor,generatedAt:this.now().toISOString()};
   }
 
   async markAllRead(userId:string){
