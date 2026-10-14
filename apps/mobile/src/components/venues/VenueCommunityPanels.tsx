@@ -74,6 +74,11 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
       if(sequence===requestSequence.current)setMoreBusy(false);
     }
   }
+  useEffect(()=>{
+    // Forms are private to the current account and venue, even during a pending POST.
+    setBusy(false);setBody("");setRating(5);
+    setSelected(reviewBookingId??null);
+  },[actor,venue.id]);
   useEffect(()=>{setSelected(reviewBookingId??null);},[reviewBookingId,venue.id]);
   const reviewed=new Set(reviewedBookingIds);
   const eligible=bookings.filter(b=>b.source==="ONLINE"&&b.status==="CONFIRMED"&&
