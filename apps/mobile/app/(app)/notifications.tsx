@@ -173,9 +173,13 @@ export default function NotificationsScreen(){
       const {notification}=await notificationApi.markRead(token,item.id);
       if(filter==="UNREAD"){setItems(prev=>prev.filter(x=>x.id!==item.id));setTotal(n=>Math.max(0,n-1));}
       else setItems(prev=>prev.map(x=>x.id===item.id?notification:x));
-      // Count-only server reconciliation preserves the current page and scroll position.
-      const latest=await notificationApi.unreadCount(token);
-      updateUnread(latest.unreadCount);
+      // This mutation already succeeded; a failed badge refresh is not a read error.
+      try{
+        const latest=await notificationApi.unreadCount(token);
+        updateUnread(latest.unreadCount);
+      }catch{
+        updateUnread(Math.max(0,unreadCount-1));
+      }
     }catch{setError(t("notifications.actionError"));}
     finally{actionPending.current=false;}
   }
