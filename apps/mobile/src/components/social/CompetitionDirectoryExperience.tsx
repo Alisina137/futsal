@@ -189,7 +189,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   }
   function applyAdvanced(){
     const min=minFee.trim(),max=maxFee.trim(),start=from.trim(),end=to.trim();
-    const numeric=value=>/^\d+$/.test(value)&&Number(value)<=10_000_000;
+    const numeric=(value:string)=>/^\d+$/.test(value)&&Number(value)<=10_000_000;
     if((min&&!numeric(min))||(max&&!numeric(max))||
       (min&&max&&Number(min)>Number(max))||
       (start&&!validDay(start))||(end&&!validDay(end))||(start&&end&&start>end)){
