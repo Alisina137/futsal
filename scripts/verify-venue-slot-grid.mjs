@@ -29,8 +29,9 @@ for(const marker of ["rangeForView(view,anchor,language)","moveView(view,anchor,
   "router.push({pathname:\"/booking/confirm\""]){
   check(grid.includes(marker),"Owner-style public slot grid invariant missing: "+marker);
 }
+const nav=read("apps/mobile/src/lib/venue-detail-navigation.ts");
 check(venue.includes('if(sub==="slots")return <VenueSlotTimetable')&&
-  page.includes('reserve:"slots"')&&page.includes('setMain("reserve")'),
+  nav.includes('reserve:"slots"')&&page.includes('switchVenueMain(current,"reserve","slots")'),
   "Reserve Online must open the customer timetable in Available Slots.");
 for(const label of ["view.DAY","view.WEEK","view.MONTH","legendTitle",
   "status.AVAILABLE","status.PROMOTION","status.UNAVAILABLE","status.PAST",
