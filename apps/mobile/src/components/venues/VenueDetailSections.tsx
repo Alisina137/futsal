@@ -7,7 +7,7 @@ import {Image,Linking,Modal,Pressable,ScrollView,Share,StyleSheet,View} from "re
 import {ApiRequestError,bookingApi,marketingApi,resolveMediaImageUrl,venueApi} from "../../lib/api";
 import {readAvailabilityCache,writeAvailabilityCache} from "../../lib/availability-cache";
 import {formatPostTimeAgo} from "../../lib/date-time";
-import {isVenueBookingDay,isValidVenueDay,venueDayKey} from "../../lib/venue-detail-dates";
+import {isCurrentVenueAvailability,isVenueBookingDay,isValidVenueDay,venueDayKey} from "../../lib/venue-detail-dates";
 import {usePostTimeNow} from "../../hooks/usePostTimeNow";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -318,7 +318,7 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   const {session}=useAuth(),{isOnline,reconnectVersion}=useNetwork();
   const {t,language,isRTL}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
   const tr3=(key:string)=>t(("vd3."+key) as never);
-  const [date,setDate]=useState(bookingDate??todayAtKabul());
+  const [date,setDate]=useState(bookingDate??venueDayKey(venue.timezone));
   const [availability,setAvailability]=useState<VenueAvailabilityResponse|null>(null);
   const [availabilityDate,setAvailabilityDate]=useState<string|null>(null);
   const [loading,setLoading]=useState(false),[error,setError]=useState<string|null>(null);
@@ -360,14 +360,14 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
       const response=await venueApi.availability(venue.id,date);
       if(request!==availabilityLoadSerial.current)return;
       // Cached or delayed responses from another venue/day must not paint bookable slots.
-      if(response.venue.id!==venue.id||response.date!==date)throw Error("Mismatched availability");
+      if(!isCurrentVenueAvailability(response,venue.id,date))throw Error("Mismatched availability");
       setAvailability(response);setAvailabilityDate(date);setFresh(true);
       await writeAvailabilityCache(response);
     }catch(e){
       if(request!==availabilityLoadSerial.current)return;
       const cached=await readAvailabilityCache(venue.id,date);
       if(request!==availabilityLoadSerial.current)return;
-      if(cached?.value.venue.id===venue.id&&cached.value.date===date){
+      if(isCurrentVenueAvailability(cached?.value,venue.id,date)&&cached){
         setAvailability(cached.value);setAvailabilityDate(date);setFresh(false);
         setCachedAt(cached.cachedAt);
       }else{
@@ -478,8 +478,8 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
     <VenueSlotTimetable venue={venue} startsAt={startsAt}
       promotionId={promotionId} initialDate={bookingDate}/>
   </View>;
-  const usable=availabilityDate===date&&availability?.venue.id===venue.id
-    ?availability.slots:[];
+  const usable=availabilityDate===date&&isCurrentVenueAvailability(availability,venue.id,date)
+    ?availability?.slots??[]:[];
   const slots=sub==="offers"?usable.filter(slot=>slot.promotionId!==null):usable;
   if(sub==="bookings")return <View style={{gap:spacing.md}}>
     <ReserveStatusBanner venue={venue}/>
