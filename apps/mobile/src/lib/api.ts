@@ -1215,6 +1215,14 @@ export const manualTeamApi = {
 };
 
 export const competitionApi = {
+  discover:(options:CompetitionDiscoveryQuery,accessToken?:string)=>
+    request<CompetitionDiscoveryResponse>(
+      "/api/v1/competitions/discover"+(accessToken?"/private":"")+
+      "?"+new URLSearchParams(Object.entries(options).filter(([,value])=>
+        value!==undefined&&value!==null&&String(value)!=="").map(([key,value])=>
+          [key,String(value)])).toString(),
+      {cache:"no-store"},accessToken),
+
   list: () =>
     request<{ generatedAt: string; competitions: CompetitionListItemDto[] }>("/api/v1/competitions"),
   mine: (accessToken:string) =>
