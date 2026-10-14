@@ -413,9 +413,11 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         eq(socialFollows.entityId,competitions.id)))));
     if(filters.scope==="mine"&&userId)constraints.push(exists(this.db
       .select({id:competitionTeams.competitionId}).from(competitionTeams)
-      .innerJoin(teamMemberships,eq(teamMemberships.teamId,competitionTeams.teamId))
+      .innerJoin(teams,eq(teams.id,competitionTeams.teamId))
+      .leftJoin(teamMemberships,and(eq(teamMemberships.teamId,teams.id),
+        eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE")))
       .where(and(eq(competitionTeams.competitionId,competitions.id),
-        eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE")))));
+        or(eq(teams.managerUserId,userId),isNotNull(teamMemberships.userId))))));
     if(filters.scope==="ongoingFollowedVenues"&&userId)constraints.push(exists(this.db
       .select({id:socialFollows.entityId}).from(socialFollows)
       .where(and(eq(socialFollows.userId,userId),eq(socialFollows.entityType,"VENUE"),
