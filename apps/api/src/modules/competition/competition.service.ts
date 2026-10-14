@@ -353,7 +353,15 @@ export class CompetitionService {
   }
 
   async update(ownerUserId: string, competitionId: string, input: CompetitionUpdateRequest) {
-    const { competition } = await this.ownerCompetition(ownerUserId, competitionId);
+    const { competition,venue } = await this.ownerCompetition(ownerUserId, competitionId);
+    // A branded image must be a real uploaded asset from THIS host venue,
+    // owned by its organizer, with the correct profile/cover purpose.
+    for(const [purpose,imageUrl] of [["PROFILE",input.logoUrl],["COVER",input.coverImageUrl]] as const){
+      if(imageUrl!==undefined&&imageUrl!==null&&
+        !(await this.repository.isOwnedBrandAsset({venueId:venue.id,ownerUserId,imageUrl,purpose}))){
+        throw errors.forbidden("COMPETITION_BRAND_ASSET_DENIED","Upload a valid image for this competition from your own venue.");
+      }
+    }
     if (competition.materialPlayStartedAt || await this.repository.hasCompletedMatch(competitionId)) {
       if (input.format !== undefined && input.format !== competition.format) {
         throw errors.conflict("FORMAT_LOCKED", "Competition format cannot change after material play begins.");
@@ -412,6 +420,8 @@ export class CompetitionService {
       ...(input.drawPoints !== undefined ? { drawPoints: input.drawPoints } : {}),
       ...(input.lossPoints !== undefined ? { lossPoints: input.lossPoints } : {}),
       ...(input.tieBreakOrder !== undefined ? { tieBreakOrder: input.tieBreakOrder } : {}),
+      ...(input.logoUrl !== undefined ? { logoUrl:input.logoUrl } : {}),
+      ...(input.coverImageUrl !== undefined ? { coverImageUrl:input.coverImageUrl } : {}),
       ...(input.groupCount !== undefined ? { groupCount: nextFormat === "GROUP_KNOCKOUT" ? input.groupCount : null } : {}),
       ...(input.qualifiersPerGroup !== undefined ? { qualifiersPerGroup: nextFormat === "GROUP_KNOCKOUT" ? input.qualifiersPerGroup : null } : {}),
       ...(input.registrationClosesAt !== undefined ? { registrationClosesAt: input.registrationClosesAt ? new Date(input.registrationClosesAt) : null } : {}),
