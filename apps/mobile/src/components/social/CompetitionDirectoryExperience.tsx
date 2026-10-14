@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {CompetitionDiscoveryItem,CompetitionDiscoveryQuery,CompetitionDiscoveryResponse} from "@leaguekick/contracts";
+import type {CompetitionDiscoveryItem,CompetitionDiscoveryQuery,CompetitionDiscoveryResponse,CompetitionParticipationDto} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {Pressable,ScrollView,StyleSheet,View,useWindowDimensions} from "react-native";
@@ -14,6 +14,7 @@ import {DataLoadingState} from "../ui/DataLoadingState";
 import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
 import {CompetitionDirectoryCard} from "./CompetitionDirectoryCard";
+import {CompetitionParticipationPanel} from "../competition/CompetitionParticipationPanel";
 import {SocialFollowedTile} from "./SocialFollowedTile";
 import {DirectoryFilterSelect} from "./DirectoryFilterSelect";
 
@@ -59,6 +60,16 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   const [items,setItems]=useState<CompetitionDiscoveryItem[]>([]);
   const [followed,setFollowed]=useState<CompetitionDiscoveryItem[]>([]);
   const [followedTotal,setFollowedTotal]=useState(0);
+  const [participations,setParticipations]=useState<CompetitionParticipationDto[]>([]);
+  const [participationError,setParticipationError]=useState(false);
+  const [registrationBusy,setRegistrationBusy]=useState(false);
+  const [registrationIntent,setRegistrationIntent]=useState<{
+    kind:"accept"|"decline"|"withdraw";competitionId:string;teamId:string;
+  }|null>(null);
+  const [registrationMessage,setRegistrationMessage]=useState<string|null>(null);
+  const [myPhase,setMyPhase]=useState<"all"|"active"|"upcoming"|"history">("all");
+  const participationRequestId=useRef(0);
+
   const [facets,setFacets]=useState(emptyFacets);
   const [total,setTotal]=useState(0);
   const [hasMore,setHasMore]=useState(false);
@@ -129,11 +140,49 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
     }
   },[token]);
 
+  const loadParticipations=useCallback(async()=>{
+    const id=++participationRequestId.current;
+    if(!token){setParticipations([]);setParticipationError(false);return;}
+    try{
+      const result=await competitionApi.myParticipations(token);
+      if(id===participationRequestId.current){
+        setParticipations(result.participations);setParticipationError(false);
+      }
+    }catch{
+      if(id===participationRequestId.current){
+        setParticipations([]);setParticipationError(true);
+      }
+    }
+  },[token]);
+
+  async function confirmRegistrationIntent(){
+    if(!registrationIntent||!token||registrationBusy||participationError)return;
+    const request=registrationIntent;
+    setRegistrationBusy(true);setRegistrationMessage(null);
+    try{
+      if(request.kind==="withdraw"){
+        await competitionApi.withdraw(token,request.competitionId,request.teamId);
+      }else{
+        await competitionApi.respondInvitation(token,request.competitionId,request.teamId,{
+          status:request.kind==="accept"?"ACCEPTED":"REJECTED",
+        });
+      }
+      setRegistrationIntent(null);
+      await Promise.all([load(applied.current,1),loadParticipations()]);
+      setRegistrationMessage(t("competition.phase3.actionCompleted"));
+    }catch(e){
+      setError(e instanceof Error?e.message:t("competition.phase3.actionError"));
+      setRegistrationIntent(null);
+      await loadParticipations();
+    }finally{setRegistrationBusy(false);}
+  }
+
   useFocusEffect(useCallback(()=>{
     void load(applied.current,1);
     if(mode==="directory")void loadFollowed();
-    return()=>{clearTimer();++requestId.current;++followedRequestId.current;};
-  },[load,loadFollowed,mode,retry]));
+    if(mode==="mine")void loadParticipations();
+    return()=>{clearTimer();++requestId.current;++followedRequestId.current;++participationRequestId.current;};
+  },[load,loadFollowed,loadParticipations,mode,retry]));
 
   useEffect(()=>()=>{clearTimer();++requestId.current;++followedRequestId.current;},[]);
 
@@ -234,6 +283,13 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
       <CompetitionDirectoryCard competition={item}
         detailsLabel={t("competition.viewCompetition")}
         actionLabel={next.label} onDetails={()=>open(item.id)} onAction={next.to}/>
+      {mode==="mine"?<CompetitionParticipationPanel compact
+        participations={participations.filter(x=>x.competitionId===item.id)}
+        busy={registrationBusy||participationError}
+        onAccept={teamId=>setRegistrationIntent({kind:"accept",competitionId:item.id,teamId})}
+        onDecline={teamId=>setRegistrationIntent({kind:"decline",competitionId:item.id,teamId})}
+        onWithdraw={teamId=>setRegistrationIntent({kind:"withdraw",competitionId:item.id,teamId})}
+      />:null}
     </View>;
   }
   return <Screen showHeader publicNav style={styles.page}>
@@ -378,6 +434,37 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
         </ScrollView>
       </View>
     </>:null}
+    {mode==="mine"?<View testID="competitions-my-filters" style={styles.filters}>
+      <AppText variant="caption" muted>{t("competition.phase3.myRegistrations")}</AppText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.sortRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {(["all","active","upcoming","history"] as const).map(phase=>
+          <Pressable key={phase} testID={`competitions-mine-${phase}`}
+            accessibilityRole="tab" accessibilityState={{selected:myPhase===phase}}
+            onPress={()=>{setMyPhase(phase);apply({...applied.current,phase});}}
+            style={[styles.sortChip,myPhase===phase&&styles.sortActive]}>
+            <AppText variant="caption" weight="semibold"
+              style={{color:myPhase===phase?"#FFFFFF":colors.primary}}>
+              {t(`competition.phase3.${phase}` as never)}
+            </AppText>
+          </Pressable>)}
+      </ScrollView>
+      {participationError?<Card style={styles.message}>
+        <AppText style={{color:colors.danger}}>{t("competition.phase3.reloadError")}</AppText>
+        <Button label={t("common.retry")} variant="secondary" onPress={()=>void loadParticipations()}/>
+      </Card>:null}
+      {registrationMessage?<AppText style={{color:colors.success}}>{registrationMessage}</AppText>:null}
+      {registrationIntent?<Card style={styles.advanced}>
+        <AppText weight="bold">{t("competition.phase3.confirmTitle")}</AppText>
+        <AppText>{t(registrationIntent.kind==="accept"?"competition.phase3.confirmAccept":
+          registrationIntent.kind==="decline"?"competition.phase3.confirmDecline":
+          "competition.phase3.confirmWithdraw")}</AppText>
+        <Button label={t("competition.phase3.confirm")} loading={registrationBusy}
+          onPress={()=>void confirmRegistrationIntent()}/>
+        <Button label={t("competition.phase3.cancel")} variant="secondary"
+          disabled={registrationBusy} onPress={()=>setRegistrationIntent(null)}/>
+      </Card>:null}
+    </View>:null}
     <View testID="competitions-results-section" style={styles.resultsSection}>
       <View style={[styles.heading,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.titleCopy}>
