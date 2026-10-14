@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type {
   CompetitionDto,
+  CompetitionDiscoveryQuery,
+  CompetitionDiscoveryResponse,
   CompetitionListItemDto,
   CompetitionMatchDto,
   CompetitionPublicMatchPlayer,
@@ -22,6 +24,9 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   matches = new Map<string, CompetitionMatchDto>();
   mediaPosts = new Map<string, CompetitionMediaPostDto>();
   playerMatchStats = new Map<string,CompetitionPublicMatchPlayer[]>();
+  followedCompetitions = new Map<string,Set<string>>();
+  followedVenues = new Map<string,Set<string>>();
+
 
   seedVenue(ownerUserId:string, options?:{activeUntil?:Date|null;trialEndsAt?:Date|null;subscriptionStatus?:"TRIAL"|"ACTIVE"|"EXPIRED"|"CANCELLED";status?:CompetitionVenueRecord["status"]}) {
     const venue:CompetitionVenueRecord={
@@ -99,6 +104,53 @@ export class FakeCompetitionRepository implements CompetitionRepository {
 
   async listOwnerCompetitions(ownerUserId:string){return this.items(ownerUserId,false);}
   async listPublicCompetitions(){return this.items(undefined,true);}
+
+  async discoverPublicCompetitions(filters:CompetitionDiscoveryQuery,userId?:string):Promise<CompetitionDiscoveryResponse>{
+    const publicItems=(await this.items(undefined,true)).filter(x=>
+      x.status!=="DRAFT"&&x.status!=="CANCELLED");
+    const provinces=["Kabul"];
+    const cities=["Kabul"];
+    const q=filters.q.toLocaleLowerCase();
+    let found=publicItems.filter(item=>{
+      const involved=[...this.registrations.values()].some(reg=>
+        reg.competitionId===item.id&&this.teams.get(reg.teamId)?.managerUserId===userId);
+      const isFollowed=Boolean(userId&&this.followedCompetitions.get(userId)?.has(item.id));
+      const venueFollowed=Boolean(userId&&this.followedVenues.get(userId)?.has(item.venueId));
+      return (!filters.province||filters.province==="Kabul")&&
+        (!filters.city||filters.city==="Kabul")&&
+        (!filters.status||filters.status===item.status)&&
+        (!filters.format||filters.format===item.format)&&
+        (filters.fee!=="free"||item.registrationFeeAfn===0)&&
+        (filters.fee!=="paid"||item.registrationFeeAfn>0)&&
+        (filters.minFee===undefined||item.registrationFeeAfn>=filters.minFee)&&
+        (filters.maxFee===undefined||item.registrationFeeAfn<=filters.maxFee)&&
+        (!filters.from||Boolean(item.startsAt&&item.startsAt.slice(0,10)>=filters.from))&&
+        (!filters.to||Boolean(item.startsAt&&item.startsAt.slice(0,10)<=filters.to))&&
+        (!q||[item.name,item.venueName,"Kabul"].some(value=>value.toLocaleLowerCase().includes(q)))&&
+        (filters.scope!=="registration"||item.status==="REGISTRATION_OPEN")&&
+        (!["ongoing","ongoingFollowedVenues"].includes(filters.scope)||item.status==="IN_PROGRESS")&&
+        (filters.scope!=="following"||isFollowed)&&
+        (filters.scope!=="mine"||involved)&&
+        (filters.scope!=="ongoingFollowedVenues"||venueFollowed);
+    });
+    const followers=(item:typeof publicItems[number])=>[...this.followedCompetitions.values()]
+      .filter(ids=>ids.has(item.id)).length;
+    const sorted=found.sort((a,b)=>filters.sort==="popular"||filters.scope==="popular"?
+      followers(b)-followers(a)||a.name.localeCompare(b.name):
+      filters.sort==="feeLow"?a.registrationFeeAfn-b.registrationFeeAfn||a.id.localeCompare(b.id):
+      filters.sort==="newest"?b.id.localeCompare(a.id):
+      filters.sort==="closing"?(a.registrationClosesAt??"9999").localeCompare(b.registrationClosesAt??"9999"):
+      (a.startsAt??"9999").localeCompare(b.startsAt??"9999")||a.name.localeCompare(b.name));
+    const total=sorted.length;
+    found=sorted.slice((filters.page-1)*filters.limit,filters.page*filters.limit);
+    return {
+      competitions:found.map(item=>({...item,coverImageUrl:null,province:"Kabul",city:"Kabul",
+        followerCount:followers(item)})),
+      total,page:filters.page,limit:filters.limit,hasMore:filters.page*filters.limit<total,
+      facets:{provinces,cities:filters.province&&filters.province!=="Kabul"?[]:cities},
+    };
+  }
+
   async listMyPublicCompetitions(userId:string):Promise<CompetitionListItemDto[]>{
     // Existing test fake models manager-owned teams; the live repository
     // additionally includes every active team membership for this user.
