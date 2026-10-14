@@ -27,6 +27,8 @@ export default function PaidRoleSubscriptionScreen() {
   const { role: rawRole } = useLocalSearchParams<{ role: RoleSlug }>();
   const role = roleFromSlug(rawRole);
   const { session, revalidate } = useAuth();
+  const emailVerified=session?.user.emailVerified===true;
+  const refereeExclusive=session?.user.roles.includes("REFEREE")??false;
   const { t, isRTL, language } = useLocale();
   const [offer, setOffer] = useState<RoleSubscriptionOfferDto | null>(null);
   const [paymentReference, setPaymentReference] = useState("");
@@ -91,7 +93,7 @@ export default function PaidRoleSubscriptionScreen() {
     : null;
 
   async function submit() {
-    if (!session) return;
+    if(!session||!emailVerified||refereeExclusive)return;
     setRequesting(true);
     setMessage(null);
     try {
@@ -170,7 +172,22 @@ export default function PaidRoleSubscriptionScreen() {
       <AppText accessibilityRole="alert">{message}</AppText>
     </Card> : null}
 
-    {!loading && !active && !pending ? <Card style={styles.subscribeCard}>
+    {!emailVerified?<Card style={styles.lockedCard} testID="role-subscription-email-required">
+      <View style={[styles.priceHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="lock-closed-outline" size={24} color={colors.warning}/>
+        <View style={{flex:1,gap:spacing.xs}}>
+          <AppText variant="bodyLarge" weight="bold">{t("profile.subscriptionLocked")}</AppText>
+          <AppText muted>{t("profile.roleUnlockHint")}</AppText>
+        </View>
+      </View>
+      <Button label={t("security.emailAdd")} variant="secondary"
+        onPress={()=>router.push("/profile/email")}/>
+    </Card>:null}
+    {emailVerified&&refereeExclusive?<Card style={styles.lockedCard}>
+      <Ionicons name="lock-closed-outline" size={24} color={colors.warning}/>
+      <AppText muted>{t("profile.refereeRoleRestriction")}</AppText>
+    </Card>:null}
+    {!loading && !active && !pending && emailVerified && !refereeExclusive ? <Card style={styles.subscribeCard}>
       <AppText variant="bodyLarge" weight="bold">{t("roles.subscribeTitle")}</AppText>
       <AppText muted>{t("roles.subscribeBody",{amount:price})}</AppText>
       <TextField
@@ -223,4 +240,5 @@ const styles = {
   pendingCard: { gap: spacing.md, backgroundColor: "#FFF9E8", borderColor: "#E8D39B" },
   activeCard: { gap: spacing.md, backgroundColor: "#EFFAF3", borderColor: "#B8E2C5" },
   messageCard: { backgroundColor: colors.surfaceMuted },
+  lockedCard:{gap:spacing.md,backgroundColor:"#FFF9E9",borderColor:"#F1D8A0"},
 };
