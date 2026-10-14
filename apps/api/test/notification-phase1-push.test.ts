@@ -1,6 +1,8 @@
 import {randomUUID} from "node:crypto";
 import {describe,expect,it} from "vitest";
 import {NotificationService} from "../src/modules/notifications/notification.service.js";
+import {BookingService} from "../src/modules/booking/booking.service.js";
+import {FakeBookingRepository} from "./fake-booking-repository.js";
 import {PushDispatcher,type PendingPush,type PushDeliveryStore} from "../src/modules/notifications/push-delivery.js";
 import {FakeNotificationRepository} from "./fake-notification-repository.js";
 
@@ -46,6 +48,33 @@ describe("Notifications Phase 1 — actionable events",()=>{
       venueName:"Closed arena",startsAt:now.toISOString()});
     expect((await service.list(owner)).notifications).toHaveLength(0);
     expect(repo.deliveries).toHaveLength(0);
+  });
+});
+
+describe("Notifications Phase 1 — online approval booking integration",()=>{
+  it("alerts the venue owner only after a PENDING booking is committed",async()=>{
+    const repo=new FakeNotificationRepository(),notifications=new NotificationService(repo,
+      ()=>new Date("2026-10-04T00:00:00.000Z"));
+    const bookings=new FakeBookingRepository();
+    const venueOwner=randomUUID(),player=randomUUID();
+    const {venue,areaId}=bookings.seedVenue(venueOwner);
+    venue.bookingMode="APPROVAL";
+    const booking=new BookingService(bookings,()=>new Date("2026-10-04T00:00:00.000Z"),notifications);
+    const availability=await booking.getAvailability(venue.id,"2026-10-05");
+    const slot=availability.slots.find(x=>x.areaId===areaId)!;
+    expect(slot).toBeDefined();
+    const created=await booking.createOnlineBooking(player,{
+      areaId,startsAt:slot.startsAt,idempotencyKey:"phase1-owner-alert",note:"",
+    });
+    expect(created.status).toBe("PENDING");
+    const owner=await notifications.list(venueOwner,"BOOKINGS");
+    expect(owner.notifications).toMatchObject([{type:"BOOKING_REQUEST",
+      data:{bookingId:created.id,venueId:venue.id}}]);
+    expect((await notifications.list(player)).notifications).toHaveLength(0);
+    await booking.createOnlineBooking(player,{
+      areaId,startsAt:slot.startsAt,idempotencyKey:"phase1-owner-alert",note:"",
+    });
+    expect((await notifications.list(venueOwner)).notifications).toHaveLength(1);
   });
 });
 
