@@ -19,14 +19,38 @@ export class NotificationService implements NotificationPublisher {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async list(userId:string,filter:NotificationListFilter="ALL",limit=30,offset=0){
-    const [notifications,total,unreadCount]=await Promise.all([
-      this.repository.listNotifications(userId,limit,offset,filter),
+  /** Opaque createdAt/id keyset cursor; stable when new rows arrive ahead of page 1. */
+  async list(userId:string,filter:NotificationListFilter="ALL",limit=30,offset=0,cursor?:string){
+    let before:{createdAt:Date;id:string}|undefined;
+    if(cursor){
+      try{
+        const value=Buffer.from(cursor,"base64url").toString("utf8");
+        const separator=value.indexOf("|");
+        const rawDate=value.slice(0,separator),id=value.slice(separator+1);
+        const date=new Date(rawDate);
+        if(separator<=0||!/^\\d{4}-\\d{2}-\\d{2}T/.test(rawDate)||date.toISOString()!==rawDate||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+          throw new Error("Invalid cursor");
+        before={createdAt:date,id};
+      }catch{
+        throw errors.badRequest("INVALID_NOTIFICATION_CURSOR","Invalid notification page cursor.");
+      }
+    }
+    const [page,total,unreadCount]=await Promise.all([
+      this.repository.listNotifications(userId,limit+1,cursor?0:offset,filter,before),
       this.repository.countNotifications(userId,filter),
       this.repository.countUnreadNotifications(userId),
     ]);
-    return {notifications,total,unreadCount,hasMore:offset+notifications.length<total,
+    const hasMore=page.length>limit,notifications=page.slice(0,limit);
+    const last=notifications[notifications.length-1];
+    const nextCursor=hasMore&&last?
+      Buffer.from(last.createdAt+"|"+last.id).toString("base64url"):null;
+    return {notifications,total,unreadCount,hasMore,nextCursor,
       generatedAt:this.now().toISOString()};
+  }
+
+  async unreadCount(userId:string){
+    return {unreadCount:await this.repository.countUnreadNotifications(userId)};
   }
 
   async markAllRead(userId:string){
@@ -48,7 +72,7 @@ export class NotificationService implements NotificationPublisher {
   async markRead(userId: string, notificationId: string) {
     const notification = await this.repository.markRead(userId, notificationId, this.now());
     if (!notification) throw errors.badRequest("NOTIFICATION_NOT_FOUND", "Notification not found.");
-    return notification;
+    return {notification,unreadCount:await this.repository.countUnreadNotifications(userId)};
   }
 
   getPreferences(userId: string) {
