@@ -1,5 +1,7 @@
 import type {
   CompetitionDto,
+  CompetitionDiscoveryQuery,
+  CompetitionDiscoveryResponse,
   CompetitionRewardDto,
   CompetitionListItemDto,
   CompetitionMatchDto,
@@ -29,7 +31,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, count, desc, eq, gt, inArray, isNotNull, lt, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gt, gte, ilike, inArray, isNotNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   CompetitionRecord,
@@ -373,6 +375,127 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     if(!links.length)return [];
     return this.listItems(and(eq(competitions.published,true),
       inArray(competitions.id,links.map(link=>link.competitionId)))!);
+  }
+
+
+  async discoverPublicCompetitions(filters:CompetitionDiscoveryQuery,userId?:string):Promise<CompetitionDiscoveryResponse>{
+    // Restrict every discovery query BEFORE pagination, including count and facets.
+    const constraints:SQL[]=[
+      eq(competitions.published,true),
+      ne(competitions.status,"DRAFT"),
+      ne(competitions.status,"CANCELLED"),
+    ];
+    if(filters.province)constraints.push(eq(venues.province,filters.province));
+    if(filters.city)constraints.push(eq(venues.city,filters.city));
+    if(filters.status)constraints.push(eq(competitions.status,filters.status));
+    if(filters.format)constraints.push(eq(competitions.format,filters.format));
+    if(filters.fee==="free")constraints.push(eq(competitions.registrationFeeAfn,0));
+    if(filters.fee==="paid")constraints.push(gt(competitions.registrationFeeAfn,0));
+    if(filters.minFee!==undefined)constraints.push(gte(competitions.registrationFeeAfn,filters.minFee));
+    if(filters.maxFee!==undefined)constraints.push(lte(competitions.registrationFeeAfn,filters.maxFee));
+    if(filters.from)constraints.push(gte(competitions.startsAt,new Date(filters.from+"T00:00:00+04:30")));
+    if(filters.to){
+      const end=new Date(Date.parse(filters.to+"T00:00:00+04:30")+86_400_000);
+      constraints.push(lt(competitions.startsAt,end));
+    }
+    if(filters.q){
+      const literal="%"+filters.q.replace(/[\\%_]/g,"\\  async createCompetition(input: Parameters<CompetitionRepository["createCompetition"]>[0]) {")+"%";
+      constraints.push(or(ilike(competitions.name,literal),ilike(venues.name,literal),
+        ilike(venues.province,literal),ilike(venues.city,literal))!);
+    }
+    if(filters.scope==="registration")constraints.push(eq(competitions.status,"REGISTRATION_OPEN"));
+    if(filters.scope==="ongoing"||filters.scope==="ongoingFollowedVenues")
+      constraints.push(eq(competitions.status,"IN_PROGRESS"));
+    if(filters.scope==="following"&&userId)constraints.push(exists(this.db
+      .select({id:socialFollows.entityId}).from(socialFollows)
+      .where(and(eq(socialFollows.userId,userId),eq(socialFollows.entityType,"COMPETITION"),
+        eq(socialFollows.entityId,competitions.id)))));
+    if(filters.scope==="mine"&&userId)constraints.push(exists(this.db
+      .select({id:competitionTeams.competitionId}).from(competitionTeams)
+      .innerJoin(teamMemberships,eq(teamMemberships.teamId,competitionTeams.teamId))
+      .where(and(eq(competitionTeams.competitionId,competitions.id),
+        eq(teamMemberships.userId,userId),eq(teamMemberships.status,"ACTIVE")))));
+    if(filters.scope==="ongoingFollowedVenues"&&userId)constraints.push(exists(this.db
+      .select({id:socialFollows.entityId}).from(socialFollows)
+      .where(and(eq(socialFollows.userId,userId),eq(socialFollows.entityType,"VENUE"),
+        eq(socialFollows.entityId,competitions.venueId)))));
+    const where=and(...constraints)!;
+    const acceptedCounts=this.db.select({
+      competitionId:competitionTeams.competitionId,
+      total:sql<number>`count(*)::int`.as("accepted_total"),
+    }).from(competitionTeams).where(eq(competitionTeams.status,"ACCEPTED"))
+      .groupBy(competitionTeams.competitionId).as("competition_discovery_accepted");
+    const followCounts=this.db.select({
+      competitionId:socialFollows.entityId,
+      total:sql<number>`count(*)::int`.as("follower_total"),
+    }).from(socialFollows).where(eq(socialFollows.entityType,"COMPETITION"))
+      .groupBy(socialFollows.entityId).as("competition_discovery_follows");
+    const follows=sql<number>`coalesce(${followCounts.total},0)`;
+    const starts=sql`coalesce(${competitions.startsAt}, 'infinity'::timestamptz)`;
+    const closing=sql`coalesce(${competitions.registrationClosesAt},'infinity'::timestamptz)`;
+    const sort=filters.scope==="popular"?"popular":filters.sort;
+    const order=sort==="popular"?[desc(follows),asc(competitions.name),asc(competitions.id)]:
+      sort==="starting"?[asc(starts),asc(competitions.id)]:
+      sort==="newest"?[desc(competitions.createdAt),asc(competitions.id)]:
+      sort==="closing"?[asc(closing),asc(competitions.id)]:
+      sort==="feeLow"?[asc(competitions.registrationFeeAfn),asc(starts),asc(competitions.id)]:
+      [asc(sql`case when ${competitions.status}='IN_PROGRESS' then 0
+        when ${competitions.status}='REGISTRATION_OPEN' then 1
+        when ${competitions.status}='SCHEDULED' then 2 else 3 end`),
+        asc(starts),desc(follows),asc(competitions.id)];
+    const base=()=>this.db.select({
+      competition:competitions,venueName:venues.name,province:venues.province,city:venues.city,
+      accepted:sql<number>`coalesce(${acceptedCounts.total},0)`,
+      followerCount:follows,
+    }).from(competitions).innerJoin(venues,eq(competitions.venueId,venues.id))
+      .leftJoin(acceptedCounts,eq(acceptedCounts.competitionId,competitions.id))
+      .leftJoin(followCounts,eq(followCounts.competitionId,competitions.id));
+    const facetBase=and(eq(competitions.published,true),ne(competitions.status,"DRAFT"),
+      ne(competitions.status,"CANCELLED"))!;
+    const [rows,totalRows,provinces,cities]=await Promise.all([
+      base().where(where).orderBy(...order)
+        .limit(filters.limit).offset((filters.page-1)*filters.limit),
+      this.db.select({total:sql<number>`count(*)::int`}).from(competitions)
+        .innerJoin(venues,eq(competitions.venueId,venues.id)).where(where),
+      this.db.selectDistinct({value:venues.province}).from(competitions)
+        .innerJoin(venues,eq(competitions.venueId,venues.id))
+        .where(facetBase).orderBy(asc(venues.province)).limit(200),
+      this.db.selectDistinct({value:venues.city}).from(competitions)
+        .innerJoin(venues,eq(competitions.venueId,venues.id))
+        .where(and(facetBase,filters.province?eq(venues.province,filters.province):undefined))
+        .orderBy(asc(venues.city)).limit(500),
+    ]);
+    const images=new Map<string,string>();
+    if(rows.length){
+      const media=await this.db.select({id:socialPosts.entityId,imageUrl:socialPosts.imageUrl})
+        .from(socialPosts).where(and(eq(socialPosts.entityType,"COMPETITION"),
+          eq(socialPosts.status,"PUBLISHED"),isNotNull(socialPosts.imageUrl),
+          inArray(socialPosts.entityId,rows.map(row=>row.competition.id))))
+        .orderBy(desc(socialPosts.publishedAt));
+      for(const post of media)if(post.imageUrl&&!images.has(post.id))images.set(post.id,post.imageUrl);
+    }
+    const total=Number(totalRows[0]?.total??0);
+    return {
+      competitions:rows.map(row=>({
+        id:row.competition.id,venueId:row.competition.venueId,venueName:row.venueName,
+        name:row.competition.name,description:row.competition.description,
+        format:row.competition.format,status:row.competition.status,
+        published:row.competition.published,maxTeams:row.competition.maxTeams,
+        registrationFeeAfn:row.competition.registrationFeeAfn,
+        winPoints:row.competition.winPoints,drawPoints:row.competition.drawPoints,
+        lossPoints:row.competition.lossPoints,
+        tieBreakOrder:row.competition.tieBreakOrder as CompetitionDiscoveryResponse["competitions"][number]["tieBreakOrder"],
+        groupCount:row.competition.groupCount,qualifiersPerGroup:row.competition.qualifiersPerGroup,
+        registrationClosesAt:row.competition.registrationClosesAt?.toISOString()??null,
+        matchDurationMinutes:row.competition.matchDurationMinutes,
+        startsAt:row.competition.startsAt?.toISOString()??null,
+        endsAt:row.competition.endsAt?.toISOString()??null,
+        acceptedTeams:Number(row.accepted),coverImageUrl:images.get(row.competition.id)??null,
+        province:row.province,city:row.city,followerCount:Number(row.followerCount),
+      })),
+      total,page:filters.page,limit:filters.limit,hasMore:filters.page*filters.limit<total,
+      facets:{provinces:provinces.map(item=>item.value),cities:cities.map(item=>item.value)},
+    };
   }
 
   async createCompetition(input: Parameters<CompetitionRepository["createCompetition"]>[0]) {
