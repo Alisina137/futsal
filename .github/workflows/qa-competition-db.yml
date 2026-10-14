@@ -7,6 +7,9 @@ on:
       - "packages/database/scripts/seed-competition-story.mjs"
       - "scripts/test-competition-story-db.mjs"
       - "apps/api/scripts/competition-phase7-db.ts"
+      - "apps/api/scripts/notifications-phase2-db.ts"
+      - "apps/api/src/modules/notifications/**"
+      - "apps/api/test/notification-phase2-reliability.test.ts"
       - "apps/api/src/modules/competition/**"
       - "apps/api/test/competition-phase7-security.test.ts"
       - "packages/database/src/schema.ts"
@@ -19,6 +22,9 @@ on:
       - "packages/database/scripts/seed-competition-story.mjs"
       - "scripts/test-competition-story-db.mjs"
       - "apps/api/scripts/competition-phase7-db.ts"
+      - "apps/api/scripts/notifications-phase2-db.ts"
+      - "apps/api/src/modules/notifications/**"
+      - "apps/api/test/notification-phase2-reliability.test.ts"
       - "apps/api/src/modules/competition/**"
       - "apps/api/test/competition-phase7-security.test.ts"
       - "packages/database/src/schema.ts"
@@ -64,3 +70,4 @@ jobs:
       - run: pnpm db:migrate
       - run: node scripts/test-competition-story-db.mjs
       - run: pnpm --filter @leaguekick/api exec tsx scripts/competition-phase7-db.ts
+      - run: pnpm --filter @leaguekick/api exec tsx scripts/notifications-phase2-db.ts
