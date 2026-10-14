@@ -221,6 +221,10 @@ export class CompetitionService {
     };
   }
 
+  async myParticipations(userId:string,competitionId?:string){
+    return {participations:await this.repository.listMyCompetitionParticipations(userId,competitionId)};
+  }
+
   async listMyPublic(userId:string){
     const competitions=await this.repository.listMyPublicCompetitions(userId);
     return {
@@ -799,6 +803,8 @@ export class CompetitionService {
     if (!team || team.status !== "ACTIVE" || (team.offlineVenueId && !team.claimedAt)) throw errors.badRequest("TEAM_NOT_FOUND", "Team not found.");
     if (team.managerUserId !== userId) throw errors.forbidden("TEAM_MANAGER_REQUIRED", "Only the team manager can register this team.");
 
+    if(await this.repository.countAcceptedTeams(competitionId)>=competition.maxTeams)
+      throw errors.conflict("COMPETITION_FULL","This competition has reached its team capacity.");
     const existing = await this.repository.getRegistration(competitionId, input.teamId);
     if (existing && ["APPLIED", "PENDING", "ACCEPTED", "INVITED"].includes(existing.status)) {
       throw errors.conflict("REGISTRATION_EXISTS", "This team already has an active registration record.");
@@ -851,20 +857,17 @@ export class CompetitionService {
     if (!registration || !["APPLIED", "PENDING"].includes(registration.status)) {
       throw errors.badRequest("REGISTRATION_NOT_PENDING", "No pending application exists for this team.");
     }
-    if (input.status === "ACCEPTED") {
-      const accepted = await this.repository.countAcceptedTeams(competitionId);
-      if (accepted >= competition.maxTeams) {
-        throw errors.conflict("COMPETITION_FULL", "This competition has reached its team capacity.");
-      }
+    if(input.status==="ACCEPTED"){
+      await this.repository.acceptRegistrationWithCapacity({
+        competitionId,teamId,actorUserId:ownerUserId,kind:"APPROVAL",
+        seed:input.seed??registration.seed,now:this.now(),
+      });
+    }else{
+      await this.repository.decideRegistration({
+        competitionId,teamId,ownerUserId,status:input.status,
+        seed:input.seed??registration.seed,now:this.now(),
+      });
     }
-    await this.repository.decideRegistration({
-      competitionId,
-      teamId,
-      ownerUserId,
-      status: input.status,
-      seed: input.seed ?? registration.seed,
-      now: this.now(),
-    });
     const team = await this.repository.getTeam(teamId);
     if (team) {
       await this.notifyCompetition(
@@ -895,19 +898,16 @@ export class CompetitionService {
     if (!registration || registration.status !== "INVITED") {
       throw errors.badRequest("INVITATION_NOT_FOUND", "Competition invitation not found.");
     }
-    if (input.status === "ACCEPTED") {
-      const accepted = await this.repository.countAcceptedTeams(competitionId);
-      if (accepted >= competition.maxTeams) {
-        throw errors.conflict("COMPETITION_FULL", "This competition has reached its team capacity.");
-      }
+    if(input.status==="ACCEPTED"){
+      await this.repository.acceptRegistrationWithCapacity({
+        competitionId,teamId,actorUserId:userId,kind:"INVITATION",
+        seed:registration.seed,now:this.now(),
+      });
+    }else{
+      await this.repository.respondToInvitation({
+        competitionId,teamId,managerUserId:userId,status:input.status,now:this.now(),
+      });
     }
-    await this.repository.respondToInvitation({
-      competitionId,
-      teamId,
-      managerUserId: userId,
-      status: input.status,
-      now: this.now(),
-    });
     return this.repository.getRegistration(competitionId, teamId);
   }
 
