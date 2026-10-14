@@ -51,6 +51,8 @@ class FakeOwnerRepository implements OwnerOnboardingRepository {
       minimumBookingNoticeMinutes: previous?.venue.minimumBookingNoticeMinutes ?? 0,
       maximumAdvanceBookingDays: previous?.venue.maximumAdvanceBookingDays ?? 30,
       cancellationPolicy: previous?.venue.cancellationPolicy ?? "Cancellation is allowed before the booking start time.",
+      amenities:previous?.venue.amenities??[],
+      houseRules:previous?.venue.houseRules??null,
       verificationStatus: previous?.venue.verificationStatus ?? "PENDING",
       status: previous?.venue.status === "ACTIVE" ? "ACTIVE" : "READY",
       setupCompletedAt: previous?.venue.setupCompletedAt ?? input.completedAt,
@@ -109,6 +111,8 @@ class FakeOwnerRepository implements OwnerOnboardingRepository {
       minimumBookingNoticeMinutes: input.settings.minimumBookingNoticeMinutes,
       maximumAdvanceBookingDays: input.settings.maximumAdvanceBookingDays,
       cancellationPolicy: input.settings.cancellationPolicy,
+      amenities:input.settings.amenities??current.venue.amenities,
+      houseRules:input.settings.houseRules===undefined?current.venue.houseRules:input.settings.houseRules,
       areas: [{
         ...court,
         name: input.settings.courtName,
