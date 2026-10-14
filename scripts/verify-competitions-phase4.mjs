@@ -29,11 +29,13 @@ assert.ok(profile.includes('formatCompetitionDateTime(nextDate,language)')&&
  profile.includes('setIntent(')&&profile.includes('CompetitionParticipationPanel'),
  "Header must use real status, date, fee and retain safe manager actions");
 for(const marker of ["competition-home-overview","competition-home-feed",
- "competition-home-media-tabs","competition-home-view-UPDATES","competition-home-view-PHOTOS",
+ "competition-home-media-tabs","competition-home-view-${view}",
  "competition-photo-gallery","competition-photo-close","competition-home-view-matches"]){
  assert.ok(sections.includes(marker),"Home overview/media UI missing "+marker);
 }
-assert.ok(sections.includes('updates.map(post=>')&&
+assert.ok(sections.includes('(["UPDATES","PHOTOS"] as const).map(view=>')&&
+ sections.includes('feedView===view')&&
+ sections.includes('updates.map(post=>')&&
  sections.includes('const updates=posts.slice().sort(')&&
  sections.includes('photos=updates.filter(post=>Boolean(resolveMediaImageUrl(post.imageUrl)))')&&
  sections.includes("competition-gallery-photo-"),
