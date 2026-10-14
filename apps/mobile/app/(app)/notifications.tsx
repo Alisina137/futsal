@@ -87,6 +87,7 @@ export default function NotificationsScreen(){
   const [loading,setLoading]=useState(true);
   const [refreshing,setRefreshing]=useState(false);
   const [loadingMore,setLoadingMore]=useState(false);
+  const [loadMoreError,setLoadMoreError]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
@@ -111,7 +112,7 @@ export default function NotificationsScreen(){
       return()=>{active=false;};
     }
     const sequence=++requestSequence.current;
-    setLoading(true);setError(null);setCursor(null);
+    setLoading(true);setError(null);setLoadMoreError(false);setCursor(null);
     void notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0}).then(result=>{
       if(!active||sequence!==requestSequence.current)return;
       setCursor(result.nextCursor??null);
@@ -132,7 +133,7 @@ export default function NotificationsScreen(){
 
   async function refresh(){
     if(!token||refreshing)return;
-    setRefreshing(true);
+    setRefreshing(true);setLoadMoreError(false);
     const sequence=++requestSequence.current;
     try{
       const result=await notificationApi.list(token,{filter,limit:PAGE_SIZE,offset:0});
@@ -157,7 +158,8 @@ export default function NotificationsScreen(){
       });
       setTotal(result.total);setHasMore(result.hasMore);setCursor(result.nextCursor??null);
       setUnreadCount(result.unreadCount);publishNotificationUnread(token,result.unreadCount);
-    }catch{setError(t("notifications.loadError"));}
+      setLoadMoreError(false);
+    }catch{if(sequence===requestSequence.current)setLoadMoreError(true);}
     finally{setLoadingMore(false);}
   }
   function updateUnread(count:number){
@@ -171,7 +173,9 @@ export default function NotificationsScreen(){
       const {notification}=await notificationApi.markRead(token,item.id);
       if(filter==="UNREAD"){setItems(prev=>prev.filter(x=>x.id!==item.id));setTotal(n=>Math.max(0,n-1));}
       else setItems(prev=>prev.map(x=>x.id===item.id?notification:x));
-      await refreshCount();
+      // Count-only server reconciliation preserves the current page and scroll position.
+      const latest=await notificationApi.unreadCount(token);
+      updateUnread(latest.unreadCount);
     }catch{setError(t("notifications.actionError"));}
     finally{actionPending.current=false;}
   }
@@ -424,7 +428,13 @@ export default function NotificationsScreen(){
       </View>)}
     </View>):null}
 
-    {!loading&&!error&&hasMore?<Button label={t("notifications.loadMore")}
+    {!loading&&!error&&loadMoreError&&hasMore?<Card style={styles.error}>
+      <Ionicons name="cloud-offline-outline" size={24} color={colors.danger}/>
+      <AppText style={{color:colors.danger,flex:1}}>{t("notifications.loadError")}</AppText>
+      <Button testID="notification-load-more-retry" label={t("common.retry")}
+        variant="secondary" loading={loadingMore} onPress={()=>void more()}/>
+    </Card>:null}
+    {!loading&&!error&&hasMore&&!loadMoreError?<Button label={t("notifications.loadMore")}
       loading={loadingMore} disabled={busy} variant="secondary" onPress={()=>void more()}/>:null}
   </Screen>;
 }
