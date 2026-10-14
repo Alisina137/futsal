@@ -1,6 +1,7 @@
 # Notifications Phase 2 — Reliability, live badge, preferences, and routes
 
 ## Shipped behavior
+- **Atomic event creation:** new notification records and their chosen IN_APP/PUSH delivery rows commit in a single database transaction. Crashes or delivery insert errors cannot leave undeliverable orphaned notices; idempotent replays preserve the original channel choices.
 - **Channel isolation:** inbox, filters, and unread badges include only notifications with an actual `IN_APP` delivery. Events published while in-app notifications were off (but native push was on) remain push-only and do not silently reappear as in-app unread entries. Existing in-app notifications persist when users later disable delivery. Directly dispatched admin notices already create an `IN_APP` delivery. No schema change.
 - **Live counters:** a small authenticated `GET /api/v1/notifications/unread-count` endpoint avoids loading the first page for badge refresh. App top nav refreshes on focus, foreground, and a 30-second active-session interval; offline fetch failures retain the previous server count instead of resetting to zero. Native push bridge revalidates using the same endpoint.
 - **Server-authoritative actions:** `POST /:id/read` now returns `{notification,unreadCount}`, and repeat read requests preserve original read timestamps. Inbox mutations use server totals rather than decrementing a closed-over count.
