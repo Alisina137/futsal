@@ -22,7 +22,7 @@ type Props={
   onRefresh:()=>void;
   onCancel:(bookingId:string)=>Promise<void>;
   scopedVenueId?:string;
-  focusBookingId?:string;
+  focusBookingId?:string|undefined;
 };
 
 const statePalette={
