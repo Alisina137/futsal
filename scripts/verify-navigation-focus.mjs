@@ -9,10 +9,13 @@ for(const word of ["requestAnimationFrame","cell.x+cell.width/2-viewport.current
   assert.ok(hook.includes(word),"Layout-based active tab visibility missing: "+word);
 }
 const venue=read("apps/mobile/app/(app)/venues/[venueId].tsx");
+const venueNavigation=read("apps/mobile/src/lib/venue-detail-navigation.ts");
+assert.ok(venueNavigation.includes('main:bookingDeepLink?"reserve":reviewBookingId?"about":"media"'),
+  "Initial venue must default to Media while Reserve/Reviews deep links take priority.");
 for(const word of ["useVisibleTab<VenueMainTab>(main)","useVisibleTab<string>(sub[main]",
   "mainNav.scrollRef","subNav.scrollRef","mainNav.cellLayout(item.id,event)",
-  "subNav.cellLayout(item,event)","venueSubtabs[id][0]!",
-  "bookingDeepLink?\"reserve\":reviewBookingId?\"about\":\"media\""]){
+  "subNav.cellLayout(item,event)","switchVenueMain(current,id,target)",
+  "initialVenueNavigation(bookingDeepLink,reviewBookingId)"]){
   assert.ok(venue.includes(word),"Venue navigation invariant missing: "+word);
 }
 // Sub-navigation bars fill the available width instead of clustering at an
