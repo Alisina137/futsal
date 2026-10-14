@@ -517,6 +517,34 @@ export class TimetableService {
     return { deleted: true };
   }
 
+  async publicScheduleChanges(venueId:string,from:string,to:string)
+    :Promise<import("@leaguekick/contracts").PublicVenueScheduleChangesResponse>{
+    dateParts(from);dateParts(to);
+    const span=daysBetween(from,to);
+    if(span<0||span>30)throw errors.badRequest(
+      "SCHEDULE_RANGE_INVALID","Choose a period of no more than 31 days.");
+    const venue=await this.repository.getVenue(venueId);
+    if(!venue)throw errors.badRequest("VENUE_NOT_FOUND","Venue not found.");
+    const [timetables,exceptions]=await Promise.all([
+      this.repository.listTimetables(venueId),
+      this.repository.listExceptions(venueId,from,to),
+    ]);
+    // Exceptions affect availability only on dates backed by an active
+    // published timetable. Drafts and owner-only notes must never be public.
+    const changes=exceptions.filter(item=>!!recordForDate(timetables,item.date)&&
+      (item.areaId===null||venue.areas.some(area=>area.id===item.areaId&&area.active)))
+      .map(item=>({
+        date:item.date,isClosed:item.isClosed,
+        areaName:item.areaId
+          ?venue.areas.find(area=>area.id===item.areaId&&area.active)?.name??null
+          :null,
+        periods:item.isClosed?[]:item.periods.map(period=>({
+          startsAt:period.startsAt,endsAt:period.endsAt,
+        })),
+      }));
+    return {venueId,from,to,changes};
+  }
+
   async resolveDay(input: {
     venueId: string;
     date: string;

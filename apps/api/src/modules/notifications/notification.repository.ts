@@ -97,6 +97,25 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     return rows.map(dto);
   }
 
+  async listVenueNotifications(userId:string,venueId:string,page:number,limit:number){
+    // Both userId and IN_APP delivery are required, even for public venues.
+    // Notification data stores the venueId for post, promotion, and slot alerts.
+    const visible=sql`EXISTS (SELECT 1 FROM notification_deliveries nd WHERE nd.notification_id=${notifications.id} AND nd.channel='IN_APP')`;
+    const scope=and(eq(notifications.userId,userId),visible,
+      inArray(notifications.type,["VENUE_POST","SLOT_PROMOTION","SLOT_AVAILABLE"]),
+      sql`${notifications.data}->>'venueId' = ${venueId}`)!;
+    const [rows,countRows,unreadRows]=await Promise.all([
+      this.db.select().from(notifications).where(scope)
+        .orderBy(desc(notifications.createdAt),desc(notifications.id))
+        .limit(limit).offset((page-1)*limit),
+      this.db.select({value:count()}).from(notifications).where(scope),
+      this.db.select({value:count()}).from(notifications)
+        .where(and(scope,isNull(notifications.readAt))),
+    ]);
+    return {notifications:rows.map(dto),total:Number(countRows[0]?.value??0),
+      unreadCount:Number(unreadRows[0]?.value??0)};
+  }
+
   async countNotifications(userId:string,filter:NotificationListFilter="ALL"){
     const [row]=await this.db.select({value:count()}).from(notifications)
       .where(this.filtered(userId,filter));

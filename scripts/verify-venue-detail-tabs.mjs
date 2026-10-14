@@ -10,6 +10,7 @@ const booking=read("apps/mobile/app/(app)/booking/confirm.tsx");
 const languages=read("packages/localization/src/index.ts");
 const api=read("apps/mobile/src/lib/api.ts");
 const venueCompetition=read("apps/mobile/src/components/venues/VenueCompetitionsPanel.tsx");
+const venueUpdates=read("apps/mobile/src/components/venues/VenueUpdatesPanel.tsx");
 for(const tab of ["media","reserve","competitions","updates","about"]){
   check(components.includes('id:"'+tab+'"'),"Venue main navigation missing: "+tab);
   check(detail.includes('main==="'+tab+'"'),"Venue content not gated by selected tab: "+tab);
@@ -26,7 +27,7 @@ check(components.includes('export const venueSubtabs')&&
   components.includes('media:["posts","photos","videos"]')&&
   components.includes('reserve:["slots","offers","bookings","saved"]')&&
   components.includes('competitions:["registration","upcoming","live","completed","matches"]')&&
-  components.includes('updates:["announcements","alerts"]')&&
+  components.includes('updates:["announcements","schedule","alerts"]')&&
   components.includes('about:["overview","facilities","hours","location","reviews","policies"]'),
   "Venue tab/subtab structure is incomplete.");
 for(const fragment of [
@@ -38,10 +39,14 @@ for(const fragment of [
   "slot.promotionId","slot.originalPriceAfn","onlineBookingEnabled",
   "bookings.filter","!fresh||!isOnline","availabilityDate!==date",
   "NearbyVenuesMap","venue.latitude",
-  "venue.areas.map","cancellationPolicy","notifications/preferences",
+  "venue.areas.map","cancellationPolicy",
 ]){
   check(components.includes(fragment),"Data-backed venue behavior missing: "+fragment);
 }
+check(venueUpdates.includes('router.push("/notifications/preferences")')&&
+  venueUpdates.includes("notificationApi.venue(token,venue.id,1)")&&
+  venueUpdates.includes("venueApi.scheduleChanges(venue.id,from,to)"),
+  "Updates must show real scoped alerts, schedules and global notification settings.");
 check(venueCompetition.includes("competitionApi.discover(queryFor(venue.id,sub,1))")&&
   venueCompetition.includes("competitionApi.venueMatches(venue.id,matchScope,1)")&&
   venueCompetition.includes('testID={"venue-match-"+match.id}'),

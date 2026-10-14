@@ -42,6 +42,12 @@ export class NotificationService implements NotificationPublisher {
       nextCursor,generatedAt:this.now().toISOString()};
   }
 
+  async venueNotifications(userId:string,venueId:string,page=1,limit=12)
+    :Promise<import("@leaguekick/contracts").VenueNotificationPage>{
+    const result=await this.repository.listVenueNotifications(userId,venueId,page,limit);
+    return {venueId,page,limit,...result,hasMore:page*limit<result.total};
+  }
+
   async unreadCount(userId:string){
     return {unreadCount:await this.repository.countUnreadNotifications(userId)};
   }

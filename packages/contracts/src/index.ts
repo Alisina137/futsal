@@ -981,6 +981,22 @@ export const publicVenueDtoSchema = z.object({
   areas: z.array(venueAreaDtoSchema),
 });
 export type PublicVenueDto = z.infer<typeof publicVenueDtoSchema>;
+/** Public schedule changes exclude owner notes, IDs and unpublished draft timetables. */
+export const publicVenueScheduleChangeSchema=z.object({
+  date:dateOnlySchema,
+  isClosed:z.boolean(),
+  areaName:z.string().nullable(),
+  periods:z.array(z.object({
+    startsAt:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    endsAt:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  })),
+});
+export type PublicVenueScheduleChange=z.infer<typeof publicVenueScheduleChangeSchema>;
+export const publicVenueScheduleChangesResponseSchema=z.object({
+  venueId:z.string().uuid(),from:dateOnlySchema,to:dateOnlySchema,
+  changes:z.array(publicVenueScheduleChangeSchema),
+});
+export type PublicVenueScheduleChangesResponse=z.infer<typeof publicVenueScheduleChangesResponseSchema>;
 
 export const venueSearchSuggestionSchema=z.object({
   kind:z.enum(["VENUE","LOCATION"]),
@@ -2389,6 +2405,16 @@ export const notificationListResponseSchema=z.object({
   generatedAt:isoDateTimeSchema,
 });
 export type NotificationListResponse=z.infer<typeof notificationListResponseSchema>;
+export const venueNotificationPageSchema=z.object({
+  venueId:z.string().uuid(),
+  notifications:z.array(notificationDtoSchema),
+  total:z.number().int().nonnegative(),
+  unreadCount:z.number().int().nonnegative(),
+  page:z.number().int().positive(),
+  limit:z.number().int().positive(),
+  hasMore:z.boolean(),
+});
+export type VenueNotificationPage=z.infer<typeof venueNotificationPageSchema>;
 
 export const notificationPreferencesSchema = z.object({
   inAppEnabled: z.boolean(),

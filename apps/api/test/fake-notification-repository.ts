@@ -54,6 +54,12 @@ export class FakeNotificationRepository implements NotificationRepository {
     const items=this.filtered(userId,filter).filter(item=>!cursor||item.createdAt<cursor.createdAt||(item.createdAt===cursor.createdAt&&item.id<cursor.id));
     return items.slice(cursor?0:offset,(cursor?0:offset)+limit);
   }
+  async listVenueNotifications(userId:string,venueId:string,page:number,limit:number){
+    const all=this.filtered(userId,"VENUES").filter(item=>item.data.venueId===venueId);
+    return {notifications:all.slice((page-1)*limit,page*limit),
+      total:all.length,unreadCount:all.filter(item=>!item.readAt).length};
+  }
+
   async countNotifications(userId:string,filter:NotificationListFilter="ALL"){
     return this.filtered(userId,filter).length;
   }

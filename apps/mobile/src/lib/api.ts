@@ -524,6 +524,10 @@ export const ownerApi = {
 
 
 export const venueApi = {
+  scheduleChanges:(venueId:string,from:string,to:string)=>
+    networkRequest<import("@leaguekick/contracts").PublicVenueScheduleChangesResponse>(
+      `/api/v1/venues/${encodeURIComponent(venueId)}/schedule-changes?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      {cache:"no-store"}),
   reviews:(venueId:string,page=1,sort:"recent"|"highest"|"lowest"="recent")=>
     networkRequest<VenueReviewSummary>(
       `/api/v1/venues/${encodeURIComponent(venueId)}/reviews?page=${page}&sort=${sort}`),
@@ -672,6 +676,10 @@ export const marketingApi = {
 };
 
 export const notificationApi = {
+  venue:(accessToken:string,venueId:string,page=1)=>
+    networkRequest<import("@leaguekick/contracts").VenueNotificationPage>(
+      `/api/v1/notifications/venues/${encodeURIComponent(venueId)}?page=${page}&limit=12`,
+      {cache:"no-store"},accessToken),
   unreadCount:(accessToken:string)=>
     request<{unreadCount:number}>("/api/v1/notifications/unread-count",{},accessToken),
   registerDevice:(accessToken:string,input:{expoPushToken:string;platform:"ANDROID"|"IOS"})=>

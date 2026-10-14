@@ -25,6 +25,15 @@ export function createNotificationRouter(notifications: NotificationService, tok
   });
 
   // Small authenticated live badge endpoint: never loads notification content.
+  router.get("/venues/:venueId",async(request,response,next)=>{
+    try{
+      const venueId=routeIdSchema.parse(request.params.venueId);
+      const page=z.coerce.number().int().min(1).max(500).default(1).parse(request.query.page);
+      const limit=z.coerce.number().int().min(1).max(25).default(12).parse(request.query.limit);
+      response.json(await notifications.venueNotifications(request.auth!.userId,venueId,page,limit));
+    }catch(error){next(error);}
+  });
+
   router.get("/unread-count",async(request,response,next)=>{
     try{response.json(await notifications.unreadCount(request.auth!.userId));}
     catch(error){next(error);}

@@ -81,6 +81,15 @@ export function createPublicVenueRouter(booking: BookingService) {
     catch (error) { next(error); }
   });
 
+  router.get("/:venueId/schedule-changes",async(request,response,next)=>{
+    try{
+      const venueId=routeIdSchema.parse(request.params.venueId);
+      const from=dateOnlySchema.parse(request.query.from);
+      const to=dateOnlySchema.parse(request.query.to);
+      response.json(await booking.publicScheduleChanges(venueId,from,to));
+    }catch(error){next(error);}
+  });
+
   router.get("/:venueId/reviews",async(request,response,next)=>{
     try{
       const page=z.coerce.number().int().min(1).max(500).default(1).parse(request.query.page);
