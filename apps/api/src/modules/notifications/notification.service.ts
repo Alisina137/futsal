@@ -129,7 +129,7 @@ export class NotificationService implements NotificationPublisher {
     await this.publish({
       userId:input.ownerUserId,type:"BOOKING_REQUEST",title:"New booking requires approval",
       body:`${input.venueName} · ${input.startsAt}`,
-      deepLink:"/owner/schedule",
+      deepLink:`/owner/schedule?bookingId=${input.bookingId}`,
       data:{bookingId:input.bookingId,venueId:input.venueId,venueName:input.venueName,startsAt:input.startsAt},
       dedupeKey:`booking-request:${input.bookingId}`,marketing:false,
     });
@@ -139,7 +139,7 @@ export class NotificationService implements NotificationPublisher {
     await this.publish({
       userId:input.managerUserId,type:"TEAM_JOIN_REQUEST",title:"New team join request",
       body:`${input.requesterDisplayName} wants to join ${input.teamName}.`,
-      deepLink:`/teams/${input.teamId}/manage`,
+      deepLink:`/teams/${input.teamId}/manage?requestId=${input.requestId}`,
       data:{teamId:input.teamId,requestId:input.requestId,teamName:input.teamName,requesterDisplayName:input.requesterDisplayName},
       dedupeKey:`team-join-request:${input.requestId}`,marketing:false,
     });
@@ -167,7 +167,7 @@ export class NotificationService implements NotificationPublisher {
       type: "BOOKING_CONFIRMED",
       title: "Booking confirmed",
       body: `${input.venueName} · ${input.startsAt}`,
-      deepLink: "/bookings",
+      deepLink: `/bookings?bookingId=${input.bookingId}`,
       data: { bookingId: input.bookingId, startsAt: input.startsAt, venueName: input.venueName },
       dedupeKey: `booking-confirmed:${input.bookingId}`,
       marketing: false,
@@ -184,7 +184,7 @@ export class NotificationService implements NotificationPublisher {
       type: "BOOKING_CANCELLED",
       title: "Booking cancelled",
       body: `Your booking at ${input.venueName} was cancelled.`,
-      deepLink: "/bookings",
+      deepLink: `/bookings?bookingId=${input.bookingId}`,
       data: { bookingId: input.bookingId, venueName: input.venueName },
       dedupeKey: `booking-cancelled:${input.bookingId}`,
       marketing: false,
@@ -268,7 +268,8 @@ export class NotificationService implements NotificationPublisher {
   async teamChallenge(input:{teamId:string;challengeId:string;teamName:string;title:string;userIds:string[]}){
     await Promise.allSettled(input.userIds.map(userId=>this.publish({
       userId,type:"TEAM_CHALLENGE",title:input.teamName,body:input.title,
-      deepLink:"/dashboard",data:{teamId:input.teamId,challengeId:input.challengeId},
+      deepLink:`/dashboard?tab=matches&teamId=${input.teamId}&challengeId=${input.challengeId}`,
+      data:{teamId:input.teamId,challengeId:input.challengeId},
       dedupeKey:`team-challenge:${input.challengeId}:${input.title}:${userId}`,marketing:false,
     })));
   }
