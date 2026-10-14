@@ -8,7 +8,7 @@ const tests=read("packages/contracts/src/league-form.test.ts");
 const locale=read("packages/localization/src/index.ts");
 assert(sections.includes('competition.format==="LEAGUE"')
   &&sections.includes("<LeagueStandingsTable competition={competition}")
-  &&sections.includes('stage={competition.format==="LEAGUE"?"LEAGUE":"GROUP"}')
+  &&sections.includes('stage={competition.format==="LEAGUE"?"LEAGUE":"GROUP"}'),
   "Pinned league/group tables must preserve knockout render paths and stage-specific form.");
 assert(board.includes('testID="league-pinned-team-column"')
   &&board.includes('testID="league-scrollable-stats"')
