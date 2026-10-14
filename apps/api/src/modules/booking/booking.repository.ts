@@ -192,6 +192,9 @@ export class DrizzleBookingRepository implements BookingRepository {
       minimumBookingNoticeMinutes: row.minimumBookingNoticeMinutes,
       maximumAdvanceBookingDays: row.maximumAdvanceBookingDays,
       cancellationPolicy: row.cancellationPolicy,
+      verificationStatus:row.verificationStatus,
+      amenities:row.amenities,
+      houseRules:row.houseRules,
       status: row.status,
       areas: areas.map((area) => ({
         id: area.id,
