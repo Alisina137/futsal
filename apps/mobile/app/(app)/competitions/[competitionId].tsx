@@ -1,11 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {CompetitionDto,CompetitionMediaPostDto,SocialFollowStateDto,TeamDirectoryItemDto,TeamListItemDto,ManualTeamDto} from "@leaguekick/contracts";
+import type {CompetitionDto,CompetitionMediaPostDto,CompetitionParticipationDto,SocialFollowStateDto,TeamDirectoryItemDto,TeamListItemDto,ManualTeamDto} from "@leaguekick/contracts";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {AppState,Image,Pressable,ScrollView,StyleSheet,View,useWindowDimensions,type LayoutChangeEvent} from "react-native";
 import {competitionApi,marketingApi,ownerApi,manualTeamApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
 import {TextField} from "../../../src/components/ui/TextField";
+import {CompetitionParticipationPanel} from "../../../src/components/competition/CompetitionParticipationPanel";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
 import {Card} from "../../../src/components/ui/Card";
@@ -43,6 +44,10 @@ export default function CompetitionDetailScreen(){
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [myTeams,setMyTeams]=useState<TeamListItemDto[]>([]);
   const [selectedTeamId,setSelectedTeamId]=useState<string|null>(null);
+  const [participations,setParticipations]=useState<CompetitionParticipationDto[]>([]);
+  const [participationError,setParticipationError]=useState(false);
+  const [intent,setIntent]=useState<{kind:"register"|"accept"|"decline"|"withdraw";teamId:string}|null>(null);
+
   const [organizerCanInvite,setOrganizerCanInvite]=useState(false);
   const [directoryTeams,setDirectoryTeams]=useState<TeamDirectoryItemDto[]>([]);
   const [manualTeams,setManualTeams]=useState<ManualTeamDto[]>([]);
@@ -74,6 +79,10 @@ export default function CompetitionDetailScreen(){
       setMediaPosts(mediaResult.posts);
       if(session){
         try{
+          const answer=await competitionApi.myParticipations(session.accessToken,competitionId);
+          setParticipations(answer.participations);setParticipationError(false);
+        }catch{setParticipations([]);setParticipationError(true);}
+        try{
           const owned=(await teamApi.mine(session.accessToken)).teams
             .filter(team=>team.managerUserId===session.user.id);
           setMyTeams(owned);
@@ -101,6 +110,7 @@ export default function CompetitionDetailScreen(){
           setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
         }
       }else{
+        setParticipations([]);setParticipationError(false);
         setMyTeams([]);setSelectedTeamId(null);
         setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
       }
@@ -155,15 +165,31 @@ export default function CompetitionDetailScreen(){
     finally{setFollowBusy(false);}
   }
 
-  async function register(){
-    if(!session||!competitionId||!selectedTeamId)return;
+  async function executeIntent(){
+    if(!session||!competitionId||!intent||busy||participationError)return;
+    const item=intent;
     setBusy(true);setError(null);setMessage(null);
     try{
-      await competitionApi.register(session.accessToken,competitionId,selectedTeamId);
+      if(item.kind==="register"){
+        if(!myTeams.some(team=>team.id===item.teamId&&team.managerUserId===session.user.id))
+          throw new Error(t("competition.noTeamsForRegistration"));
+        await competitionApi.register(session.accessToken,competitionId,item.teamId);
+      }else if(item.kind==="withdraw"){
+        await competitionApi.withdraw(session.accessToken,competitionId,item.teamId);
+      }else{
+        await competitionApi.respondInvitation(session.accessToken,competitionId,item.teamId,
+          {status:item.kind==="accept"?"ACCEPTED":"REJECTED"});
+      }
+      setIntent(null);
       await load();
-      setMessage(t("competition.registrationSent"));
-    }catch{setError(t("competition.registrationError"));}
-    finally{setBusy(false);}
+      setMessage(item.kind==="register"?t("competition.registrationSent"):
+        t("competition.phase3.actionCompleted"));
+    }catch(e){
+      // The API carries specific reasons like full, duplicate, deadline or unauthorized.
+      setError(e instanceof Error?e.message:t("competition.phase3.actionError"));
+      setIntent(null);
+      await load();
+    }finally{setBusy(false);}
   }
   async function inviteAsOrganizer(){
     if(!session||!competitionId||!organizerCanInvite||!invitedTeamId)return;
@@ -220,9 +246,12 @@ export default function CompetitionDetailScreen(){
     }));
   }
 
-  const representedIds=new Set(competition?.teams
-    .filter(team=>!["REJECTED","WITHDRAWN"].includes(team.status))
-    .map(team=>team.teamId)??[]);
+  const representedIds=new Set([
+    ...(competition?.teams.filter(team=>!["REJECTED","WITHDRAWN"].includes(team.status))
+      .map(team=>team.teamId)??[]),
+    ...participations.filter(item=>!["REJECTED","WITHDRAWN"].includes(item.status))
+      .map(item=>item.teamId),
+  ]);
   const availableOwnerTeams=organizerCanInvite
     ?directoryTeams.filter(team=>!representedIds.has(team.id))
     :[];
@@ -237,7 +266,11 @@ export default function CompetitionDetailScreen(){
   // competition media image is used as the cover; never fabricate a logo or photo.
   const cover=resolveMediaImageUrl(mediaPosts.find(post=>post.imageUrl)?.imageUrl??null);
 
-  const registration=competition?.status==="REGISTRATION_OPEN"&&session?
+  const registrationOpen=competition?.status==="REGISTRATION_OPEN"&&
+    (!competition.registrationClosesAt||Date.parse(competition.registrationClosesAt)>Date.now());
+  const full=Boolean(competition&&accepted.length>=competition.maxTeams);
+  const canApply=registrationOpen&&!full&&!participationError;
+  const applicationForm=competition?.status==="REGISTRATION_OPEN"&&session?
     <Card onLayout={registrationLayout} style={styles.registration}>
       <View style={[styles.registerTitle,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.registerIcon}>
@@ -261,8 +294,16 @@ export default function CompetitionDetailScreen(){
           <AppText variant="caption" muted>{team.city}</AppText>
         </View>
       </Pressable>)}
-      {eligibleManagedTeams.length>0?<Button label={t("competition.register")} onPress={()=>void register()}
-        loading={busy} disabled={!selectedTeamId||!eligibleManagedTeams.some(team=>team.id===selectedTeamId)}/>:null}
+      <AppText variant="caption" muted>
+        {t("competition.phase3.feeAmount")}: {competition.registrationFeeAfn} AFN
+      </AppText>
+      {full?<AppText style={{color:colors.danger}}>{t("competition.phase3.full")}</AppText>:null}
+      {!registrationOpen?<AppText style={{color:colors.danger}}>
+        {t("competition.phase3.deadline")}</AppText>:null}
+      {eligibleManagedTeams.length>0?<Button label={t("competition.register")}
+        onPress={()=>selectedTeamId&&setIntent({kind:"register",teamId:selectedTeamId})}
+        loading={busy} disabled={!canApply||!selectedTeamId||
+          !eligibleManagedTeams.some(team=>team.id===selectedTeamId)}/>:null}
       {organizerCanInvite?<>
         <View style={{height:1,backgroundColor:colors.border,marginVertical:spacing.xs}}/>
         <AppText weight="bold" variant="bodyLarge">{t("manualTeams.registerDirect")}</AppText>
@@ -311,8 +352,36 @@ export default function CompetitionDetailScreen(){
         <Button label={t("competition.inviteTeam")} onPress={()=>void inviteAsOrganizer()}
           loading={busy} disabled={!invitedTeamId||!availableOwnerTeams.some(team=>team.id===invitedTeamId)}/>
       </>:null}
-      {message?<AppText style={{color:colors.success}}>{message}</AppText>:null}
     </Card>:null;
+  const activeIntentTeam=intent&&myTeams.find(team=>team.id===intent.teamId);
+  const confirmationMessage=intent?.kind==="register"?
+    t("competition.phase3.confirmRegister",{
+      team:activeIntentTeam?.name??"",fee:competition?.registrationFeeAfn??0,
+    }):intent?.kind==="accept"?t("competition.phase3.confirmAccept"):
+    intent?.kind==="decline"?t("competition.phase3.confirmDecline"):
+    t("competition.phase3.confirmWithdraw");
+  const registration=session?<View style={styles.registration}>
+    {participationError?<Card style={styles.registration}>
+      <AppText style={{color:colors.danger}}>{t("competition.phase3.reloadError")}</AppText>
+      <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/>
+    </Card>:null}
+    <CompetitionParticipationPanel participations={participations} busy={busy}
+      onAccept={teamId=>setIntent({kind:"accept",teamId})}
+      onDecline={teamId=>setIntent({kind:"decline",teamId})}
+      onWithdraw={teamId=>setIntent({kind:"withdraw",teamId})}/>
+    {applicationForm}
+    {intent?<Card style={styles.registration}>
+      <AppText variant="bodyLarge" weight="bold">{t("competition.phase3.confirmTitle")}</AppText>
+      <AppText>{confirmationMessage}</AppText>
+      <View style={[styles.registerTitle,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Button label={t("competition.phase3.confirm")} loading={busy}
+          onPress={()=>void executeIntent()}/>
+        <Button label={t("competition.phase3.cancel")} variant="secondary"
+          disabled={busy} onPress={()=>setIntent(null)}/>
+      </View>
+    </Card>:null}
+    {message?<AppText style={{color:colors.success}}>{message}</AppText>:null}
+  </View>:null;
 
   if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={540}/></Screen>;
   if(!competition)return <Screen showHeader>
