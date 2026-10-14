@@ -40,7 +40,7 @@ async function register(ctx:ReturnType<typeof setup>,username:string,phone:strin
     id:session.body.user.id,displayName:username,username,
     phoneE164:session.body.user.phone,
     emailVerified:true,
-    roles:/(?:manager|mgr)/.test(username)?["TEAM_MANAGER"]:[],
+    roles:/(?:manager|mgr|_other)/.test(username)?["TEAM_MANAGER"]:[],
   });
   return {token:session.body.accessToken as string,userId:session.body.user.id as string};
 }
