@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
-import type { OwnerVenueSettingsDto } from "@leaguekick/contracts";
+import type { OwnerVenueSettingsDto,VenueAmenity } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
@@ -17,6 +17,10 @@ import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
+const AMENITIES:VenueAmenity[]=[
+  "LIGHTING","PARKING","CHANGING_ROOM","SHOWERS",
+  "TOILETS","SEATING","DRINKING_WATER","EQUIPMENT_RENTAL",
+];
 type Section="GENERAL"|"BOOKING"|"COURT"|"ACCESS";
 const sections:Section[]=["GENERAL","BOOKING","COURT","ACCESS"];
 type MapPoint={latitude:number;longitude:number};
@@ -54,6 +58,8 @@ export default function VenueSettingsScreen(){
   const [noticeMinutes,setNoticeMinutes]=useState("0");
   const [advanceDays,setAdvanceDays]=useState("30");
   const [cancellationPolicy,setCancellationPolicy]=useState("");
+  const [amenities,setAmenities]=useState<VenueAmenity[]>([]);
+  const [houseRules,setHouseRules]=useState("");
 
   const hydrate=useCallback((next:OwnerVenueSettingsDto)=>{
     setData(next);
@@ -69,6 +75,8 @@ export default function VenueSettingsScreen(){
     setNoticeMinutes(String(next.minimumBookingNoticeMinutes));
     setAdvanceDays(String(next.maximumAdvanceBookingDays));
     setCancellationPolicy(next.cancellationPolicy);
+    setAmenities(next.amenities);
+    setHouseRules(next.houseRules??"");
   },[]);
 
   const load=useCallback(async()=>{
@@ -211,6 +219,8 @@ export default function VenueSettingsScreen(){
         minimumBookingNoticeMinutes:numeric.notice,
         maximumAdvanceBookingDays:numeric.advance,
         cancellationPolicy:cancellationPolicy.trim(),
+        amenities,
+        houseRules:houseRules.trim()||null,
       });
       hydrate(result.settings);
       setSaved(true);
@@ -356,6 +366,9 @@ export default function VenueSettingsScreen(){
       <Card style={styles.card}>
         <TextField label={t("venueSettings.cancellationPolicy")} value={cancellationPolicy} onChangeText={setCancellationPolicy} multiline maxLength={1000}/>
         <AppText variant="caption" muted>{t("venueSettings.policySnapshotHint")}</AppText>
+        <TextField label={t("vd2.owner.houseRules")} value={houseRules}
+          onChangeText={setHouseRules} multiline maxLength={1000}
+          hint={t("vd2.owner.houseRulesHint")}/>
       </Card>
     </>:null}
 
@@ -367,6 +380,17 @@ export default function VenueSettingsScreen(){
         <QuickNumbers values={[60,90,120]} current={numeric.duration} onSelect={(value)=>setDuration(String(value))} suffix={t("venueSettings.minutes")}/>
         <TextField label={t("owner.basePriceAfn")} value={basePrice} onChangeText={setBasePrice} keyboardType="number-pad" forceLtr/>
         <View style={styles.infoBox}><Ionicons name="information-circle-outline" size={19} color={colors.primary}/><AppText variant="caption" style={{flex:1}}>{t("venueSettings.priceOverrideHint")}</AppText></View>
+      </Card>
+      <SectionTitle icon="checkmark-circle-outline" title={t("vd2.owner.amenities")}
+        body={t("vd2.owner.amenitiesHint")}/>
+      <Card style={styles.card}>
+        {AMENITIES.map(key=><View key={key} style={[styles.switchRow,
+          {flexDirection:isRTL?"row-reverse":"row"}]}>
+          <AppText style={{flex:1}}>{t(("vd2.amenity."+key) as never)}</AppText>
+          <Switch value={amenities.includes(key)} accessibilityLabel={t(("vd2.amenity."+key) as never)}
+            onValueChange={enabled=>setAmenities(current=>enabled
+              ?[...current.filter(item=>item!==key),key]:current.filter(item=>item!==key))}/>
+        </View>)}
       </Card>
       <ManagementLink icon="calendar-outline" title={t("venueSettings.manageTimetable")} body={t("venueSettings.manageTimetableBody")} onPress={()=>router.push("/owner/timetable/weekly")}/>
       <ManagementLink icon="calendar-number-outline" title={t("venueSettings.specialSchedule")} body={t("venueSettings.specialScheduleBody")} onPress={()=>router.push("/owner/timetable/exceptions")}/>
