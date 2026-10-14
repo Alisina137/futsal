@@ -24,6 +24,7 @@ const FILTER_ICONS:Record<NotificationListFilter,IconName>={
 };
 const ICONS:Record<NotificationDto["type"],IconName>={
   BOOKING_CONFIRMED:"checkmark-circle-outline",BOOKING_CANCELLED:"close-circle-outline",
+  BOOKING_REQUEST:"calendar-outline",TEAM_JOIN_REQUEST:"person-add-outline",TEAM_JOIN_DECISION:"people-outline",
   SLOT_PROMOTION:"pricetag-outline",SLOT_AVAILABLE:"notifications-circle-outline",VENUE_POST:"megaphone-outline",
   TEAM_INVITATION:"people-outline",COMPETITION_UPDATE:"trophy-outline",
   TEAM_ACTIVITY:"calendar-outline",TEAM_CHALLENGE:"football-outline",TEAM_ANNOUNCEMENT:"megaphone-outline",
@@ -42,6 +43,9 @@ function target(item:NotificationDto):()=>void{
   const id=(key:string)=>typeof item.data[key]==="string"?item.data[key] as string:null;
   switch(item.type){
     case "BOOKING_CONFIRMED":case "BOOKING_CANCELLED":return ()=>router.push("/bookings");
+    case "BOOKING_REQUEST":return ()=>router.push({pathname:"/dashboard",params:{tab:"bookings"}});
+    case "TEAM_JOIN_REQUEST":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]/manage",params:{teamId}});else router.push("/teams");};
+    case "TEAM_JOIN_DECISION":return ()=>{const teamId=id("teamId");if(teamId)router.push({pathname:"/teams/[teamId]",params:{teamId}});else router.push("/teams");};
     case "TEAM_INVITATION":return ()=>router.push("/teams/invitations");
     case "ADMIN_ANNOUNCEMENT":return ()=>router.push("/support");
     case "TEAM_CHALLENGE":return ()=>router.push("/dashboard");
