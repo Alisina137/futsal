@@ -167,38 +167,32 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async createNotification(input: NotificationCreateInput, createdAt: Date,
     channels:Array<"IN_APP"|"PUSH">){
-    try {
-      return await this.db.transaction(async(tx)=>{
-        const [created] = await tx.insert(notifications).values({
-          userId: input.userId,
-          type: input.type,
-          title: input.title,
-          body: input.body,
-          deepLink: input.deepLink,
-          data: input.data ?? {},
-          dedupeKey: input.dedupeKey,
-          createdAt,
-        }).returning();
-        if (!created) throw new Error("Notification could not be created.");
-        // The inbox must not expose a row before its channel intents commit.
-        // Roll back both inserts if delivery persistence fails.
-        if(channels.length)await tx.insert(notificationDeliveries).values(channels.map(channel=>({
-          notificationId:created.id,channel,
-          status:channel==="IN_APP"?"SENT" as const:"PENDING" as const,
-          attempts:channel==="IN_APP"?1:0,
-          lastAttemptAt:channel==="IN_APP"?createdAt:null,
-        })));
-        return {notification:dto(created),created:true};
-      });
-    } catch(error){
-      if ((error as { code?: string }).code !== "23505") throw error;
-      const [existing] = await this.db.select().from(notifications)
-        .where(and(eq(notifications.userId,input.userId),
-          eq(notifications.dedupeKey,input.dedupeKey))).limit(1);
-      if(!existing)throw error;
-      // A retry may not change the original audience/channel preference.
-      return {notification:dto(existing),created:false};
-    }
+    const created=await this.db.transaction(async(tx)=>{
+      const [row]=await tx.insert(notifications).values({
+        userId:input.userId,type:input.type,title:input.title,body:input.body,
+        deepLink:input.deepLink,data:input.data??{},
+        dedupeKey:input.dedupeKey,createdAt,
+      }).onConflictDoNothing({
+        target:[notifications.userId,notifications.dedupeKey],
+      }).returning();
+      if(!row)return null;
+      // Roll back the notification if any of its delivery intents cannot commit.
+      if(channels.length)await tx.insert(notificationDeliveries).values(channels.map(channel=>({
+        notificationId:row.id,channel,
+        status:channel==="IN_APP"?"SENT" as const:"PENDING" as const,
+        attempts:channel==="IN_APP"?1:0,
+        lastAttemptAt:channel==="IN_APP"?createdAt:null,
+      })));
+      return dto(row);
+    });
+    if(created)return {notification:created,created:true};
+    // Competing inserts have committed before ON CONFLICT can return no row.
+    const [existing]=await this.db.select().from(notifications)
+      .where(and(eq(notifications.userId,input.userId),
+        eq(notifications.dedupeKey,input.dedupeKey))).limit(1);
+    if(!existing)throw new Error("Deduplicated notification could not be loaded.");
+    // Do not append channels to an earlier event when preferences have changed.
+    return {notification:dto(existing),created:false};
   }
 
   async registerDevice(userId: string, input: PushDeviceRegisterRequest, seenAt: Date) {
