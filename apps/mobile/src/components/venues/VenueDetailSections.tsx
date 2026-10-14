@@ -1,9 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {BookingDto,PromotionDto,PublicVenueDto,VenueAvailabilityResponse,VenuePostDto} from "@leaguekick/contracts";
+import type {BookingDto,PromotionDto,PublicVenueDto,VenueAvailabilityResponse,VenuePostDto,VenuePostType} from "@leaguekick/contracts";
 import {router} from "expo-router";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {Image,Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {Image,Linking,Modal,Pressable,ScrollView,Share,StyleSheet,View} from "react-native";
 import {ApiRequestError,bookingApi,marketingApi,resolveMediaImageUrl,venueApi} from "../../lib/api";
 import {readAvailabilityCache,writeAvailabilityCache} from "../../lib/availability-cache";
 import {formatPostTimeAgo} from "../../lib/date-time";
@@ -94,30 +94,72 @@ function venueVideoLink(text:string){
 type VenueContentProps={venue:PublicVenueDto;sub:VenueMediaSub|"announcements"|"alerts";onReserve:(startsAt?:string,promotionId?:string)=>void};
 export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   const {t,isRTL,language}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
+  const tr5=(key:string)=>t(("vd5."+key) as never);
   const {session}=useAuth(),now=usePostTimeNow();
-  const [posts,setPosts]=useState<VenuePostDto[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(false);
-  const [filter,setFilter]=useState<"all"|"promotion"|"competition">("all");
+  const token=session?.accessToken;
+  const [posts,setPosts]=useState<VenuePostDto[]>([]);
+  const [loading,setLoading]=useState(true),[error,setError]=useState(false);
+  const [filter,setFilter]=useState<"all"|"general"|"announcement"|"promotion"|"competition"|"result">("all");
+  const [sort,setSort]=useState<"newest"|"oldest">("newest");
   const [photo,setPhoto]=useState<string|null>(null);
+  const [videoError,setVideoError]=useState(false);
+  const [actionError,setActionError]=useState(false);
+  const [page,setPage]=useState(1),[hasMore,setHasMore]=useState(false);
+  const [loadingMore,setLoadingMore]=useState(false),[moreError,setMoreError]=useState(false);
+  const requestId=useRef(0);
+  const isMedia=sub==="posts"||sub==="photos"||sub==="videos";
+  const kind=sub==="photos"?"photos":sub==="videos"?"videos":"posts";
+  const postType=sub==="posts"&&filter!=="all"?filter.toUpperCase() as VenuePostType:undefined;
   const load=useCallback(async()=>{
-    setLoading(true);setError(false);
-    try{const value=await marketingApi.venuePosts(venue.id,session?.accessToken);
-      setPosts(value.posts);}
-    catch{setError(true);}
-    finally{setLoading(false);}
-  },[venue.id,session?.accessToken]);
-  useEffect(()=>{void load();},[load]);
+    const id=++requestId.current;
+    setLoading(true);setError(false);setMoreError(false);
+    setPosts([]);setPage(1);setHasMore(false);setLoadingMore(false);setPhoto(null);
+    setVideoError(false);setActionError(false);
+    try{
+      if(isMedia){
+        const value=await marketingApi.venueMedia(venue.id,{
+          kind,postType,sort,page:1,limit:12,
+        },token);
+        if(id!==requestId.current)return;
+        setPosts(value.posts.filter(p=>p.venueId===venue.id&&p.status==="PUBLISHED"&&p.visibility!=="PRIVATE"));
+        setPage(value.page);setHasMore(value.hasMore);
+      }else{
+        const value=await marketingApi.venuePosts(venue.id,token);
+        if(id!==requestId.current)return;
+        setPosts(value.posts.filter(p=>p.venueId===venue.id&&p.status==="PUBLISHED"));
+      }
+    }catch{if(id===requestId.current)setError(true);}
+    finally{if(id===requestId.current)setLoading(false);}
+  },[venue.id,token,isMedia,kind,postType,sort]);
+  useEffect(()=>{void load();return()=>{requestId.current+=1;};},[load]);
+  async function loadMore(){
+    if(!isMedia||!hasMore||loading||loadingMore)return;
+    const id=requestId.current;
+    setLoadingMore(true);setMoreError(false);
+    try{
+      const result=await marketingApi.venueMedia(venue.id,{
+        kind,postType,sort,page:page+1,limit:12,
+      },token);
+      if(id!==requestId.current)return;
+      setPosts(current=>[...current,...result.posts.filter(p=>
+        p.venueId===venue.id&&p.status==="PUBLISHED"&&p.visibility!=="PRIVATE"&&
+        !current.some(old=>old.id===p.id))]);
+      setPage(result.page);setHasMore(result.hasMore);
+    }catch{if(id===requestId.current)setMoreError(true);}
+    finally{if(id===requestId.current)setLoadingMore(false);}
+  }
   const photos=useMemo(()=>posts.filter(p=>!!resolveMediaImageUrl(p.imageUrl)),[posts]);
   const videos=useMemo(()=>posts.flatMap(p=>{
     const url=venueVideoLink(p.body);
     return url?[{...p,videoUrl:url}]:[];
   }),[posts]);
-  const filtered=useMemo(()=>{
-    if(sub==="announcements"||sub==="alerts")return posts.filter(p=>p.postType==="ANNOUNCEMENT");
-    if(filter==="promotion")return posts.filter(p=>p.postType==="PROMOTION");
-    if(filter==="competition")return posts.filter(p=>p.postType==="COMPETITION");
-    return posts;
-  },[posts,filter,sub]);
+  const filtered=useMemo(()=>sub==="announcements"||sub==="alerts"
+    ?posts.filter(p=>p.postType==="ANNOUNCEMENT"):posts,[posts,sub]);
+  const index=photos.findIndex(p=>p.id===photo);
+  const selected=photos[index];
+  function openPhoto(post:VenuePostDto){setPhoto(post.id);}
   async function openCta(post:VenuePostDto){
+    setActionError(false);
     if(post.ctaType==="COMPETITION"&&post.ctaTargetId){
       router.push({pathname:"/competitions/[competitionId]",params:{competitionId:post.ctaTargetId}});
     }else if(post.ctaType==="PROMOTION"&&post.ctaTargetId){
@@ -125,53 +167,103 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
         const result=await marketingApi.promotion(post.ctaTargetId);
         if(result.promotion.venueId===venue.id)
           onReserve(result.promotion.startsAt,result.promotion.id);
-      }catch{setError(true);}
+        else setActionError(true);
+      }catch{setActionError(true);}
     }else if(post.ctaType==="VENUE")onReserve();
   }
+  async function playVideo(url:string){
+    setVideoError(false);
+    try{await Linking.openURL(url);}catch{setVideoError(true);}
+  }
+  async function sharePost(post:VenuePostDto){
+    setActionError(false);
+    try{await Share.share({message:venue.name+"\n"+post.body});}
+    catch{setActionError(true);}
+  }
+  const more=<View style={{gap:spacing.xs}}>
+    {moreError?<AppText style={{color:colors.danger}}>{tr5("moreError")}</AppText>:null}
+    {hasMore?<Button variant="secondary" label={tr5("loadMore")}
+      loading={loadingMore} disabled={loadingMore}
+      onPress={()=>void loadMore()}/>:null}
+  </View>;
+  const viewer=<Modal visible={!!selected} animationType="fade" transparent
+    onRequestClose={()=>setPhoto(null)}>
+    <View style={styles.viewer} testID="venue-photo-viewer">
+      <View style={[styles.filters,{flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between"}]}>
+        <AppText weight="bold" style={{color:"#FFFFFF",flex:1}}>
+          {selected?(index+1)+" / "+photos.length:""}
+        </AppText>
+        <Button label={tr("close")} variant="secondary" onPress={()=>setPhoto(null)}/>
+      </View>
+      {selected?<Image source={{uri:resolveMediaImageUrl(selected.imageUrl)!}}
+        resizeMode="contain" style={styles.viewerImage}/>:null}
+      {selected?.body?<AppText numberOfLines={3} style={{color:"#FFFFFF"}}>{selected.body}</AppText>:null}
+      {selected?<AppText variant="caption" style={{color:"#FFFFFF"}}>
+        {formatPostTimeAgo(selected.publishedAt,language,now)}
+      </AppText>:null}
+      <View style={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Button variant="secondary" style={{flex:1}} label={tr5("previous")}
+          disabled={index<=0} onPress={()=>setPhoto(photos[index-1]!.id)}/>
+        <Button variant="secondary" style={{flex:1}} label={tr5("next")}
+          disabled={index<0||index>=photos.length-1}
+          onPress={()=>setPhoto(photos[index+1]!.id)}/>
+      </View>
+    </View>
+  </Modal>;
   if(loading)return <DataLoadingState variant="list" minHeight={240}/>;
   if(error)return <Empty icon="cloud-offline-outline" title={tr("postsError")} action={()=>void load()}/>;
-  if(sub==="photos")return <>
+  if(sub==="photos")return <View style={{gap:spacing.md}}>
+    <AppText variant="caption" muted>{tr5("photosDescription")}</AppText>
     {photos.length===0?<Empty icon="images-outline" title={tr("noPhotos")}/>:<View style={styles.photoGrid}>
-      {photos.map(p=><Pressable key={p.id} style={styles.photoItem}
-        accessibilityRole="button" accessibilityLabel={tr("viewPhoto")}
-        onPress={()=>setPhoto(resolveMediaImageUrl(p.imageUrl))}>
+      {photos.map(p=><Pressable key={p.id} testID={"venue-photo-"+p.id}
+        style={styles.photoItem} accessibilityRole="button"
+        accessibilityLabel={tr("viewPhoto")+" · "+p.body}
+        onPress={()=>openPhoto(p)}>
         <Image source={{uri:resolveMediaImageUrl(p.imageUrl)!}} style={styles.photo} resizeMode="cover"/>
       </Pressable>)}
     </View>}
-    <Modal visible={!!photo} animationType="fade" transparent onRequestClose={()=>setPhoto(null)}>
-      <View style={styles.viewer}>
-        <Button label={tr("close")} variant="secondary" onPress={()=>setPhoto(null)}/>
-        {photo?<Image source={{uri:photo}} resizeMode="contain" style={styles.viewerImage}/>:null}
+    {more}{viewer}
+  </View>;
+  if(sub==="videos")return <View style={{gap:spacing.md}}>
+    <AppText variant="caption" muted>{tr5("videosDescription")}</AppText>
+    {videos.length===0?<Empty icon="videocam-outline" title={tr("noVideos")} detail={tr("videosHint")}/>:null}
+    {videos.map(p=><Card key={p.id} testID={"venue-video-"+p.id} style={{gap:spacing.sm}}>
+      <View style={[styles.meta,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="play-circle-outline" size={24} color={colors.primary}/>
+        <AppText weight="semibold" style={{flex:1}}>{tr("videoPost")}</AppText>
+        <AppText variant="caption" muted>{formatPostTimeAgo(p.publishedAt,language,now)}</AppText>
       </View>
-    </Modal>
-  </>;
-  if(sub==="videos")return videos.length===0?
-    <Empty icon="videocam-outline" title={tr("noVideos")} detail={tr("videosHint")}/>:
-    <>{videos.map(p=><Card key={p.id} style={{gap:spacing.sm}}>
-      <SectionHeading icon="play-circle-outline" name={tr("videoPost")}/>
       {resolveMediaImageUrl(p.imageUrl)?<Image source={{uri:resolveMediaImageUrl(p.imageUrl)!}}
         style={styles.postPhoto} resizeMode="cover"/>:null}
-      <AppText>{p.body}</AppText>
-      <Button label={tr("playVideo")} onPress={()=>void Linking.openURL(p.videoUrl)}/>
-    </Card>)}</>;
-  if(sub==="alerts"){
-    return <>{!venue.onlineBookingEnabled?<Card>
-      <SectionHeading icon="alert-circle-outline" name={tr("bookingPaused")}/>
-      <AppText muted>{tr("bookingPausedBody")}</AppText>
-    </Card>:null}
+      <AppText numberOfLines={5}>{p.body}</AppText>
+      <Button label={tr("playVideo")} variant="secondary" onPress={()=>void playVideo(p.videoUrl)}/>
+    </Card>)}
+    {videoError?<AppText style={{color:colors.danger}}>{tr5("videoOpenError")}</AppText>:null}
+    {more}
+  </View>;
+  if(sub==="alerts")return <>{!venue.onlineBookingEnabled?<Card>
+    <SectionHeading icon="alert-circle-outline" name={tr("bookingPaused")}/>
+    <AppText muted>{tr("bookingPausedBody")}</AppText>
+  </Card>:null}
     <Empty icon="shield-checkmark-outline" title={tr("noAdditionalAlerts")}
       detail={tr("updatesInfo")}/></>;
-  }
   if(sub==="announcements"&&filtered.length===0)
     return <Empty icon="megaphone-outline" title={tr("noAnnouncements")}/>;
-  return <>
-    {sub==="posts"?<View style={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      {(["all","promotion","competition"] as const).map(key=>
-        <Pill key={key} selected={filter===key} label={tr("filter."+key)}
-          onPress={()=>setFilter(key)}/>)}
-    </View>:null}
+  return <View style={{gap:spacing.md}} testID="venue-media-posts">
+    {sub==="posts"?<>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {(["all","general","announcement","promotion","competition","result"] as const).map(key=>
+          <Pill key={key} selected={filter===key}
+            onPress={()=>setFilter(key)} label={tr5("filter."+key)}/>)}
+      </ScrollView>
+      <View style={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Pill label={tr5("sort.newest")} selected={sort==="newest"} onPress={()=>setSort("newest")}/>
+        <Pill label={tr5("sort.oldest")} selected={sort==="oldest"} onPress={()=>setSort("oldest")}/>
+      </View>
+    </>:null}
     {filtered.length===0?<Empty icon="document-text-outline" title={tr("noPosts")}/>:null}
-    {filtered.map(post=><Card key={post.id} style={{gap:spacing.md}}>
+    {filtered.map(post=><Card key={post.id} testID={"venue-post-"+post.id} style={{gap:spacing.md}}>
       <View style={[styles.meta,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.smallAvatar}><Ionicons name="football" size={17} color={colors.primary}/></View>
         <View style={{flex:1}}>
@@ -186,27 +278,24 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
       </View>
       <AppText>{post.body}</AppText>
       {resolveMediaImageUrl(post.imageUrl)?<Pressable accessibilityRole="button"
-        onPress={()=>setPhoto(resolveMediaImageUrl(post.imageUrl))}>
+        accessibilityLabel={tr("viewPhoto")} onPress={()=>openPhoto(post)}>
         <Image source={{uri:resolveMediaImageUrl(post.imageUrl)!}} style={styles.postPhoto} resizeMode="cover"/>
       </Pressable>:null}
-      <View style={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={[styles.filters,{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap"}]}>
         {post.ctaType!=="NONE"&&post.ctaTargetId?<Button variant="secondary"
           label={t("feed.openCta")} onPress={()=>void openCta(post)}/>:null}
         {post.socialPostId?<Button variant="secondary" label={t("social.comment")} onPress={()=>
           router.push({pathname:"/posts/[postId]/comments",params:{postId:post.socialPostId!}})}/>:null}
+        <Button variant="ghost" label={tr5("share")} onPress={()=>void sharePost(post)}/>
         <Button variant="ghost" label={t("feed.openPost")} onPress={()=>
           router.push({pathname:"/posts/[postId]",params:{postId:post.id}})}/>
       </View>
     </Card>)}
-    <Modal visible={!!photo} animationType="fade" transparent onRequestClose={()=>setPhoto(null)}>
-      <View style={styles.viewer}>
-        <Button label={tr("close")} variant="secondary" onPress={()=>setPhoto(null)}/>
-        {photo?<Image source={{uri:photo}} resizeMode="contain" style={styles.viewerImage}/>:null}
-      </View>
-    </Modal>
-  </>;
+    {actionError?<AppText style={{color:colors.danger}}>{tr5("actionError")}</AppText>:null}
+    {isMedia?more:null}
+    {viewer}
+  </View>;
 }
-
 function ReserveStatusBanner({venue}:{venue:PublicVenueDto}){
   const {t}=useLocale(),tr=(key:string)=>t(("vd3."+key) as never);
   return <Card style={{gap:spacing.xs,backgroundColor:colors.primarySoft}}>

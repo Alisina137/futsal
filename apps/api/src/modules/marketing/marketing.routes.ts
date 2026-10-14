@@ -11,6 +11,7 @@ import {
   venuePostScheduleRequestSchema,
   venuePostUpdateRequestSchema,
   venuePostVisibilitySchema,
+  venueMediaBrowseQuerySchema,
   venueMediaAssetPurposeSchema,
   venueMediaPageUpdateRequestSchema,
 } from "@leaguekick/contracts";
@@ -222,6 +223,21 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
       const commentId = routeIdSchema.parse(request.params.commentId);
       response.json({ comment: await marketing.unlikeSocialComment(request.auth!.userId, postId, commentId) });
     } catch (error) { next(error); }
+  });
+
+  router.get("/venues/:venueId/media",async(request,response,next)=>{
+    try{
+      const venueId=routeIdSchema.parse(request.params.venueId);
+      const query=venueMediaBrowseQuerySchema.parse(request.query);
+      response.json(await marketing.browseVenueMedia(venueId,query));
+    }catch(error){next(error);}
+  });
+  router.get("/venues/:venueId/media/following",requireAuth(tokens),async(request,response,next)=>{
+    try{
+      const venueId=routeIdSchema.parse(request.params.venueId);
+      const query=venueMediaBrowseQuerySchema.parse(request.query);
+      response.json(await marketing.browseVenueMedia(venueId,query,request.auth!.userId));
+    }catch(error){next(error);}
   });
 
   router.get("/venues/:venueId/posts", async (request, response, next) => {

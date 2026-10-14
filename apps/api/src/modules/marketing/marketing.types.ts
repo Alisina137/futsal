@@ -7,6 +7,8 @@ import type {
   SocialPostCommentDto,
   VenuePostCreateRequest,
   VenuePostDto,
+  VenueMediaBrowseQuery,
+  VenueMediaBrowseResponse,
   VenuePostScheduleDto,
   VenuePostScheduleRequest,
   VenuePostUpdateRequest,
@@ -74,6 +76,8 @@ export interface MarketingRepository {
   listOwnerPosts(ownerUserId: string): Promise<VenuePostDto[]>;
   listPublishedPosts(venueIds?: string[], visibility?: "PUBLIC" | "PUBLIC_OR_FOLLOWERS"): Promise<VenuePostDto[]>;
   listVenuePosts(venueId: string, visibility: "PUBLIC" | "PUBLIC_OR_FOLLOWERS"): Promise<VenuePostDto[]>;
+  browseVenueMedia(venueId:string,visibility:"PUBLIC"|"PUBLIC_OR_FOLLOWERS",
+    query:VenueMediaBrowseQuery):Promise<Omit<VenueMediaBrowseResponse,"generatedAt">>;
   getPost(postId: string): Promise<VenuePostDto | null>;
   setPostStatus(ownerUserId: string, postId: string, status: "PUBLISHED" | "UNPUBLISHED", changedAt: Date): Promise<VenuePostDto | null>;
   setPostVisibility(ownerUserId: string, postId: string, visibility: VenuePostVisibility, changedAt: Date): Promise<VenuePostDto | null>;

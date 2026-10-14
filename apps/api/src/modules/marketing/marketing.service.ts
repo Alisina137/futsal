@@ -412,6 +412,18 @@ export class MarketingService {
     return post;
   }
 
+  async browseVenueMedia(venueId:string,query:import("@leaguekick/contracts").VenueMediaBrowseQuery,
+    userId?:string){
+    await this.refreshMedia();
+    const venue=await this.repository.getVenue(venueId);
+    if(!venue||venue.status!=="ACTIVE")
+      throw errors.badRequest("VENUE_NOT_FOUND","Venue not found.");
+    const following=userId?await this.repository.isFollowing(userId,venueId):false;
+    return {...await this.repository.browseVenueMedia(
+      venueId,following?"PUBLIC_OR_FOLLOWERS":"PUBLIC",query),
+      generatedAt:this.now().toISOString()};
+  }
+
   async venuePosts(venueId:string,userId?:string){
     await this.refreshMedia();
     const venue=await this.repository.getVenue(venueId);

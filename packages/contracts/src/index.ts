@@ -1559,6 +1559,25 @@ export const venuePostDtoSchema = z.object({
   schedules: z.array(venuePostScheduleDtoSchema),
 });
 export type VenuePostDto = z.infer<typeof venuePostDtoSchema>;
+/** Venue Media browsing: never expose draft, private or non-follower posts. */
+export const venueMediaBrowseQuerySchema=z.object({
+  kind:z.enum(["posts","photos","videos"]).default("posts"),
+  postType:venuePostTypeSchema.optional(),
+  sort:z.enum(["newest","oldest"]).default("newest"),
+  page:z.coerce.number().int().min(1).max(500).default(1),
+  limit:z.coerce.number().int().min(1).max(30).default(12),
+});
+export type VenueMediaBrowseQuery=z.infer<typeof venueMediaBrowseQuerySchema>;
+export const venueMediaBrowseResponseSchema=z.object({
+  venueId:z.string().uuid(),
+  posts:z.array(venuePostDtoSchema),
+  total:z.number().int().nonnegative(),
+  page:z.number().int().positive(),
+  limit:z.number().int().positive(),
+  hasMore:z.boolean(),
+  generatedAt:isoDateTimeSchema,
+});
+export type VenueMediaBrowseResponse=z.infer<typeof venueMediaBrowseResponseSchema>;
 
 export const followStateDtoSchema = z.object({
   venueId: z.string().uuid(),
