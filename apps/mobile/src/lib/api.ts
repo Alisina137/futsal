@@ -608,6 +608,9 @@ export const marketingApi = {
     request<FollowedVenuesResponse>("/api/v1/social/venues/followed",{},accessToken),
   feed: (accessToken?: string, followingOnly = false) =>
     request<FeedResponse>(followingOnly ? "/api/v1/feed/following" : "/api/v1/feed", {}, followingOnly ? accessToken : undefined),
+  venuePromotions:(venueId:string)=>networkRequest<{
+    venueId:string;promotions:PromotionDto[];generatedAt:string;
+  }>(`/api/v1/promotions/venues/${encodeURIComponent(venueId)}`,{cache:"no-store"}),
   venuePosts: (venueId: string, accessToken?: string) =>
     request<{ posts: VenuePostDto[]; generatedAt: string }>(
       accessToken ? `/api/v1/venues/${venueId}/posts/following` : `/api/v1/venues/${venueId}/posts`,
