@@ -7,6 +7,8 @@ import type {
   CompetitionFeeStatus,
   CompetitionFormat,
   CompetitionListItemDto,
+  VenueMatchQuery,
+  VenueMatchPage,
   CompetitionMediaPostDto,
   CompetitionMatchDto,
   CompetitionPublicMatchPlayer,
@@ -84,6 +86,7 @@ export interface CompetitionRepository {
   listPublicMatchPlayerStats(matchId:string):Promise<CompetitionPublicMatchPlayer[]>;
   listOwnerCompetitions(ownerUserId: string): Promise<CompetitionListItemDto[]>;
   listPublicCompetitions(): Promise<CompetitionListItemDto[]>;
+  listPublicVenueMatches(venueId:string,query:VenueMatchQuery,now:Date):Promise<VenueMatchPage>;
   discoverPublicCompetitions(filters:CompetitionDiscoveryQuery,userId?:string):Promise<CompetitionDiscoveryResponse>;
   listMyPublicCompetitions(userId:string): Promise<CompetitionListItemDto[]>;
   listMyCompetitionParticipations(userId:string,competitionId?:string):Promise<CompetitionParticipationDto[]>;
