@@ -80,7 +80,7 @@ try{
   assert.ok(accepted.n<=stored.max_teams,"Accepted teams must not exceed the persisted team limit.");
 
   // Publicly exposed photos must not use the latest PRIVATE photo as a cover.
-  await q("insert into social_posts(entity_type,entity_id,created_by_user_id,body,image_url,visibility,status,published_at) values('COMPETITION',$1,$2,'Public photo','https://example.com/qa7-public.jpg','PUBLIC','PUBLISHED',now()-interval '1 hour'),('COMPETITION',$1,$2,'Private photo','https://example.com/qa7-private.jpg','PRIVATE','PUBLISHED',now())",[owner?cup.id:null,owner]);
+  await q("insert into social_posts(entity_type,entity_id,created_by_user_id,body,image_url,visibility,status,published_at) values('COMPETITION',$1,$2,'Public photo','https://example.com/qa7-public.jpg','PUBLIC','PUBLISHED',now()-interval '1 hour'),('COMPETITION',$1,$2,'Private photo','https://example.com/qa7-private.jpg','PRIVATE','PUBLISHED',now())",[cup.id,owner]);
   const publicPosts=await service.listPublicMedia(cup.id);
   assert.equal(publicPosts.posts.length,1);
   assert.ok(publicPosts.posts[0]?.imageUrl?.includes("qa7-public"));
