@@ -26,11 +26,11 @@ assert(!list.includes("dateGroup(match.startsAt)")
   "Don't show redundant match-round labels inside cards; heading owns round.");
 
 assert(list.includes('testID="match-filter-rail"')
-  &&list.includes('["ALL","UPCOMING","LIVE","FINISHED"]')
+  &&list.includes('["ALL","UPCOMING","LIVE","FINISHED","POSTPONED","CANCELLED"]')
   &&list.includes("filter===\"LIVE\"")
   &&list.includes('filter==="FINISHED"?done(match)')
   &&!list.includes("onlyResults"),
-  "Competition Matches must support all/upcoming/live/finished filters, with results in Finished only.");
+  "Competition Matches must support main filters plus distinct postponed/cancelled states, keeping results in Finished only.");
 assert(list.includes('pathname:"/competitions/[competitionId]/matches/[matchId]"')
   &&detail.includes("competitionApi.match(competitionId,matchId)")
   &&detail.includes('testID="competition-match-scoreboard"'),
@@ -60,4 +60,4 @@ for(const key of ["competition.matchList.filter.UPCOMING","competition.matchList
   "competition.matchDetail.highlightsUnavailable","competition.standingsTeamPreview"]){
   assert(l10n.split(`"${key}"`).length-1===3,`Missing three-language translation: ${key}`);
 }
-console.log("Match discovery verified: round-grouped fixtures, compact Kabul weekday/date + 24-hour times, tappable details, safe recorded stats, 3-language headings and registration CTA.");
+console.log("Match discovery verified: round-grouped fixtures, Kabul weekday/date + 12-hour AM/PM, tappable details, safe recorded stats, 3-language headings and registration CTA.");
