@@ -3,8 +3,8 @@ import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { CompetitionListItemDto, CompetitionStatus } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { competitionApi } from "../../../../src/lib/api";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { competitionApi,resolveMediaImageUrl } from "../../../../src/lib/api";
 import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
@@ -109,7 +109,10 @@ export default function OwnerCompetitionListScreen(){
         <Card style={styles.competitionCard}>
           <View style={[styles.cardHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <View style={styles.icon}>
-              <Ionicons name="trophy-outline" size={23} color={colors.primary}/>
+              {resolveMediaImageUrl(item.logoUrl??item.coverImageUrl??null)
+                ?<Image source={{uri:resolveMediaImageUrl(item.logoUrl??item.coverImageUrl??null)!}}
+                    style={styles.brandLogo} resizeMode="cover"/>:
+                <Ionicons name="trophy-outline" size={23} color={colors.primary}/>}
             </View>
 
             <View style={[styles.titleBlock,{alignItems:isRTL?"flex-end":"flex-start"}]}>
@@ -229,7 +232,9 @@ const styles=StyleSheet.create({
     alignItems:"center",
     justifyContent:"center",
     backgroundColor:colors.primarySoft,
+    overflow:"hidden",
   },
+  brandLogo:{width:"100%",height:"100%"},
   titleBlock:{flex:1,minWidth:0,gap:6},
   formatBadge:{
     paddingHorizontal:spacing.sm,
