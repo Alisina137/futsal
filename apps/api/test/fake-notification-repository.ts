@@ -71,7 +71,8 @@ export class FakeNotificationRepository implements NotificationRepository {
   }
   async deleteNotification(userId:string,notificationId:string){
     const previous=this.notifications.length;
-    this.notifications=this.notifications.filter(item=>item.id!==notificationId||item.data.userId!==userId);
+    this.notifications=this.notifications.filter(item=>item.id!==notificationId||item.data.userId!==userId||
+      !this.deliveries.some(delivery=>delivery.notificationId===item.id&&delivery.channel==="IN_APP"));
     return this.notifications.length<previous;
   }
   async clearRead(userId:string){
@@ -82,12 +83,15 @@ export class FakeNotificationRepository implements NotificationRepository {
   }
 
   async getNotification(userId:string,notificationId:string){
-    return this.notifications.find((item)=>item.id===notificationId&&(item.data.userId as string|undefined)===userId)??null;
+    return this.notifications.find((item)=>item.id===notificationId&&(item.data.userId as string|undefined)===userId
+      &&this.deliveries.some(delivery=>delivery.notificationId===item.id&&delivery.channel==="IN_APP"))??null;
   }
 
   async markRead(userId:string,notificationId:string,readAt:Date){
-    const index=this.notifications.findIndex((item)=>item.id===notificationId&&(item.data.userId as string|undefined)===userId);
+    const index=this.notifications.findIndex((item)=>item.id===notificationId&&(item.data.userId as string|undefined)===userId
+      &&this.deliveries.some(delivery=>delivery.notificationId===item.id&&delivery.channel==="IN_APP"));
     if(index<0)return null;
+    if(this.notifications[index]!.readAt)return this.notifications[index]!;
     const next={...this.notifications[index]!,readAt:readAt.toISOString()};
     this.notifications[index]=next;
     return next;
