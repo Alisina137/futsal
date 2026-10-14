@@ -2217,7 +2217,7 @@ export const competitionDiscoveryScopeSchema=z.enum([
 export const competitionDiscoverySortSchema=z.enum([
   "recommended","starting","popular","newest","closing","feeLow",
 ]);
-const competitionDiscoveryDate=z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).refine(value=>{
+const competitionDiscoveryDate=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value=>{
   const date=new Date(value+"T12:00:00Z");
   return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;
 },"Invalid calendar date");
