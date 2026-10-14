@@ -3,6 +3,7 @@ const read=(path)=>fs.readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const check=(ok,message)=>{if(!ok)throw Error(message);};
 const detail=read("apps/mobile/app/(app)/venues/[venueId].tsx");
 const components=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
+const navigation=read("apps/mobile/src/lib/venue-detail-navigation.ts");
 const listing=read("apps/mobile/src/components/venues/VenueResultCard.tsx");
 const followed=read("apps/mobile/src/components/venues/FollowedVenueTile.tsx");
 const booking=read("apps/mobile/app/(app)/booking/confirm.tsx");
@@ -13,9 +14,9 @@ for(const tab of ["media","reserve","competitions","updates","about"]){
   check(detail.includes('main==="'+tab+'"'),"Venue content not gated by selected tab: "+tab);
 }
 check(detail.includes('bookingDeepLink=focusAvailability==="1"')&&
-  detail.includes('bookingDeepLink?"reserve":reviewBookingId?"about":"media"')&&
-  detail.includes('setMain("reserve")')&&
-  detail.includes('reserve:"slots"')&&
+  navigation.includes('main:bookingDeepLink?"reserve":reviewBookingId?"about":"media"')&&
+  detail.includes('switchVenueMain(current,"reserve","slots")')&&
+  navigation.includes('reserve:"slots"')&&
   detail.includes('onPress={()=>reserve()}'),
   "Opening Reserve Online must select Reserve > Available Slots, while opening details selects Media.");
 check(listing.includes('focusAvailability:"1"')&&followed.includes('focusAvailability:"1"'),
