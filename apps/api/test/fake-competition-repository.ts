@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {errors} from "../src/lib/errors.js";
 import type {
   CompetitionDto,
+  CompetitionParticipationDto,
   CompetitionDiscoveryQuery,
   CompetitionDiscoveryResponse,
   CompetitionListItemDto,
@@ -161,6 +163,41 @@ export class FakeCompetitionRepository implements CompetitionRepository {
     return (await this.items(undefined,true)).filter(item=>involved.has(item.id));
   }
 
+
+  /** Fake fixture models managers as participating users; tests may seed additional active memberships. */
+  activeMemberships=new Map<string,Set<string>>();
+  async listMyCompetitionParticipations(userId:string,competitionId?:string):Promise<CompetitionParticipationDto[]>{
+    return [...this.registrations.values()].filter(reg=>{
+      const comp=this.competitions.get(reg.competitionId),team=this.teams.get(reg.teamId);
+      return comp?.published&&comp.status!=="DRAFT"&&(!competitionId||comp.id===competitionId)&&
+        Boolean(team&&(team.managerUserId===userId||this.activeMemberships.get(userId)?.has(team.id)));
+    }).map(reg=>{
+      const team=this.teams.get(reg.teamId)!,comp=this.competitions.get(reg.competitionId)!;
+      const isManager=team.managerUserId===userId;
+      const mutable=["REGISTRATION_OPEN","REGISTRATION_CLOSED"].includes(comp.status);
+      return {competitionId:reg.competitionId,teamId:reg.teamId,teamName:team.name,
+        status:reg.status,feeStatus:reg.feeStatus,isManager,
+        canRespond:isManager&&mutable&&reg.status==="INVITED",
+        canWithdraw:isManager&&mutable&&["APPLIED","ACCEPTED","INVITED"].includes(reg.status)};
+    });
+  }
+  async acceptRegistrationWithCapacity(input:Parameters<CompetitionRepository["acceptRegistrationWithCapacity"]>[0]){
+    const competition=this.competitions.get(input.competitionId);
+    if(!competition?.published||!["REGISTRATION_OPEN","REGISTRATION_CLOSED"].includes(competition.status))
+      throw errors.conflict("REGISTRATION_CLOSED","Registration cannot be accepted.");
+    const existing=this.registrations.get(this.key(input.competitionId,input.teamId));
+    if(!existing||(input.kind==="INVITATION"?existing.status!=="INVITED":
+      !["APPLIED","PENDING"].includes(existing.status)))
+      throw errors.conflict("REGISTRATION_NOT_PENDING","Registration is not pending.");
+    const team=this.teams.get(input.teamId);
+    if(input.kind==="INVITATION"&&team?.managerUserId!==input.actorUserId)
+      throw errors.forbidden("TEAM_MANAGER_REQUIRED","Only the manager can accept.");
+    if(this.registrations.size>=0&&await this.countAcceptedTeams(input.competitionId)>=competition.maxTeams)
+      throw errors.conflict("COMPETITION_FULL","This competition is full.");
+    this.registrations.set(this.key(input.competitionId,input.teamId),{
+      ...existing,status:"ACCEPTED",seed:input.kind==="APPROVAL"?input.seed:existing.seed,
+    });
+  }
   async createCompetition(input:Parameters<CompetitionRepository["createCompetition"]>[0]){
     const venue=[...this.venues.values()].find((item)=>item.id===input.venueId)!;
     const row:CompetitionRecord&{venueName:string}={
