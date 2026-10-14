@@ -74,19 +74,34 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
       if(sequence===requestSequence.current)setMoreBusy(false);
     }
   }
+  useEffect(()=>{
+    // Forms are private to the current account and venue, even during a pending POST.
+    setBusy(false);setBody("");setRating(5);
+    setSelected(reviewBookingId??null);
+  },[actor,venue.id]);
   useEffect(()=>{setSelected(reviewBookingId??null);},[reviewBookingId,venue.id]);
   const reviewed=new Set(reviewedBookingIds);
   const eligible=bookings.filter(b=>b.source==="ONLINE"&&b.status==="CONFIRMED"&&
     Date.parse(b.endsAt)<=Date.now()&&!reviewed.has(b.id));
   async function submit(){
     if(!actor||!selected||!eligible.some(b=>b.id===selected)||busy)return;
+    // A completed request from a prior account or venue must not reset the
+    // current user's review form, eligibility or error state.
+    const request=requestSequence.current;
     setBusy(true);setError(null);
     try{
       await bookingApi.review(actor,{bookingId:selected,rating,body:body.trim()});
+      if(request!==requestSequence.current)return;
       setSelected(null);setBody("");setRating(5);
+      // reload() intentionally advances the request sequence; do not leave
+      // the submission spinner stuck because its previous generation expired.
+      setBusy(false);
       await reload();
-    }catch{setError(tr("submitError"));}
-    finally{setBusy(false);}
+    }catch{
+      if(request===requestSequence.current)setError(tr("submitError"));
+    }finally{
+      if(request===requestSequence.current)setBusy(false);
+    }
   }
   return <View testID="venue-verified-reviews" style={styles.stack}>
     <Card style={styles.stack}>

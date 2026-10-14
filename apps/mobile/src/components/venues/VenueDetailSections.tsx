@@ -7,6 +7,7 @@ import {Image,Linking,Modal,Pressable,ScrollView,Share,StyleSheet,View} from "re
 import {ApiRequestError,bookingApi,marketingApi,resolveMediaImageUrl,venueApi} from "../../lib/api";
 import {readAvailabilityCache,writeAvailabilityCache} from "../../lib/availability-cache";
 import {formatPostTimeAgo} from "../../lib/date-time";
+import {isCurrentVenueAvailability,isVenueBookingDay,isValidVenueDay,venueDayKey} from "../../lib/venue-detail-dates";
 import {usePostTimeNow} from "../../hooks/usePostTimeNow";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -46,9 +47,7 @@ export const venueSubtabs:Record<VenueMainTab,string[]>={
   about:["overview","facilities","hours","location","reviews","policies"],
 };
 export function todayAtKabul(){
-  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
-  const values=Object.fromEntries(parts.map(x=>[x.type,x.value]));
-  return values.year+"-"+values.month+"-"+values.day;
+  return venueDayKey("Asia/Kabul");
 }
 export function shiftVenueDate(day:string,offset:number){
   const value=Date.parse(day+"T12:00:00Z");
@@ -319,7 +318,7 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   const {session}=useAuth(),{isOnline,reconnectVersion}=useNetwork();
   const {t,language,isRTL}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
   const tr3=(key:string)=>t(("vd3."+key) as never);
-  const [date,setDate]=useState(bookingDate??todayAtKabul());
+  const [date,setDate]=useState(bookingDate??venueDayKey(venue.timezone));
   const [availability,setAvailability]=useState<VenueAvailabilityResponse|null>(null);
   const [availabilityDate,setAvailabilityDate]=useState<string|null>(null);
   const [loading,setLoading]=useState(false),[error,setError]=useState<string|null>(null);
@@ -338,37 +337,58 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   const offerNavigationEpoch=useRef(0);
   useEffect(()=>()=>{offerNavigationEpoch.current+=1;},[venue.id]);
   const [reload,setReload]=useState(0);
-  const today=todayAtKabul();
+  const availabilityLoadSerial=useRef(0);
+  const today=venueDayKey(venue.timezone);
   const maximum=shiftVenueDate(today,venue.maximumAdvanceBookingDays);
-  const dateValid=/^\d{4}-\d{2}-\d{2}$/.test(date)&&!Number.isNaN(Date.parse(date+"T12:00:00Z"))
-    &&date>=today&&date<=maximum;
+  const dateValid=isVenueBookingDay(date,today,venue.maximumAdvanceBookingDays);
   useEffect(()=>{
-    if(!startsAt){if(bookingDate&&/^\d{4}-\d{2}-\d{2}$/.test(bookingDate))setDate(bookingDate);return;}
+    if(!startsAt){if(bookingDate&&isValidVenueDay(bookingDate))setDate(bookingDate);return;}
     const parts=new Intl.DateTimeFormat("en-GB",{timeZone:venue.timezone,year:"numeric",
       month:"2-digit",day:"2-digit"}).formatToParts(new Date(startsAt));
     const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));
     const next=v.year+"-"+v.month+"-"+v.day;
-    if(/^\d{4}-\d{2}-\d{2}$/.test(next))setDate(next);
+    if(isValidVenueDay(next))setDate(next);
   },[venue.id,startsAt,bookingDate]);
   const load=useCallback(async()=>{
-    if(!dateValid||!venue.onlineBookingEnabled)return;
-    setLoading(true);setError(null);
+    const request=++availabilityLoadSerial.current;
+    setError(null);setAvailability(null);setAvailabilityDate(null);
+    setFresh(false);setCachedAt(null);
+    if(!dateValid||!venue.onlineBookingEnabled){setLoading(false);return;}
+    setLoading(true);
     try{
       if(!isOnline)throw new ApiRequestError("NETWORK_ERROR","Offline",null);
       const response=await venueApi.availability(venue.id,date);
-      setAvailability(response);setAvailabilityDate(date);setFresh(true);setCachedAt(null);
+      if(request!==availabilityLoadSerial.current)return;
+      // Cached or delayed responses from another venue/day must not paint bookable slots.
+      if(!isCurrentVenueAvailability(response,venue.id,date))throw Error("Mismatched availability");
+      setAvailability(response);setAvailabilityDate(date);setFresh(true);
       await writeAvailabilityCache(response);
     }catch(e){
+      if(request!==availabilityLoadSerial.current)return;
       const cached=await readAvailabilityCache(venue.id,date);
-      if(cached){setAvailability(cached.value);setAvailabilityDate(date);setFresh(false);setCachedAt(cached.cachedAt);}
-      else{setAvailability(null);setAvailabilityDate(null);setFresh(false);
+      if(request!==availabilityLoadSerial.current)return;
+      if(isCurrentVenueAvailability(cached?.value,venue.id,date)&&cached){
+        setAvailability(cached.value);setAvailabilityDate(date);setFresh(false);
+        setCachedAt(cached.cachedAt);
+      }else{
+        setAvailability(null);setAvailabilityDate(null);setFresh(false);
         setError(e instanceof ApiRequestError&&e.isNetworkError?
-          t("booking.offlineNoCache"):t("booking.loadAvailabilityError"));}
-    }finally{setLoading(false);}
+          t("booking.offlineNoCache"):t("booking.loadAvailabilityError"));
+      }
+    }finally{
+      if(request===availabilityLoadSerial.current)setLoading(false);
+    }
   },[date,dateValid,isOnline,venue.id,venue.onlineBookingEnabled,t]);
-  // The time-grid has its own scoped 1- or 7-day availability loader.
-  // Avoid a second parallel request from the Offers view loader.
-  useEffect(()=>{if(sub==="offers")void load();},[sub,date,reconnectVersion,reload,load]);
+  // Cancel any prior Offers page read when the venue, date, tab or connection changes.
+  // Live booking remains separately checked immediately before confirmation.
+  useEffect(()=>{
+    if(sub==="offers")void load();
+    else{
+      availabilityLoadSerial.current+=1;
+      setLoading(false);setAvailability(null);setAvailabilityDate(null);setFresh(false);
+    }
+    return()=>{availabilityLoadSerial.current+=1;};
+  },[sub,date,reconnectVersion,reload,load]);
   useEffect(()=>{
     const serial=++offerRequestSerial.current;
     if(sub!=="offers"){setPromotions([]);setPromotionsLoading(false);return;}
@@ -383,7 +403,8 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   },[sub,venue.id,promotionReload,reconnectVersion]);
   const loadMine=useCallback(async()=>{
     const serial=++bookingLoadSerial.current;
-    if(!session){setBookings([]);setBookingsActor(null);setBookingsLoading(false);return;}
+    setBookings([]);setBookingsActor(null);
+    if(!session){setBookingsLoading(false);return;}
     setBookingsLoading(true);setError(null);
     try{
       const result=await bookingApi.mine(session.accessToken);
@@ -398,7 +419,11 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
       if(serial===bookingLoadSerial.current)setBookingsLoading(false);
     }
   },[session?.accessToken,session?.user.id,venue.id,t]);
-  useEffect(()=>{if(sub==="bookings"&&session)void loadMine();},[sub,venue.id,reload,session?.accessToken,loadMine]);
+  useEffect(()=>{
+    if(sub==="bookings")void loadMine();
+    else bookingLoadSerial.current+=1;
+    return()=>{bookingLoadSerial.current+=1;};
+  },[sub,venue.id,reload,session?.accessToken,loadMine]);
   async function cancel(id:string){
     if(!session||!isOnline)throw Error("Not connected");
     setError(null);
@@ -453,7 +478,8 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
     <VenueSlotTimetable venue={venue} startsAt={startsAt}
       promotionId={promotionId} initialDate={bookingDate}/>
   </View>;
-  const usable=availabilityDate===date?availability?.slots??[]:[];
+  const usable=availabilityDate===date&&isCurrentVenueAvailability(availability,venue.id,date)
+    ?availability?.slots??[]:[];
   const slots=sub==="offers"?usable.filter(slot=>slot.promotionId!==null):usable;
   if(sub==="bookings")return <View style={{gap:spacing.md}}>
     <ReserveStatusBanner venue={venue}/>

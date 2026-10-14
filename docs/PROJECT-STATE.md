@@ -1,3 +1,13 @@
+## Venue Detail — Phase 7: cross-tab regression, stale-request safety and release QA (October 14, 2026)
+
+- Audited the live public Venue Detail implementation (all **5 main tabs and 21 subtabs**, user shortcuts, deep links, privacy, owner vs player vs guest states, RTL/localization and server-owned booking rules). Preserved the Phase 1–6 feature set unchanged except for targeted fixes below.
+- **Reserve > Offers reliability:** venue-local, Gregorian calendar days (not fixed Kabul for any configured timezone), strict rejection of invalid calendar days and days outside advance booking limits, verified both current venue ID and local date on live and cached responses, and ignored delayed previous-venue/day results after switching date, section or venue. Offline cached inventory remains read-only; every selected promotional slot still requires live price/offer/court/start/end revalidation before opening confirmation.
+- **Reserve > My Bookings privacy:** now clears previous account's personal booking rows/owner marker as a fresh request starts and invalidates in-flight private booking fetches on tab or identity changes, including sign-out. Previous bookings are still accessible when online booking is paused.
+- **Competitions pagination:** a failed second/later page now shows an inline error without discarding already-loaded competition cards, fixtures or results. The Load More control remains usable for retry; initial-page errors continue showing a full retry action.
+- **Reviews identity safety:** an in-flight submission from an old account or venue cannot reset another account's form or display a spurious error; private pending form state resets at account/venue transitions. Server-side one-review-per-completed-online-booking checks remain authoritative.
+- Added pure calendar and response-scoping helpers with Node tests (Kabul midnight, other timezones, leap-day normalization, month/year boundaries, cross-venue/date stale data), a full tab/locale/security-source regression gate and detailed `docs/QA-VENUE-DETAIL-PHASE7.md` device acceptance matrix. Added `pnpm verify:venue-detail-phase7` to the full release gate. No new DB migration or dependencies.
+- Automated CI may pass without completing real-device Android/iOS accessibility, RTL and network-loss scenarios. Native QA must be signed off separately before any production release.
+
 ## Venue Detail — Phase 6: Updates, real schedule changes and private venue alerts (October 14, 2026)
 
 - Retained the five main tabs. Updates now has **Announcements**, **Schedule Changes** and **Venue Alerts** (Announcements remains the first/default tab). Notification header shortcut continues opening Venue Alerts. Selected subtab focus/memory and English/Dari/Pashto RTL support remain intact.

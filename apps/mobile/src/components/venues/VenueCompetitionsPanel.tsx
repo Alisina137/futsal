@@ -49,6 +49,7 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
   const [compLoading,setCompLoading]=useState(true);
   const [compLoadingMore,setCompLoadingMore]=useState(false);
   const [compError,setCompError]=useState(false);
+  const [compMoreError,setCompMoreError]=useState(false);
   const [matchScope,setMatchScope]=useState<MatchScope>("upcoming");
   const [matches,setMatches]=useState<VenueMatchItem[]>([]);
   const [matchPage,setMatchPage]=useState(1);
@@ -56,6 +57,7 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
   const [matchLoading,setMatchLoading]=useState(true);
   const [matchLoadingMore,setMatchLoadingMore]=useState(false);
   const [matchError,setMatchError]=useState(false);
+  const [matchMoreError,setMatchMoreError]=useState(false);
   const [refresh,setRefresh]=useState(0);
   const epoch=useRef(0);
   const isMatches=sub==="matches";
@@ -66,9 +68,11 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
     // add competitions or match information from a different venue.
     const request=++epoch.current;
     setCompetitions([]);setCompPage(1);setCompHasMore(false);
-    setCompError(false);setCompLoading(!isMatches);setCompLoadingMore(false);
+    setCompError(false);setCompMoreError(false);
+    setCompLoading(!isMatches);setCompLoadingMore(false);
     setMatches([]);setMatchPage(1);setMatchHasMore(false);
-    setMatchError(false);setMatchLoading(isMatches);setMatchLoadingMore(false);
+    setMatchError(false);setMatchMoreError(false);
+    setMatchLoading(isMatches);setMatchLoadingMore(false);
     if(isMatches){
       void competitionApi.venueMatches(venue.id,matchScope,1).then(result=>{
         if(request!==epoch.current)return;
@@ -89,7 +93,7 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
   async function loadMoreCompetitions(){
     if(isMatches||compLoading||compLoadingMore||!compHasMore)return;
     const request=epoch.current;
-    setCompLoadingMore(true);setCompError(false);
+    setCompLoadingMore(true);setCompMoreError(false);
     try{
       const page=compPage+1;
       const result=await competitionApi.discover(queryFor(venue.id,sub,page));
@@ -97,20 +101,20 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
       setCompetitions(previous=>[...previous,...result.competitions.filter(item=>
         item.published&&item.venueId===venue.id&&!previous.some(old=>old.id===item.id))]);
       setCompPage(result.page);setCompHasMore(result.hasMore);
-    }catch{if(request===epoch.current)setCompError(true);}
+    }catch{if(request===epoch.current)setCompMoreError(true);}
     finally{if(request===epoch.current)setCompLoadingMore(false);}
   }
   async function loadMoreMatches(){
     if(!isMatches||matchLoading||matchLoadingMore||!matchHasMore)return;
     const request=epoch.current;
-    setMatchLoadingMore(true);setMatchError(false);
+    setMatchLoadingMore(true);setMatchMoreError(false);
     try{
       const result=await competitionApi.venueMatches(venue.id,matchScope,matchPage+1);
       if(request!==epoch.current)return;
       setMatches(previous=>[...previous,...result.matches.filter(item=>
         !previous.some(old=>old.id===item.id))]);
       setMatchPage(result.page);setMatchHasMore(result.hasMore);
-    }catch{if(request===epoch.current)setMatchError(true);}
+    }catch{if(request===epoch.current)setMatchMoreError(true);}
     finally{if(request===epoch.current)setMatchLoadingMore(false);}
   }
   const retry=<Button variant="secondary" label={t("common.retry")}
@@ -152,6 +156,8 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
           params:{competitionId:match.competitionId,matchId:match.id},
         })}/>
     </Card>)}
+    {matchMoreError?<AppText variant="caption" style={{color:colors.danger}}>
+      {tr("matchesLoadError")}</AppText>:null}
     {matchHasMore?<Button variant="secondary" label={tr("loadMore")}
       loading={matchLoadingMore} disabled={matchLoadingMore}
       onPress={()=>void loadMoreMatches()}/>:null}
@@ -214,6 +220,8 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
             :viewCompetition(item.id)}/>
       </Card>;
     })}
+    {compMoreError?<AppText variant="caption" style={{color:colors.danger}}>
+      {tr("competitionsLoadError")}</AppText>:null}
     {compHasMore?<Button variant="secondary" label={tr("loadMore")}
       loading={compLoadingMore} disabled={compLoadingMore}
       onPress={()=>void loadMoreCompetitions()}/>:null}
