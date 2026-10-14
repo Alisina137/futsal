@@ -55,6 +55,36 @@ describe("Phase 4 notification policy", () => {
     expect((await service.list(second)).unreadCount).toBe(1);
   });
 
+  it("supports stable cursors when new events arrive between pages",async()=>{
+    const repo=new FakeNotificationRepository();
+    let tick=0;
+    const svc=new NotificationService(repo,()=>new Date(1791960000000+(tick++)*1000));
+    const userId=randomUUID();
+    for(let i=0;i<4;i++)await svc.bookingCancelled({userId,bookingId:randomUUID(),venueName:"Arena"});
+    const first=await svc.list(userId,"ALL",2);
+    expect(first.notifications).toHaveLength(2);
+    expect(first.nextCursor).toBeTruthy();
+    await svc.bookingCancelled({userId,bookingId:randomUUID(),venueName:"Newer"});
+    const second=await svc.list(userId,"ALL",2,0,first.nextCursor!);
+    expect(second.notifications).toHaveLength(2);
+    expect(new Set([...first.notifications,...second.notifications].map(v=>v.id)).size).toBe(4);
+    expect(second.notifications.find(v=>v.body.includes("Newer"))).toBeUndefined();
+    await expect(svc.list(userId,"ALL",2,0,"garbage")).rejects.toMatchObject({code:"NOTIFICATION_CURSOR_INVALID"});
+  });
+
+  it("separates push-only alerts from the in-app feed and unread badge",async()=>{
+    const repo=new FakeNotificationRepository();
+    const svc=new NotificationService(repo,()=>new Date("2026-10-14T06:00:00.000Z"));
+    const userId=randomUUID();
+    await repo.registerDevice(userId,{expoPushToken:"ExponentPushToken[test-device-test]",platform:"ANDROID"},new Date());
+    await svc.updatePreferences(userId,{inAppEnabled:false,pushEnabled:true});
+    await svc.bookingCancelled({userId,bookingId:randomUUID(),venueName:"Venue"});
+    expect(repo.deliveries.map(x=>x.channel)).toEqual(["PUSH"]);
+    const list=await svc.list(userId);
+    expect(list.notifications).toHaveLength(0);
+    expect(list.unreadCount).toBe(0);
+  });
+
   it("merges partial preference updates into a complete preference object", async () => {
     const repository = new FakeNotificationRepository();
     const service = new NotificationService(repository, () => new Date("2026-10-04T00:00:00.000Z"));
