@@ -2253,6 +2253,7 @@ export const competitionDiscoveryQuerySchema=z.object({
   to:competitionDiscoveryDate.optional(),
   sort:competitionDiscoverySortSchema.default("recommended"),
   scope:competitionDiscoveryScopeSchema.default("all"),
+  phase:z.enum(["all","active","upcoming","history"]).default("all"),
   page:z.coerce.number().int().min(1).max(500).default(1),
   limit:z.coerce.number().int().min(1).max(30).default(12),
 }).superRefine((value,ctx)=>{
