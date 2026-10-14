@@ -48,7 +48,7 @@ assert(bar.includes("numberOfLines={1} adjustsFontSizeToFit")&&bar.includes("sty
   "Every one of five navigation icons must have an always-visible localized label underneath.");
 assert(bar.includes("accessibilityRole=\"tab\"")&&bar.includes("accessibilityState={{selected:active}}"),
   "Public navigation must provide accessible selected-tab states.");
-assert(bar.includes("unread>99")&&bar.includes("notificationApi.list(token,{limit:1})")
+assert(bar.includes("unread>99")&&bar.includes("notificationApi.unreadCount(token)")
   &&bar.includes("unreadCount")&&bar.includes("onNotificationUnreadChange"),
   "Notifications badge must use the global unread count from the server and update on inbox changes.");
 assert(bar.includes('isPlatformAdmin')&&bar.includes("if(isPlatformAdmin)return null"),

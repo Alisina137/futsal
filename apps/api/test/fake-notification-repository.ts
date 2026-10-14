@@ -63,7 +63,8 @@ export class FakeNotificationRepository implements NotificationRepository {
   async markAllRead(userId:string,readAt:Date){
     let updated=0;
     this.notifications=this.notifications.map(item=>{
-      if(item.data.userId!==userId||item.readAt)return item;
+      if(item.data.userId!==userId||item.readAt||
+        !this.deliveries.some(delivery=>delivery.notificationId===item.id&&delivery.channel==="IN_APP"))return item;
       updated++;return {...item,readAt:readAt.toISOString()};
     });
     return updated;
@@ -75,7 +76,8 @@ export class FakeNotificationRepository implements NotificationRepository {
   }
   async clearRead(userId:string){
     const previous=this.notifications.length;
-    this.notifications=this.notifications.filter(item=>item.data.userId!==userId||!item.readAt);
+    this.notifications=this.notifications.filter(item=>item.data.userId!==userId||!item.readAt||
+      !this.deliveries.some(delivery=>delivery.notificationId===item.id&&delivery.channel==="IN_APP"));
     return previous-this.notifications.length;
   }
 

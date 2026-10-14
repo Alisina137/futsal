@@ -24,6 +24,12 @@ export function createNotificationRouter(notifications: NotificationService, tok
     legacyHeaders: false,
   });
 
+  // Small authenticated live badge endpoint: never loads notification content.
+  router.get("/unread-count",async(request,response,next)=>{
+    try{response.json(await notifications.unreadCount(request.auth!.userId));}
+    catch(error){next(error);}
+  });
+
   router.get("/", async (request,response,next)=>{
     try{
       const query=z.object({
