@@ -404,6 +404,12 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       constraints.push(or(ilike(competitions.name,literal),ilike(venues.name,literal),
         ilike(venues.province,literal),ilike(venues.city,literal))!);
     }
+    if(filters.phase==="active")constraints.push(inArray(competitions.status,
+      ["REGISTRATION_OPEN","IN_PROGRESS"]));
+    if(filters.phase==="upcoming")constraints.push(inArray(competitions.status,
+      ["REGISTRATION_CLOSED","SCHEDULED"]));
+    if(filters.phase==="history")constraints.push(inArray(competitions.status,
+      ["COMPLETED","ARCHIVED"]));
     if(filters.scope==="registration")constraints.push(eq(competitions.status,"REGISTRATION_OPEN"));
     if(filters.scope==="ongoing"||filters.scope==="ongoingFollowedVenues")
       constraints.push(eq(competitions.status,"IN_PROGRESS"));
