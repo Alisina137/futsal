@@ -248,6 +248,8 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   const [highlightPromo,setHighlightPromo]=useState<string|null>(promotionId??null);
   const [openingSlot,setOpeningSlot]=useState<string|null>(null);
   const offerRequestSerial=useRef(0);
+  const offerNavigationEpoch=useRef(0);
+  useEffect(()=>()=>{offerNavigationEpoch.current+=1;},[venue.id]);
   const [reload,setReload]=useState(0);
   const today=todayAtKabul();
   const maximum=shiftVenueDate(today,venue.maximumAdvanceBookingDays);
@@ -325,9 +327,11 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
   async function openSlot(slot:VenueAvailabilityResponse["slots"][number]){
     if(!fresh||!isOnline||availabilityDate!==date||openingSlot)return;
     const key=slot.areaId+"-"+slot.startsAt;
+    const epoch=offerNavigationEpoch.current;
     setOpeningSlot(key);setError(null);
     try{
       const live=await venueApi.availabilityLive(venue.id,date);
+      if(epoch!==offerNavigationEpoch.current)return;
       const verified=live.slots.find(item=>item.areaId===slot.areaId&&
         item.startsAt===slot.startsAt&&item.endsAt===slot.endsAt&&
         item.promotionId===slot.promotionId&&item.priceAfn===slot.priceAfn);
@@ -338,11 +342,13 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
         timeZone:venue.timezone,
       }});
     }catch{
-      setError(tr3("offerChanged"));
-      setFresh(false);
-      setReload(value=>value+1);
-      setPromotionReload(value=>value+1);
-    }finally{setOpeningSlot(null);}
+      if(epoch===offerNavigationEpoch.current){
+        setError(tr3("offerChanged"));
+        setFresh(false);
+        setReload(value=>value+1);
+        setPromotionReload(value=>value+1);
+      }
+    }finally{if(epoch===offerNavigationEpoch.current)setOpeningSlot(null);}
   }
   function choosePromotion(item:PromotionDto){
     const parts=new Intl.DateTimeFormat("en-GB",{timeZone:venue.timezone,
