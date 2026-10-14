@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {BookingDto,PublicVenueDto,VenueReviewSummary} from "@leaguekick/contracts";
-import {useEffect,useState} from "react";
+import type {BookingDto,PublicVenueDto,VenueReviewSort,VenueReviewSummary} from "@leaguekick/contracts";
+import {useEffect,useRef,useState} from "react";
 import {Pressable,StyleSheet,View} from "react-native";
 import {bookingApi,venueApi} from "../../lib/api";
 import {useAuth} from "../../providers/AuthProvider";
@@ -18,7 +18,12 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
 }){
   const {session}=useAuth(),{t,isRTL,language}=useLocale();
   const tr=(key:string,values?:Record<string,string|number>)=>t(("booking.community."+key) as never,values);
+  const tx=(key:string)=>t(("vd2."+key) as never);
   const [summary,setSummary]=useState<VenueReviewSummary|null>(null);
+  const [sort,setSort]=useState<VenueReviewSort>("recent");
+  const [moreBusy,setMoreBusy]=useState(false);
+  const [eligibleLimit,setEligibleLimit]=useState(10);
+  const requestSequence=useRef(0);
   const [bookings,setBookings]=useState<BookingDto[]>([]);
   const [reviewedBookingIds,setReviewedBookingIds]=useState<string[]>([]);
   const [selected,setSelected]=useState<string|null>(reviewBookingId??null);
@@ -27,25 +32,48 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
   const [error,setError]=useState<string|null>(null);
   const actor=session?.accessToken;
   async function reload(){
-    setLoading(true);setError(null);
+    const sequence=++requestSequence.current;
+    setLoading(true);setError(null);setMoreBusy(false);
     try{
       const [reviews,mine,reviewed]=await Promise.all([
-        venueApi.reviews(venue.id),
+        venueApi.reviews(venue.id,1,sort),
         actor?bookingApi.mine(actor):Promise.resolve({bookings:[] as BookingDto[]}),
         actor?bookingApi.myVenueReviews(actor,venue.id):
           Promise.resolve({venueId:venue.id,reviewedBookingIds:[] as string[]}),
       ]);
+      if(sequence!==requestSequence.current)return;
       setSummary(reviews);
       setReviewedBookingIds(reviewed.reviewedBookingIds);
       setBookings(mine.bookings.filter(b=>b.venueId===venue.id&&b.playerUserId===session?.user.id));
-    }catch{setError(tr("loadError"));}
-    finally{setLoading(false);}
+    }catch{
+      if(sequence===requestSequence.current)setError(tr("loadError"));
+    }finally{
+      if(sequence===requestSequence.current)setLoading(false);
+    }
   }
   useEffect(()=>{
-    // Never retain a previous account's privately scoped rating eligibility.
-    setReviewedBookingIds([]);setBookings([]);setSummary(null);
+    // Never retain a previous account's private review eligibility on identity change.
+    setReviewedBookingIds([]);setBookings([]);setSummary(null);setEligibleLimit(10);
     void reload();
-  },[venue.id,actor]);
+    return()=>{requestSequence.current+=1;};
+  },[venue.id,actor,sort]);
+  async function loadMore(){
+    if(!summary?.hasMore||loading||moreBusy)return;
+    const sequence=requestSequence.current;
+    setMoreBusy(true);setError(null);
+    try{
+      const next=await venueApi.reviews(venue.id,summary.page+1,sort);
+      if(sequence!==requestSequence.current)return;
+      setSummary(current=>current?{
+        ...next,reviews:[...current.reviews,
+          ...next.reviews.filter(item=>!current.reviews.some(previous=>previous.id===item.id))],
+      }:next);
+    }catch{
+      if(sequence===requestSequence.current)setError(tr("loadError"));
+    }finally{
+      if(sequence===requestSequence.current)setMoreBusy(false);
+    }
+  }
   useEffect(()=>{setSelected(reviewBookingId??null);},[reviewBookingId,venue.id]);
   const reviewed=new Set(reviewedBookingIds);
   const eligible=bookings.filter(b=>b.source==="ONLINE"&&b.status==="CONFIRMED"&&
@@ -69,6 +97,23 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
         <AppText muted variant="caption">{tr("reviewsCount",{count:summary?.reviewCount??0})}</AppText>
       </View>
       <AppText variant="caption" muted>{tr("verifiedOnly")}</AppText>
+      {summary?.ratingCounts?<View style={styles.stack}>
+        {([5,4,3,2,1] as const).map(rating=><View key={rating}
+          style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <AppText variant="caption" weight="medium">{"★ "+rating}</AppText>
+          <View style={{flex:1,minWidth:60,height:7,backgroundColor:colors.surfaceMuted,borderRadius:4,overflow:"hidden"}}>
+            <View style={{backgroundColor:"#B7791F",height:"100%",
+              width:(summary.reviewCount?100*(summary.ratingCounts[rating-1]??0)/summary.reviewCount:0)+"%"}}/>
+          </View>
+          <AppText variant="caption" muted>{summary.ratingCounts[rating-1]??0}</AppText>
+        </View>)}
+      </View>:null}
+      <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {(["recent","highest","lowest"] as const).map(key=><Button key={key}
+          style={{flex:1,minWidth:0}} variant={sort===key?"primary":"secondary"}
+          label={tx("reviewSort."+key)} disabled={loading||moreBusy}
+          onPress={()=>setSort(key)}/>)}
+      </View>
       {error?<AppText style={{color:colors.danger}}>{error}</AppText>:null}
       {loading?<DataLoadingState variant="list" minHeight={90}/>:null}
       {summary?.reviews.length?summary.reviews.map(item=><View key={item.id}
@@ -87,6 +132,8 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
           }).format(new Date(item.createdAt))}
         </AppText>
       </View>):!loading?<AppText muted>{tr("noReviews")}</AppText>:null}
+      {summary?.hasMore?<Button label={tx("moreReviews")} variant="secondary"
+        disabled={loading||moreBusy} loading={moreBusy} onPress={()=>void loadMore()}/>:null}
       <Button label={t("common.retry")} variant="secondary"
         disabled={loading||busy} onPress={()=>void reload()}/>
     </Card>
@@ -95,7 +142,7 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
       {!eligible.length?<AppText muted variant="caption">{tr("reviewEligibility")}</AppText>:<>
         <AppText muted variant="caption">{tr("pickBooking")}</AppText>
         <View style={styles.stack}>
-          {eligible.slice(0,10).map(b=><Pressable key={b.id}
+          {eligible.slice(0,eligibleLimit).map(b=><Pressable key={b.id}
             testID={"venue-review-booking-"+b.id} accessibilityRole="button"
             accessibilityState={{selected:selected===b.id}}
             onPress={()=>setSelected(b.id)}
@@ -107,6 +154,8 @@ export function VenueReviewsPanel({venue,reviewBookingId}:{
                 day:"numeric",month:"short",year:"numeric"}).format(new Date(b.startsAt))}</AppText>
           </Pressable>)}
         </View>
+        {eligible.length>eligibleLimit?<Button label={tx("moreEligible")} variant="secondary"
+          onPress={()=>setEligibleLimit(n=>n+10)}/>:null}
         <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
           {[1,2,3,4,5].map(n=><Pressable key={n} testID={"venue-review-star-"+n}
             accessibilityRole="button" accessibilityLabel={tr("stars",{count:n})}
