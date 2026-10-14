@@ -4,9 +4,9 @@ import type {BookingDto,PromotionDto,PublicVenueDto,VenueAvailabilityResponse,Ve
 import {router} from "expo-router";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Image,Linking,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
-import {ApiRequestError,bookingApi,competitionApi,marketingApi,resolveMediaImageUrl,venueApi} from "../../lib/api";
+import {ApiRequestError,bookingApi,marketingApi,resolveMediaImageUrl,venueApi} from "../../lib/api";
 import {readAvailabilityCache,writeAvailabilityCache} from "../../lib/availability-cache";
-import {formatCompetitionDateTime,formatPostTimeAgo} from "../../lib/date-time";
+import {formatPostTimeAgo} from "../../lib/date-time";
 import {usePostTimeNow} from "../../hooks/usePostTimeNow";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
