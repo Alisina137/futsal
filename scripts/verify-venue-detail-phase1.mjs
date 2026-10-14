@@ -26,7 +26,7 @@ assert.ok(!screen.includes("setMain(")&&!screen.includes("setSub("),
   "Main and subtab selection must be managed by the same navigation transition.");
 for(const fragment of [
   'main:bookingDeepLink?"reserve":reviewBookingId?"about":"media"',
-  'reserve:"slots",competitions:"upcoming"',
+  'reserve:"slots",competitions:"registration"',
   'return {main,sub:target?{...current.sub,[main]:target}:current.sub}',
   'if(current.main!==main)return current',
 ])assert.ok(nav.includes(fragment),"Missing navigation state behavior: "+fragment);
@@ -45,6 +45,7 @@ for(const fragment of [
 for(const tab of ["media","reserve","competitions","updates","about"])
   assert.ok(sub.includes('{id:"'+tab+'"'),"Missing existing main tab "+tab);
 assert.ok(sub.includes('reserve:["slots","offers","bookings","saved"]')&&
+  sub.includes('competitions:["registration","upcoming","live","completed","matches"]')&&
   sub.includes('about:["overview","facilities","hours","location","reviews","policies"]'),
   "Phase 1 must preserve existing subtabs and behavior.");
 assert.ok(!screen.includes("scrollTo({y:0")&&!screen.includes("scrollToEnd("),
