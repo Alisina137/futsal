@@ -5,6 +5,7 @@ import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {AppState,Image,Pressable,ScrollView,StyleSheet,View,useWindowDimensions,type LayoutChangeEvent} from "react-native";
 import {competitionApi,marketingApi,ownerApi,manualTeamApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
+import {formatCompetitionDateTime} from "../../../src/lib/date-time";
 import {TextField} from "../../../src/components/ui/TextField";
 import {CompetitionParticipationPanel} from "../../../src/components/competition/CompetitionParticipationPanel";
 import {AppText} from "../../../src/components/ui/AppText";
@@ -31,7 +32,7 @@ export default function CompetitionDetailScreen(){
     competitionId:string;focusRegistration?:string;tab?:string;stage?:string;
   }>();
   const {session}=useAuth();
-  const {t,isRTL}=useLocale();
+  const {t,isRTL,language}=useLocale();
   const {height:viewportHeight}=useWindowDimensions();
   const scrollRef=useRef<ScrollView>(null);
   const tabScrollRef=useRef<ScrollView>(null);
@@ -262,6 +263,11 @@ export default function CompetitionDetailScreen(){
   const eligibleManualTeams=manualTeams.filter(team=>!representedIds.has(team.id));
   const accepted=competition?.teams.filter(team=>team.status==="ACCEPTED")??[];
   const played=competition?.matches.filter(match=>match.status==="COMPLETED"||match.status==="CORRECTED").length??0;
+  const inProgress=competition?.matches.filter(match=>match.status==="IN_PROGRESS").length??0;
+  const nextDate=competition?.status==="REGISTRATION_OPEN"
+    ?competition.registrationClosesAt:competition?.startsAt;
+  const eventDate=nextDate?formatCompetitionDateTime(nextDate,language):null;
+  const capacityRatio=competition?.maxTeams?Math.min(1,accepted.length/competition.maxTeams):0;
   // Competitions do not yet have a dedicated cover/avatar column. A real published
   // competition media image is used as the cover; never fabricate a logo or photo.
   const cover=resolveMediaImageUrl(mediaPosts.find(post=>post.imageUrl)?.imageUrl??null);
@@ -392,12 +398,31 @@ export default function CompetitionDetailScreen(){
   </Screen>;
 
   return <Screen showHeader scrollRef={scrollRef} style={styles.page}>
+    <Pressable testID="competition-profile-back" accessibilityRole="button"
+      accessibilityLabel={t("competition.backToCompetitions")}
+      onPress={()=>router.navigate("/competitions")}
+      style={[styles.backToList,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <Ionicons name={isRTL?"arrow-forward":"arrow-back"} size={21} color={colors.primary}/>
+      <AppText weight="semibold" style={{color:colors.primary}}>
+        {t("competition.backToCompetitions")}
+      </AppText>
+    </Pressable>
     <View testID="competition-public-profile" style={styles.profile}>
       <View style={styles.cover}>
         {cover?<Image source={{uri:cover}} resizeMode="cover" style={StyleSheet.absoluteFill}/>:<>
           <View style={styles.coverAccent}/>
           <Ionicons name="trophy-outline" size={80} color="#B7D2FF"/>
         </>}
+        {cover?<View style={styles.coverShade}/>:null}
+        <View style={styles.coverTop}>
+          <View testID="competition-hero-status" style={[styles.heroStatus,
+            competition.status==="IN_PROGRESS"&&styles.heroLive]}>
+            {competition.status==="IN_PROGRESS"?<View style={styles.heroLiveDot}/>:null}
+            <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>
+              {t(`competition.status.${competition.status}` as never)}
+            </AppText>
+          </View>
+        </View>
         <View style={styles.coverFormat}>
           <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>
             {t(`competition.format.${competition.format}` as never)}
@@ -411,6 +436,8 @@ export default function CompetitionDetailScreen(){
           </View>
         </View>
         <AppText variant="title" weight="bold" style={styles.name}>{competition.name}</AppText>
+        {competition.description?.trim()?<AppText numberOfLines={2}
+          style={styles.identityDescription} muted>{competition.description.trim()}</AppText>:null}
         <Pressable accessibilityRole="button" onPress={()=>router.push({
           pathname:"/venues/[venueId]",params:{venueId:competition.venueId},
         })} style={[styles.venueLink,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -442,27 +469,70 @@ export default function CompetitionDetailScreen(){
             onPress={()=>void toggleFollow()} loading={followBusy}
             variant={followState.following?"secondary":"primary"} style={{flex:1}}/>:null}
         </View>
+        <Button label={competition.status==="REGISTRATION_OPEN"?
+          t("competition.phase4.registerTeam"):
+          competition.status==="IN_PROGRESS"?t("competition.phase4.liveMatches"):
+          competition.status==="COMPLETED"?t("competition.phase4.finishedResults"):
+          t("competition.phase4.viewSchedule")}
+          onPress={()=>switchTab(competition.status==="REGISTRATION_OPEN"?"TEAMS":"MATCHES")}
+          style={{width:"100%",marginTop:spacing.sm}}/>
       </View>
     </View>
 
+    <View testID="competition-profile-summary" style={styles.summaryCard}>
+      <View style={[styles.summaryFacts,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.summaryFact}>
+          <Ionicons name="wallet-outline" size={18} color={colors.primary}/>
+          <View style={{flex:1,gap:2}}>
+            <AppText variant="caption" muted>{t("competition.registrationFee")}</AppText>
+            <AppText weight="semibold" numberOfLines={2}>{competition.registrationFeeAfn===0?
+              t("competition.profile.free"):`${competition.registrationFeeAfn} AFN`}</AppText>
+          </View>
+        </View>
+        {eventDate?<View style={styles.summaryFact}>
+          <Ionicons name="calendar-outline" size={18} color={colors.primary}/>
+          <View style={{flex:1,gap:2}}>
+            <AppText variant="caption" muted>{t(competition.status==="REGISTRATION_OPEN"?
+              "competition.registrationDeadline":"competition.startsAt")}</AppText>
+            <AppText variant="caption" weight="semibold" numberOfLines={3}>{eventDate}</AppText>
+          </View>
+        </View>:null}
+      </View>
+      <View style={[styles.progressHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <AppText variant="caption" weight="semibold">
+          {t("competition.profile.registeredTeams")}
+        </AppText>
+        <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+          {accepted.length}/{competition.maxTeams}
+        </AppText>
+      </View>
+      <View testID="competition-capacity-progress" style={styles.progressTrack}>
+        <View style={[styles.progressFill,{width:`${Math.round(capacityRatio*100)}%`}]}/>
+      </View>
+    </View>
     <View style={[styles.metrics,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <View style={styles.metric}>
+      <Pressable accessibilityRole="button" testID="competition-metric-teams"
+        accessibilityLabel={t("competition.teams")} onPress={()=>switchTab("TEAMS")} style={styles.metric}>
         <Ionicons name="people-outline" size={19} color={colors.primary}/>
         <AppText weight="bold" variant="bodyLarge">{accepted.length}/{competition.maxTeams}</AppText>
         <AppText variant="caption" muted>{t("competition.teams")}</AppText>
-      </View>
+      </Pressable>
       <View style={styles.metricDivider}/>
-      <View style={styles.metric}>
+      <Pressable accessibilityRole="button" testID="competition-metric-matches"
+        accessibilityLabel={t("competition.profile.matches")} onPress={()=>switchTab("MATCHES")} style={styles.metric}>
         <Ionicons name="football-outline" size={19} color={colors.primary}/>
         <AppText weight="bold" variant="bodyLarge">{competition.matches.length}</AppText>
         <AppText variant="caption" muted>{t("competition.profile.matches")}</AppText>
-      </View>
+      </Pressable>
       <View style={styles.metricDivider}/>
-      <View style={styles.metric}>
-        <Ionicons name="checkmark-done-outline" size={19} color={colors.primary}/>
-        <AppText weight="bold" variant="bodyLarge">{played}</AppText>
-        <AppText variant="caption" muted>{t("competition.profile.results")}</AppText>
-      </View>
+      <Pressable accessibilityRole="button" testID="competition-metric-results"
+        accessibilityLabel={t("competition.profile.results")} onPress={()=>switchTab("MATCHES")} style={styles.metric}>
+        <Ionicons name={inProgress>0?"radio-outline":"checkmark-done-outline"} size={19}
+          color={inProgress>0?colors.danger:colors.primary}/>
+        <AppText weight="bold" variant="bodyLarge">{inProgress>0?inProgress:played}</AppText>
+        <AppText variant="caption" muted>{inProgress>0?
+          t("competition.profile.liveMatches"):t("competition.profile.results")}</AppText>
+      </Pressable>
     </View>
 
     <View style={styles.tabWrapper}>
@@ -512,17 +582,29 @@ export default function CompetitionDetailScreen(){
 }
 
 const styles=StyleSheet.create({
-  page:{paddingTop:spacing.md,gap:spacing.md},
+  page:{paddingTop:spacing.sm,gap:spacing.md},
+  backToList:{alignItems:"center",gap:spacing.sm,minHeight:44,
+    alignSelf:"flex-start",paddingHorizontal:spacing.sm,borderRadius:radius.md,
+    backgroundColor:colors.primarySoft},
   profile:{borderRadius:radius.lg,overflow:"hidden",borderWidth:1,
     borderColor:colors.border,backgroundColor:colors.surface},
-  cover:{height:184,backgroundColor:"#153F91",alignItems:"center",
+  cover:{height:206,backgroundColor:"#153F91",alignItems:"center",
     justifyContent:"center",overflow:"hidden"},
+  coverShade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(5,20,42,.24)"},
+  coverTop:{position:"absolute",top:spacing.sm,left:spacing.sm,right:spacing.sm,
+    flexDirection:"row",alignItems:"center"},
+  heroStatus:{backgroundColor:"rgba(9,28,58,.9)",paddingHorizontal:spacing.md,
+    minHeight:30,borderRadius:radius.pill,flexDirection:"row",alignItems:"center",gap:6,
+    justifyContent:"center"},
+  heroLive:{backgroundColor:"#AB1717"},
+  heroLiveDot:{width:7,height:7,borderRadius:4,backgroundColor:"#FFFFFF"},
   coverAccent:{position:"absolute",width:210,height:210,right:-85,top:-65,borderRadius:105,
     backgroundColor:"#2467CE",opacity:.6},
   coverFormat:{position:"absolute",bottom:spacing.sm,right:spacing.sm,
     backgroundColor:"rgba(15,23,42,.76)",paddingHorizontal:spacing.md,
     paddingVertical:6,borderRadius:radius.pill},
   identity:{alignItems:"center",paddingHorizontal:spacing.md,paddingBottom:spacing.md},
+  identityDescription:{textAlign:"center",marginTop:spacing.xs,paddingHorizontal:spacing.sm},
   avatarFrame:{width:106,height:106,borderRadius:53,marginTop:-49,
     padding:4,backgroundColor:colors.surface},
   avatar:{width:"100%",height:"100%",borderRadius:49,backgroundColor:colors.primarySoft,
@@ -536,9 +618,16 @@ const styles=StyleSheet.create({
     paddingHorizontal:spacing.sm,flexDirection:"row",gap:5,alignItems:"center"},
   statusDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.primary},
   followRow:{width:"100%",marginTop:spacing.md,gap:spacing.sm},
+  summaryCard:{backgroundColor:colors.surface,borderRadius:radius.lg,
+    borderWidth:1,borderColor:colors.border,padding:spacing.md,gap:spacing.md},
+  summaryFacts:{flexWrap:"wrap",gap:spacing.sm},
+  summaryFact:{flex:1,minWidth:130,flexDirection:"row",alignItems:"flex-start",gap:spacing.xs},
+  progressHeading:{justifyContent:"space-between",alignItems:"center",gap:spacing.sm},
+  progressTrack:{height:8,backgroundColor:colors.primarySoft,borderRadius:radius.pill,overflow:"hidden"},
+  progressFill:{height:"100%",backgroundColor:colors.primary,borderRadius:radius.pill},
   metrics:{backgroundColor:colors.surface,borderRadius:radius.lg,
     borderWidth:1,borderColor:colors.border,alignItems:"center",paddingVertical:spacing.md},
-  metric:{flex:1,alignItems:"center",justifyContent:"center",gap:2,minWidth:0},
+  metric:{flex:1,alignItems:"center",justifyContent:"center",gap:2,minWidth:0,minHeight:64},
   metricDivider:{width:1,height:44,backgroundColor:colors.border},
   tabWrapper:{backgroundColor:colors.surface,borderWidth:1,
     borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
