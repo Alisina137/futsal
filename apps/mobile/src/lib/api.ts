@@ -246,7 +246,7 @@ async function request<T>(path: string, init: RequestInit = {}, accessToken?: st
   if (isSafeRead(init)) {
     // Sensitive live administration must never be served from the app's offline
     // cache, and stale page queries must obey the caller's abort signal.
-    if(path.startsWith("/api/v1/admin/")||path.startsWith("/api/v1/venues/search?"))
+    if(path.startsWith("/api/v1/admin/")||path.startsWith("/api/v1/venues/search?")||path.startsWith("/api/v1/competitions/discover"))
       return networkRequest<T>(path,init,accessToken);
     return cachedApiRead(path, accessToken, () => networkRequest<T>(path, init, accessToken));
   }
