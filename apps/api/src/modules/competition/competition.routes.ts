@@ -14,6 +14,7 @@ import {
   competitionRegistrationResponseRequestSchema,
   competitionSeedUpdateRequestSchema,
   competitionStateRequestSchema,
+  venueMatchQuerySchema,
   competitionTeamRegisterRequestSchema,
   competitionUpdateRequestSchema,
   competitionRewardsUpdateRequestSchema,
@@ -48,6 +49,14 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
     try{
       const filters=competitionDiscoveryQuerySchema.parse(request.query);
       response.json(await service.discoverPublic(filters,request.auth!.userId));
+    }catch(error){next(error);}
+  });
+
+  router.get("/venues/:venueId/competition-matches",async(request,response,next)=>{
+    try{
+      const venueId=idSchema.parse(request.params.venueId);
+      const query=venueMatchQuerySchema.parse(request.query);
+      response.json(await service.venueMatches(venueId,query));
     }catch(error){next(error);}
   });
 

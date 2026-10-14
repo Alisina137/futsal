@@ -390,6 +390,40 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
   }
 
   /** Only published competitions involving the authenticated user's active team membership. */
+  async listPublicVenueMatches(venueId:string,query:import("@leaguekick/contracts").VenueMatchQuery,now:Date){
+    // Match venue is authoritative: a competition hosted here can hold a match elsewhere.
+    const statuses=query.scope==="results"
+      ?inArray(competitionMatches.status,["COMPLETED","CORRECTED"])
+      :or(eq(competitionMatches.status,"IN_PROGRESS"),
+        and(eq(competitionMatches.status,"SCHEDULED"),gte(competitionMatches.startsAt,now)))!;
+    const where=and(eq(competitionMatches.venueId,venueId),
+      eq(competitions.published,true),ne(competitions.status,"DRAFT"),
+      ne(competitions.status,"CANCELLED"),statuses)!;
+    const [rows,counts]=await Promise.all([
+      this.db.select({match:competitionMatches,competitionName:competitions.name,
+        homeName:sql<string|null>`(select name from teams where id=${competitionMatches.homeTeamId})`,
+        awayName:sql<string|null>`(select name from teams where id=${competitionMatches.awayTeamId})`})
+        .from(competitionMatches).innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
+        .where(where)
+        .orderBy(query.scope==="upcoming"?asc(competitionMatches.startsAt):desc(competitionMatches.startsAt),
+          asc(competitionMatches.id))
+        .limit(query.limit).offset((query.page-1)*query.limit),
+      this.db.select({total:sql<number>`count(*)::int`}).from(competitionMatches)
+        .innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
+        .where(where),
+    ]);
+    const total=Number(counts[0]?.total??0);
+    return {venueId,matches:rows.map(({match,competitionName,homeName,awayName})=>({
+      id:match.id,competitionId:match.competitionId,competitionName,
+      startsAt:match.startsAt?.toISOString()??null,endsAt:match.endsAt?.toISOString()??null,
+      stage:match.stage,roundNumber:match.roundNumber,
+      homeTeamName:homeName??null,awayTeamName:awayName??null,
+      homeScore:["COMPLETED","CORRECTED","IN_PROGRESS"].includes(match.status)?match.homeScore:null,
+      awayScore:["COMPLETED","CORRECTED","IN_PROGRESS"].includes(match.status)?match.awayScore:null,
+      status:match.status,
+    })),total,page:query.page,limit:query.limit,hasMore:query.page*query.limit<total};
+  }
+
   async listMyPublicCompetitions(userId:string):Promise<CompetitionListItemDto[]>{
     // Team managers are not required to hold a separate ACTIVE team_memberships
     // row. Include their teams, or active members, without duplicating competitions.
@@ -416,6 +450,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     ];
     if(filters.province)constraints.push(eq(venues.province,filters.province));
     if(filters.city)constraints.push(eq(venues.city,filters.city));
+    if(filters.venueId)constraints.push(eq(competitions.venueId,filters.venueId));
     if(filters.status)constraints.push(eq(competitions.status,filters.status));
     if(filters.format)constraints.push(eq(competitions.format,filters.format));
     if(filters.fee==="free")constraints.push(eq(competitions.registrationFeeAfn,0));

@@ -5,7 +5,7 @@ import {initialVenueNavigation,switchVenueMain,switchVenueSub} from
 
 test("new venue defaults to the first Media tab and default subtabs",()=>{
   assert.deepEqual(initialVenueNavigation(false),{
-    main:"media",sub:{media:"posts",reserve:"slots",competitions:"upcoming",
+    main:"media",sub:{media:"posts",reserve:"slots",competitions:"registration",
       updates:"announcements",about:"overview"},
   });
 });

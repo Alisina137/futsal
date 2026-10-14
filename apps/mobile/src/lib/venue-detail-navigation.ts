@@ -20,7 +20,7 @@ export function initialVenueNavigation(bookingDeepLink:boolean,reviewBookingId?:
   return {
     main:bookingDeepLink?"reserve":reviewBookingId?"about":"media",
     sub:{
-      media:"posts",reserve:"slots",competitions:"upcoming",
+      media:"posts",reserve:"slots",competitions:"registration",
       updates:"announcements",about:reviewBookingId&&!bookingDeepLink?"reviews":"overview",
     },
   };

@@ -91,6 +91,7 @@ import type {
   CompetitionDto,
   CompetitionRewardsUpdateRequest,
   CompetitionPublicMatchDetail,
+  VenueMatchPage,
   CompetitionFeeUpdateRequest,
   CompetitionDiscoveryQuery,
   CompetitionDiscoveryResponse,
@@ -1230,6 +1231,10 @@ export const manualTeamApi = {
 };
 
 export const competitionApi = {
+  venueMatches:(venueId:string,scope:"upcoming"|"results",page=1)=>
+    networkRequest<VenueMatchPage>(
+      `/api/v1/venues/${encodeURIComponent(venueId)}/competition-matches?scope=${scope}&page=${page}&limit=12`,
+      {cache:"no-store"}),
   myParticipations:(accessToken:string,competitionId?:string)=>
     request<CompetitionParticipationsResponse>(
       competitionId?`/api/v1/competitions/${competitionId}/participation`:
