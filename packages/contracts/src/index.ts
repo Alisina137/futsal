@@ -2339,10 +2339,13 @@ export function normalizeUsername(value: string | undefined): string | null {
 
 export type LeagueFormResult="W"|"D"|"L";
 
-/** Results for the most recent five scored, finalized league fixtures, oldest first. */
-export function lastFiveLeagueResults(matches:CompetitionMatchDto[],teamId:string):LeagueFormResult[]{
+/** Results for the most recent five finalized table-stage fixtures, oldest first.
+ * Default stays LEAGUE to preserve existing consumers; GROUP is used for group tables. */
+export function lastFiveLeagueResults(
+  matches:CompetitionMatchDto[],teamId:string,stage:"LEAGUE"|"GROUP"="LEAGUE",
+):LeagueFormResult[]{
   return matches.filter(match=>
-    match.stage==="LEAGUE" &&
+    match.stage===stage &&
     (match.status==="COMPLETED"||match.status==="CORRECTED") &&
     match.homeScore!==null && match.awayScore!==null &&
     (match.homeTeamId===teamId||match.awayTeamId===teamId)
