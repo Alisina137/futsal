@@ -5,6 +5,7 @@ import {router,useFocusEffect} from "expo-router";
 import {useCallback,useState} from "react";
 import {Pressable,StyleSheet,Switch,View} from "react-native";
 import {notificationApi} from "../../../src/lib/api";
+import {publishPushPreferenceChange} from "../../../src/lib/push-events";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
 import {Card} from "../../../src/components/ui/Card";
@@ -63,6 +64,7 @@ export default function NotificationPreferencesScreen(){
     try{
       const result=await notificationApi.updatePreferences(token,{[key]:value});
       setPrefs(result.preferences);
+      if(key==="pushEnabled")publishPushPreferenceChange();
     }catch{
       setPrefs(previous);setError(t("notifications.preferenceError"));
     }finally{setBusy(null);}
