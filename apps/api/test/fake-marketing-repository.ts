@@ -194,6 +194,23 @@ export class FakeMarketingRepository implements MarketingRepository {
     return this.listPublishedPosts([venueId],visibility);
   }
 
+  async browseVenueMedia(venueId:string,visibility:"PUBLIC"|"PUBLIC_OR_FOLLOWERS",
+    query:import("@leaguekick/contracts").VenueMediaBrowseQuery){
+    const all=(await this.listVenuePosts(venueId,visibility)).filter(post=>{
+      const venue=this.venues.get(post.venueId);
+      return venue?.status==="ACTIVE"&&
+        (!query.postType||post.postType===query.postType)&&
+        (query.kind==="posts"||
+          query.kind==="photos"&&Boolean(post.imageUrl)||
+          query.kind==="videos"&&/https:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|vimeo\.com\/)/i.test(post.body));
+    }).sort((a,b)=>query.sort==="oldest"
+      ?a.publishedAt.localeCompare(b.publishedAt)||a.id.localeCompare(b.id)
+      :b.publishedAt.localeCompare(a.publishedAt)||b.id.localeCompare(a.id));
+    const total=all.length;
+    return {venueId,posts:all.slice((query.page-1)*query.limit,query.page*query.limit),
+      total,page:query.page,limit:query.limit,hasMore:query.page*query.limit<total};
+  }
+
   async getPost(postId: string) { return this.posts.get(postId)??null; }
 
   async setPostStatus(ownerUserId:string,postId:string,status:"PUBLISHED"|"UNPUBLISHED",changedAt:Date){
