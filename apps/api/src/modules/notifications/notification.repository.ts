@@ -120,7 +120,7 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async deleteNotification(userId:string,notificationId:string){
     const rows=await this.db.delete(notifications)
-      .where(and(eq(notifications.userId,userId),eq(notifications.id,notificationId)))
+      .where(and(this.filtered(userId,"ALL"),eq(notifications.id,notificationId)))
       .returning({id:notifications.id});
     return rows.length>0;
   }
@@ -135,16 +135,19 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async getNotification(userId: string, notificationId: string) {
     const [row] = await this.db.select().from(notifications)
-      .where(and(eq(notifications.userId, userId), eq(notifications.id, notificationId)))
+      .where(and(this.filtered(userId,"ALL"),eq(notifications.id,notificationId)))
       .limit(1);
     return row ? dto(row) : null;
   }
 
   async markRead(userId: string, notificationId: string, readAt: Date) {
+    // Only a visible IN_APP notice can be marked. Replays must not overwrite
+    // the original readAt value or count as a second read.
     const [row] = await this.db.update(notifications).set({ readAt })
-      .where(and(eq(notifications.userId, userId), eq(notifications.id, notificationId)))
+      .where(and(this.filtered(userId,"ALL"),eq(notifications.id, notificationId),
+        isNull(notifications.readAt)))
       .returning();
-    return row ? dto(row) : null;
+    return row ? dto(row) : this.getNotification(userId,notificationId);
   }
 
   async countRecentMarketingNotifications(userId: string, since: Date) {
