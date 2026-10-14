@@ -431,7 +431,7 @@ export default function NotificationsScreen(){
     {!loading&&!error&&loadMoreError&&hasMore?<Card style={styles.error}>
       <Ionicons name="cloud-offline-outline" size={24} color={colors.danger}/>
       <AppText style={{color:colors.danger,flex:1}}>{t("notifications.loadError")}</AppText>
-      <Button testID="notification-load-more-retry" label={t("common.retry")}
+      <Button label={t("common.retry")}
         variant="secondary" loading={loadingMore} onPress={()=>void more()}/>
     </Card>:null}
     {!loading&&!error&&hasMore&&!loadMoreError?<Button label={t("notifications.loadMore")}
