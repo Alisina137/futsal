@@ -43,6 +43,13 @@ export function createPublicMarketingRouter(marketing: MarketingService, tokens:
     } catch (error) { next(error); }
   });
 
+  // Venue-scoped promotional discovery is public but never an availability promise.
+  router.get("/promotions/venues/:venueId",async(request,response,next)=>{
+    try{
+      response.json(await marketing.venuePromotions(routeIdSchema.parse(request.params.venueId)));
+    }catch(error){next(error);}
+  });
+
   router.get("/promotions/:promotionId", async (request, response, next) => {
     try {
       const promotionId = routeIdSchema.parse(request.params.promotionId);
