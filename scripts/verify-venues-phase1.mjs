@@ -41,7 +41,7 @@ assert(card.includes('width:"25%"')&&card.includes('width:"75%"')&&
   card.includes('aspectRatio:1'),
   "Venue cards must preserve the 25/75 hierarchy and square images in two-column layout.");
 assert(card.includes('focusAvailability:"1"')&&
-  detail.includes('setMain("reserve")'),
+  detail.includes('switchVenueMain(current,"reserve","slots")'),
   "Reserve buttons must enter the existing real availability tab without auto-booking.");
 for(const key of ["booking.resultsHeading","booking.resultsCount","booking.resetSearch"]){
   assert(locale.split('"'+key+'"').length===4,"Missing English/Dari/Pashto translation: "+key);
