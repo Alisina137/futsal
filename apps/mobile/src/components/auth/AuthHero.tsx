@@ -18,9 +18,7 @@ export function AuthHero() {
     <View style={styles.photoScrim} pointerEvents="none"/>
 
     <View style={[styles.topRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <View style={styles.mark}>
-        <Image source={require("../../../assets/icon.png")} style={styles.markImage} accessibilityLabel={t("common.appName")}/>
-      </View>
+      <Image source={require("../../../assets/icon.png")} style={styles.markImage} accessibilityLabel={t("common.appName")}/>
       <View style={{flex:1,gap:2}}>
         <AppText variant="caption" weight="bold" style={styles.eyebrow}>{t("auth.heroEyebrow")}</AppText>
         <AppText variant="caption" style={styles.micro}>{t("profile.headerSubtitle")}</AppText>
@@ -62,8 +60,7 @@ const styles=StyleSheet.create({
     borderRadius:radius.lg+4,
   },
   topRow:{alignItems:"center",gap:spacing.sm,zIndex:2},
-  mark:{width:52,height:52,borderRadius:16,overflow:"hidden",backgroundColor:"#0B1D45",alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:"rgba(147,215,255,0.75)"},
-  markImage:{width:"100%",height:"100%"},
+  markImage:{width:41.6,height:41.6,resizeMode:"contain"},
   eyebrow:{color:"#7DD3FC",letterSpacing:1.2},
   micro:{color:"#A9BED0"},
   liveDot:{width:9,height:9,borderRadius:5,backgroundColor:"#7DD3FC",shadowColor:"#7DD3FC",shadowOpacity:0.8,shadowRadius:8,elevation:2},

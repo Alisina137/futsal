@@ -20,12 +20,30 @@ assert(approved.toString("ascii",0,4)==="RIFF"&&approved.toString("ascii",8,12)=
 assert(config.expo.icon==="./assets/icon.png","Launcher icon must use branded PNG.");
 assert(config.expo.android.adaptiveIcon.foregroundImage==="./assets/adaptive-icon.png","Android adaptive icon must use branded foreground.");
 assert(config.expo.android.adaptiveIcon.backgroundColor==="#FFFFFF","Adaptive icon background must match the approved white FUTSAL artwork.");
-assert(config.expo.plugins.some((item)=>Array.isArray(item)&&item[0]==="expo-splash-screen"),"Splash screen must be configured.");
+const splash=config.expo.plugins.find((item)=>Array.isArray(item)&&item[0]==="expo-splash-screen");
+assert(splash,"Splash screen must be configured.");
+assert(splash[1].imageWidth===128,"Startup splash logo must be 80% of its previous 160px width.");
+assert(splash[1].resizeMode==="contain","Startup logo must keep its proportions.");
 assert(header.includes('source={require("../../../assets/icon.png")}'),"AppHeader must display the branded Futsal emblem.");
 assert(header.includes('t("common.appName")'),"AppHeader must retain the Futsal title.");
 assert(!header.includes('t("profile.headerSubtitle")'),"AppHeader must not display the 'Futsal society reserve' subtitle.");
 assert(authHero.includes('source={require("../../../assets/icon.png")}'),"Login/register hero must display the same Futsal emblem.");
 assert(!authHero.includes('backgroundColor:"#16A34A"'),"Auth hero must not retain the previous green logo style.");
+assert(!authHero.includes("styles.mark}")&&!authHero.includes("  mark:{"),
+  "Auth entry logo must not have a rounded frame, border or box shadow.");
+assert(authHero.includes('markImage:{width:41.6,height:41.6,resizeMode:"contain"}'),
+  "Auth entry logo must render at 80% of its original 52px width without distortion.");
+assert(!header.includes("styles.drawerBrandIcon")&&!header.includes("  drawerBrandIcon:{"),
+  "Drawer branding must not add a colored box or frame around the logo.");
+for(const [source,start,end] of [
+  [header,"  brandLogo:{","  brandTitle:{"],
+  [header,"  drawerBrandLogo:{","  closeButton:{"],
+  [authHero,"  markImage:{","  eyebrow:{"],
+]){
+  const style=source.slice(source.indexOf(start),source.indexOf(end));
+  assert(style.startsWith(start)&&!/(borderWidth|borderColor|borderRadius|shadowColor|shadowOpacity|shadowRadius|shadowOffset|elevation|backgroundColor)/.test(style),
+    "Logo images must be free of borders, backgrounds and shadows.");
+}
 assert(generator.includes("futsal-player-logo.webp")&&generator.includes("ImageOps.fit"),
   "Launcher and adaptive icon must derive from approved FUTSAL art.");
 assert(generator.includes("foreground.putalpha(whole_alpha)")&&generator.includes('(740,740)'),
@@ -38,4 +56,4 @@ for(const path of ["apps/mobile/assets/icon.png","apps/mobile/assets/adaptive-ic
  assert(bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),`Invalid PNG: ${path}`);
  assert(bytes.readUInt32BE(16)===1024&&bytes.readUInt32BE(20)===1024,`Logo must be 1024x1024: ${path}`);
 }
-console.log("Text-free Futsal player branding verified: source, launcher, adaptive icon, splash, title-only header, drawer, and auth.");
+console.log("Text-free Futsal branding verified: logo without frames/shadows in header, drawer and auth; 80% entry and splash scale.");
