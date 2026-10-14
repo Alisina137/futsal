@@ -3,6 +3,7 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import {
   competitionCreateRequestSchema,
+  competitionDiscoveryQuerySchema,
   competitionFeeUpdateRequestSchema,
   competitionInviteTeamRequestSchema,
   competitionMediaPostCreateRequestSchema,
@@ -18,6 +19,7 @@ import {
   competitionRewardsUpdateRequestSchema,
 } from "@leaguekick/contracts";
 import { requireAuth } from "../../middleware/auth.js";
+import {errors} from "../../lib/errors.js";
 import type { TokenService } from "../auth/token.service.js";
 import type { CompetitionService } from "./competition.service.js";
 
@@ -31,6 +33,22 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
     limit: 40,
     standardHeaders: "draft-8",
     legacyHeaders: false,
+  });
+
+  // Public discovery; private scopes must go through the authenticated endpoint.
+  router.get("/competitions/discover",async(request,response,next)=>{
+    try{
+      const filters=competitionDiscoveryQuerySchema.parse(request.query);
+      if(["mine","following","ongoingFollowedVenues"].includes(filters.scope))
+        throw errors.unauthorized();
+      response.json(await service.discoverPublic(filters));
+    }catch(error){next(error);}
+  });
+  router.get("/competitions/discover/private",auth,async(request,response,next)=>{
+    try{
+      const filters=competitionDiscoveryQuerySchema.parse(request.query);
+      response.json(await service.discoverPublic(filters,request.auth!.userId));
+    }catch(error){next(error);}
   });
 
   router.get("/competitions", async (_request, response, next) => {

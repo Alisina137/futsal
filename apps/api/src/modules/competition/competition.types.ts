@@ -1,5 +1,7 @@
 import type {
   CompetitionDto,
+  CompetitionDiscoveryQuery,
+  CompetitionDiscoveryResponse,
   CompetitionRewardDto,
   CompetitionFeeStatus,
   CompetitionFormat,
@@ -78,6 +80,7 @@ export interface CompetitionRepository {
   listPublicMatchPlayerStats(matchId:string):Promise<CompetitionPublicMatchPlayer[]>;
   listOwnerCompetitions(ownerUserId: string): Promise<CompetitionListItemDto[]>;
   listPublicCompetitions(): Promise<CompetitionListItemDto[]>;
+  discoverPublicCompetitions(filters:CompetitionDiscoveryQuery,userId?:string):Promise<CompetitionDiscoveryResponse>;
   listMyPublicCompetitions(userId:string): Promise<CompetitionListItemDto[]>;
   createCompetition(input: {
     venueId: string;

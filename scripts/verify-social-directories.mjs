@@ -30,12 +30,18 @@ ensure(team.includes('modeScope=mode==="popular"')&&
   teamRepository.includes('const sort=filters.scope==="popular"?"mostFollowed":filters.sort')&&
   teamRepository.includes('desc(followSort)'),
   "Most followed teams must rank server-counted followers without a local top-fifteen cutoff.");
-ensure(competition.includes('socialDirectoryDiscovery(token,"COMPETITION")')
-  &&competition.includes("marketingApi.followedVenues(token)")
-  &&competition.includes('status==="IN_PROGRESS"&&followedVenueIds.includes(x.venueId)')
-  &&competition.includes(".slice(0,10)"),"Ongoing competitions must be limited to ten running at followed venues.");
-ensure(competition.includes("x.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())")
-  &&competition.includes('testID="competition-name-search"'),"Competition search must filter by competition name only.");
+const competitionRepo=read("apps/api/src/modules/competition/competition.repository.ts");
+ensure(competition.includes('scope:"following" as const')&&
+  competition.includes("followed.slice(0,10)")&&
+  competition.includes("competitionApi.discover")&&
+  competitionRepo.includes('filters.scope==="ongoingFollowedVenues"')&&
+  competitionRepo.includes('eq(socialFollows.entityType,"VENUE")'),
+  "Ongoing competitions at followed venues must be scoped server-side and followed rail bounded.");
+ensure(competition.includes('testID="competition-name-search"')&&
+  competition.includes("setTimeout(()=>{timer.current=null;submit(value);},2000)")&&
+  competitionRepo.includes("ilike(competitions.name,literal)")&&
+  competitionRepo.includes("ilike(venues.name,literal)"),
+  "Competition name, venue and location search must run after two seconds via the server.");
 ensure(competition.includes('to:"/competitions/popular"')
   &&competition.includes("router.push(\"/competitions/ongoing\")")
   &&competition.includes("followed.slice(0,10)")&&competition.includes("router.push(\"/competitions/following\")"),
