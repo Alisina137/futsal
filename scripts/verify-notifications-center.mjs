@@ -29,7 +29,7 @@ assert(screen.includes('router.push("/teams/invitations")')
   &&screen.includes('pathname:"/competitions/[competitionId]"')
   &&screen.includes('pathname:"/posts/[postId]"')
   &&screen.includes('pathname:"/venues/[venueId]"')
-  &&screen.includes('router.push("/bookings")'),"Type-specific notification routes must be preserved.");
+  &&screen.includes('pathname:"/bookings"'),"Type-specific notification routes must be preserved.");
 assert(prefs.includes("notificationApi.preferences")&&prefs.includes("notificationApi.updatePreferences")
   &&prefs.includes("promotionsEnabled")&&prefs.includes("pushEnabled")&&prefs.includes("inAppEnabled"),
   "Preferences must be in a dedicated screen with persisted delivery and content toggles.");
