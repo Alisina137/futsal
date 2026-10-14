@@ -15,7 +15,8 @@ import type {
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { competitionApi, ownerApi, teamApi, manualTeamApi, refereeApi } from "../../../../../src/lib/api";
+import { competitionApi, ownerApi, teamApi, manualTeamApi, refereeApi,resolveMediaImageUrl,ApiRequestError } from "../../../../../src/lib/api";
+import {MediaImagePicker} from "../../../../../src/components/owner/media/MediaImagePicker";
 import {OwnerRefereeReports} from "../../../../../src/components/referee/OwnerRefereeReports";
 import { formatLocalDateTimeParts } from "../../../../../src/lib/date-time";
 import { CompetitionRewardsManager } from "../../../../../src/components/competition/CompetitionRewardsManager";
@@ -76,6 +77,8 @@ export default function ManageCompetitionScreen(){
   const [mediaBody,setMediaBody]=useState("");
   const [mediaImageUrl,setMediaImageUrl]=useState("");
 
+  const [brandLogo,setBrandLogo]=useState("");
+  const [brandCover,setBrandCover]=useState("");
   const [settingsName,setSettingsName]=useState("");
   const [settingsDescription,setSettingsDescription]=useState("");
   const [settingsFormat,setSettingsFormat]=useState<CompetitionFormat>("LEAGUE");
@@ -103,6 +106,8 @@ export default function ManageCompetitionScreen(){
   const [confirmImpact,setConfirmImpact]=useState(false);
 
   function syncSettings(next:CompetitionDto){
+    setBrandLogo(next.logoUrl??"");
+    setBrandCover(next.coverImageUrl??"");
     setSettingsName(next.name);
     setSettingsDescription(next.description??"");
     setSettingsFormat(next.format);
@@ -406,6 +411,20 @@ export default function ManageCompetitionScreen(){
     finally{setBusy(null);}
   }
 
+  async function saveBranding(){
+    if(!session||!competitionId||!competition)return;
+    setBusy("branding");setError(null);setMessage(null);
+    try{
+      const {competition:next}=await competitionApi.update(session.accessToken,competitionId,{
+        logoUrl:brandLogo||null,coverImageUrl:brandCover||null,
+      });
+      setCompetition(next);syncSettings(next);setMessage(t("competition.phase6.saved"));
+    }catch(error){
+      setError(error instanceof ApiRequestError&&error.code==="COMPETITION_BRAND_ASSET_DENIED"
+        ?t("competition.phase6.invalidAsset"):t("competition.phase6.saveError"));
+    }finally{setBusy(null);}
+  }
+
   async function saveSettings(){
     if(!session||!competitionId||!competition)return;
     const maxTeams=Number(settingsMaxTeams);
@@ -499,7 +518,12 @@ export default function ManageCompetitionScreen(){
     {competition?<>
       <Card style={styles.hero}>
         <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,alignItems:"flex-start"}}>
-          <View style={styles.heroIcon}><Ionicons name="trophy-outline" size={26} color={colors.primary}/></View>
+          <View style={[styles.heroIcon,{overflow:"hidden"}]}>
+            {resolveMediaImageUrl(competition.logoUrl)
+              ?<Image source={{uri:resolveMediaImageUrl(competition.logoUrl)!}}
+                style={{width:"100%",height:"100%"}} resizeMode="cover"/>:
+              <Ionicons name="trophy-outline" size={26} color={colors.primary}/>}
+          </View>
           <View style={{flex:1,gap:4,alignItems:isRTL?"flex-end":"flex-start"}}>
             <AppText variant="title" weight="bold" style={{color:"#FFFFFF"}}>{competition.name}</AppText>
             <AppText style={{color:"#DCE8FF"}}>
@@ -906,6 +930,20 @@ export default function ManageCompetitionScreen(){
       </>:null}
 
       {activeTab==="SETTINGS"?<>
+        {session?<Card style={{gap:spacing.md}} testID="competition-branding-editor">
+          <AppText variant="bodyLarge" weight="bold">{t("competition.phase6.title")}</AppText>
+          <AppText muted>{t("competition.phase6.description")}</AppText>
+          <MediaImagePicker accessToken={session.accessToken} purpose="PROFILE" variant="profile"
+            label={t("competition.phase6.logo")} value={brandLogo}
+            disabled={busy!==null} onChange={setBrandLogo}/>
+          <MediaImagePicker accessToken={session.accessToken} purpose="COVER" variant="cover"
+            label={t("competition.phase6.cover")} value={brandCover}
+            disabled={busy!==null} onChange={setBrandCover}/>
+          <AppText variant="caption" muted>{t("competition.phase6.fallback")}</AppText>
+          <Button label={t("competition.phase6.saveBranding")}
+            onPress={()=>void saveBranding()} loading={busy==="branding"}
+            disabled={busy!==null||(brandLogo===(competition.logoUrl??"")&&brandCover===(competition.coverImageUrl??""))}/>
+        </Card>:null}
         <Card style={{gap:spacing.md}}>
           <AppText variant="bodyLarge" weight="bold">{t("competition.control.settings")}</AppText>
           <TextField label={t("competition.name")} value={settingsName} onChangeText={setSettingsName}/>
