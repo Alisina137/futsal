@@ -38,6 +38,9 @@ export type BookingVenueRecord = {
   minimumBookingNoticeMinutes: number;
   maximumAdvanceBookingDays: number;
   cancellationPolicy: string;
+  amenities?:import("@leaguekick/contracts").VenueAmenity[];
+  houseRules?:string|null;
+  verificationStatus?:"PENDING"|"VERIFIED"|"REJECTED";
   status: "DRAFT" | "READY" | "ACTIVE" | "SUSPENDED";
   areas: BookingAreaRecord[];
   openingHours: VenueOpeningHourInput[];
@@ -158,6 +161,10 @@ export function toPublicVenueDto(venue: BookingVenueRecord): PublicVenueDto {
     minimumBookingNoticeMinutes: venue.minimumBookingNoticeMinutes,
     maximumAdvanceBookingDays: venue.maximumAdvanceBookingDays,
     cancellationPolicy: venue.cancellationPolicy,
+    verificationStatus:venue.verificationStatus??"PENDING",
+    amenities:venue.amenities??[],
+    houseRules:venue.houseRules??null,
+    openingHours:venue.openingHours,
     areas: venue.areas.filter((area) => area.active).map((area) => ({
       id: area.id,
       name: area.name,
