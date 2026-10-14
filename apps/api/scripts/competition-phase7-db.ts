@@ -24,7 +24,7 @@ const service=new CompetitionService(new DrizzleCompetitionRepository(db),now);
 const repository=new DrizzleCompetitionRepository(db);
 const stamp=randomUUID().replace(/-/g,"").slice(0,18);
 const insertUser=async(role:string)=>{
-  const name="qa7"+role.toLowerCase().replace(/[^a-z]/g,"").slice(0,5)+stamp.slice(0,9);
+  const name="qa7"+role.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,8)+stamp.slice(0,9);
   const row=await one("insert into users(display_name,username,username_normalized,email_normalized,email_verified_at,password_hash,preferred_language,status,city) values($1,$2,$2,$3,now(),'!CI_ONLY','en','ACTIVE','Kabul') returning id",[name,name,name+"@futsal.test"]);
   return row.id as string;
 };
