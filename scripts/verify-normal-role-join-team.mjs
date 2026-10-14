@@ -10,11 +10,12 @@ assert.equal(userIsNormal([]),true);
 for(const roles of [["PLAYER"],["VENUE_OWNER"],["TEAM_MANAGER"],["REFEREE"],["PLATFORM_ADMIN"]])
   assert.equal(userIsNormal(roles),false);
 for(const fragment of [
-  '(user?.roles.length??-1)===0?<>',
+  'const canRequestTeamJoin=emailVerified&&(user?.roles.length??-1)===0;',
+  'canRequestTeamJoin?<>',
   'testID="profile-join-team"',
   'testID="profile-join-team-action"',
   'onPress={()=>router.push("/teams")}',
-  'settings.joinTeamVerifyHint',
+  'profile.roleUnlockHint',
   'settings.joinTeamBody',
   'settings.joinTeamAction'
 ])assert.ok(screen.includes(fragment),"Missing Join Team UI invariant: "+fragment);
@@ -31,4 +32,4 @@ for(const suffix of ["joinTeam","joinTeamBody","joinTeamAction","joinTeamVerifyH
   const key='"settings.'+suffix+'"';
   assert.equal(translations.split(key).length-1,3,"Missing English/Dari/Pashto: "+key);
 }
-console.log("Normal User Join Team navigation verified: role-only CTA after Team Owner subscription, translated, existing team directory/request handling.");
+console.log("Verified basic-user Join Team navigation verified: zero-role CTA after paid subscriptions, hidden from unverified/assigned-role users; API enforces gate.");
