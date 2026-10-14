@@ -590,7 +590,7 @@ const styles=StyleSheet.create({
     borderColor:colors.border,backgroundColor:colors.surface},
   cover:{height:206,backgroundColor:"#153F91",alignItems:"center",
     justifyContent:"center",overflow:"hidden"},
-  coverShade:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(5,20,42,.24)"},
+  coverShade:{position:"absolute",top:0,bottom:0,left:0,right:0,backgroundColor:"rgba(5,20,42,.24)"},
   coverTop:{position:"absolute",top:spacing.sm,left:spacing.sm,right:spacing.sm,
     flexDirection:"row",alignItems:"center"},
   heroStatus:{backgroundColor:"rgba(9,28,58,.9)",paddingHorizontal:spacing.md,
