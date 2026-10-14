@@ -1,3 +1,12 @@
+## Notifications Center — Phase 3: Final polish and regression (October 14, 2026)
+
+- Finished English, Dari and Pashto localization for all 14 notification event labels; previously unlocalized team activity/challenge/announcement and platform announcements now show proper translated labels. Structured watched-slot messages use Kabul-local date and AM/PM time. New promotion notifications include a venue name for localization. User-authored announcements retain their authored wording.
+- Added Expo Go push-availability guidance within notification settings; Expo Go supports in-app notices but native remote push requires FCM/APNs/EAS setup and an installed native development/release build.
+- Notification action and foreground-refresh failures no longer hide already loaded cards; action errors appear inline, while more-action state is accessible.
+- Hardened inbox API read/delete to reject PUSH-only events and keep first-read timestamp immutable on repeated reads. Native push taps now use a strict allowlist of known app routes, rejecting external and malformed destinations.
+- Added trilingual localization test coverage, native route safety tests, service access/replay checks, `scripts/verify-notifications-phase3.mjs`, and root `pnpm verify:notifications-phase3`; physical Android/iOS and push-provider testing remains a separate release gate. No database migration.
+- See `docs/QA-NOTIFICATIONS-PHASE3.md` for per-role matrix, EAS/Expo Go limitations, network and RTL/device acceptance scenarios. The notification tab styling and filters were intentionally preserved.
+
 ## Notifications Phase 2 hotfix — inbox error isolation (2026-10-14)
 
 - Fixed a confirmed UI failure path in the Notifications tab: when loading an older page failed, the generic page error hid all previously loaded notification cards. The page now keeps those cards visible and provides a local retry for the failed page.

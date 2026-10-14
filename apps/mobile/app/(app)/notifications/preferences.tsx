@@ -1,9 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import Constants from "expo-constants";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {NotificationPreferences} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
 import {useCallback,useState} from "react";
-import {Pressable,StyleSheet,Switch,View} from "react-native";
+import {Platform,Pressable,StyleSheet,Switch,View} from "react-native";
 import {notificationApi} from "../../../src/lib/api";
 import {publishPushPreferenceChange} from "../../../src/lib/push-events";
 import {AppText} from "../../../src/components/ui/AppText";
@@ -115,6 +116,14 @@ export default function NotificationPreferencesScreen(){
       </View>
       {content.map(row)}
     </View>:null}
+    {!loading&&Platform.OS!=="web"&&Constants.appOwnership==="expo"?<Card style={styles.notice}>
+      <View style={[styles.info,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="information-circle-outline" color={colors.primary} size={22}/>
+        <AppText variant="caption" muted style={{flex:1}}>
+          {t("notifications.prefs.expoGoHint")}
+        </AppText>
+      </View>
+    </Card>:null}
     {!loading?<Card style={styles.notice}>
       <View style={[styles.info,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Ionicons name="information-circle-outline" color={colors.primary} size={22}/>
