@@ -26,7 +26,7 @@ check(components.includes('export const venueSubtabs')&&
   components.includes('media:["posts","photos","videos"]')&&
   components.includes('reserve:["slots","offers","bookings","saved"]')&&
   components.includes('competitions:["registration","upcoming","live","completed","matches"]')&&
-  components.includes('updates:["announcements","alerts"]')&&
+  components.includes('updates:["announcements","schedule","alerts"]')&&
   components.includes('about:["overview","facilities","hours","location","reviews","policies"]'),
   "Venue tab/subtab structure is incomplete.");
 for(const fragment of [
