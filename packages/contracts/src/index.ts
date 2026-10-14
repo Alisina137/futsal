@@ -1961,7 +1961,16 @@ function validateCompetitionConfig(
 export const competitionCreateRequestSchema = competitionConfigSchema.superRefine(validateCompetitionConfig);
 export type CompetitionCreateRequest = z.infer<typeof competitionCreateRequestSchema>;
 
-export const competitionUpdateRequestSchema = competitionConfigSchema.partial().superRefine(validateCompetitionConfig);
+/** Only permanent image assets uploaded to the host venue may be assigned as branding.
+ * Null removes the custom image. Arbitrary external URLs are not accepted. */
+export const competitionBrandImageRefSchema=z.string().regex(
+  /^\\/api\\/v1\\/media-assets\\/[0-9a-f-]{36}\\/[A-Za-z0-9_-]{32,64}$/,
+  "Upload an image through the organizer media picker.",
+);
+export const competitionUpdateRequestSchema = competitionConfigSchema.partial().extend({
+  logoUrl:competitionBrandImageRefSchema.nullable().optional(),
+  coverImageUrl:competitionBrandImageRefSchema.nullable().optional(),
+}).superRefine(validateCompetitionConfig);
 export type CompetitionUpdateRequest = z.infer<typeof competitionUpdateRequestSchema>;
 
 /** Announced prizes, not a claim that a winner has already received one. */
@@ -2172,6 +2181,8 @@ export const competitionDtoSchema = z.object({
   venueName: z.string(),
   name: z.string(),
   description: z.string().nullable(),
+  logoUrl: z.string().nullable(),
+  coverImageUrl: z.string().nullable(),
   format: competitionFormatSchema,
   status: competitionStatusSchema,
   published: z.boolean(),
