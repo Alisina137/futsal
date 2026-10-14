@@ -28,11 +28,15 @@ export class FakeBookingRepository implements BookingRepository {
       this.bookings.get(bookingId)?.playerUserId===userId&&
       this.reviews.get(bookingId)?.venueId===venueId);
   }
-  async listVerifiedReviews(venueId:string,limit:number){
+  async listVerifiedReviews(venueId:string,limit:number,page=1,
+    sort:import("@leaguekick/contracts").VenueReviewSort="recent"){
     const all=[...this.reviews.values()].filter(x=>x.venueId===venueId)
-      .sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+      .sort((a,b)=>sort==="highest"?b.rating-a.rating||b.createdAt.localeCompare(a.createdAt):
+        sort==="lowest"?a.rating-b.rating||b.createdAt.localeCompare(a.createdAt):
+        b.createdAt.localeCompare(a.createdAt));
     return {averageRating:all.length?all.reduce((n,x)=>n+x.rating,0)/all.length:0,
-      reviewCount:all.length,reviews:all.slice(0,limit)};
+      reviewCount:all.length,ratingCounts:[1,2,3,4,5].map(n=>all.filter(x=>x.rating===n).length),
+      page,hasMore:page*limit<all.length,reviews:all.slice((page-1)*limit,page*limit)};
   }
   async createVerifiedReview(input:{venueId:string;bookingId:string;userId:string;
     rating:number;body:string;createdAt:Date}){
