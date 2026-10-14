@@ -26,10 +26,32 @@ describe("Notification Phase 2 hotfix — scoped bulk operations",()=>{
     expect(repository.notifications.find(item=>item.id===pushOnly!.id)?.readAt).toBeNull();
     // Directly make the inaccessible PUSH-only record read to prove Clear read
     // only operates on records with an IN_APP delivery.
-    await repository.markRead(userId,pushOnly!.id,now);
+    const stored=repository.notifications.find(item=>item.id===pushOnly!.id)!;
+    stored.readAt=now.toISOString();
+    await expect(service.markRead(userId,pushOnly!.id)).rejects.toMatchObject({code:"NOTIFICATION_NOT_FOUND"});
+    await expect(service.deleteNotification(userId,pushOnly!.id)).rejects.toMatchObject({code:"NOTIFICATION_NOT_FOUND"});
     expect(await service.clearRead(userId)).toEqual({deleted:1,unreadCount:0});
     expect(repository.notifications.some(item=>item.id===pushOnly!.id)).toBe(true);
     expect((await service.list(otherId)).notifications).toHaveLength(1);
+  });
+});
+
+describe("Notifications Phase 3 — safe and idempotent access",()=>{
+  it("preserves the first read timestamp and does not mutate another account",async()=>{
+    const repository=new FakeNotificationRepository();
+    const now=new Date("2026-10-14T12:00:00.000Z");
+    const service=new NotificationService(repository,()=>now);
+    const own=randomUUID(),other=randomUUID(),bookingId=randomUUID();
+    await service.bookingCancelled({userId:own,bookingId,venueName:"Kabul"});
+    const item=(await service.list(own)).notifications[0]!;
+    await expect(service.markRead(other,item.id)).rejects.toMatchObject({code:"NOTIFICATION_NOT_FOUND"});
+    const first=await service.markRead(own,item.id);
+    expect(first.readAt).toBe(now.toISOString());
+    now.setTime(now.getTime()+60000);
+    const replay=await service.markRead(own,item.id);
+    expect(replay.readAt).toBe(first.readAt);
+    expect((await service.unreadCount(own)).unreadCount).toBe(0);
+    expect((await service.list(other)).total).toBe(0);
   });
 });
 
