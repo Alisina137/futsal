@@ -434,6 +434,8 @@ describe("Phase 2 owner onboarding API", () => {
       minimumBookingNoticeMinutes: 60,
       maximumAdvanceBookingDays: 21,
       cancellationPolicy: "Cancellation is allowed at least two hours before the booking.",
+      amenities:["LIGHTING","PARKING","TOILETS"],
+      houseRules:"Non-marking shoes are required on the court.",
     });
     expect(updated.status).toBe(200);
     expect(updated.body.settings.publicPhone).toBe("+93795556699");
@@ -447,6 +449,29 @@ describe("Phase 2 owner onboarding API", () => {
     expect(updated.body.settings.maximumAdvanceBookingDays).toBe(21);
     expect(updated.body.settings.name).toBe(completeSetup.venue.name);
     expect(updated.body.settings.address).toBe(completeSetup.venue.address);
+    expect(updated.body.settings.amenities).toEqual(["LIGHTING","PARKING","TOILETS"]);
+    expect(updated.body.settings.houseRules).toBe("Non-marking shoes are required on the court.");
+
+    // Older mobile clients that do not send the new optional fields must not erase them.
+    const oldClient=await request(app).patch("/api/v1/owner/settings").set(auth).send({
+      publicPhone:"0795556699",whatsappPhone:"0795556698",latitude:34.5553,
+      longitude:69.2075,courtName:"Main Court",defaultSessionDurationMinutes:120,
+      basePriceAfn:2500,bookingMode:"APPROVAL",onlineBookingEnabled:false,
+      minimumBookingNoticeMinutes:60,maximumAdvanceBookingDays:21,
+      cancellationPolicy:"Cancellation is allowed at least two hours before the booking.",
+    });
+    expect(oldClient.status).toBe(200);
+    expect(oldClient.body.settings.amenities).toEqual(["LIGHTING","PARKING","TOILETS"]);
+    expect(oldClient.body.settings.houseRules).toBe("Non-marking shoes are required on the court.");
+    const duplicate=await request(app).patch("/api/v1/owner/settings").set(auth).send({
+      publicPhone:"0795556699",whatsappPhone:"",latitude:null,longitude:null,
+      courtName:"Main Court",defaultSessionDurationMinutes:120,basePriceAfn:2500,
+      bookingMode:"INSTANT",onlineBookingEnabled:true,minimumBookingNoticeMinutes:0,
+      maximumAdvanceBookingDays:30,cancellationPolicy:"Cancellation is allowed before the booking.",
+      amenities:["PARKING","PARKING"],houseRules:"",
+    });
+    expect(duplicate.status).toBe(400);
+    expect(duplicate.body.error.code).toBe("VALIDATION_ERROR");
 
     await request(app).post("/api/v1/owner/trial/start").set(auth);
     const locked = await request(app).get("/api/v1/owner/settings").set(auth);
