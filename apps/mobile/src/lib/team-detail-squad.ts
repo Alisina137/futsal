@@ -24,8 +24,8 @@ export function teamSquadView(
       (member.shirtNumber!==null&&String(member.shirtNumber).includes(query))))
     .sort((a,b)=>{
       // Default: manager, captain, then players by jersey and display name.
-      const order=(item:TeamMemberDto)=>item.userId===managerUserId||item.role==="MANAGER"?0:
-        item.userId===captainUserId||item.role==="CAPTAIN"?1:2;
+      const order=(item:TeamMemberDto)=>item.userId===managerUserId?0:
+        item.userId===captainUserId?1:2;
       const rank=order(a)-order(b);
       if(rank)return rank;
       const shirt=(a.shirtNumber??100)-(b.shirtNumber??100);
