@@ -19,7 +19,7 @@ for(const token of [
  'chooseCompetitionSubtab(',
  'resolvedCompetitionSubtab(navigation,activeTab,availableSubtabs)',
  'allowedCompetitionSubtabs(activeTab,competition.format,',
- 'initialMatchFilter={tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL"}',
+ 'initialMatchFilter={extraMatchStatus??(tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL")}',
  ])assert.ok(page.includes(token),"Profile race/navigation guard missing: "+token);
 for(const token of ['"MEDIA","ABOUT"','mode="MEDIA"','competition-about-subtab',
  'competition-team-stats','competition-fairplay-stats','subtab==="KNOCKOUT"',
