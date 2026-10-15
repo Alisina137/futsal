@@ -51,8 +51,8 @@ must(rootRoute,['<Redirect href="/owner/overview"/>'],"root redirect");
 must(overviewRoute,['<OwnerDashboard/>'],"Overview route");
 must(overview,['<Screen embedded>','useFocusEffect','const generation=useRef(0)',
   'if(request!==generation.current)return;',
-  'const liveStatus=loadedToken===token?status:null;',
-  'testID="owner-phase1-overview"','<OwnerPendingBookings token={token} compact/>',
+  'const current=loaded?.token===token?loaded:null;',
+  'testID="owner-phase1-overview"','ownerApi.pendingBookings(token)',
   'testID={`owner-phase1-shortcut-${item.key}`}',
   '/owner/bookings','/owner/schedule','/owner/competitions','/owner/analytics',
   'owner.phase1.quickAccess'],
