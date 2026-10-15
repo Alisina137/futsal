@@ -47,7 +47,7 @@ export function venueMatchFitsFilters(
 
 /** Neutral for draws, unknown scores, or matches without an official final. */
 export function venueMatchResultEmphasis(
-  status:VenueMatchItem["status"],home:number|null,away:number|null,
+  status:string,home:number|null,away:number|null,
 ):{home:"winner"|"loser"|"neutral";away:"winner"|"loser"|"neutral"}{
   if((status!=="COMPLETED"&&status!=="CORRECTED")||home===null||away===null||home===away)
     return {home:"neutral",away:"neutral"};

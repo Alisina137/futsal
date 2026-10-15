@@ -6,13 +6,16 @@ import {useCallback,useEffect,useRef,useState} from "react";
 import {Image,Linking,Modal,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions} from "react-native";
 import {marketingApi,resolveMediaImageUrl,teamApi,teamManagerApi,teamPublicApi,
   type TeamManagerProfileDetails,type TeamPublicHighlights} from "../../lib/api";
-import {formatCompetitionDateTime} from "../../lib/date-time";
+import {formatCompetitionDateTime,AFGHANISTAN_TIME_ZONE} from "../../lib/date-time";
 import {teamRecentForm,teamPlayerLeaders,safeTeamWinRate,teamResultBreakdown,
   type TeamPlayerStatMetric} from "../../lib/team-detail-stats";
 import {teamCompetitionRows,teamCompetitionAvailableFormats,teamCompetitionAvailableStatuses,
   teamCompetitionFixturePreview,type TeamCompetitionFilters} from "../../lib/team-detail-competitions";
-import {finished,teamMatchOutcome,teamMatchRows,teamMatchCompetitions,
-  type TeamMatchFilter} from "../../lib/team-detail-matches";
+import {teamMatchRows,type TeamMatchFilter,type TeamMatchPhase} from "../../lib/team-detail-matches";
+import {teamMatchSelectFacets,teamMatchSelectRows} from "../../lib/team-detail-match-facets";
+import {emptyVenueMatchFilters,type VenueMatchFilters} from "../../lib/venue-match-filters";
+import {VenueMatchSelect} from "../venues/VenueMatchSelect";
+import {TeamMatchCard} from "../venues/VenueMatchCard";
 import {teamDetailJoinAction,displayTeamFollowerCount,publicTeamTelephoneUrl} from
   "../../lib/team-detail-actions";
 import {teamAboutMembershipState,teamAboutLocation,teamAboutFoundedDate,
@@ -298,7 +301,9 @@ export default function TeamDetailExperience(){
     active:TeamCompetitionFilters;past:TeamCompetitionFilters;
   }>({active:{format:"all",status:"all"},past:{format:"all",status:"all"}});
   const [matchFilters,setMatchFilters]=useState<{upcoming:TeamMatchFilter;results:TeamMatchFilter}>({upcoming:"all",results:"all"});
-  const [matchCompetitions,setMatchCompetitions]=useState<{upcoming:string;results:string}>({upcoming:"all",results:"all"});
+  const [matchSelectFilters,setMatchSelectFilters]=useState<Record<TeamMatchPhase,VenueMatchFilters>>({
+    upcoming:{...emptyVenueMatchFilters},results:{...emptyVenueMatchFilters},
+  });
   // Only public roster identities are eligible for /players/[playerId] links.
   const [publicPlayerIds,setPublicPlayerIds]=useState<string[]>([]);
   const [squadQuery,setSquadQuery]=useState("");
@@ -346,7 +351,8 @@ export default function TeamDetailExperience(){
     loadGeneration.current++;postsGeneration.current++;
     followActionSequence.current++;joinActionSequence.current++;
     setTeam(null);setProfile(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
-    setMatchFilters({upcoming:"all",results:"all"});setMatchCompetitions({upcoming:"all",results:"all"});
+    setMatchFilters({upcoming:"all",results:"all"});
+    setMatchSelectFilters({upcoming:{...emptyVenueMatchFilters},results:{...emptyVenueMatchFilters}});
     setStatMetric("goals");
     setCompetitionFilters({active:{format:"all",status:"all"},past:{format:"all",status:"all"}});
     setPublicPlayerIds([]);setSquadQuery("");setSquadPosition("ALL");
@@ -681,15 +687,24 @@ export default function TeamDetailExperience(){
   }
   function matchesContent(data:TeamPublicHighlights){
     const phase=subs.matches;
-    const selected=matchFilters[phase],competition=matchCompetitions[phase];
+    const selected=matchFilters[phase],faceted=matchSelectFilters[phase];
     const all=teamMatchRows(data.matches,id,phase);
-    const rows=teamMatchRows(data.matches,id,phase,selected,competition);
-    const cups=teamMatchCompetitions(data.matches,id,phase);
+    const rows=teamMatchSelectRows(data.matches,id,phase,faceted,AFGHANISTAN_TIME_ZONE,selected);
+    const options=teamMatchSelectFacets(data.matches,id,phase,AFGHANISTAN_TIME_ZONE);
     const filters:TeamMatchFilter[]=phase==="results"?
       ["all","win","draw","loss"]:["all","live","scheduled","postponed"];
     const label=(filter:TeamMatchFilter)=>tx(({all:"matchAll",live:"matchLive",
       scheduled:"matchScheduled",postponed:"matchPostponed",win:"matchWin",
       draw:"matchDraw",loss:"matchLoss"} as const)[filter]);
+    const setSelect=(key:keyof VenueMatchFilters,value:string)=>
+      setMatchSelectFilters(current=>({...current,[phase]:{...current[phase],[key]:value}}));
+    const formatMonth=(month:number)=>new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
+      calendar:"gregory",timeZone:"UTC",month:"long",
+    }).format(new Date(Date.UTC(2024,month-1,1)));
+    const statusLabel=(m:TeamPublicHighlights["matches"][number])=>
+      m.status==="COMPLETED"||m.status==="CORRECTED"?tx("resultsVerified"):
+        m.status==="IN_PROGRESS"?tx("live"):
+        m.status==="POSTPONED"?tx("postponed"):tx("scheduled");
     return <View testID="team-match-list" style={{gap:spacing.md}}>
       <Card style={{gap:spacing.sm}}>
         <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
@@ -699,7 +714,7 @@ export default function TeamDetailExperience(){
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
           {filters.map(value=><Pressable key={value} testID={"team-match-status-"+value}
-            accessibilityRole="button" accessibilityLabel={label(value)}
+            accessibilityRole="tab" accessibilityLabel={label(value)}
             accessibilityState={{selected:selected===value}}
             onPress={()=>setMatchFilters(current=>({...current,[phase]:value}))}
             style={[styles.squadFilter,selected===value&&styles.squadFilterActive]}>
@@ -707,77 +722,58 @@ export default function TeamDetailExperience(){
               style={{color:selected===value?"#FFFFFF":colors.primary}}>{label(value)}</AppText>
           </Pressable>)}
         </ScrollView>
-        {cups.length>1?<View style={{gap:spacing.xs}}>
-          <AppText variant="caption" muted>{tx("matchCup")}</AppText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}
-            style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
-            {[{id:"all",name:tx("matchAll")},...cups].map(cup=><Pressable key={cup.id}
-              testID={"team-match-competition-"+cup.id}
-              accessibilityRole="button" accessibilityLabel={cup.name}
-              accessibilityState={{selected:competition===cup.id}}
-              onPress={()=>setMatchCompetitions(current=>({...current,[phase]:cup.id}))}
-              style={[styles.squadFilter,competition===cup.id&&styles.squadFilterActive]}>
-              <AppText variant="caption" weight="semibold" numberOfLines={1}
-                style={{color:competition===cup.id?"#FFFFFF":colors.primary}}>{cup.name}</AppText>
-            </Pressable>)}
-          </ScrollView>
-        </View>:null}
       </Card>
+      {/* Reuse the Venue > Competitions > Matches five-select design. On mobile
+          all five remain in one scrollable row; Team means the opponent. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        testID="team-match-filter-rail" style={{flexGrow:0}}
+        contentContainerStyle={[styles.squadFilters,rowDirection,{gap:spacing.sm}]}>
+        <VenueMatchSelect testID="team-match-filter-competition" icon="trophy-outline"
+          label={t("vd4.matchesFilter.competition")} value={faceted.competitionId}
+          allLabel={t("vd4.matchesFilter.all")}
+          options={options.competitions.map(item=>({value:item.id,label:item.name}))}
+          onSelect={value=>setSelect("competitionId",value)}/>
+        <VenueMatchSelect testID="team-match-filter-team" icon="shirt-outline"
+          label={t("vd4.matchesFilter.team")} value={faceted.teamId}
+          allLabel={t("vd4.matchesFilter.all")}
+          options={options.teams.map(item=>({value:item.id,label:item.name}))}
+          onSelect={value=>setSelect("teamId",value)}/>
+        <VenueMatchSelect testID="team-match-filter-year" icon="calendar-outline"
+          label={t("vd4.matchesFilter.year")} value={faceted.year}
+          allLabel={t("vd4.matchesFilter.all")}
+          options={options.years.map(year=>({value:String(year),label:String(year)}))}
+          onSelect={value=>setSelect("year",value)}/>
+        <VenueMatchSelect testID="team-match-filter-month" icon="calendar-number-outline"
+          label={t("vd4.matchesFilter.month")} value={faceted.month}
+          allLabel={t("vd4.matchesFilter.all")}
+          options={options.months.map(month=>({value:String(month),label:formatMonth(month)}))}
+          onSelect={value=>setSelect("month",value)}/>
+        <VenueMatchSelect testID="team-match-filter-week" icon="calendar-clear-outline"
+          label={t("vd4.matchesFilter.week")} value={faceted.week}
+          allLabel={t("vd4.matchesFilter.all")}
+          options={options.weeks.map(week=>({value:String(week),
+            label:t("vd4.matchesFilter.weekNumber",{number:week})}))}
+          onSelect={value=>setSelect("week",value)}/>
+      </ScrollView>
+      <View style={[styles.horizontal,rowDirection,{alignItems:"center"}]}>
+        <AppText variant="caption" muted style={{flex:1}}>
+          {t("vd4.matchesFilter.count",{shown:rows.length,total:all.length})}
+        </AppText>
+        {Object.values(faceted).some(Boolean)?<Button
+          variant="secondary" label={t("vd4.matchesFilter.clear")}
+          onPress={()=>setMatchSelectFilters(current=>({
+            ...current,[phase]:{...emptyVenueMatchFilters},
+          }))}/>:null}
+      </View>
       {!rows.length?empty(tx(all.length?"matchNoFilter":"noGames"),"football-outline"):
-        rows.map(m=>{
-          const result=teamMatchOutcome(m,id);
-          const statusLabel=finished(m)?"resultsVerified":m.status==="IN_PROGRESS"?"live":
-            m.status==="POSTPONED"?"postponed":"scheduled";
-          return <Card key={m.id} style={styles.fixture}>
-            <View style={[styles.fixtureHeading,rowDirection]}>
-              <Pressable accessibilityRole="button" style={{flex:1,gap:3}}
-                accessibilityLabel={tx("matchOpenCompetition")+": "+m.competitionName}
-                onPress={()=>router.push({pathname:"/competitions/[competitionId]",
-                  params:{competitionId:m.competitionId}})}>
-                <AppText weight="semibold" numberOfLines={2}>{m.competitionName}</AppText>
-                <AppText variant="caption" muted>{m.stage}</AppText>
-              </Pressable>
-              <View style={[styles.fixtureStatus,{backgroundColor:finished(m)?"#DCFCE7":
-                m.status==="IN_PROGRESS"?"#DBEAFE":"#FEF3C7"}]}>
-                <AppText variant="caption" weight="bold" style={{color:finished(m)?"#166534":
-                  m.status==="IN_PROGRESS"?"#1D4ED8":"#92400E"}}>
-                  {tx(statusLabel)}
-                </AppText>
-              </View>
-            </View>
-            <View style={[styles.scoreRow,rowDirection]}>
-              <AppText weight="semibold" numberOfLines={2} style={{flex:1,textAlign:"center"}}>
-                {m.homeTeamId===id?team?.name:m.homeTeamName||"—"}
-              </AppText>
-              <View style={styles.scoreBadge}>
-                <AppText weight="bold" style={{color:colors.primary}}>
-                  {finished(m)&&m.homeScore!==null&&m.awayScore!==null?
-                    `${m.homeScore} : ${m.awayScore}`:tx("versus")}
-                </AppText>
-              </View>
-              <AppText weight="semibold" numberOfLines={2} style={{flex:1,textAlign:"center"}}>
-                {m.awayTeamId===id?team?.name:m.awayTeamName||"—"}
-              </AppText>
-            </View>
-            {result?<View style={[styles.fixtureStatus,{alignSelf:"center",
-              backgroundColor:result==="win"?"#DCFCE7":result==="loss"?"#FEE2E2":"#F1F5F9"}]}>
-              <AppText variant="caption" weight="semibold" style={{color:result==="win"?"#166534":
-                result==="loss"?"#991B1B":colors.textMuted}}>
-                {label(result)}
-              </AppText>
-            </View>:finished(m)?<AppText variant="caption" muted
-              style={{textAlign:"center"}}>{tx("matchUnknownScore")}</AppText>:null}
-            <View style={[styles.fixtureDate,rowDirection]}>
-              <Ionicons name="calendar-outline" size={17} color={colors.textMuted}/>
-              <AppText variant="caption" muted style={{flex:1}}>
-                {m.startsAt?formatCompetitionDateTime(m.startsAt,language):tx("datePending")}
-              </AppText>
-            </View>
-            <Button label={tx("viewMatch")} variant="secondary"
-              onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
-                params:{competitionId:m.competitionId,matchId:m.id}})}/>
-          </Card>;
-        })}
+        rows.map(m=><TeamMatchCard key={m.id} scope={phase}
+          timeZone={AFGHANISTAN_TIME_ZONE} statusLabel={statusLabel(m)}
+          missingScoreLabel={tx("matchUnknownScore")}
+          match={{...m,
+            homeTeamName:m.homeTeamId===id?team?.name??m.homeTeamName:m.homeTeamName,
+            awayTeamName:m.awayTeamId===id?team?.name??m.awayTeamName:m.awayTeamName,
+          }}/>)}
+      <AppText variant="caption" muted>{tx("statsSnapshot")}</AppText>
     </View>;
   }
   function competitionsContent(data:TeamPublicHighlights){

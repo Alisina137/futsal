@@ -279,12 +279,18 @@ export class TeamManagerPhase3Service{
     ]);
     const opponents=[...new Set(matches.flatMap(m=>[m.homeTeamId,m.awayTeamId])
       .filter((id):id is string=>!!id&&id!==teamId))];
-    const opponentRows=opponents.length?await this.db.select({id:teams.id,name:teams.name})
-      .from(teams).where(inArray(teams.id,opponents)):[];
-    const opponentNames=new Map(opponentRows.map(row=>[row.id,row.name]));
+    // Public team name/logo come from active team rows only; no private
+    // membership details are included in the fixture response.
+    const matchTeamIds=[...new Set([...opponents,teamId])];
+    const matchTeamRows=await this.db.select({
+      id:teams.id,name:teams.name,logoUrl:teams.logoUrl,
+    }).from(teams).where(and(inArray(teams.id,matchTeamIds),eq(teams.status,"ACTIVE")));
+    const matchTeams=new Map(matchTeamRows.map(row=>[row.id,row]));
     const publicMatches=matches.map(m=>({...m,
-      homeTeamName:m.homeTeamId===teamId?"":opponentNames.get(m.homeTeamId??"")??"",
-      awayTeamName:m.awayTeamId===teamId?"":opponentNames.get(m.awayTeamId??"")??"",
+      homeTeamName:matchTeams.get(m.homeTeamId??"")?.name??"",
+      awayTeamName:matchTeams.get(m.awayTeamId??"")?.name??"",
+      homeLogoUrl:matchTeams.get(m.homeTeamId??"")?.logoUrl??null,
+      awayLogoUrl:matchTeams.get(m.awayTeamId??"")?.logoUrl??null,
       startsAt:m.startsAt?.toISOString()??null}));
     return {
       posts:posts.map(p=>({...p,publishedAt:p.publishedAt.toISOString()})),

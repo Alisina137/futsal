@@ -8,6 +8,7 @@ const server=read("apps/api/src/modules/team/team-manager-phase1.routes.ts");
 const client=read("apps/mobile/src/lib/api.ts");
 const manager=read("apps/mobile/src/components/team-manager/TeamManagerDashboard.tsx");
 const publicTeam=read("apps/mobile/src/components/social/TeamDetailExperience.tsx");
+const fixtureCard=read("apps/mobile/src/components/venues/VenueMatchCard.tsx");
 const locales=read("packages/localization/src/index.ts");
 const checks=[
   [schema.includes('coverImageUrl:text("cover_image_url")')&&
@@ -32,10 +33,12 @@ const checks=[
     publicTeam.includes('bigScreen&&styles.rosterItemWide')&&
     publicTeam.includes('player.shirtNumber')&&
     publicTeam.includes('team.privacy==="PUBLIC"||member'),"responsive roster without private-player information disclosure"],
-  [publicTeam.includes("fixtureStatus")&&
-    publicTeam.includes("finished(m)")&&
-    publicTeam.includes('formatCompetitionDateTime(m.startsAt,language)')&&
-    publicTeam.includes("router.push({pathname:\"/competitions/[competitionId]/matches/[matchId]\""),"genuine verified game scores, match status and links"],
+  [publicTeam.includes("rows.map(m=><TeamMatchCard")&&
+    publicTeam.includes('statusLabel={statusLabel(m)}')&&
+    fixtureCard.includes("venueMatchResultEmphasis(match.status,match.homeScore,match.awayScore)")&&
+    fixtureCard.includes("formatLocalDateTimeParts(match.startsAt,language,timeZone)")&&
+    fixtureCard.includes('pathname:"/competitions/[competitionId]/matches/[matchId]"'),
+    "genuine verified game scores, match status and links"],
   [publicTeam.includes("performanceTrack")&&publicTeam.includes("s.winRate")&&
     publicTeam.includes('s.played>0?')&&publicTeam.includes("last=data.matches.filter"),"only data-backed match stats and last-5 form"],
   [publicTeam.includes('accessibilityState={{selected:tab===item.id}}')&&
