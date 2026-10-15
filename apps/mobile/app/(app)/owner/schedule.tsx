@@ -117,6 +117,8 @@ export default function OwnerScheduleScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
+  const activeToken=useRef(token);
+  activeToken.current=token;
   const initialDate=typeof params.date==="string"&&validOwnerScheduleDate(params.date)?params.date:todayKabul();
   const [view,setView]=useState<TimetableCalendarView>(typeof params.date==="string"?"DAY":"WEEK");
   const [anchorDate,setAnchorDate]=useState(initialDate);
@@ -222,7 +224,7 @@ export default function OwnerScheduleScreen(){
     setLoading(false);
     setSelectedAreaId(null);
     setSelectedType("ALL");
-    setSelectedSlot(null);setPendingAction(null);
+    setSelectedSlot(null);setPendingAction(null);setBusy(null);
     setLoadedSelection(null);
     if(!token){setCalendar(null);setLoadedToken(null);setAreas([]);setAreasToken(null);return;}
     let live=true;
@@ -254,26 +256,44 @@ export default function OwnerScheduleScreen(){
 
   async function confirmBooking(id:string){
     if(!token)return;
+    const actorToken=token;
     setBusy(`event-${id}`);
-    try{await ownerApi.confirmBooking(token,id);await loadCalendar();}
-    catch{setError(t("schedule.approveError"));}
-    finally{setBusy(null);}
+    try{
+      await ownerApi.confirmBooking(token,id);
+      if(activeToken.current===actorToken)await loadCalendar();
+    }catch{
+      if(activeToken.current===actorToken)setError(t("schedule.approveError"));
+    }finally{
+      if(activeToken.current===actorToken)setBusy(null);
+    }
   }
 
   async function cancelBooking(id:string){
     if(!token)return;
+    const actorToken=token;
     setBusy(`event-${id}`);
-    try{await ownerApi.cancelBooking(token,id);await loadCalendar();}
-    catch{setError(t("schedule.cancelError"));}
-    finally{setBusy(null);}
+    try{
+      await ownerApi.cancelBooking(token,id);
+      if(activeToken.current===actorToken)await loadCalendar();
+    }catch{
+      if(activeToken.current===actorToken)setError(t("schedule.cancelError"));
+    }finally{
+      if(activeToken.current===actorToken)setBusy(null);
+    }
   }
 
   async function unblock(id:string){
     if(!token)return;
+    const actorToken=token;
     setBusy(`event-${id}`);
-    try{await ownerApi.deleteBlock(token,id);await loadCalendar();}
-    catch{setError(t("schedule.unblockError"));}
-    finally{setBusy(null);}
+    try{
+      await ownerApi.deleteBlock(token,id);
+      if(activeToken.current===actorToken)await loadCalendar();
+    }catch{
+      if(activeToken.current===actorToken)setError(t("schedule.unblockError"));
+    }finally{
+      if(activeToken.current===actorToken)setBusy(null);
+    }
   }
 
   if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={560}/></Screen>;
