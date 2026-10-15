@@ -52,6 +52,21 @@ describe("Teams Phase 5 public player leaderboard privacy",()=>{
     expect(stats.map(x=>x.userId)).toEqual(["a","b"]);
     expect(stats[0]).toMatchObject({goals:4,assists:2,appearances:2});
   });
+  it("includes the strongest verified assist/appearance leaders even outside goals top 20",()=>{
+    const goals=Array.from({length:25},(_,index)=>
+      visible("scorer"+index,"Scorer "+index,100-index,0));
+    const specialist=visible("specialist","Pass specialist",0,50);
+    const veteran={...visible("veteran","Veteran",0,0),appeared:true};
+    const rows=[...goals,specialist,
+      ...Array.from({length:55},()=>veteran),
+      {...visible("secret","Hidden",300,300),visibility:"PRIVATE"}];
+    const stats=aggregatePublicPlayerStats(rows);
+    expect(stats.length).toBeLessThanOrEqual(60);
+    expect(stats.some(item=>item.userId==="specialist"&&item.assists===50)).toBe(true);
+    expect(stats.some(item=>item.userId==="veteran"&&item.appearances===55)).toBe(true);
+    expect(stats.some(item=>item.userId==="secret")).toBe(false);
+    expect(stats[0]?.goals).toBe(100);
+  });
   it("returns an empty leader list without verified rows",()=>{
     expect(aggregatePublicPlayerStats([visible("a","Alex",5,0,"SCHEDULED")])).toEqual([]);
   });
