@@ -44,7 +44,7 @@ export default function OwnerAnalyticsScreen() {
   const [section,setSection]=useState<SectionKey>("OVERVIEW");
   const token=session?.accessToken;
   const [snapshot,setSnapshot] = useState<{token:string;value:OwnerAnalyticsResponse}|null>(null);
-  const data=snapshot?.token===token?snapshot.value:null;
+  const data=snapshot&&snapshot.token===token?snapshot.value:null;
   const appliedRange=useRef(presetDates("30D"));
   const generation=useRef(0);
   const [loading, setLoading] = useState(true);
