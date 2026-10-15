@@ -548,12 +548,13 @@ export class CompetitionService {
     return { posts: await this.repository.listCompetitionMedia(competitionId, true) };
   }
 
-  async listPublicMedia(competitionId: string) {
+  async listPublicMedia(competitionId: string, options?:{page:number;limit:number;kind:"all"|"photos";sort:"newest"|"oldest"}) {
     const competition = await this.repository.getCompetitionRecord(competitionId);
     if (!competition || !competition.published || competition.status === "DRAFT") {
       throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
     }
-    return { posts: await this.repository.listCompetitionMedia(competitionId, false) };
+    return options ? this.repository.listPublicCompetitionMediaPage(competitionId,options) :
+      { posts: await this.repository.listCompetitionMedia(competitionId, false) };
   }
 
   async createMediaPost(
