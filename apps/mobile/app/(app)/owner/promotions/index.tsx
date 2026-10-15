@@ -36,7 +36,7 @@ export default function OwnerPromotionsScreen(){
   const requestId=useRef(0);
   const activeToken=useRef(token);
   activeToken.current=token;
-  const writing=useRef(false);
+  const writing=useRef<string|null>(null);
   const safeItems=loadedToken===token?items:[];
 
   const load=useCallback(async()=>{
@@ -66,8 +66,8 @@ export default function OwnerPromotionsScreen(){
   const counts=ownerPromotionCounts(safeItems,now);
   async function close(){
     const promotion=confirm;
-    if(!token||!promotion||writing.current)return;
-    writing.current=true;setBusyToken(token);setError(null);
+    if(!token||!promotion||writing.current===token)return;
+    writing.current=token;setBusyToken(token);setError(null);
     const actorToken=token;
     try{
       await ownerApi.closePromotion(actorToken,promotion.id);
@@ -76,7 +76,10 @@ export default function OwnerPromotionsScreen(){
       await load();
     }catch{
       if(actorToken===activeToken.current)setError(t("ownerMarketing.closePromotionError"));
-    }finally{writing.current=false;setBusyToken(current=>current===actorToken?null:current);}
+    }finally{
+      if(writing.current===actorToken)writing.current=null;
+      setBusyToken(current=>current===actorToken?null:current);
+    }
   }
 
   if(loading&&loadedToken!==token)return <Screen embedded>
