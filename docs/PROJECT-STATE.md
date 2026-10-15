@@ -1,3 +1,8 @@
+## Competition Detail — Phase 6: verified statistics and recorded fair play (2026-10-15)
+- Expanded existing Statistics → Teams with finalized match-only played/W-D-L, for/against and goal-difference numbers, stable ranking and safe online-team profile actions. Official standings remain the authority for tournament positions and tie-breaks. Pending, live, unscored, self-team and non-accepted-team results are excluded from aggregates.
+- Preserved seven verified player leaderboard categories and existing server-side public identity gates and player links. Fair Play lists accepted teams by recorded yellow/red totals, including zero-record teams with a clear missing-data caution; no claim of official fair-play award or disciplinary points.
+- Added English/Dari/Pashto copy, RTL layouts, pure automated statistical regressions and `pnpm verify:competition-detail-phase6` to root verification. No new schema, endpoint or dependency. Native and real-database QA remain outstanding in `docs/COMPETITION-DETAIL-PHASE6.md`.
+
 ## Venue Detail — Phase 7: cross-tab regression, stale-request safety and release QA (October 14, 2026)
 
 - Audited the live public Venue Detail implementation (all **5 main tabs and 21 subtabs**, user shortcuts, deep links, privacy, owner vs player vs guest states, RTL/localization and server-owned booking rules). Preserved the Phase 1–6 feature set unchanged except for targeted fixes below.
