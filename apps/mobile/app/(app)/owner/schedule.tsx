@@ -208,6 +208,8 @@ export default function OwnerScheduleScreen(){
 
   useEffect(()=>{
     setLoading(false);
+    setSelectedAreaId(null);
+    setSelectedType("ALL");
     if(!token){setCalendar(null);setLoadedToken(null);setAreas([]);setAreasToken(null);return;}
     let live=true;
     void ownerApi.getStatus(token).then(result=>{
