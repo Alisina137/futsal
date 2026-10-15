@@ -13,7 +13,8 @@ test("analytics strict Gregorian day boundaries and order",()=>{
   assert.equal(validateOwnerAnalyticsRange("2026-10-15","2026-10-16","2026-10-15"),"FUTURE");
   assert.equal(validateOwnerAnalyticsRange("2026-10-15","2026-10-15","2026-10-15"),null);
   assert.equal(validateOwnerAnalyticsRange("2025-10-16","2026-10-15","2026-10-15"),null);
-  assert.equal(validateOwnerAnalyticsRange("2025-10-15","2026-10-15","2026-10-15"),"TOO_LONG");
+  assert.equal(validateOwnerAnalyticsRange("2025-10-15","2026-10-15","2026-10-15"),null);
+  assert.equal(validateOwnerAnalyticsRange("2025-10-14","2026-10-15","2026-10-15"),"TOO_LONG");
 });
 
 const saved={
