@@ -85,6 +85,15 @@ export type CreateBookingRecordInput = {
 
 export type VenueDiscoveryRecord = Pick<BookingVenueRecord, "id"|"name"|"province"|"city"|"address"|"status"|"subscription">;
 
+export type OwnerBookingDirectoryFilters={
+  scope:"UPCOMING"|"ALL"|"HISTORY";
+  status?:BookingStatus;source?:BookingSource;q:string;
+  from?:Date;toExclusive?:Date;now:Date;page:number;pageSize:number;
+};
+export type OwnerBookingDirectoryPage={
+  bookings:BookingDto[];page:number;pageSize:number;total:number;hasMore:boolean;
+};
+
 export interface BookingRepository {
   /** Private review ownership, used only by the authenticated player. */
   listReviewedBookingIds(userId:string,venueId:string):Promise<string[]>;
@@ -134,6 +143,7 @@ export interface BookingRepository {
   getBookingByIdempotency(createdByUserId: string, idempotencyKey: string): Promise<BookingDto | null>;
   listPlayerBookings(playerUserId: string): Promise<BookingDto[]>;
   listVenueBookings(venueId: string, startsAt: Date, endsAt: Date): Promise<BookingDto[]>;
+  listOwnerBookingDirectory(venueId:string,filters:OwnerBookingDirectoryFilters):Promise<OwnerBookingDirectoryPage>;
   /** Approval inbox: includes pending requests across all dates, not just
    * the owner calendar's currently selected day/week/month. */
   listPendingOnlineVenueBookings(venueId: string): Promise<BookingDto[]>;
