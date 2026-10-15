@@ -5,6 +5,7 @@ const server=read("apps/api/src/modules/team/team-manager-phase3.routes.ts");
 const tests=read("apps/api/test/team-manager-phase3.test.ts");
 const client=read("apps/mobile/src/lib/api.ts");
 const profile=read("apps/mobile/src/components/social/TeamDetailExperience.tsx");
+const teamNavigation=read("apps/mobile/src/lib/team-detail-navigation.ts");
 const manager=read("apps/mobile/src/components/team-manager/TeamGrowthPanel.tsx");
 const locale=read("packages/localization/src/index.ts");
 for(const [ok,label] of [
@@ -26,7 +27,7 @@ for(const [ok,label] of [
   [tests.includes("Teams Phase 5 public player leaderboard privacy"),"regression tests"],
   [client.includes("posts:(teamId:string,offset:number,limit=20)")&&
     client.includes("players:Array<{userId:string;displayName:string;appearances:number;goals:number;assists:number}>"),"typed public media + stats"],
-  [profile.includes('stats:["overview","form","topPlayers"]')&&
+  [teamNavigation.includes('stats:["overview","form","topPlayers"]')&&
     profile.includes('testID="team-verified-player-leaders"'),"three statistics subtabs"],
   [profile.includes("async function loadMorePosts()")&&
     profile.includes("postsGeneration.current")&&
