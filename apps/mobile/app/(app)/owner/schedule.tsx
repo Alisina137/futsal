@@ -29,6 +29,7 @@ import { softenSlotColor } from "../../../src/lib/slot-color";
 import { formatSlotStartTime,formatSlotTilePrice } from "../../../src/lib/slot-display";
 import {formatClock12From24Hour} from "../../../src/lib/clock-display";
 import {ownerCalendarClock,missingWeekCellKind} from "../../../src/lib/owner-week-grid";
+import {filteredOwnerCalendarDays,validOwnerScheduleDate} from "../../../src/lib/owner-schedule-management";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -116,10 +117,15 @@ export default function OwnerScheduleScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
-  const initialDate=typeof params.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(params.date)?params.date:todayKabul();
+  const initialDate=typeof params.date==="string"&&validOwnerScheduleDate(params.date)?params.date:todayKabul();
   const [view,setView]=useState<TimetableCalendarView>(typeof params.date==="string"?"DAY":"WEEK");
   const [anchorDate,setAnchorDate]=useState(initialDate);
   const [calendar,setCalendar]=useState<Awaited<ReturnType<typeof ownerApi.timetableCalendar>>|null>(null);
+  const [loadedToken,setLoadedToken]=useState<string|null>(null);
+  const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
+  const [areasToken,setAreasToken]=useState<string|null>(null);
+  const [selectedAreaId,setSelectedAreaId]=useState<string|null>(null);
+  const [selectedType,setSelectedType]=useState<"ALL"|VenueCalendarEventType>("ALL");
   const [renderedView,setRenderedView]=useState<TimetableCalendarView>(view);
   const [renderedAnchorDate,setRenderedAnchorDate]=useState(anchorDate);
   const [loading,setLoading]=useState(true);
@@ -135,6 +141,8 @@ export default function OwnerScheduleScreen(){
   const onSelectSlot=useCallback((event:VenueCalendarEvent,date:string)=>setSelectedSlot({event,date}),[]);
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
+  const displayedCalendar=loadedToken===token?calendar:null;
+  const availableAreas=areasToken===token?areas:[];
 
   const changeAnchorDate=useCallback((nextDate:string)=>{
     if(nextDate===anchorDate)return;
@@ -182,23 +190,32 @@ export default function OwnerScheduleScreen(){
     const requestedAnchorDate=anchorDate;
     setCalendarLoading(true);
     try{
-      const next=await ownerApi.timetableCalendar(token,range.from,range.to,null);
+      const next=await ownerApi.timetableCalendar(token,range.from,range.to,selectedAreaId);
       if(requestId!==calendarRequestId.current)return;
       weekListY.current=null;
       todayWeekRowY.current=null;
       focusedWeekKey.current=null;
       setSelectedSlot(null);
       setCalendar(next);
+      setLoadedToken(token);
       setRenderedView(requestedView);
       setRenderedAnchorDate(requestedAnchorDate);
     }finally{
       if(requestId===calendarRequestId.current)setCalendarLoading(false);
     }
-  },[anchorDate,range.from,range.to,token,view]);
+  },[anchorDate,range.from,range.to,token,view,selectedAreaId]);
 
   useEffect(()=>{
     setLoading(false);
-  },[token]); // Initial page shell only; calendar changes stay in-place.
+    if(!token){setCalendar(null);setLoadedToken(null);setAreas([]);setAreasToken(null);return;}
+    let live=true;
+    void ownerApi.getStatus(token).then(result=>{
+      if(!live)return;
+      setAreas(result.venue?.areas.map(area=>({id:area.id,name:area.name}))??[]);
+      setAreasToken(token);
+    }).catch(()=>{if(live){setAreas([]);setAreasToken(null);}});
+    return()=>{live=false;};
+  },[token]); // Calendar navigation remains in place; account data is scoped.
 
   // Refetch on every return from another tab. Online reservations arrive
   // while this screen is blurred, so mounting once is insufficient.
@@ -244,7 +261,9 @@ export default function OwnerScheduleScreen(){
 
   if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={560}/></Screen>;
 
-  const selectedDay=calendar?.days.find((day)=>day.date===renderedAnchorDate)??calendar?.days[0]??null;
+  const selectedDay=displayedCalendar?.days.find((day)=>day.date===renderedAnchorDate)??displayedCalendar?.days[0]??null;
+  const visibleDays=filteredOwnerCalendarDays(displayedCalendar?.days??[],selectedType);
+  const filteredSelectedDay=visibleDays.find(day=>day.date===selectedDay?.date)??null;
 
   return <Screen embedded scrollRef={screenScrollRef}>
     {error?<Card style={styles.errorCard}>
