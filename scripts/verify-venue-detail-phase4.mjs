@@ -48,7 +48,7 @@ contains(repository,[
 ],"match venue, privacy/status restrictions and pagination");
 contains(panel,[
   "competitionApi.discover(queryFor(venue.id,sub,1))",
-  "competitionApi.venueMatches(venue.id,matchScope,1)",
+  "competitionApi.venueMatches(venue.id,matchScope,1,selectedMatchQuery)",
   'scope:"registration"','phase:"upcoming"', 'status:"IN_PROGRESS"', 'phase:"history"',
   'testID={"venue-competition-"+item.id}',
   '<VenueMatchCard key={match.id}',
