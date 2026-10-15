@@ -7,6 +7,8 @@ import {Image,Linking,Modal,Pressable,ScrollView,Share,StyleSheet,View,useWindow
 import {marketingApi,resolveMediaImageUrl,teamApi,teamManagerApi,teamPublicApi,
   type TeamManagerProfileDetails,type TeamPublicHighlights} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
+import {teamCompetitionRows,teamCompetitionAvailableFormats,teamCompetitionAvailableStatuses,
+  teamCompetitionFixturePreview,type TeamCompetitionFilters} from "../../lib/team-detail-competitions";
 import {finished,teamMatchOutcome,teamMatchRows,teamMatchCompetitions,
   type TeamMatchFilter} from "../../lib/team-detail-matches";
 import {teamDetailJoinAction,displayTeamFollowerCount,publicTeamTelephoneUrl} from
@@ -39,6 +41,19 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     active:"Active",past:"Past",overview:"Overview",form:"Recent form",members:"Membership",
     noPosts:"No posts published by this team yet.",noPhotos:"No team photos yet.",
     matchAll:"All",matchLive:"Live",matchScheduled:"Scheduled",matchPostponed:"Postponed",matchWin:"Wins",matchDraw:"Draws",matchLoss:"Losses",matchCup:"Competition",matchNoFilter:"No matches for these filters.",matchOpenCompetition:"Competition details",matchSummary:"Matches shown",matchUnknownScore:"Result pending",
+    compShowing:"Showing",compOf:"of",compConfirmed:"Confirmed participant",
+    compFilterFormat:"Competition format",compFilterStatus:"Competition status",
+    compAll:"All",compNoFiltered:"No competitions match these filters.",
+    compStarts:"Starts",compEnds:"Ends",compSchedulePending:"Date not announced",
+    compViewMatches:"View matches",compRecentFixture:"Fixture in public feed",
+    compLatestResult:"Recorded result in public feed",compRecentNote:"Preview from recent published fixtures only.",
+    compLimited:"Showing a recent selection of competitions, not the full history.",
+    compBrowse:"Explore competitions",
+    compFormatLeague:"League",compFormatKnockout:"Knockout",compFormatGroups:"Group + knockout",
+    compStatusOpen:"Registration open",compStatusClosed:"Registration closed",
+    compStatusScheduled:"Scheduled",compStatusInProgress:"In progress",
+    compStatusCompleted:"Completed",compStatusArchived:"Archived",
+    compStatusCancelled:"Cancelled",
     noGames:"No matches to show.",noCompetitions:"No competitions to show.",noRoster:"No players to show.",
     noLeaders:"No captain has been appointed.",privateRoster:"This team's player list is private.",
     error:"Unable to load team updates.",retry:"Try again",share:"Share",joined:"Member",record:"Match record",
@@ -81,6 +96,19 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     active:"جاری",past:"گذشته",overview:"نمای کلی",form:"نتایج اخیر",members:"عضویت",
     noPosts:"هنوز پستی منتشر نشده است.",noPhotos:"هنوز عکسی نشر نشده است.",
     matchAll:"همه",matchLive:"زنده",matchScheduled:"برنامه‌ریزی‌شده",matchPostponed:"به تعویق‌افتاده",matchWin:"برد",matchDraw:"مساوی",matchLoss:"باخت",matchCup:"رقابت",matchNoFilter:"برای این فیلترها مسابقه‌ای یافت نشد.",matchOpenCompetition:"جزئیات رقابت",matchSummary:"مسابقات نمایش‌داده‌شده",matchUnknownScore:"نتیجه در انتظار",
+    compShowing:"نمایش",compOf:"از",compConfirmed:"اشتراک تأییدشده",
+    compFilterFormat:"نوع رقابت",compFilterStatus:"وضعیت رقابت",
+    compAll:"همه",compNoFiltered:"رقابتی مطابق این فیلترها یافت نشد.",
+    compStarts:"آغاز",compEnds:"پایان",compSchedulePending:"تاریخ هنوز اعلام نشده",
+    compViewMatches:"دیدن مسابقات",compRecentFixture:"مسابقه در فهرست عمومی",
+    compLatestResult:"نتیجه ثبت‌شده در فهرست عمومی",compRecentNote:"پیش‌نمایش فقط از مسابقات عمومی اخیر است.",
+    compLimited:"تنها بخشی از رقابت‌های اخیر نمایش داده می‌شود، نه تمام تاریخچه.",
+    compBrowse:"جستجوی رقابت‌ها",
+    compFormatLeague:"لیگ",compFormatKnockout:"حذفی",compFormatGroups:"گروهی و حذفی",
+    compStatusOpen:"ثبت‌نام باز",compStatusClosed:"ثبت‌نام بسته",
+    compStatusScheduled:"برنامه‌ریزی‌شده",compStatusInProgress:"در حال برگزاری",
+    compStatusCompleted:"تکمیل‌شده",compStatusArchived:"بایگانی‌شده",
+    compStatusCancelled:"لغوشده",
     noGames:"مسابقه‌ای برای نمایش نیست.",noCompetitions:"رقابتی برای نمایش نیست.",noRoster:"بازیکنی برای نمایش نیست.",
     noLeaders:"هنوز کپیتان تعیین نشده است.",privateRoster:"فهرست بازیکنان این تیم خصوصی است.",
     error:"بارگیری معلومات تیم ناموفق بود.",retry:"تلاش دوباره",share:"اشتراک‌گذاری",joined:"عضو",record:"کارنامه مسابقات",
@@ -123,6 +151,19 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     active:"روانې",past:"تېرې",overview:"لنډیز",form:"وروستۍ پایلې",members:"غړیتوب",
     noPosts:"تر اوسه پوسټ نشته.",noPhotos:"تر اوسه انځور نشته.",
     matchAll:"ټولې",matchLive:"ژوندۍ",matchScheduled:"ټاکل شوې",matchPostponed:"ځنډېدلې",matchWin:"بریاوې",matchDraw:"مساوي",matchLoss:"ماتې",matchCup:"سیالي",matchNoFilter:"د دې چاڼګرونو لپاره لوبه ونه موندل شوه.",matchOpenCompetition:"د سیالۍ جزییات",matchSummary:"ښودل شوې لوبې",matchUnknownScore:"پایله لا نه ده ثبت شوې",
+    compShowing:"ښودل",compOf:"له",compConfirmed:"تایید شوی ګډون",
+    compFilterFormat:"د سیالۍ بڼه",compFilterStatus:"د سیالۍ حالت",
+    compAll:"ټولې",compNoFiltered:"د دې چاڼګرونو سره برابره سیالي نشته.",
+    compStarts:"پیل",compEnds:"پای",compSchedulePending:"نېټه لا نه ده اعلان شوې",
+    compViewMatches:"لوبې وګورئ",compRecentFixture:"په عامه لېست کې لوبه",
+    compLatestResult:"په عامه لېست کې ثبت شوې پایله",compRecentNote:"دا یوازې د وروستیو عامه لوبو لنډیز دی.",
+    compLimited:"یوازې وروستۍ سیالۍ ښودل شوي، بشپړ تاریخ نه دی.",
+    compBrowse:"سیالۍ وپلټئ",
+    compFormatLeague:"لیګ",compFormatKnockout:"حذفي",compFormatGroups:"ګروپي او حذفي",
+    compStatusOpen:"نوم‌لیکنه پرانیستې",compStatusClosed:"نوم‌لیکنه تړلې",
+    compStatusScheduled:"ټاکل شوې",compStatusInProgress:"روانه",
+    compStatusCompleted:"بشپړه شوې",compStatusArchived:"ارشیف شوې",
+    compStatusCancelled:"لغوه شوې",
     noGames:"د ښودلو لوبې نشته.",noCompetitions:"د ښودلو سیالۍ نشته.",noRoster:"لوبغاړي نشته.",
     noLeaders:"تر اوسه کپتان نه دی ټاکل شوی.",privateRoster:"د دې ټیم د لوبغاړو لېست شخصي دی.",
     error:"د ټیم د معلوماتو ترلاسه کول ناکام شول.",retry:"بیا هڅه",share:"شریکول",joined:"غړی",record:"د لوبو ریکارډ",
@@ -170,6 +211,9 @@ export default function TeamDetailExperience(){
   const {height:viewportHeight,width:viewportWidth}=useWindowDimensions();
   const tx=(key:string)=>words[language][key]??words.en[key]??key;
   const [team,setTeam]=useState<TeamDto|null>(null);
+  const [competitionFilters,setCompetitionFilters]=useState<{
+    active:TeamCompetitionFilters;past:TeamCompetitionFilters;
+  }>({active:{format:"all",status:"all"},past:{format:"all",status:"all"}});
   const [matchFilters,setMatchFilters]=useState<{upcoming:TeamMatchFilter;results:TeamMatchFilter}>({upcoming:"all",results:"all"});
   const [matchCompetitions,setMatchCompetitions]=useState<{upcoming:string;results:string}>({upcoming:"all",results:"all"});
   // Only public roster identities are eligible for /players/[playerId] links.
@@ -215,6 +259,7 @@ export default function TeamDetailExperience(){
     followActionSequence.current++;joinActionSequence.current++;
     setTeam(null);setProfile(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
     setMatchFilters({upcoming:"all",results:"all"});setMatchCompetitions({upcoming:"all",results:"all"});
+    setCompetitionFilters({active:{format:"all",status:"all"},past:{format:"all",status:"all"}});
     setPublicPlayerIds([]);setSquadQuery("");setSquadPosition("ALL");
     setHighlights(null);setOlderPosts([]);setMorePostsAvailable(false);
     setMorePostsBusy(false);setMorePostsError(null);setPublicBusy(false);setPhoto(null);
@@ -631,29 +676,147 @@ export default function TeamDetailExperience(){
     </View>;
   }
   function competitionsContent(data:TeamPublicHighlights){
-    const old=["COMPLETED","ARCHIVED","CANCELLED"];
-    const chosen=data.competitions.filter(c=>subs.competitions==="past"?old.includes(c.status):!old.includes(c.status));
-    if(!chosen.length)return empty(tx("noCompetitions"),"trophy-outline");
-    return chosen.map(c=><Card key={c.id} style={styles.competitionCard}>
-      <View style={[styles.horizontal,rowDirection]}>
-        <View style={styles.iconCircle}><Ionicons name="trophy-outline" size={22} color={colors.primary}/></View>
-        <View style={{flex:1,gap:4}}>
-          <AppText weight="bold">{c.name}</AppText>
-          <AppText variant="caption" muted>{c.format}</AppText>
+    const phase=subs.competitions;
+    const filters=competitionFilters[phase];
+    const all=teamCompetitionRows(data.competitions,phase);
+    const chosen=teamCompetitionRows(data.competitions,phase,filters);
+    const formats=teamCompetitionAvailableFormats(data.competitions,phase);
+    const statuses=teamCompetitionAvailableStatuses(data.competitions,phase);
+    const formatLabels:Record<string,string>={
+      LEAGUE:"compFormatLeague",KNOCKOUT:"compFormatKnockout",
+      GROUP_KNOCKOUT:"compFormatGroups",
+    };
+    const statusLabels:Record<string,string>={
+      REGISTRATION_OPEN:"compStatusOpen",REGISTRATION_CLOSED:"compStatusClosed",
+      SCHEDULED:"compStatusScheduled",IN_PROGRESS:"compStatusInProgress",
+      COMPLETED:"compStatusCompleted",ARCHIVED:"compStatusArchived",
+      CANCELLED:"compStatusCancelled",
+    };
+    const statusText=(status:string)=>tx(statusLabels[status]??status);
+    const formatText=(format:string)=>tx(formatLabels[format]??format);
+    const changeFilter=(key:keyof TeamCompetitionFilters,value:string)=>
+      setCompetitionFilters(current=>({...current,[phase]:{
+        ...current[phase],[key]:value,
+      } as TeamCompetitionFilters}));
+    return <View testID="team-competitions-list" style={{gap:spacing.md}}>
+      <Card testID="team-competitions-filters" style={styles.competitionFilters}>
+        <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
+          <AppText variant="bodyLarge" weight="bold">{tx(phase)}</AppText>
+          <AppText variant="caption" muted>{tx("compShowing")}: {chosen.length} {tx("compOf")} {all.length}</AppText>
         </View>
-        <View style={[styles.fixtureStatus,{backgroundColor:old.includes(c.status)?"#F1F5F9":"#E7F0FF"}]}>
-          <AppText variant="caption" weight="bold" style={{color:old.includes(c.status)?"#475569":"#1D4ED8"}}>
-            {tx(old.includes(c.status)?"pastCompetition":"activeCompetition")}
-          </AppText>
-        </View>
-      </View>
-      {c.startsAt?<View style={[styles.fixtureDate,rowDirection]}>
-        <Ionicons name="calendar-outline" size={16} color={colors.textMuted}/>
-        <AppText variant="caption" muted>{formatCompetitionDateTime(c.startsAt,language)}</AppText>
-      </View>:null}
-      <Button label={tx("viewCompetition")} variant="secondary"
-        onPress={()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:c.id}})}/>
-    </Card>);
+        {formats.length>1?<View style={{gap:spacing.xs}}>
+          <AppText variant="caption" muted>{tx("compFilterFormat")}</AppText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
+            {(["all",...formats] as const).map(format=><Pressable key={format}
+              testID={"team-competition-format-"+format} accessibilityRole="button"
+              accessibilityLabel={format==="all"?tx("compAll"):formatText(format)}
+              accessibilityState={{selected:filters.format===format}}
+              onPress={()=>changeFilter("format",format)}
+              style={[styles.squadFilter,filters.format===format&&styles.squadFilterActive]}>
+              <AppText variant="caption" weight="semibold"
+                style={{color:filters.format===format?"#FFFFFF":colors.primary}}>
+                {format==="all"?tx("compAll"):formatText(format)}
+              </AppText>
+            </Pressable>)}
+          </ScrollView>
+        </View>:null}
+        {statuses.length>1?<View style={{gap:spacing.xs}}>
+          <AppText variant="caption" muted>{tx("compFilterStatus")}</AppText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
+            {(["all",...statuses] as const).map(status=><Pressable key={status}
+              testID={"team-competition-status-"+status} accessibilityRole="button"
+              accessibilityLabel={status==="all"?tx("compAll"):statusText(status)}
+              accessibilityState={{selected:filters.status===status}}
+              onPress={()=>changeFilter("status",status)}
+              style={[styles.squadFilter,filters.status===status&&styles.squadFilterActive]}>
+              <AppText variant="caption" weight="semibold"
+                style={{color:filters.status===status?"#FFFFFF":colors.primary}}>
+                {status==="all"?tx("compAll"):statusText(status)}
+              </AppText>
+            </Pressable>)}
+          </ScrollView>
+        </View>:null}
+      </Card>
+      {!chosen.length?empty(tx(all.length?"compNoFiltered":"noCompetitions"),"trophy-outline"):
+        chosen.map(comp=>{
+          const preview=teamCompetitionFixturePreview(data.matches,id,comp.id);
+          const ended=phase==="past";
+          const cancelled=comp.status==="CANCELLED";
+          const badgeBackground=cancelled?"#FEE2E2":ended?"#F1F5F9":
+            comp.status==="IN_PROGRESS"?"#DCFCE7":"#DBEAFE";
+          const badgeText=cancelled?"#991B1B":ended?"#475569":
+            comp.status==="IN_PROGRESS"?"#166534":"#1D4ED8";
+          return <Card key={comp.id} testID={"team-competition-card-"+comp.id}
+            style={styles.competitionCard}>
+            <View style={[styles.horizontal,rowDirection,{alignItems:"flex-start"}]}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="trophy-outline" size={22} color={colors.primary}/>
+              </View>
+              <View style={{flex:1,gap:spacing.xs}}>
+                <AppText variant="bodyLarge" weight="bold" numberOfLines={3}>{comp.name}</AppText>
+                <AppText variant="caption" muted>{formatText(comp.format)}</AppText>
+              </View>
+              <View style={[styles.fixtureStatus,{backgroundColor:badgeBackground,maxWidth:"40%"}]}>
+                <AppText variant="caption" weight="semibold" numberOfLines={2}
+                  style={{color:badgeText,textAlign:"center"}}>{statusText(comp.status)}</AppText>
+              </View>
+            </View>
+            <View style={[styles.horizontal,rowDirection]}>
+              <Ionicons name="checkmark-circle-outline" size={17} color={colors.success}/>
+              <AppText variant="caption" weight="semibold" style={{color:colors.success}}>
+                {tx("compConfirmed")}</AppText>
+            </View>
+            <View style={styles.competitionDates}>
+              <InfoLine icon="calendar-outline" label={tx("compStarts")}
+                value={comp.startsAt?formatCompetitionDateTime(comp.startsAt,language):
+                  tx("compSchedulePending")} rtl={isRTL}/>
+              {comp.endsAt?<InfoLine icon="flag-outline" label={tx("compEnds")}
+                value={formatCompetitionDateTime(comp.endsAt,language)} rtl={isRTL}/>:null}
+            </View>
+            {preview?<Pressable testID={"team-competition-preview-"+comp.id}
+              accessibilityRole="button" accessibilityLabel={tx(preview.kind==="result"?
+                "compLatestResult":"compRecentFixture")}
+              style={({pressed})=>[styles.competitionPreview,pressed&&styles.subPressed]}
+              onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
+                params:{competitionId:comp.id,matchId:preview.match.id}})}>
+              <View style={[styles.horizontal,rowDirection]}>
+                <Ionicons name={preview.kind==="result"?"checkmark-done-circle-outline":
+                  "football-outline"} size={18} color={colors.primary}/>
+                <View style={{flex:1,gap:2}}>
+                  <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+                    {tx(preview.kind==="result"?"compLatestResult":"compRecentFixture")}
+                  </AppText>
+                  <AppText variant="caption" muted numberOfLines={2}>
+                    {preview.match.startsAt?
+                      formatCompetitionDateTime(preview.match.startsAt,language):tx("compSchedulePending")}
+                    {preview.kind==="result"?
+                      ` · ${preview.match.homeScore} : ${preview.match.awayScore}`:""}
+                  </AppText>
+                </View>
+                <Ionicons name={isRTL?"chevron-back":"chevron-forward"}
+                  size={18} color={colors.primary}/>
+              </View>
+            </Pressable>:null}
+            <View style={[styles.horizontal,rowDirection,{flexWrap:"wrap"}]}>
+              <Button label={tx("viewCompetition")} variant="secondary"
+                style={styles.competitionButton}
+                onPress={()=>router.push({pathname:"/competitions/[competitionId]",
+                  params:{competitionId:comp.id}})}/>
+              <Button label={tx("compViewMatches")} variant="secondary"
+                style={styles.competitionButton}
+                onPress={()=>router.push({pathname:"/competitions/[competitionId]",
+                  params:{competitionId:comp.id,tab:"MATCHES"}})}/>
+            </View>
+          </Card>;
+        })}
+      {data.competitions.length>=50?<Card style={styles.competitionFilters}>
+        <AppText variant="caption" muted>{tx("compLimited")}</AppText>
+        <Button label={tx("compBrowse")} variant="secondary"
+          onPress={()=>router.push("/competitions")}/>
+      </Card>:null}
+    </View>;
   }
   function statsContent(data:TeamPublicHighlights){
     if(subs.stats==="topPlayers"){
@@ -1024,6 +1187,12 @@ const styles=StyleSheet.create({
   fixtureStatus:{paddingHorizontal:spacing.sm,paddingVertical:5,borderRadius:radius.pill},
   fixtureDate:{alignItems:"center",gap:spacing.xs},
   competitionCard:{padding:spacing.md,gap:spacing.md,borderWidth:1,borderColor:colors.border},
+  competitionFilters:{gap:spacing.md,padding:spacing.md},
+  competitionDates:{padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted,
+    gap:spacing.xs},
+  competitionPreview:{padding:spacing.sm,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.border,backgroundColor:colors.primarySoft},
+  competitionButton:{flexGrow:1,flexBasis:"43%"},
   performanceCard:{padding:spacing.md,gap:spacing.md},
   performanceTrack:{height:13,borderRadius:radius.pill,backgroundColor:colors.surfaceMuted,overflow:"hidden"},
   performanceFill:{height:"100%",backgroundColor:colors.success,borderRadius:radius.pill},
