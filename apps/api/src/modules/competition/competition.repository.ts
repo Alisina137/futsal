@@ -261,6 +261,36 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     }));
   }
 
+  /** Team-only card totals are separate from privacy-gated player leaderboards.
+   * A private profile still contributes recorded yellow/red cards to its team;
+   * no player user ID, name, contact or profile visibility is returned. */
+  private async listTeamDiscipline(competitionId:string):
+    Promise<NonNullable<CompetitionDto["teamDisciplineStats"]>>{
+    const rows=await this.db.select({
+      teamId:playerMatchStats.teamId,
+      yellowCards:sql<number>`sum(${playerMatchStats.yellowCards})`,
+      redCards:sql<number>`sum(${playerMatchStats.redCards})`,
+    }).from(playerMatchStats)
+      .innerJoin(competitionMatches,eq(playerMatchStats.matchId,competitionMatches.id))
+      .innerJoin(competitionTeams,and(
+        eq(competitionTeams.competitionId,competitionMatches.competitionId),
+        eq(competitionTeams.teamId,playerMatchStats.teamId),
+        eq(competitionTeams.status,"ACCEPTED"),
+      ))
+      .where(and(
+        eq(competitionMatches.competitionId,competitionId),
+        inArray(competitionMatches.status,["COMPLETED","CORRECTED"]),
+        or(eq(playerMatchStats.teamId,competitionMatches.homeTeamId),
+          eq(playerMatchStats.teamId,competitionMatches.awayTeamId)),
+      ))
+      .groupBy(playerMatchStats.teamId);
+    return rows.map(row=>({
+      teamId:row.teamId,
+      yellowCards:Number(row.yellowCards??0),
+      redCards:Number(row.redCards??0),
+    }));
+  }
+
   async getCompetitionDto(competitionId: string): Promise<CompetitionDto | null> {
     const [row] = await this.db.select({
       competition: competitions,
@@ -271,10 +301,11 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       .limit(1);
     if (!row) return null;
 
-    const [teamRows, matches, playerStats] = await Promise.all([
+    const [teamRows, matches, playerStats, teamDisciplineStats] = await Promise.all([
       this.listCompetitionTeams(competitionId),
       this.listMatchDtos(competitionId),
       this.listPlayerStats(competitionId),
+      this.listTeamDiscipline(competitionId),
     ]);
 
     const teamsDto: CompetitionTeamDto[] = teamRows.map((team) => ({
@@ -323,6 +354,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
       matches,
       standings: [],
       playerStats,
+      teamDisciplineStats,
       championTeamId: finalMatch?.winnerTeamId ?? null,
     };
   }

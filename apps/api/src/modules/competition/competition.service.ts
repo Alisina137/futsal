@@ -251,6 +251,9 @@ export class CompetitionService {
       // A removed/non-accepted team's statistics are not public even if
       // historical result rows remain in the database.
       playerStats:competition.playerStats.filter(stat=>acceptedIds.has(stat.teamId)),
+      // A public aggregate contains no personal identities, but must still
+      // exclude withdrawn/non-accepted teams after a status change.
+      teamDisciplineStats:competition.teamDisciplineStats?.filter(row=>acceptedIds.has(row.teamId)),
       teams: publicTeams.map(team=>({...team,feePaymentReference:null})),
     };
   }
