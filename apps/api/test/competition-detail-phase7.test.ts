@@ -37,10 +37,10 @@ describe("Competition Detail Phase 7: public media scope and pagination",()=>{
       post(otherId,"other competition","https://example.com/other.jpg"),
     ])repository.mediaPosts.set(item.id,item);
 
-    const first=await service.listPublicMedia(cup.id,{
+    const first=await service.listPublicMediaPage(cup.id,{
       page:1,limit:2,kind:"all",sort:"newest",
     });
-    const second=await service.listPublicMedia(cup.id,{
+    const second=await service.listPublicMediaPage(cup.id,{
       page:2,limit:2,kind:"all",sort:"newest",
     });
     expect(first.posts).toHaveLength(2);
@@ -49,7 +49,7 @@ describe("Competition Detail Phase 7: public media scope and pagination",()=>{
     expect(second.hasMore).toBe(false);
     expect([...first.posts,...second.posts].map(x=>x.body).sort()).toEqual(
       ["alpha","beta","gamma"]);
-    const photos=await service.listPublicMedia(cup.id,{
+    const photos=await service.listPublicMediaPage(cup.id,{
       page:1,limit:12,kind:"photos",sort:"oldest",
     });
     expect(photos.posts.map(x=>x.body).sort()).toEqual(["alpha","gamma"]);
@@ -66,7 +66,7 @@ describe("Competition Detail Phase 7: public media scope and pagination",()=>{
     repository.seedVenue(owner,{subscriptionStatus:"ACTIVE",activeUntil:new Date("2027-01-01")});
     const service=new CompetitionService(repository,()=>now);
     const cup=await service.create(owner,input);
-    await expect(service.listPublicMedia(cup.id,{
+    await expect(service.listPublicMediaPage(cup.id,{
       page:1,limit:12,kind:"all",sort:"newest",
     })).rejects.toBeTruthy();
   });
