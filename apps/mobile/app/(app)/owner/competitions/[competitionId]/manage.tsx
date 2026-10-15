@@ -44,6 +44,10 @@ const tabs:Array<{key:ControlTab;icon:keyof typeof Ionicons.glyphMap}>=[
   {key:"MEDIA",icon:"newspaper-outline"},
   {key:"SETTINGS",icon:"settings-outline"},
 ];
+function requestedControlTab(value:string|undefined):ControlTab{
+  // Only intentionally supported direct destinations may be selected by URL.
+  return value==="FIXTURES"?"FIXTURES":value==="TEAMS"?"TEAMS":"OVERVIEW";
+}
 const formats:CompetitionFormat[]=["LEAGUE","GROUP_KNOCKOUT","KNOCKOUT"];
 const feeStatuses:CompetitionFeeStatus[]=["UNPAID","PENDING","PAID","WAIVED"];
 const THREE_DAYS_MS=72*60*60*1000;
@@ -57,8 +61,8 @@ export default function ManageCompetitionScreen(){
   const {competitionId,tab}=useLocalSearchParams<{competitionId:string;tab?:string}>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
-  const [activeTab,setActiveTab]=useState<ControlTab>(()=>tab==="TEAMS"?"TEAMS":"OVERVIEW");
-  useEffect(()=>{if(tab==="TEAMS")setActiveTab("TEAMS");},[competitionId,tab]);
+  const [activeTab,setActiveTab]=useState<ControlTab>(()=>requestedControlTab(tab));
+  useEffect(()=>{setActiveTab(requestedControlTab(tab));},[competitionId,tab]);
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [referees,setReferees]=useState<VenueRefereeDto[]>([]);
   const [refereeReplies,setRefereeReplies]=useState<Record<string,string|null>>({});
