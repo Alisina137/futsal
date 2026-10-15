@@ -14,9 +14,9 @@ export function teamSquadView(
 ){
   const query=(options.query??"").trim().toLocaleLowerCase();
   const position=options.position??"ALL";
+  // Source-of-truth team IDs take priority over potentially stale membership roles.
   const leaders=visibleMembers.filter(member=>
-    member.userId===managerUserId||member.userId===captainUserId||
-    member.role==="MANAGER"||member.role==="CAPTAIN");
+    member.userId===managerUserId||member.userId===captainUserId);
   const members=options.leadersOnly?leaders:visibleMembers;
   const sorted=members.filter(member=>
     (position==="ALL"||member.position===position)&&
