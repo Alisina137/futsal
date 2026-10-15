@@ -360,7 +360,14 @@ export default function TeamDetailExperience(){
   const load=useCallback(async()=>{
     if(!id)return;
     const generation=++loadGeneration.current;
+    // Phase 8: revalidate on every focus/manual retry *before* exposing member-only
+    // roster and navigation. Access may have been revoked while this page was away.
     setLoading(true);setError(null);
+    setTeam(null);setProfile(null);setMember(false);setPublicPlayerIds([]);
+    setJoinStatus(null);setJoinAllowed(false);setPhoto(null);
+    postsGeneration.current++;setHighlights(null);setOlderPosts([]);
+    setMorePostsAvailable(false);setMorePostsBusy(false);setMorePostsError(null);
+    setPublicBusy(false);
     try{
       const [result,details,policy]=await Promise.all([
         teamApi.publicTeam(id),teamManagerApi.publicDetails(id).catch(()=>null),
@@ -392,8 +399,7 @@ export default function TeamDetailExperience(){
   // Returning from manager, invitations or player pages must refresh roster
   // privileges and pending requests without retaining another team's response.
   useFocusEffect(useCallback(()=>{
-    setHighlights(null);setOlderPosts([]);setMorePostsAvailable(false);
-    postsGeneration.current++;setMorePostsError(null);setMorePostsBusy(false);
+    // load() invalidates all private/public snapshots before issuing fresh reads.
     void load();
     return()=>{loadGeneration.current++;postsGeneration.current++;};
   },[load]));
@@ -1334,11 +1340,12 @@ export default function TeamDetailExperience(){
       </ScrollView>
     </View>
     <View testID="team-tab-content" style={{minHeight:viewportHeight,gap:spacing.md}}>
-      {tab==="media"||tab==="matches"||tab==="stats"?
-        <View style={[styles.horizontal,rowDirection,{justifyContent:"flex-end"}]}>
-          <Button label={tx("refresh")} variant="ghost" disabled={publicBusy}
-            onPress={refreshHighlights}/>
-        </View>:null}
+      <View testID="team-detail-refresh" style={[styles.horizontal,rowDirection,
+        {justifyContent:"flex-end"}]}>
+        <Button label={tx("refresh")} variant="ghost"
+          disabled={loading||publicBusy}
+          onPress={tab==="squad"||tab==="about"?()=>void load():refreshHighlights}/>
+      </View>
       {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
         <Button label={tx("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
       {content()}
