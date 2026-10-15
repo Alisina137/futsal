@@ -117,7 +117,8 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
       const competitionId = idSchema.parse(request.params.competitionId);
       const options=Object.keys(request.query).length?
         publicMediaQuerySchema.parse(request.query):undefined;
-      response.json(await service.listPublicMedia(competitionId,options));
+      response.json(options?await service.listPublicMediaPage(competitionId,options):
+        await service.listPublicMedia(competitionId));
     } catch (error) { next(error); }
   });
 
