@@ -325,6 +325,11 @@ export default function TeamDetailExperience(){
   const [photo,setPhoto]=useState<string|null>(null);
   const mainNav=useVisibleTab<Tab>(tab);
   const subNav=useVisibleTab<string>(subs[tab]??subNavigation[tab][0]!);
+  const squadPositionNav=useVisibleTab<SquadPositionFilter>(squadPosition);
+  function chooseSquadPosition(position:SquadPositionFilter){
+    setSquadPosition(position);
+    squadPositionNav.focus(position,true);
+  }
   const lastId=useRef(id);
   const loadGeneration=useRef(0);
   const followActionSequence=useRef(0);
@@ -559,18 +564,23 @@ export default function TeamDetailExperience(){
         {leadersOnly?<AppText variant="caption" muted>{tx("squadLeadersHint")}</AppText>:null}
       </Card>
 
-      {!leadersOnly&&team.members.length>0?<>
+      {!leadersOnly?<>
         <TextField testID="team-squad-search" label={tx("squadFind")}
           value={squadQuery} onChangeText={setSquadQuery}
           autoCorrect={false} maxLength={80} returnKeyType="search"/>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          testID="team-squad-position-nav"
+          ref={squadPositionNav.scrollRef}
+          onLayout={squadPositionNav.onViewport}
+          onContentSizeChange={squadPositionNav.onContentSize}
           style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
           {squadPositionFilters.map(position=><Pressable key={position}
             testID={"team-squad-filter-"+position}
-            accessibilityRole="button" accessibilityLabel={position==="ALL"?tx("squadAll"):
+            accessibilityRole="tab" accessibilityLabel={position==="ALL"?tx("squadAll"):
               t(`teams.position.${position}` as never)}
             accessibilityState={{selected:squadPosition===position}}
-            onPress={()=>setSquadPosition(position)}
+            onLayout={event=>squadPositionNav.cellLayout(position,event)}
+            onPress={()=>chooseSquadPosition(position)}
             style={[styles.squadFilter,squadPosition===position&&styles.squadFilterActive]}>
             <AppText variant="caption" weight="semibold"
               style={{color:squadPosition===position?"#FFFFFF":colors.primary}}>
