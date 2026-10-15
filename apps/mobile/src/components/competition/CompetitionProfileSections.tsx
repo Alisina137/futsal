@@ -7,6 +7,7 @@ import {router} from "expo-router";
 import {useState,type ReactNode} from "react";
 import {Image,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
+import {competitionHomeSnapshot} from "../../lib/competition-detail-home";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -310,8 +311,33 @@ function Home({competition,posts,onTabChange,mode="HOME",view="OVERVIEW"}:
   const registrationDate=displayTime(competition.registrationClosesAt,language);
   const startDate=displayTime(competition.startsAt,language);
   const accepted=competition.teams.filter(team=>team.status==="ACCEPTED").length;
+  const snapshot=competitionHomeSnapshot(competition);
+  const highlightPreviews=updates.slice(0,2);
+  const nextFixtureDate=snapshot.upcoming?displayTime(snapshot.upcoming.startsAt,language):null;
   return <View style={styles.stack} testID="competition-home-feed">
     {mode==="HOME"&&view==="OVERVIEW"?<>
+    {snapshot.champion?<Card testID="competition-home-champion" style={styles.championCard}>
+      <View style={[styles.championHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.championEmblem}>
+          <Ionicons name="trophy" size={27} color="#9D6C04"/>
+        </View>
+        <View style={{flex:1,gap:3}}>
+          <AppText variant="caption" weight="semibold" style={{color:"#76581C"}}>
+            {t("competition.detail.confirmedChampion")}
+          </AppText>
+          <AppText variant="bodyLarge" weight="bold" numberOfLines={2}>
+            {snapshot.champion.teamName}
+          </AppText>
+        </View>
+        {!snapshot.champion.offline?<Pressable accessibilityRole="button"
+          testID="competition-champion-team-link"
+          accessibilityLabel={snapshot.champion.teamName}
+          onPress={()=>openTeam(snapshot.champion!.teamId)}
+          style={styles.championOpen}>
+          <Ionicons name={isRTL?"chevron-back":"chevron-forward"} color="#76581C" size={22}/>
+        </Pressable>:null}
+      </View>
+    </Card>:null}
     <Card testID="competition-home-overview" style={styles.overview}>
       <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.headingIcon}><Ionicons name="information-circle-outline" size={20} color={colors.primary}/></View>
@@ -331,6 +357,13 @@ function Home({competition,posts,onTabChange,mode="HOME",view="OVERVIEW"}:
       <AppText muted numberOfLines={4}>
         {competition.description?.trim()||t("competition.profile.noDescription")}
       </AppText>
+      <View style={[styles.homeStatusLine,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="flag-outline" size={16} color={colors.primary}/>
+        <AppText variant="caption" weight="semibold" style={{color:colors.primary,flex:1}}>
+          {t(`competition.status.${competition.status}` as never)} ·
+          {" "}{t(`competition.format.${competition.format}` as never)}
+        </AppText>
+      </View>
       <View style={[styles.snapshotGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.snapshotItem}>
           <Ionicons name="people-outline" size={18} color={colors.primary}/>
@@ -343,6 +376,16 @@ function Home({competition,posts,onTabChange,mode="HOME",view="OVERVIEW"}:
           <AppText weight="bold">{competition.registrationFeeAfn===0?t("competition.profile.free"):
             `${competition.registrationFeeAfn} AFN`}</AppText>
         </View>
+        <View style={styles.snapshotItem}>
+          <Ionicons name="football-outline" size={18} color={colors.primary}/>
+          <AppText variant="caption" muted>{t("competition.detail.verifiedResults")}</AppText>
+          <AppText weight="bold">{snapshot.verifiedResults}</AppText>
+        </View>
+        {snapshot.registrationOpen?<View testID="competition-home-spaces" style={styles.snapshotItem}>
+          <Ionicons name="people-circle-outline" size={18} color={colors.primary}/>
+          <AppText variant="caption" muted>{t("competition.detail.availablePlaces")}</AppText>
+          <AppText weight="bold">{snapshot.remainingPlaces}</AppText>
+        </View>:null}
       </View>
       {startDate?<View style={[styles.overviewDate,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Ionicons name="calendar-outline" size={17} color={colors.primary}/>
@@ -364,7 +407,8 @@ function Home({competition,posts,onTabChange,mode="HOME",view="OVERVIEW"}:
       </Pressable>
     </Card>
     </>:null}
-    {mode==="HOME"&&view==="OVERVIEW"&&competition.status==="REGISTRATION_OPEN"?<Pressable testID="competition-registration-cta"
+    {mode==="HOME"&&view==="OVERVIEW"&&competition.status==="REGISTRATION_OPEN"&&
+      snapshot.registrationOpen?<Pressable testID="competition-registration-cta"
       accessibilityRole="button" onPress={()=>onTabChange("TEAMS")}
       style={[styles.registrationCta,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <View style={styles.ctaIcon}><Ionicons name="people-outline" color="#FFFFFF" size={25}/></View>
@@ -395,6 +439,53 @@ function Home({competition,posts,onTabChange,mode="HOME",view="OVERVIEW"}:
     </View>:null}
     {live.length===0&&view==="LIVE"?<Placeholder
       title={t("competition.profile.noLiveMatches")} icon="radio-outline"/>:null}
+    </>:null}
+    {mode==="HOME"&&view==="OVERVIEW"?<>
+      {live.length===0&&snapshot.upcoming&&nextFixtureDate?<Card
+        testID="competition-home-next-fixture" style={styles.featuredFixture}>
+        <View style={[styles.featuredFixtureHead,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="calendar-outline" color={colors.primary} size={19}/>
+          <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>
+            {t("competition.detail.nextFixture")}
+          </AppText>
+          <AppText variant="caption" muted>
+            {nextFixtureDate.date} · {nextFixtureDate.time}
+          </AppText>
+        </View>
+        <MatchCard match={snapshot.upcoming} offlineIds={offlineIds}/>
+      </Card>:null}
+      {highlightPreviews.length>0?<Card testID="competition-home-highlight-preview"
+        style={styles.homeHighlights}>
+        <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.headingIcon}>
+            <Ionicons name="newspaper-outline" size={20} color={colors.primary}/>
+          </View>
+          <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>
+            {t("competition.detail.recentUpdates")}
+          </AppText>
+          <Pressable accessibilityRole="button" testID="competition-home-all-updates"
+            accessibilityLabel={t("competition.detail.viewAllUpdates")}
+            onPress={()=>onTabChange("MEDIA")} style={styles.aboutLink}>
+            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+              {t("competition.detail.viewAllUpdates")}
+            </AppText>
+            <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={15}
+              color={colors.primary}/>
+          </Pressable>
+        </View>
+        {highlightPreviews.map(post=><View key={post.id} style={styles.homePreviewPost}>
+          <View style={[styles.homePreviewHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="chatbubble-ellipses-outline" color={colors.primary} size={16}/>
+            <AppText variant="caption" muted>
+              {formatPostTimeAgo(post.publishedAt,language)}
+            </AppText>
+          </View>
+          {post.body.trim()?<AppText numberOfLines={3}>{post.body.trim()}</AppText>:null}
+          {resolveMediaImageUrl(post.imageUrl)?<Image
+            source={{uri:resolveMediaImageUrl(post.imageUrl)!}}
+            style={styles.homePreviewImage} resizeMode="cover"/>:null}
+        </View>)}
+      </Card>:null}
     </>:null}
     {(mode==="MEDIA"||view==="HIGHLIGHTS")?<>
     {mode==="HOME"?<View testID="competition-home-media-tabs" style={[styles.mediaSwitcher,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -633,6 +724,20 @@ const styles=StyleSheet.create({
   logoImage:{width:"100%",height:"100%"},
   seedBadge:{paddingVertical:5,paddingHorizontal:8,borderRadius:radius.pill,
     backgroundColor:colors.primarySoft},
+  championCard:{backgroundColor:"#FFF7E3",borderWidth:1,borderColor:"#F3E1B0",
+    padding:spacing.md,gap:spacing.sm},
+  championHeading:{alignItems:"center",gap:spacing.md},
+  championEmblem:{width:54,height:54,borderRadius:27,backgroundColor:"#FFEBB5",
+    alignItems:"center",justifyContent:"center"},
+  championOpen:{width:44,height:44,alignItems:"center",justifyContent:"center"},
+  homeStatusLine:{gap:7,alignItems:"center",minHeight:30},
+  featuredFixture:{gap:spacing.sm,borderColor:colors.border},
+  featuredFixtureHead:{gap:spacing.sm,alignItems:"center",flexWrap:"wrap"},
+  homeHighlights:{gap:spacing.md},
+  homePreviewPost:{gap:spacing.sm,padding:spacing.sm,
+    borderWidth:1,borderColor:colors.border,borderRadius:radius.md},
+  homePreviewHeader:{gap:spacing.xs,alignItems:"center"},
+  homePreviewImage:{width:"100%",height:126,borderRadius:radius.sm},
   registrationCta:{backgroundColor:colors.primary,padding:spacing.md,
     borderRadius:radius.lg,alignItems:"center",gap:spacing.sm,minHeight:98},
   ctaIcon:{width:42,height:42,alignItems:"center",justifyContent:"center",
