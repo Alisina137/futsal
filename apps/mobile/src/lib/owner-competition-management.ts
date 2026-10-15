@@ -48,7 +48,9 @@ export function selectOwnerCompetitions(
       return af-bf||a.name.localeCompare(b.name)||a.id.localeCompare(b.id);
     }
     const ax=start(a),bx=start(b);
-    return bx-ax||a.name.localeCompare(b.name)||a.id.localeCompare(b.id);
+    const aSort=Number.isFinite(ax)?ax:Number.NEGATIVE_INFINITY;
+    const bSort=Number.isFinite(bx)?bx:Number.NEGATIVE_INFINITY;
+    return bSort-aSort||a.name.localeCompare(b.name)||a.id.localeCompare(b.id);
   });
 }
 
