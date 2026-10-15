@@ -47,7 +47,7 @@ test("related booking/schedule, media and competition management screens focus t
 
 test("nested navigation contains only real existing functionality, not unimplemented placeholders",()=>{
   assert.deepEqual(ownerDashboardSubsections.competitions.map(x=>x.key),["all","offline"]);
-  assert.deepEqual(ownerDashboardSubsections.media.map(x=>x.key),["posts","promotions"]);
+  assert.deepEqual(ownerDashboardSubsections.media.map(x=>x.key),["posts","promotions","profile","reviews"]);
   assert.equal(ownerSecondaryRoute("/owner/competitions/abc/manage"),"competitions");
   assert.equal(ownerSecondaryRoute("/owner/manual-teams"),"competitions");
   assert.equal(ownerSecondaryRoute("/owner/promotions/create"),"media");
