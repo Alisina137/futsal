@@ -36,8 +36,8 @@ const checks=[
     publicTeam.includes("finished(m)")&&
     publicTeam.includes('formatCompetitionDateTime(m.startsAt,language)')&&
     publicTeam.includes("router.push({pathname:\"/competitions/[competitionId]/matches/[matchId]\""),"genuine verified game scores, match status and links"],
-  [publicTeam.includes("performanceTrack")&&publicTeam.includes("s.winRate")&&
-    publicTeam.includes('s.played>0?')&&publicTeam.includes("last=data.matches.filter"),"only data-backed match stats and last-5 form"],
+  [publicTeam.includes('testID="team-stats-distribution"')&&publicTeam.includes("stats.winRate")&&
+    publicTeam.includes("stats.played>0?")&&publicTeam.includes("verifiedTeamForm(data.matches,id,5)"),"only data-backed match stats and last-5 form"],
   [publicTeam.includes('accessibilityState={{selected:tab===item.id}}')&&
     publicTeam.includes('useVisibleTab<Tab>(tab)')&&
     publicTeam.includes('flexDirection:isRTL?"row-reverse"'),"localized selected navigation and RTL behavior"],
