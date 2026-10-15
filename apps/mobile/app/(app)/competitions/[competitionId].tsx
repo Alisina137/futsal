@@ -302,8 +302,8 @@ export default function CompetitionDetailScreen(){
   }
 
   const availableSubtabs=competition?allowedCompetitionSubtabs(activeTab,competition.format,{
-    registrationOpen:competitionRegistrationSummary(competition).availableForApply,
-    hasParticipation:!participationError&&participations.length>0,
+    registrationOpen:competition.status==="REGISTRATION_OPEN",
+    hasParticipation:participations.length>0||participationError,
   }):[];
   const selectedSubtab=resolvedCompetitionSubtab(navigation,activeTab,availableSubtabs);
   const summary=competition?competitionRegistrationSummary(competition):null;
@@ -332,7 +332,7 @@ export default function CompetitionDetailScreen(){
       chooseCompetitionMain(current,home.action.main),home.action.main,
       home.action.sub,allowedCompetitionSubtabs(home.action.main,competition!.format,{
         registrationOpen:competition!.status==="REGISTRATION_OPEN",
-        hasParticipation:!participationError&&participations.length>0,
+        hasParticipation:participations.length>0||participationError,
       })));
   }
   const canApply=registrationOpen&&!full&&!participationError;
@@ -344,6 +344,8 @@ export default function CompetitionDetailScreen(){
       </View>
       {eligibleManagedTeams.length>0?<AppText muted>{t("competition.selectTeam")}</AppText>:
         <AppText muted>{t("competition.noTeamsForRegistration")}</AppText>}
+      {eligibleManagedTeams.length===0?<Button variant="secondary"
+        label={t("competition.detail.viewTeams")} onPress={()=>router.push("/teams")}/>:null}
       {eligibleManagedTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
         testID={`competition-register-team-${team.id}`}
         accessibilityState={{selected:selectedTeamId===team.id}}
