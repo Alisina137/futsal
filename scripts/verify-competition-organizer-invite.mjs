@@ -20,7 +20,8 @@ assert(dashboard.includes("teamApi.directory(")&&
   dashboard.includes("competitionApi.inviteTeam(")&&
   dashboard.includes("manualTeamApi.register(")&&
   dashboard.includes("competitionApi.decideRegistration(")&&
-  dashboard.includes('tab==="TEAMS"?"TEAMS":"OVERVIEW"'),
+  dashboard.includes('requestedControlTab(tab)')&&
+  dashboard.includes('value==="FIXTURES"?"FIXTURES":value==="TEAMS"?"TEAMS":"OVERVIEW"'),
   "Existing owner-only Teams console must retain active team invitations, approvals and manual registrations.");
 assert(page.includes("ownerApi.getStatus(session.accessToken)")&&
   page.includes("status.venue?.id===next.venueId")&&

@@ -1,10 +1,14 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { CompetitionListItemDto, CompetitionStatus } from "@leaguekick/contracts";
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { router,useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { AppState,Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { competitionApi,resolveMediaImageUrl } from "../../../../src/lib/api";
+import {OwnerCompetitionOperations} from "../../../../src/components/owner/OwnerCompetitionOperations";
+import {ownerCompetitionGroups,ownerCompetitionOrders,selectOwnerCompetitions,ownerCompetitionOverviewCounts,
+  type OwnerCompetitionGroup,type OwnerCompetitionOrder} from "../../../../src/lib/owner-competition-management";
+import { TextField } from "../../../../src/components/ui/TextField";
 import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
@@ -24,37 +28,62 @@ function compactLabel(value:string){
 export default function OwnerCompetitionListScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
+  const token=session?.accessToken;
   const [items,setItems]=useState<CompetitionListItemDto[]>([]);
+  const [loadedToken,setLoadedToken]=useState<string|null>(null);
   const [filter,setFilter]=useState<Filter>("ALL");
+  const [group,setGroup]=useState<OwnerCompetitionGroup>("ALL");
+  const [format,setFormat]=useState<"ALL"|"LEAGUE"|"KNOCKOUT"|"GROUP_KNOCKOUT">("ALL");
+  const [order,setOrder]=useState<OwnerCompetitionOrder>("NEXT");
+  const [query,setQuery]=useState("");
+  const [selectedId,setSelectedId]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
+  const serial=useRef(0);
 
   const load=useCallback(async()=>{
-    if(!session)return;
+    const request=++serial.current;
+    if(!token){setItems([]);setLoadedToken(null);setLoading(false);return;}
     setLoading(true);setError(null);
-    try{setItems((await competitionApi.ownerList(session.accessToken)).competitions);}
-    catch{setError(t("competition.loadError"));}
-    finally{setLoading(false);}
-  },[session,t]);
+    try{
+      const response=await competitionApi.ownerList(token);
+      if(request!==serial.current)return;
+      setItems(response.competitions);
+      setLoadedToken(token);
+    }catch{
+      if(request===serial.current)setError(t("competition.loadError"));
+    }finally{
+      if(request===serial.current)setLoading(false);
+    }
+  },[token,t]);
 
-  useEffect(()=>{void load();},[load]);
+  useFocusEffect(useCallback(()=>{
+    setSelectedId(null);
+    void load();
+    const timer=setInterval(()=>{
+      if(AppState.currentState==="active")void load();
+    },60_000);
+    return()=>{serial.current++;clearInterval(timer);};
+  },[load]));
 
-  const visible=useMemo(
-    ()=>filter==="ALL"?items:items.filter((item)=>item.status===filter),
-    [filter,items],
-  );
-  const activeCount=items.filter((item)=>["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS"].includes(item.status)).length;
+  const safeItems=loadedToken===token?items:[];
+  const visible=useMemo(()=>selectOwnerCompetitions(safeItems,{
+    group,status:filter,format,query,order,
+  },Date.now()),[safeItems,group,filter,format,query,order]);
+  const counts=ownerCompetitionOverviewCounts(safeItems);
+  const activeCount=counts.active;
+  const renderReady=loadedToken===token;
 
-  if(loading)return <Screen embedded>
+  if(loading&&!renderReady)return <Screen embedded>
     <DataLoadingState variant="dashboard" minHeight={500}/>
   </Screen>;
 
-  return <Screen embedded>
+  return <Screen embedded refreshing={loading&&renderReady} onRefresh={()=>void load()}>
 
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
       <Card style={styles.summaryCard}>
         <Ionicons name="trophy-outline" size={22} color={colors.primary}/>
-        <AppText variant="bodyLarge" weight="bold">{items.length}</AppText>
+        <AppText variant="bodyLarge" weight="bold">{counts.total}</AppText>
         <AppText variant="caption" muted>{t("competition.control.total")}</AppText>
       </Card>
       <Card style={styles.summaryCard}>
@@ -64,7 +93,57 @@ export default function OwnerCompetitionListScreen(){
       </Card>
     </View>
 
-    <Button label={t("competition.create")} onPress={()=>router.push("/owner/competitions/create")}/>
+    <View testID="owner-phase5-competition-controls" style={styles.controlPanel}>
+      <AppText weight="bold" variant="bodyLarge">{t("owner.phase5.title")}</AppText>
+      <TextField label={t("owner.phase5.search")} placeholder={t("owner.phase5.searchHint")}
+        value={query} onChangeText={setQuery} maxLength={140}/>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {ownerCompetitionGroups.map(value=><Pressable key={value}
+          testID={`owner-phase5-group-${value}`}
+          accessibilityRole="tab" accessibilityState={{selected:group===value}}
+          onPress={()=>{setGroup(value);setSelectedId(null);}}
+          style={[styles.filter,group===value&&styles.filterActive]}>
+          <AppText variant="caption" weight="semibold"
+            style={group===value?{color:colors.primary}:undefined}>
+            {t(`owner.phase5.group.${value}` as never)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+      <AppText variant="caption" muted>{t("owner.phase5.sortBy")}</AppText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {ownerCompetitionOrders.map(value=><Pressable key={value}
+          accessibilityRole="button" accessibilityState={{selected:order===value}}
+          onPress={()=>setOrder(value)} style={[styles.filter,order===value&&styles.filterActive]}>
+          <AppText variant="caption" weight="semibold"
+            style={order===value?{color:colors.primary}:undefined}>
+            {t(`owner.phase5.order.${value}` as never)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+      <AppText variant="caption" muted>{t("owner.phase5.format")}</AppText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {(["ALL","LEAGUE","GROUP_KNOCKOUT","KNOCKOUT"] as const).map(value=>
+          <Pressable key={value} accessibilityRole="button"
+            accessibilityState={{selected:format===value}}
+            onPress={()=>setFormat(value)}
+            style={[styles.filter,format===value&&styles.filterActive]}>
+            <AppText variant="caption" weight="semibold"
+              style={format===value?{color:colors.primary}:undefined}>
+              {value==="ALL"?t("owner.phase5.allFormats"):t(`competition.format.${value}` as never)}
+            </AppText>
+          </Pressable>)}
+      </ScrollView>
+    </View>
+    <View style={[styles.quickLinks,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <Button style={{flex:1}} label={t("owner.phase5.newCompetition")}
+        onPress={()=>router.push("/owner/competitions/create")}/>
+      <Button style={{flex:1}} variant="secondary"
+        label={t("owner.dashboardSubnav.offlineTeams")}
+        onPress={()=>router.push("/owner/manual-teams")}/>
+    </View>
 
     <ScrollView
       horizontal
@@ -74,7 +153,9 @@ export default function OwnerCompetitionListScreen(){
     >
       {filters.map((value)=><Pressable
         key={value}
-        onPress={()=>setFilter(value)}
+        accessibilityRole="button"
+        accessibilityState={{selected:filter===value}}
+        onPress={()=>{setFilter(value);setSelectedId(null);}}
         style={[
           styles.filter,
           filter===value&&styles.filterActive,
@@ -93,7 +174,7 @@ export default function OwnerCompetitionListScreen(){
     <Button label={t("common.retry")} onPress={()=>void load()} loading={loading} variant="ghost"/>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-    {!loading&&visible.length===0?<Card><AppText>{t("competition.control.noFilteredCompetitions")}</AppText></Card>:null}
+    {!loading&&!error&&renderReady&&visible.length===0?<Card><AppText>{t("competition.control.noFilteredCompetitions")}</AppText></Card>:null}
 
     {visible.map((item)=>{
       const starts=item.startsAt?formatLocalDateTimeParts(item.startsAt,language):null;
@@ -101,8 +182,7 @@ export default function OwnerCompetitionListScreen(){
       const feeLabel=compactLabel(t("competition.registrationFee"));
       const deadlineLabel=compactLabel(t("competition.registrationDeadline"));
       const startsLabel=compactLabel(t("competition.startsAt"));
-      return <Pressable
-        key={item.id}
+      return <View key={item.id} style={{gap:spacing.sm}}><Pressable
         onPress={()=>router.push({pathname:"/owner/competitions/[competitionId]/manage",params:{competitionId:item.id}})}
         style={({pressed})=>[styles.cardPressable,pressed&&styles.cardPressed]}
       >
@@ -189,12 +269,20 @@ export default function OwnerCompetitionListScreen(){
             </View>
           </View>
         </Card>
-      </Pressable>;
+      </Pressable>
+      <Button variant="secondary"
+        label={selectedId===item.id?t("owner.phase5.hideOperations"):t("owner.phase5.showOperations")}
+        onPress={()=>setSelectedId(current=>current===item.id?null:item.id)}/>
+      {selectedId===item.id?<OwnerCompetitionOperations
+        token={token} competitionId={item.id}/>:null}
+      </View>;
     })}
   </Screen>;
 }
 
 const styles=StyleSheet.create({
+  controlPanel:{gap:spacing.sm},
+  quickLinks:{gap:spacing.sm},
   summaryCard:{flex:1,alignItems:"center",gap:spacing.xs,padding:spacing.md},
   filterScroller:{
     flexGrow:0,
@@ -206,7 +294,7 @@ const styles=StyleSheet.create({
     alignItems:"center",
   },
   filter:{
-    height:42,
+    minHeight:44,
     alignSelf:"flex-start",
     justifyContent:"center",
     paddingHorizontal:spacing.md,
