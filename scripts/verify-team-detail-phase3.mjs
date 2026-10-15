@@ -24,6 +24,18 @@ for(const token of [
   'player.shirtNumber','t(`teams.position.${player.position}` as never)',
   'bigScreen&&styles.rosterItemWide','router.push({pathname:"/players/[playerId]"',
   'style={[styles.squadGrid,rowDirection]}','squadPositionFilters.map',
+  'const [squadPosition,setSquadPosition]=useState<SquadPositionFilter>("ALL")',
+  'const squadPositionNav=useVisibleTab<SquadPositionFilter>(squadPosition)',
+  'testID="team-squad-position-nav"',
+  'ref={squadPositionNav.scrollRef}',
+  'onLayout={squadPositionNav.onViewport}',
+  'onContentSizeChange={squadPositionNav.onContentSize}',
+  'onLayout={event=>squadPositionNav.cellLayout(position,event)}',
+  'accessibilityRole="tab" accessibilityLabel={position==="ALL"?tx("squadAll"):',
+  'accessibilityState={{selected:squadPosition===position}}',
+  'onPress={()=>chooseSquadPosition(position)}',
+  'squadPositionNav.focus(position,true)',
+  '!leadersOnly?<>',
 ])assert.ok(screen.includes(token),"Team Detail Phase 3 missing: "+token);
 
 assert.ok(repository.includes('publicOnly ? eq(playerProfiles.visibility, "PUBLIC")')&&
