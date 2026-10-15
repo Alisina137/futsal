@@ -7,6 +7,9 @@ import {AppState,Image,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimen
 import {competitionApi,marketingApi,ownerApi,manualTeamApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
 import {formatCompetitionDateTime} from "../../../src/lib/date-time";
 import {competitionHomeSnapshot,competitionShareMessage} from "../../../src/lib/competition-detail-home";
+import {emptyCompetitionMatchPreferences,type CompetitionMatchPreferences}
+  from "../../../src/lib/competition-detail-match-filters";
+import type {MatchFilter} from "../../../src/components/competition/CompetitionMatchList";
 import {TextField} from "../../../src/components/ui/TextField";
 import {CompetitionParticipationPanel} from "../../../src/components/competition/CompetitionParticipationPanel";
 import {AppText} from "../../../src/components/ui/AppText";
@@ -71,6 +74,15 @@ export default function CompetitionDetailScreen(){
   const [busy,setBusy]=useState(false);
   const [followBusy,setFollowBusy]=useState(false);
   const [shareBusy,setShareBusy]=useState(false);
+  const [refreshingPublic,setRefreshingPublic]=useState(false);
+  const publicRefreshBusy=useRef(false);
+  const [matchPreferences,setMatchPreferences]=useState<CompetitionMatchPreferences>(
+    emptyCompetitionMatchPreferences);
+  const [extraMatchStatus,setExtraMatchStatus]=useState<"POSTPONED"|"CANCELLED"|null>(null);
+  useEffect(()=>{
+    setMatchPreferences(emptyCompetitionMatchPreferences);
+    setExtraMatchStatus(null);
+  },[competitionId]);
   const [error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
@@ -165,29 +177,45 @@ export default function CompetitionDetailScreen(){
     return()=>{mounted=false;loadGeneration.current++;};
   },[load,session?.accessToken,competitionId,actorIdentity]));
 
-  // Refresh live score updates while this profile's Home feed is in focus.
-  // No spinners or destructive reloads: pending scores remain visible on transient errors.
-  // Poll even if no match is currently live, so a newly started fixture appears automatically.
+  // Public-only refresh never repeats a registration, invitation or follow write.
+  // Generation and account scope prevent late polling from overwriting a newer
+  // focus revalidation or a different competition/account.
+  const refreshCompetitionPublic=useCallback(async(silent=false)=>{
+    if(!competitionId||publicRefreshBusy.current||AppState.currentState!=="active")return;
+    const actor=actorIdentity,generation=loadGeneration.current;
+    publicRefreshBusy.current=true;
+    if(!silent)setRefreshingPublic(true);
+    try{
+      const {competition:fresh}=await competitionApi.get(competitionId);
+      if(actor!==lastActorIdentity.current||generation!==loadGeneration.current)return;
+      setCompetition(current=>current?.id===fresh.id?fresh:current);
+      if(!silent)setError(null);
+    }catch{
+      // Background polling cannot replace valid data with a transient error.
+      if(!silent&&actor===lastActorIdentity.current&&generation===loadGeneration.current)
+        setError(t("competition.loadError"));
+    }finally{
+      publicRefreshBusy.current=false;
+      if(actor===lastActorIdentity.current&&generation===loadGeneration.current)
+        setRefreshingPublic(false);
+    }
+  },[competitionId,actorIdentity,t]);
+
+  // Foreground updates serve Home, Matches, Standings and the verified stats view.
+  // Keep the previously selected match/date/team facets and existing scroll.
   useFocusEffect(useCallback(()=>{
-    if(!competitionId||activeTab!=="HOME")return;
+    if(!competitionId||!["HOME","MATCHES","STANDINGS","STATS"].includes(activeTab))return;
     let active=true;
-    let inFlight=false;
     const refreshScore=async()=>{
-      if(!active||inFlight||AppState.currentState!=="active")return;
-      inFlight=true;
-      try{
-        const {competition:fresh}=await competitionApi.get(competitionId);
-        if(active)setCompetition(current=>current?.id===fresh.id?fresh:current);
-      }catch{
-        // Keep the latest known results when connectivity temporarily fails.
-      }finally{inFlight=false;}
+      if(!active||AppState.currentState!=="active")return;
+      await refreshCompetitionPublic(true);
     };
     const timer=setInterval(()=>void refreshScore(),25000);
     const appState=AppState.addEventListener("change",status=>{
       if(status==="active")void refreshScore();
     });
     return()=>{active=false;clearInterval(timer);appState.remove();};
-  },[competitionId,activeTab]));
+  },[competitionId,activeTab,refreshCompetitionPublic]));
 
   async function shareCompetition(){
     if(!competition||shareBusy)return;
@@ -295,6 +323,13 @@ export default function CompetitionDetailScreen(){
     setNavigation(current=>chooseCompetitionMain(current,next));
     // A tab selection is not a command to move the outer page.
     requestAnimationFrame(()=>focusSelectedTab(next,true));
+  }
+  function onMatchStatusChange(next:MatchFilter){
+    const name=next==="FINISHED"?"RESULTS":
+      next==="UPCOMING"?"UPCOMING":next==="LIVE"?"LIVE":"ALL";
+    setExtraMatchStatus(next==="POSTPONED"||next==="CANCELLED"?next:null);
+    setNavigation(current=>chooseCompetitionSubtab(chooseCompetitionMain(current,"MATCHES"),
+      "MATCHES",name,["UPCOMING","LIVE","RESULTS","ALL"]));
   }
   function registrationLayout(event:LayoutChangeEvent){
     if(focusRegistration!=="1"||handledRegistration.current||activeTab!=="TEAMS")return;
@@ -664,8 +699,11 @@ export default function CompetitionDetailScreen(){
         {availableSubtabs.map(key=><Pressable key={key}
           testID={"competition-subtab-"+activeTab+"-"+key}
           accessibilityRole="tab" accessibilityState={{selected:selectedSubtab===key}}
-          onPress={()=>setNavigation(current=>chooseCompetitionSubtab(
-            current,activeTab,key,availableSubtabs))}
+          onPress={()=>{
+            if(activeTab==="MATCHES")setExtraMatchStatus(null);
+            setNavigation(current=>chooseCompetitionSubtab(
+              current,activeTab,key,availableSubtabs));
+          }}
           style={[styles.tab,selectedSubtab===key&&styles.tabActive]}>
           <AppText variant="caption" weight="semibold"
             style={{color:selectedSubtab===key?colors.primary:colors.textMuted}}>
@@ -676,19 +714,45 @@ export default function CompetitionDetailScreen(){
     </View>
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/></Card>:null}
+    {activeTab==="STANDINGS"||activeTab==="STATS"?
+      <Pressable testID="competition-table-refresh" accessibilityRole="button"
+        accessibilityLabel={t("competition.detail.refreshMatches")}
+        disabled={refreshingPublic} onPress={()=>void refreshCompetitionPublic()}
+        style={[styles.dataRefresh,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="refresh-outline" size={19} color={colors.primary}/>
+        <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>
+          {refreshingPublic?t("competition.detail.refreshing"):t("competition.detail.refresh")}
+        </AppText>
+      </Pressable>:null}
     <View testID="competition-tab-content" style={{minHeight:viewportHeight}}
       onLayout={e=>{contentY.current=e.nativeEvent.layout.y;}}>
-      <CompetitionProfileSections key={activeTab+"-"+selectedSubtab} competition={competition}
+      <CompetitionProfileSections
+        key={activeTab+"-"+selectedSubtab+"-"+(extraMatchStatus??"")}
+        competition={competition}
         posts={mediaPosts} activeTab={activeTab} subtab={selectedSubtab}
         registration={registration} onTabChange={switchTab}
         initialStage={selectedSubtab==="KNOCKOUT"?"KNOCKOUT":undefined}
-        initialMatchFilter={tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL"}/>
+        initialMatchFilter={extraMatchStatus??(tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL")}
+        matchPreferences={matchPreferences}
+        onMatchPreferencesChange={setMatchPreferences}
+        onMatchStatusChange={onMatchStatusChange}
+        onMatchRefresh={()=>void refreshCompetitionPublic()}
+        matchRefreshing={refreshingPublic}
+        myAcceptedTeamId={(()=>{
+          const acceptedIds=participations.filter(item=>item.status==="ACCEPTED"&&
+            competition.teams.some(team=>team.teamId===item.teamId&&team.status==="ACCEPTED"))
+            .map(item=>item.teamId);
+          return acceptedIds.length===1?acceptedIds[0]!:null;
+        })()}/>
     </View>
   </Screen>;
 }
 
 const styles=StyleSheet.create({
   page:{paddingTop:spacing.sm,gap:spacing.md},
+  dataRefresh:{minHeight:44,paddingHorizontal:spacing.md,alignSelf:"flex-end",
+    alignItems:"center",gap:spacing.sm,borderRadius:radius.md,
+    backgroundColor:colors.primarySoft},
   backToList:{alignItems:"center",gap:spacing.sm,minHeight:44,
     alignSelf:"flex-start",paddingHorizontal:spacing.sm,borderRadius:radius.md,
     backgroundColor:colors.primarySoft},
