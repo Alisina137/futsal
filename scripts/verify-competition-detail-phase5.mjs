@@ -31,8 +31,7 @@ for(const marker of [
  assert.ok(page.includes(marker),"Phase 5 participant/authorization invariant missing: "+marker);
 }
 for(const marker of ["testID=\"competition-public-participants\"",
- 'testID=\"competition-registration-subtab\"',
- 'testID=\"competition-my-participation-subtab\"',
+ 'view==="REGISTRATION"?"competition-registration-subtab":"competition-my-participation-subtab"',
  'team.status==="ACCEPTED"',
  'if(activeTab==="TEAMS")return <CompetitionTeams competition={competition}',
  'view={subtab??"PARTICIPANTS"}',
