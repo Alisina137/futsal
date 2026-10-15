@@ -206,6 +206,7 @@ export default function OwnerScheduleScreen(){
       if(next.from!==range.from||next.to!==range.to){
         throw new Error("CALENDAR_RANGE_MISMATCH");
       }
+      if(next.areaId!==selectedAreaId)throw new Error("CALENDAR_COURT_MISMATCH");
       weekListY.current=null;
       todayWeekRowY.current=null;
       focusedWeekKey.current=null;
@@ -425,8 +426,8 @@ export default function OwnerScheduleScreen(){
                 t={t}
                 onSelectSlot={onSelectSlot}
               />
-          :<Card style={{gap:spacing.sm}}>
-              <AppText style={{color:colors.danger}}>{error??t("schedule.calendarError")}</AppText>
+          :error?null:<Card style={{gap:spacing.sm}}>
+              <AppText style={{color:colors.danger}}>{t("schedule.calendarError")}</AppText>
               <Button label={t("common.retry")} variant="secondary" onPress={()=>void refresh()}/>
             </Card>} 
     </View>
