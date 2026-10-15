@@ -30,7 +30,8 @@ export function ownerSectionForPath(path:string):OwnerDashboardSection{
   if(path==="/dashboard"||path==="/owner"||inPath(path,"/owner/overview"))return "overview";
   if(inPath(path,"/owner/bookings"))return "bookings";
   if(inPath(path,"/owner/schedule")||inPath(path,"/owner/timetable")||
-     inPath(path,"/owner/manual-booking")||inPath(path,"/owner/block-time"))return "schedule";
+     inPath(path,"/owner/manual-booking")||inPath(path,"/owner/block-time")||
+     inPath(path,"/owner/blocks"))return "schedule";
   if(inPath(path,"/owner/competitions")||inPath(path,"/owner/manual-teams"))return "competitions";
   if(inPath(path,"/owner/posts")||inPath(path,"/owner/promotions"))return "media";
   if(inPath(path,"/owner/analytics"))return "analysis";

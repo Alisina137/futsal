@@ -117,6 +117,7 @@ for(const route of [
   'href:"/owner/schedule"',
   'href:"/owner/timetable/weekly"',
   'href:"/owner/timetable/exceptions"',
+  'href:"/owner/blocks"',
 ]){
   assert(timetableNav.includes(route),`Timetable sub-navigation missing route: ${route}`);
 }
@@ -125,9 +126,13 @@ assert(!timetableNav.includes('href:"/owner/block-time"'),"Close a Time must sta
 const calendarNavPosition=timetableNav.indexOf('{key:"calendar"');
 const specialNavPosition=timetableNav.indexOf('{key:"special"');
 const weeklyNavPosition=timetableNav.indexOf('{key:"weekly"');
+const blocksNavPosition=timetableNav.indexOf('{key:"blocks"');
 assert(
-  calendarNavPosition<specialNavPosition&&specialNavPosition<weeklyNavPosition,
-  "Visible timetable sub-navigation must remain Calendar, Special Hours, then Weekly Timetable.",
+  calendarNavPosition>=0
+  &&calendarNavPosition<weeklyNavPosition
+  &&weeklyNavPosition<specialNavPosition
+  &&specialNavPosition<blocksNavPosition,
+  "Visible timetable navigation must be Calendar, Weekly Timetable, Special Schedule, Blocked Times.",
 );
 assert(!schedule.includes('t("schedule.quickActions")'),"Main timetable calendar page must not duplicate the old Quick Actions card.");
 assert(!schedule.includes('t("schedule.venueTimetable")'),"Main timetable calendar page title must remain removed.");
@@ -148,7 +153,7 @@ assert(schedule.includes('t("schedule.previous")')&&schedule.includes('t("schedu
 assert(schedule.includes("styles.todayRow")&&schedule.includes('todayRow:{width:"100%"'),"Today control must stay on its own full-width row above calendar navigation.");
 assert(schedule.includes('navButtons:{width:"100%"'),"Previous/date/Next navigation must have its own full-width row.");
 assert(!schedule.includes('name={isRTL?"chevron-forward":"chevron-back"}')&&!schedule.includes('name={isRTL?"chevron-back":"chevron-forward"}'),"Timetable calendar navigation must not use ambiguous direction chevrons.");
-assert(schedule.includes("Initial page shell only"),"Page-level loading must stay separate from calendar range refreshes.");
+assert(schedule.includes("setLoading(false)")&&schedule.includes("setCalendarLoading(true)"),"Page-level loading must stay separate from calendar range refreshes.");
 assert(schedule.includes("statusFilters"),"Venue timetable must offer status filters.");
 assert(schedule.includes("Summary"),"Venue timetable must show operational summary.");
 assert(weeklyPage.includes("schedule.currentTimetable")&&weeklyPage.includes("schedule.draftTimetables")&&weeklyPage.includes("schedule.futureTimetables")&&weeklyPage.includes("schedule.archivedTimetables"),"Weekly Timetable page must manage current/draft/future/archive versions.");

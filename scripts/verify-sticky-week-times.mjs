@@ -4,7 +4,7 @@ const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const publicGrid=read("apps/mobile/src/components/venues/VenueSlotTimetable.tsx");
 const ownerGrid=read("apps/mobile/app/(app)/owner/schedule.tsx");
 const check=(grid,prefix,frame,rail,scroll,clock,headerRow,slotRow)=>{
-  const at=part=>grid.indexOf(part);
+  const at=(part,fromIndex=0)=>grid.indexOf(part,fromIndex);
   const first=at('testID="'+prefix+'-week-grid"');
   const railAt=at('testID="'+prefix+'-week-sticky-times"');
   const scrollAt=at('testID="'+prefix+'-week-scrollable-days"');

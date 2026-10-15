@@ -29,6 +29,7 @@ import { softenSlotColor } from "../../../src/lib/slot-color";
 import { formatSlotStartTime,formatSlotTilePrice } from "../../../src/lib/slot-display";
 import {formatClock12From24Hour} from "../../../src/lib/clock-display";
 import {ownerCalendarClock,missingWeekCellKind} from "../../../src/lib/owner-week-grid";
+import {filteredOwnerCalendarDays,validOwnerScheduleDate} from "../../../src/lib/owner-schedule-management";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -116,10 +117,15 @@ export default function OwnerScheduleScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
-  const initialDate=typeof params.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(params.date)?params.date:todayKabul();
+  const initialDate=typeof params.date==="string"&&validOwnerScheduleDate(params.date)?params.date:todayKabul();
   const [view,setView]=useState<TimetableCalendarView>(typeof params.date==="string"?"DAY":"WEEK");
   const [anchorDate,setAnchorDate]=useState(initialDate);
   const [calendar,setCalendar]=useState<Awaited<ReturnType<typeof ownerApi.timetableCalendar>>|null>(null);
+  const [loadedToken,setLoadedToken]=useState<string|null>(null);
+  const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
+  const [areasToken,setAreasToken]=useState<string|null>(null);
+  const [selectedAreaId,setSelectedAreaId]=useState<string|null>(null);
+  const [selectedType,setSelectedType]=useState<"ALL"|VenueCalendarEventType>("ALL");
   const [renderedView,setRenderedView]=useState<TimetableCalendarView>(view);
   const [renderedAnchorDate,setRenderedAnchorDate]=useState(anchorDate);
   const [loading,setLoading]=useState(true);
@@ -132,9 +138,12 @@ export default function OwnerScheduleScreen(){
   const todayDate=useMemo(()=>todayKabul(),[]);
   const [busy,setBusy]=useState<string|null>(null);
   const [selectedSlot,setSelectedSlot]=useState<{event:VenueCalendarEvent;date:string}|null>(null);
+  const [pendingAction,setPendingAction]=useState<{kind:"cancel"|"unblock";id:string}|null>(null);
   const onSelectSlot=useCallback((event:VenueCalendarEvent,date:string)=>setSelectedSlot({event,date}),[]);
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
+  const displayedCalendar=loadedToken===token?calendar:null;
+  const availableAreas=areasToken===token?areas:[];
 
   const changeAnchorDate=useCallback((nextDate:string)=>{
     if(nextDate===anchorDate)return;
@@ -182,23 +191,34 @@ export default function OwnerScheduleScreen(){
     const requestedAnchorDate=anchorDate;
     setCalendarLoading(true);
     try{
-      const next=await ownerApi.timetableCalendar(token,range.from,range.to,null);
+      const next=await ownerApi.timetableCalendar(token,range.from,range.to,selectedAreaId);
       if(requestId!==calendarRequestId.current)return;
       weekListY.current=null;
       todayWeekRowY.current=null;
       focusedWeekKey.current=null;
       setSelectedSlot(null);
       setCalendar(next);
+      setLoadedToken(token);
       setRenderedView(requestedView);
       setRenderedAnchorDate(requestedAnchorDate);
     }finally{
       if(requestId===calendarRequestId.current)setCalendarLoading(false);
     }
-  },[anchorDate,range.from,range.to,token,view]);
+  },[anchorDate,range.from,range.to,token,view,selectedAreaId]);
 
   useEffect(()=>{
     setLoading(false);
-  },[token]); // Initial page shell only; calendar changes stay in-place.
+    setSelectedAreaId(null);
+    setSelectedType("ALL");
+    if(!token){setCalendar(null);setLoadedToken(null);setAreas([]);setAreasToken(null);return;}
+    let live=true;
+    void ownerApi.getStatus(token).then(result=>{
+      if(!live)return;
+      setAreas(result.venue?.areas.map(area=>({id:area.id,name:area.name}))??[]);
+      setAreasToken(token);
+    }).catch(()=>{if(live){setAreas([]);setAreasToken(null);}});
+    return()=>{live=false;};
+  },[token]); // Calendar navigation remains in place; account data is scoped.
 
   // Refetch on every return from another tab. Online reservations arrive
   // while this screen is blurred, so mounting once is insufficient.
@@ -244,7 +264,9 @@ export default function OwnerScheduleScreen(){
 
   if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={560}/></Screen>;
 
-  const selectedDay=calendar?.days.find((day)=>day.date===renderedAnchorDate)??calendar?.days[0]??null;
+  const selectedDay=displayedCalendar?.days.find((day)=>day.date===renderedAnchorDate)??displayedCalendar?.days[0]??null;
+  const visibleDays=filteredOwnerCalendarDays(displayedCalendar?.days??[],selectedType);
+  const filteredSelectedDay=visibleDays.find(day=>day.date===selectedDay?.date)??null;
 
   return <Screen embedded scrollRef={screenScrollRef}>
     {error?<Card style={styles.errorCard}>
@@ -279,6 +301,26 @@ export default function OwnerScheduleScreen(){
         </View>
       </View>
 
+      {availableAreas.length>0?<View style={styles.areaSection} testID="owner-phase4-court-filter">
+        <AppText variant="caption" weight="semibold">{t("owner.phase4.courtFilter")}</AppText>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.chips,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          {[{id:null,name:t("owner.phase4.allCourts")},...availableAreas].map(area=>{
+            const selected=selectedAreaId===area.id;
+            return <Pressable key={area.id??"all"}
+              accessibilityRole="button" accessibilityState={{selected}}
+              onPress={()=>{
+                if(selected)return;
+                setSelectedSlot(null);setCalendarLoading(true);
+                setSelectedAreaId(area.id);
+              }}
+              style={[styles.chip,selected&&styles.chipActive]}>
+              <AppText variant="caption" weight="semibold"
+                style={selected?styles.chipTextActive:undefined}>{area.name}</AppText>
+            </Pressable>;
+          })}
+        </ScrollView>
+      </View>:null}
       <View style={[styles.segmented,{flexDirection:isRTL?"row-reverse":"row"}]}>
         {views.map((item)=><Pressable
           key={item}
@@ -290,6 +332,21 @@ export default function OwnerScheduleScreen(){
           </AppText>
         </Pressable>)}
       </View>
+      {view!=="MONTH"?<View style={styles.areaSection} testID="owner-phase4-status-filters">
+        <AppText variant="caption" weight="semibold">{t("owner.phase4.statusFilter")}</AppText>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.chips,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          {statusFilters.map(type=><Pressable key={type}
+            accessibilityRole="button" accessibilityState={{selected:selectedType===type}}
+            onPress={()=>{setSelectedType(type);setSelectedSlot(null);}}
+            style={[styles.chip,selectedType===type&&styles.chipActive]}>
+            <AppText variant="caption" weight="semibold"
+              style={selectedType===type?styles.chipTextActive:undefined}>
+              {type==="ALL"?t("owner.phase4.allStatuses"):t(`schedule.event.${type}` as never)}
+            </AppText>
+          </Pressable>)}
+        </ScrollView>
+      </View>:null}
 
     </Card>
 
@@ -299,8 +356,8 @@ export default function OwnerScheduleScreen(){
       style={styles.calendarDataArea}
       onLayout={(event)=>{
         weekListY.current=event.nativeEvent.layout.y;
-        if(renderedView==="WEEK"&&calendar?.days.some((day)=>day.date===todayDate)){
-          focusTodayWeekRow(calendar.from);
+        if(renderedView==="WEEK"&&displayedCalendar?.days.some((day)=>day.date===todayDate)){
+          focusTodayWeekRow(displayedCalendar.from);
         }
       }}
     >
@@ -309,10 +366,10 @@ export default function OwnerScheduleScreen(){
           variant="calendar"
           minHeight={view==="MONTH"?430:view==="WEEK"?390:330}
         />
-        :calendar
+        :displayedCalendar
           ?renderedView==="MONTH"
             ?<MonthView
-              days={calendar.days}
+              days={displayedCalendar.days}
               anchorDate={renderedAnchorDate}
               language={language}
               selected={renderedAnchorDate}
@@ -320,7 +377,7 @@ export default function OwnerScheduleScreen(){
             />
             :renderedView==="WEEK"
               ?<MemoWeekView
-                days={calendar.days}
+                days={visibleDays}
                 language={language}
                 t={t}
                 todayDate={todayDate}
@@ -329,7 +386,7 @@ export default function OwnerScheduleScreen(){
                 onOpenDay={openCalendarDay}
               />
               :<MemoDaySlotView
-                day={selectedDay}
+                day={filteredSelectedDay}
                 language={language}
                 t={t}
                 onSelectSlot={onSelectSlot}
@@ -353,13 +410,35 @@ export default function OwnerScheduleScreen(){
       }}
       onCancelBooking={(id)=>{
         setSelectedSlot(null);
-        void cancelBooking(id);
+        setPendingAction({kind:"cancel",id});
       }}
       onUnblock={(id)=>{
         setSelectedSlot(null);
-        void unblock(id);
+        setPendingAction({kind:"unblock",id});
       }}
     />:null}
+    <Modal visible={pendingAction!==null} transparent animationType="fade"
+      onRequestClose={()=>{if(!busy)setPendingAction(null);}}>
+      <View style={styles.slotModalOverlay}>
+        <Card style={styles.confirmCard}>
+          <AppText variant="bodyLarge" weight="bold">
+            {pendingAction?.kind==="unblock"?t("owner.phase4.unblockTitle"):t("owner.phase4.cancelBookingTitle")}
+          </AppText>
+          <AppText>{pendingAction?.kind==="unblock"
+            ?t("owner.phase4.unblockConfirm"):t("owner.phase4.cancelBookingConfirm")}</AppText>
+          <Button label={pendingAction?.kind==="unblock"?t("schedule.unblock"):t("schedule.cancelBooking")}
+            variant="danger" loading={Boolean(busy)}
+            onPress={()=>{
+              if(!pendingAction||busy)return;
+              const action=pendingAction;setPendingAction(null);
+              if(action.kind==="unblock")void unblock(action.id);
+              else void cancelBooking(action.id);
+            }}/>
+          <Button label={t("common.cancel")} variant="secondary" disabled={Boolean(busy)}
+            onPress={()=>setPendingAction(null)}/>
+        </Card>
+      </View>
+    </Modal>
   </Screen>;
 }
 
@@ -879,6 +958,7 @@ function Legend({t}:{t:ReturnType<typeof useLocale>["t"]}){
 
 
 const styles=StyleSheet.create({
+  confirmCard:{width:"100%",maxWidth:480,alignSelf:"center",gap:spacing.md},
   pendingBadge:{alignSelf:"flex-start",paddingHorizontal:spacing.xs,paddingVertical:2,borderRadius:radius.pill,backgroundColor:"#FEF3C7"},
   pendingBadgeText:{color:"#92400E"},
   errorCard:{borderColor:colors.danger},
@@ -902,6 +982,7 @@ const styles=StyleSheet.create({
   segment:{flex:1,minHeight:42,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
   segmentActive:{backgroundColor:colors.primarySoft},
   segmentTextActive:{color:colors.primary},
+  areaSection:{gap:spacing.xs,marginTop:spacing.sm},
   chips:{gap:spacing.sm,paddingVertical:spacing.xs},
   chip:{minHeight:38,paddingHorizontal:spacing.md,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
   chipActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
