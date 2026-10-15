@@ -22,8 +22,17 @@ export function competitionHomeSnapshot(competition:Pick<CompetitionDto,
   const upcoming=competition.matches.filter(match=>match.status==="SCHEDULED"&&
     finiteDate(match.startsAt)!==null&&finiteDate(match.startsAt)!>=now.getTime())
     .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
+  // Home and Stats must agree on what constitutes an official verified
+  // fixture: both currently accepted teams, complete valid scores and a
+  // finalized result. Removed-team/partial scores cannot inflate the hero.
+  const acceptedIds=new Set(accepted.map(team=>team.teamId));
   const results=competition.matches.filter(match=>finalMatch(match)&&
-    match.homeScore!==null&&match.awayScore!==null);
+    match.homeScore!==null&&match.awayScore!==null&&
+    Number.isSafeInteger(match.homeScore)&&Number.isSafeInteger(match.awayScore)&&
+    match.homeScore>=0&&match.awayScore>=0&&
+    match.homeTeamId!==null&&match.awayTeamId!==null&&
+    match.homeTeamId!==match.awayTeamId&&
+    acceptedIds.has(match.homeTeamId)&&acceptedIds.has(match.awayTeamId));
   const completed=results.length;
   const currentChampion=competition.status==="COMPLETED"||competition.status==="ARCHIVED"?
     accepted.find(team=>team.teamId===competition.championTeamId)??null:null;
