@@ -44,7 +44,7 @@ check("promos",[
  'ownerPromotionState(item,now)','ownerPromotionViews.map(key=>',
  'const safeItems=loadedToken===token?items:[];',
  'useFocusEffect(useCallback(()=>','AppState.currentState==="active"',
- 'requestId.current++','write', // no generic mutable bulk write added
+ 'requestId.current++','writing.current',
  'ownerApi.closePromotion(actorToken,promotion.id)',
  'Modal transparent visible={confirm!==null}',
  'accessibilityState={{selected:key===view}}',
