@@ -52,7 +52,8 @@ export default function VenueSettingsScreen(){
   const [confirmPause,setConfirmPause]=useState(false);
   const [section,setSection]=useState<Section>("GENERAL");
   const [loading,setLoading]=useState(true);
-  const [saving,setSaving]=useState(false);
+  const [savingToken,setSavingToken]=useState<string|null>(null);
+  const saving=savingToken===token;
   const [saved,setSaved]=useState(false);
   const [error,setError]=useState<string|null>(null);
 
@@ -246,7 +247,7 @@ export default function VenueSettingsScreen(){
     }
     const beforeSave=draftSignature.current;
     const request=++generation.current;
-    setSaving(true);setSaved(false);setError(null);
+    setSavingToken(token);setSaved(false);setError(null);
     try{
       const result=await ownerApi.updateSettings(token,{
         publicPhone:publicPhone.trim(),
@@ -279,7 +280,7 @@ export default function VenueSettingsScreen(){
       else if(cause instanceof ApiRequestError&&cause.code==="VENUE_SUSPENDED")setError(t("venueSettings.suspendedError"));
       else setError(t("venueSettings.saveError"));
     }finally{
-      if(currentToken.current===token)setSaving(false);
+      setSavingToken(current=>current===token?null:current);
     }
   }
 
