@@ -29,7 +29,7 @@ import { softenSlotColor } from "../../../src/lib/slot-color";
 import { formatSlotStartTime,formatSlotTilePrice } from "../../../src/lib/slot-display";
 import {formatClock12From24Hour} from "../../../src/lib/clock-display";
 import {ownerCalendarClock,missingWeekCellKind} from "../../../src/lib/owner-week-grid";
-import {filteredOwnerCalendarDays,validOwnerScheduleDate} from "../../../src/lib/owner-schedule-management";
+import {filteredOwnerCalendarDays,validOwnerScheduleDate,ownerCalendarSelectionMatches,type OwnerCalendarSelection} from "../../../src/lib/owner-schedule-management";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
 
@@ -122,6 +122,7 @@ export default function OwnerScheduleScreen(){
   const [anchorDate,setAnchorDate]=useState(initialDate);
   const [calendar,setCalendar]=useState<Awaited<ReturnType<typeof ownerApi.timetableCalendar>>|null>(null);
   const [loadedToken,setLoadedToken]=useState<string|null>(null);
+  const [loadedSelection,setLoadedSelection]=useState<OwnerCalendarSelection|null>(null);
   const [areas,setAreas]=useState<Array<{id:string;name:string}>>([]);
   const [areasToken,setAreasToken]=useState<string|null>(null);
   const [selectedAreaId,setSelectedAreaId]=useState<string|null>(null);
@@ -142,7 +143,10 @@ export default function OwnerScheduleScreen(){
   const onSelectSlot=useCallback((event:VenueCalendarEvent,date:string)=>setSelectedSlot({event,date}),[]);
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
-  const displayedCalendar=loadedToken===token?calendar:null;
+  const requestedSelection:OwnerCalendarSelection={
+    token:token??"",areaId:selectedAreaId,view,anchorDate,from:range.from,to:range.to,
+  };
+  const displayedCalendar=loadedToken===token&&ownerCalendarSelectionMatches(loadedSelection,requestedSelection)?calendar:null;
   const availableAreas=areasToken===token?areas:[];
 
   const changeAnchorDate=useCallback((nextDate:string)=>{
@@ -189,16 +193,24 @@ export default function OwnerScheduleScreen(){
     const requestId=++calendarRequestId.current;
     const requestedView=view;
     const requestedAnchorDate=anchorDate;
+    const requestedSelection:OwnerCalendarSelection={
+      token,areaId:selectedAreaId,view,anchorDate,from:range.from,to:range.to,
+    };
     setCalendarLoading(true);
+    setError(null);
     try{
       const next=await ownerApi.timetableCalendar(token,range.from,range.to,selectedAreaId);
       if(requestId!==calendarRequestId.current)return;
+      if(next.from!==range.from||next.to!==range.to){
+        throw new Error("CALENDAR_RANGE_MISMATCH");
+      }
       weekListY.current=null;
       todayWeekRowY.current=null;
       focusedWeekKey.current=null;
       setSelectedSlot(null);
       setCalendar(next);
       setLoadedToken(token);
+      setLoadedSelection(requestedSelection);
       setRenderedView(requestedView);
       setRenderedAnchorDate(requestedAnchorDate);
     }finally{
@@ -210,6 +222,8 @@ export default function OwnerScheduleScreen(){
     setLoading(false);
     setSelectedAreaId(null);
     setSelectedType("ALL");
+    setSelectedSlot(null);setPendingAction(null);
+    setLoadedSelection(null);
     if(!token){setCalendar(null);setLoadedToken(null);setAreas([]);setAreasToken(null);return;}
     let live=true;
     void ownerApi.getStatus(token).then(result=>{
@@ -224,7 +238,7 @@ export default function OwnerScheduleScreen(){
   // while this screen is blurred, so mounting once is insufficient.
   useFocusEffect(useCallback(()=>{
     void loadCalendar().catch(()=>setError(t("schedule.calendarError")));
-    return ()=>{calendarRequestId.current+=1;};
+    return ()=>{calendarRequestId.current+=1;setSelectedSlot(null);setPendingAction(null);};
   },[loadCalendar,t]));
 
   const onTodayRowLayout=useCallback((y:number)=>{
@@ -391,12 +405,15 @@ export default function OwnerScheduleScreen(){
                 t={t}
                 onSelectSlot={onSelectSlot}
               />
-          :<DataLoadingState variant="calendar" minHeight={330}/>} 
+          :<Card style={{gap:spacing.sm}}>
+              <AppText style={{color:colors.danger}}>{error??t("schedule.calendarError")}</AppText>
+              <Button label={t("common.retry")} variant="secondary" onPress={()=>void refresh()}/>
+            </Card>} 
     </View>
 
     {!calendarLoading&&renderedView==="MONTH"?<Legend t={t}/>:null}
 
-    {selectedSlot?<SlotManager
+    {selectedSlot&&loadedToken===token?<SlotManager
       event={selectedSlot.event}
       date={selectedSlot.date}
       language={language}
@@ -417,7 +434,7 @@ export default function OwnerScheduleScreen(){
         setPendingAction({kind:"unblock",id});
       }}
     />:null}
-    <Modal visible={pendingAction!==null} transparent animationType="fade"
+    <Modal visible={pendingAction!==null&&loadedToken===token} transparent animationType="fade"
       onRequestClose={()=>{if(!busy)setPendingAction(null);}}>
       <View style={styles.slotModalOverlay}>
         <Card style={styles.confirmCard}>
@@ -429,7 +446,7 @@ export default function OwnerScheduleScreen(){
           <Button label={pendingAction?.kind==="unblock"?t("schedule.unblock"):t("schedule.cancelBooking")}
             variant="danger" loading={Boolean(busy)}
             onPress={()=>{
-              if(!pendingAction||busy)return;
+              if(!pendingAction||busy||loadedToken!==token)return;
               const action=pendingAction;setPendingAction(null);
               if(action.kind==="unblock")void unblock(action.id);
               else void cancelBooking(action.id);
