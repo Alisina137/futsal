@@ -46,7 +46,8 @@ check("promos",[
  'useFocusEffect(useCallback(()=>','AppState.currentState==="active"',
  'requestId.current++','writing.current',
  'ownerApi.closePromotion(actorToken,promotion.id)',
- 'Modal transparent visible={confirm!==null}',
+ 'Modal transparent visible={confirm!==null&&loadedToken===token}',
+ 'actorToken!==activeToken.current','if(actorToken===activeToken.current)',
  'accessibilityState={{selected:key===view}}',
  'testID="owner-phase6-promotion-filters"',
 ]);
