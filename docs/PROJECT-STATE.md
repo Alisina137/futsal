@@ -1,3 +1,7 @@
+## Public Team Detail — Squad position tab focus (2026-10-15)
+- Squad > Players position navigation now defaults to **All positions** and uses the shared `useVisibleTab` hook so the selected filter is highlighted, scrolled into view and centered (including RTL). Tabs are accessible `role=tab` controls with explicit selected state. Keep the filter visible even for an empty public roster. Team/account switches still reset the selection to All. The role-based private-roster guard and player visibility remain unchanged.
+- Expanded `verify-team-detail-phase3` to enforce this focus behavior. Android visual acceptance remains outstanding.
+
 ## Public Venue Detail — cover-only hero and verified review rating (2026-10-15)
 - Removed the circular venue profile image/initials avatar that overlapped the lower center of the hero cover. The only hero artwork is now the venue's existing page cover image (with the same neutral fallback if no cover is configured). The venue name has natural top padding directly below the cover.
 - Added a compact star-rating and verified review count badge **immediately below the venue name**, ahead of the locality/follower line and the existing Follow / Reserve Online buttons. The badge uses the real public `venueApi.reviews(venueId)` response and opens **About → Reviews** when pressed; the existing full reviews panel and booking eligibility rules remain authoritative.
