@@ -42,7 +42,7 @@ for(const marker of [
   'testID="competition-phase7-photo-close"','testID="competition-media-refresh"',
   'Share.share({message:post.body.trim()||competition.name})',
   'formatPostTimeAgo(post.publishedAt,language)',
-  'sort==="oldest"','setItems(current=>',
+  'onPress={()=>setSort(value)}','setItems(current=>',
 ])assert.ok(panel.includes(marker),"Phase 7 Media UI invariant missing: "+marker);
 for(const marker of [
   'CompetitionMediaPanel competition={competition}',
