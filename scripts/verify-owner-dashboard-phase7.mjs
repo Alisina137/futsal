@@ -13,7 +13,7 @@ for(const fragment of [
  "useFocusEffect(useCallback(()=>",
  "AppState.addEventListener",
  "if(request!==generation.current)return",
- "snapshot?.token===token",
+ "snapshot&&snapshot.token===token",
  "result.from!==nextFrom||result.to!==nextTo",
  "owner.phase7.analyticsRefresh",
  "owner.phase7.grossValueDisclaimer",
@@ -22,7 +22,7 @@ for(const fragment of [
 ])assert.ok(analytics.includes(fragment),"Analytics missing "+fragment);
 for(const fragment of [
  "loadedToken.current===token&&dirtyRef.current",
- "record?.token===token",
+ "record&&record.token===token",
  "currentToken.current!==token",
  "ownerVenueSettingsDirty(data,draft)",
  "owner.phase7.unsavedChanges",
