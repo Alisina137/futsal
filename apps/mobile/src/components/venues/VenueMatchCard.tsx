@@ -18,8 +18,14 @@ function TeamLogo({url}:{url:string|null}){
   </View>;
 }
 
-export function VenueMatchCard({match,scope,timeZone}:{
-  match:VenueMatchItem;scope:"upcoming"|"results";timeZone:string;
+type FixtureMatch={
+  id:string;competitionId:string;competitionName:string;startsAt:string|null;
+  homeTeamName:string|null;awayTeamName:string|null;homeLogoUrl?:string|null;awayLogoUrl?:string|null;
+  homeScore:number|null;awayScore:number|null;status:string;
+};
+function FixtureMatchCard({match,scope,timeZone,testID,statusLabel}:{
+  match:FixtureMatch;scope:"upcoming"|"results";timeZone:string;
+  testID:string;statusLabel?:string;
 }){
   const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(("vd4."+key) as never);
@@ -35,7 +41,7 @@ export function VenueMatchCard({match,scope,timeZone}:{
     pathname:"/competitions/[competitionId]/matches/[matchId]",
     params:{competitionId:match.competitionId,matchId:match.id},
   });
-  return <Pressable testID={"venue-match-"+match.id}
+  return <Pressable testID={testID}
     accessibilityRole="button"
     accessibilityLabel={[
       match.competitionName,match.homeTeamName??tr("toBeDecided"),
@@ -52,14 +58,14 @@ export function VenueMatchCard({match,scope,timeZone}:{
         <View style={[styles.status,match.status==="IN_PROGRESS"&&styles.liveStatus]}>
           <AppText variant="caption" weight="bold"
             style={{color:match.status==="IN_PROGRESS"?"#B91C1C":colors.primary}}>
-            {tr("matchStatus."+match.status)}
+            {statusLabel??tr("matchStatus."+match.status)}
           </AppText>
         </View>
       </View>
       <View style={styles.divider}/>
       <View style={[styles.fixture,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.team}>
-          <TeamLogo url={match.homeLogoUrl}/>
+          <TeamLogo url={match.homeLogoUrl??null}/>
           <AppText numberOfLines={2} weight={teamWeight("home")}
             style={[styles.teamName,{color:teamColor("home")}]}>{match.homeTeamName??tr("toBeDecided")}</AppText>
         </View>
@@ -72,7 +78,7 @@ export function VenueMatchCard({match,scope,timeZone}:{
           {date?<AppText variant="caption" muted style={styles.date}>{date.time}</AppText>:null}
         </View>
         <View style={styles.team}>
-          <TeamLogo url={match.awayLogoUrl}/>
+          <TeamLogo url={match.awayLogoUrl??null}/>
           <AppText numberOfLines={2} weight={teamWeight("away")}
             style={[styles.teamName,{color:teamColor("away")}]}>{match.awayTeamName??tr("toBeDecided")}</AppText>
         </View>
@@ -87,6 +93,20 @@ export function VenueMatchCard({match,scope,timeZone}:{
       </View>
     </Card>
   </Pressable>;
+}
+/** One card layout for the venue and team match feeds. A source-specific
+ * adapter provides team names and translated status without duplicating UI. */
+export function VenueMatchCard({match,scope,timeZone}:{
+  match:VenueMatchItem;scope:"upcoming"|"results";timeZone:string;
+}){
+  return <FixtureMatchCard match={match} scope={scope} timeZone={timeZone}
+    testID={"venue-match-"+match.id}/>;
+}
+export function TeamMatchCard({match,scope,timeZone,statusLabel}:{
+  match:FixtureMatch;scope:"upcoming"|"results";timeZone:string;statusLabel:string;
+}){
+  return <FixtureMatchCard match={match} scope={scope} timeZone={timeZone}
+    testID={"team-match-"+match.id} statusLabel={statusLabel}/>;
 }
 const styles=StyleSheet.create({
   card:{gap:spacing.sm,borderColor:colors.border},
