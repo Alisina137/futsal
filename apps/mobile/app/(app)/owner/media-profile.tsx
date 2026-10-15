@@ -26,7 +26,8 @@ export default function OwnerMediaProfileScreen(){
   const [bioDraft,setBioDraft]=useState("");
   const [editing,setEditing]=useState(false);
   const [loading,setLoading]=useState(true);
-  const [saving,setSaving]=useState(false);
+  const [savingToken,setSavingToken]=useState<string|null>(null);
+  const saving=savingToken===token;
   const [error,setError]=useState<string|null>(null);
   const [success,setSuccess]=useState(false);
   const generation=useRef(0);
@@ -59,7 +60,7 @@ export default function OwnerMediaProfileScreen(){
   async function save(){
     if(!token||!current||saving)return;
     const request=++generation.current;
-    setSaving(true);setSuccess(false);setError(null);
+    setSavingToken(token);setSuccess(false);setError(null);
     try{
       const next=await ownerApi.updateMediaPage(token,{
         pageProfileImageUrl:profileDraft||null,
@@ -70,7 +71,7 @@ export default function OwnerMediaProfileScreen(){
       setPage(next.page);setLoadedToken(token);hydrate(next.page);
       setEditing(false);setSuccess(true);
     }catch{if(request===generation.current)setError(t("media.pageSaveError"));}
-    finally{if(request===generation.current)setSaving(false);}
+    finally{setSavingToken(current=>current===token?null:current);}
   }
   if(loading&&!current)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={500}/></Screen>;
   return <Screen embedded refreshing={loading&&!!current} onRefresh={()=>void load()}>
