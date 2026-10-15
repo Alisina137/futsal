@@ -39,7 +39,7 @@ for(const [name,component,frame,row,item,selected] of [
 const team=read("apps/mobile/src/components/social/TeamDetailExperience.tsx");
 for(const word of ["useVisibleTab<Tab>(tab)","useVisibleTab<string>(subs[tab]",
   "mainNav.scrollRef","subNav.scrollRef","mainNav.cellLayout(item.id,event)",
-  "subNav.cellLayout(key,event)","subNavigation[value][0]!"]){
+  "subNav.cellLayout(key,event)","switchTeamMain(current,value,target)"]){
   assert.ok(team.includes(word),"Team detail navigation invariant missing: "+word);
 }
 for(const p of [
