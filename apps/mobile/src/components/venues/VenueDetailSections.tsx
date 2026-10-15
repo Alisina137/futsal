@@ -259,7 +259,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
       onContentSizeChange={postFilterNav.onContentSize}
       horizontal showsHorizontalScrollIndicator={false}
       style={{flexGrow:0}}
-      contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      contentContainerStyle={[styles.postFilterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {venuePostFilters.map(key=><Pressable key={key}
         testID={"venue-posts-filter-"+key}
         accessibilityRole="tab"
@@ -267,7 +267,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
         accessibilityState={{selected:filter===key}}
         onLayout={event=>postFilterNav.cellLayout(key,event)}
         onPress={()=>{setFilter(key);postFilterNav.focus(key,true);}}
-        style={[styles.pill,filter===key&&styles.pillActive]}>
+        style={[styles.pill,styles.postFilterItem,filter===key&&styles.pillActive]}>
         <AppText weight="semibold" variant="caption"
           style={{textAlign:"center",color:filter===key?"#FFFFFF":colors.primary}}>
           {tr5("filter."+key)}
@@ -768,6 +768,8 @@ const styles=StyleSheet.create({
     backgroundColor:colors.primarySoft,borderColor:colors.border,borderWidth:1},
   pillActive:{backgroundColor:colors.primary,borderColor:colors.primary},
   filters:{flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
+  postFilterRow:{gap:spacing.sm,paddingVertical:spacing.xs,alignItems:"center",flexWrap:"nowrap"},
+  postFilterItem:{minHeight:48,justifyContent:"center"},
   meta:{alignItems:"center",gap:spacing.sm},
   heading:{alignItems:"center",gap:spacing.sm},
   headingIcon:{width:34,height:34,borderRadius:12,backgroundColor:colors.primarySoft,
