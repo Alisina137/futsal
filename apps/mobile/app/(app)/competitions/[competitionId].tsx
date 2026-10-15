@@ -17,6 +17,8 @@ import {
   COMPETITION_PROFILE_TABS,COMPETITION_TAB_ICONS,CompetitionProfileSections,
   type CompetitionProfileTab,
 } from "../../../src/components/competition/CompetitionProfileSections";
+import {allowedCompetitionSubtabs,chooseCompetitionMain,chooseCompetitionSubtab,
+  requestedCompetitionNavigation,resolvedCompetitionSubtab} from "../../../src/lib/competition-detail-navigation";
 import {useAuth} from "../../../src/providers/AuthProvider";
 import {useLocale} from "../../../src/providers/LocaleProvider";
 
@@ -28,8 +30,8 @@ function selectedTab(input?:string):CompetitionProfileTab{
 }
 
 export default function CompetitionDetailScreen(){
-  const {competitionId,focusRegistration,tab,stage}=useLocalSearchParams<{
-    competitionId:string;focusRegistration?:string;tab?:string;stage?:string;
+  const {competitionId,focusRegistration,tab,stage,subtab}=useLocalSearchParams<{
+    competitionId:string;focusRegistration?:string;tab?:string;stage?:string;subtab?:string;
   }>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
@@ -42,6 +44,13 @@ export default function CompetitionDetailScreen(){
   const contentY=useRef(0);
   const handledRegistration=useRef(false);
   const [activeTab,setActiveTab]=useState<CompetitionProfileTab>(()=>selectedTab(tab));
+  const [navigation,setNavigation]=useState(()=>requestedCompetitionNavigation(
+    focusRegistration==="1"?"TEAMS":tab,
+    focusRegistration==="1"?"REGISTRATION":tab==="RESULTS"?"RESULTS":stage==="KNOCKOUT"?"KNOCKOUT":subtab));
+  const loadGeneration=useRef(0);
+  const actorIdentity=competitionId+"|"+(session?.user.id??"anonymous")+"|"+(session?.accessToken??"");
+  const lastActorIdentity=useRef(actorIdentity);
+
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [myTeams,setMyTeams]=useState<TeamListItemDto[]>([]);
   const [selectedTeamId,setSelectedTeamId]=useState<string|null>(null);
@@ -67,68 +76,92 @@ export default function CompetitionDetailScreen(){
   useEffect(()=>{
     handledRegistration.current=false;
     setActiveTab(focusRegistration==="1"?"TEAMS":selectedTab(tab));
-  },[tab,focusRegistration,competitionId]);
+    setNavigation(requestedCompetitionNavigation(
+      focusRegistration==="1"?"TEAMS":tab,
+      focusRegistration==="1"?"REGISTRATION":tab==="RESULTS"?"RESULTS":
+        stage==="KNOCKOUT"?"KNOCKOUT":subtab,
+      competition?.format??"LEAGUE"));
+  },[tab,subtab,stage,focusRegistration,competitionId]);
+
+  // No stale private registration/team list may survive a route or account swap.
+  useEffect(()=>{
+    if(lastActorIdentity.current===actorIdentity)return;
+    lastActorIdentity.current=actorIdentity;
+    loadGeneration.current++;
+    setCompetition(null);setMediaPosts([]);setParticipations([]);setMyTeams([]);
+    setSelectedTeamId(null);setParticipationError(false);setOrganizerCanInvite(false);
+    setDirectoryTeams([]);setManualTeams([]);setSelectedManualId(null);
+    setInvitedTeamId(null);setIntent(null);setTeamSearch("");
+    setFollowState(null);setFollowBusy(false);setBusy(false);setMessage(null);
+    setError(null);setLoading(true);
+  },[actorIdentity]);
 
   const load=useCallback(async()=>{
     if(!competitionId){setLoading(false);return;}
+    const generation=++loadGeneration.current;
+    const valid=()=>generation===loadGeneration.current;
     setLoading(true);setError(null);
+    // A permission may have been revoked while this page was away. Clear
+    // privileged data before each focused reload or retry.
+    setParticipations([]);setMyTeams([]);setOrganizerCanInvite(false);
+    setDirectoryTeams([]);setManualTeams([]);setParticipationError(false);
+    setSelectedManualId(null);setInvitedTeamId(null);setIntent(null);
     try{
       const [{competition:next},mediaResult]=await Promise.all([
         competitionApi.get(competitionId),competitionApi.media(competitionId),
       ]);
-      setCompetition(next);
-      setMediaPosts(mediaResult.posts);
+      if(!valid())return;
+      let owned:TeamListItemDto[]=[];
+      let registrations:CompetitionParticipationDto[]=[];
+      let registrationFailed=false,inviteAllowed=false;
+      let ownerDirectory:TeamDirectoryItemDto[]=[],ownerManual:ManualTeamDto[]=[];
       if(session){
-        try{
-          const answer=await competitionApi.myParticipations(session.accessToken,competitionId);
-          setParticipations(answer.participations);setParticipationError(false);
-        }catch{setParticipations([]);setParticipationError(true);}
-        try{
-          const owned=(await teamApi.mine(session.accessToken)).teams
-            .filter(team=>team.managerUserId===session.user.id);
-          setMyTeams(owned);
-          setSelectedTeamId(current=>owned.some(team=>team.id===current)?current:owned[0]?.id??null);
-        }catch{setMyTeams([]);setSelectedTeamId(null);}
-        // Venue owners can invite teams only into competitions hosted at their own venue.
+        const [participation,managed]=await Promise.allSettled([
+          competitionApi.myParticipations(session.accessToken,competitionId),
+          teamApi.mine(session.accessToken),
+        ]);
+        if(!valid())return;
+        if(participation.status==="fulfilled")registrations=participation.value.participations;
+        else registrationFailed=true;
+        if(managed.status==="fulfilled")owned=managed.value.teams
+          .filter(team=>team.managerUserId===session.user.id);
         if(session.user.roles.includes("VENUE_OWNER")){
           try{
             const status=await ownerApi.getStatus(session.accessToken);
+            if(!valid())return;
             if(status.venue?.id===next.venueId){
-              const [teamResult,manualResult]=await Promise.all([
+              const [directory,manual]=await Promise.all([
                 teamApi.directory(session.accessToken).catch(()=>({teams:[] as TeamDirectoryItemDto[]})),
                 manualTeamApi.mine(session.accessToken).catch(()=>({teams:[] as ManualTeamDto[]})),
               ]);
-              setOrganizerCanInvite(true);
-              setDirectoryTeams(teamResult.teams);
-              setManualTeams(manualResult.teams);
-            }else{
-              setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
+              if(!valid())return;
+              inviteAllowed=true;ownerDirectory=directory.teams;ownerManual=manual.teams;
             }
-          }catch{
-            setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
-          }
-        }else{
-          setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
+          }catch{/* Organizer privileges default to unavailable on failed authorization. */}
         }
-      }else{
-        setParticipations([]);setParticipationError(false);
-        setMyTeams([]);setSelectedTeamId(null);
-        setOrganizerCanInvite(false);setDirectoryTeams([]);setInvitedTeamId(null);setManualTeams([]);setSelectedManualId(null);
       }
-    }catch{setError(t("competition.loadError"));}
-    finally{setLoading(false);}
+      if(!valid())return;
+      setCompetition(next);setMediaPosts(mediaResult.posts);
+      setParticipations(registrations);setParticipationError(registrationFailed);
+      setMyTeams(owned);
+      setSelectedTeamId(current=>owned.some(team=>team.id===current)?current:owned[0]?.id??null);
+      setOrganizerCanInvite(inviteAllowed);
+      setDirectoryTeams(ownerDirectory);setManualTeams(ownerManual);
+    }catch{if(valid()){setCompetition(null);setError(t("competition.loadError"));}}
+    finally{if(valid())setLoading(false);}
   },[competitionId,session?.accessToken,session?.user.id,retry,t]);
 
   useFocusEffect(useCallback(()=>{
     let mounted=true;
+    const actor=actorIdentity;
     void load();
     if(session?.accessToken&&competitionId){
       marketingApi.socialFollowState(session.accessToken,"COMPETITION",competitionId)
-        .then(value=>{if(mounted)setFollowState(value);})
-        .catch(()=>{if(mounted)setFollowState(null);});
+        .then(value=>{if(mounted&&actor===lastActorIdentity.current)setFollowState(value);})
+        .catch(()=>{if(mounted&&actor===lastActorIdentity.current)setFollowState(null);});
     }else setFollowState(null);
-    return()=>{mounted=false;};
-  },[load,session?.accessToken,competitionId]));
+    return()=>{mounted=false;loadGeneration.current++;};
+  },[load,session?.accessToken,competitionId,actorIdentity]));
 
   // Refresh live score updates while this profile's Home feed is in focus.
   // No spinners or destructive reloads: pending scores remain visible on transient errors.
@@ -235,6 +268,7 @@ export default function CompetitionDetailScreen(){
 
   function switchTab(next:CompetitionProfileTab){
     if(next!==activeTab)setActiveTab(next);
+    setNavigation(current=>chooseCompetitionMain(current,next));
     // A tab selection is not a command to move the outer page.
     requestAnimationFrame(()=>focusSelectedTab(next,true));
   }
@@ -247,6 +281,11 @@ export default function CompetitionDetailScreen(){
     }));
   }
 
+  const availableSubtabs=competition?allowedCompetitionSubtabs(activeTab,competition.format,{
+    registrationOpen:competition.status==="REGISTRATION_OPEN",
+    hasParticipation:participations.length>0,
+  }):[];
+  const selectedSubtab=resolvedCompetitionSubtab(navigation,activeTab,availableSubtabs);
   const representedIds=new Set([
     ...(competition?.teams.filter(team=>!["REJECTED","WITHDRAWN"].includes(team.status))
       .map(team=>team.teamId)??[]),
@@ -390,7 +429,8 @@ export default function CompetitionDetailScreen(){
     {message?<AppText style={{color:colors.success}}>{message}</AppText>:null}
   </View>:null;
 
-  if(loading)return <Screen showHeader><DataLoadingState variant="detail" minHeight={540}/></Screen>;
+  if(loading||lastActorIdentity.current!==actorIdentity)
+    return <Screen showHeader><DataLoadingState variant="detail" minHeight={540}/></Screen>;
   if(!competition)return <Screen showHeader>
     <Card style={{gap:spacing.md}}>
       <AppText>{error??t("competition.loadError")}</AppText>
@@ -572,13 +612,32 @@ export default function CompetitionDetailScreen(){
       </ScrollView>
     </View>
 
-    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
+    <View testID="competition-profile-subtabs">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={{flexGrow:0}} contentContainerStyle={[styles.tabList,
+          {flexDirection:isRTL?"row-reverse":"row"}]}>
+        {availableSubtabs.map(key=><Pressable key={key}
+          testID={"competition-subtab-"+activeTab+"-"+key}
+          accessibilityRole="tab" accessibilityState={{selected:selectedSubtab===key}}
+          onPress={()=>setNavigation(current=>chooseCompetitionSubtab(
+            current,activeTab,key,availableSubtabs))}
+          style={[styles.tab,selectedSubtab===key&&styles.tabActive]}>
+          <AppText variant="caption" weight="semibold"
+            style={{color:selectedSubtab===key?colors.primary:colors.textMuted}}>
+            {t(`competition.detail.sub.${key}` as never)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+    </View>
+    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
+      <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/></Card>:null}
     <View testID="competition-tab-content" style={{minHeight:viewportHeight}}
       onLayout={e=>{contentY.current=e.nativeEvent.layout.y;}}>
-      <CompetitionProfileSections competition={competition} posts={mediaPosts}
-        activeTab={activeTab} registration={registration} onTabChange={switchTab}
-        initialStage={stage==="KNOCKOUT"?"KNOCKOUT":undefined}
-        initialMatchFilter={tab==="RESULTS"?"FINISHED":"ALL"}/>
+      <CompetitionProfileSections key={activeTab+"-"+selectedSubtab} competition={competition}
+        posts={mediaPosts} activeTab={activeTab} subtab={selectedSubtab}
+        registration={registration} onTabChange={switchTab}
+        initialStage={selectedSubtab==="KNOCKOUT"?"KNOCKOUT":undefined}
+        initialMatchFilter={tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL"}/>
     </View>
   </Screen>;
 }
