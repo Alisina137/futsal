@@ -1276,6 +1276,15 @@ export const competitionApi = {
       `/api/v1/competitions/${competitionId}/matches/${matchId}`),
   media: (competitionId: string) =>
     request<{ posts: CompetitionMediaPostDto[] }>(`/api/v1/competitions/${competitionId}/media`),
+  mediaPage:(competitionId:string,options:{
+    page?:number;limit?:number;kind?:"all"|"photos";sort?:"newest"|"oldest";
+  }={})=>
+    request<{posts:CompetitionMediaPostDto[];page:number;limit:number;hasMore:boolean}>(
+      `/api/v1/competitions/${encodeURIComponent(competitionId)}/media?`+
+      new URLSearchParams({
+        page:String(options.page??1),limit:String(options.limit??12),
+        kind:options.kind??"all",sort:options.sort??"newest",
+      }).toString(),{cache:"no-store"}),
   register: (accessToken: string, competitionId: string, teamId: string) =>
     request<{ registration: CompetitionTeamDto | null }>(
       `/api/v1/competitions/${competitionId}/register`,

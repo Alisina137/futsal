@@ -179,6 +179,9 @@ export interface CompetitionRepository {
     now: Date;
   }): Promise<CompetitionTeamRecord | null>;
   listCompetitionMedia(competitionId: string, includeUnpublished: boolean): Promise<CompetitionMediaPostDto[]>;
+  listPublicCompetitionMediaPage(competitionId:string,options:{
+    page:number;limit:number;kind:"all"|"photos";sort:"newest"|"oldest";
+  }):Promise<{posts:CompetitionMediaPostDto[];page:number;limit:number;hasMore:boolean}>;
   createCompetitionMediaPost(input: {
     competitionId: string;
     ownerUserId: string;

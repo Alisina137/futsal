@@ -21,7 +21,7 @@ for(const token of [
  'allowedCompetitionSubtabs(activeTab,competition.format,',
  'initialMatchFilter={extraMatchStatus??(tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL")}',
  ])assert.ok(page.includes(token),"Profile race/navigation guard missing: "+token);
-for(const token of ['"MEDIA","ABOUT"','mode="MEDIA"','competition-about-subtab',
+for(const token of ['"MEDIA","ABOUT"','CompetitionMediaPanel competition={competition}','competition-about-subtab',
  'competition-team-stats','competition-fairplay-stats','subtab==="KNOCKOUT"',
  'subtab==="UPCOMING"','subtab==="LIVE"','subtab==="RESULTS"',
 ])assert.ok(parts.includes(token),"Public tabs must have functioning content: "+token);

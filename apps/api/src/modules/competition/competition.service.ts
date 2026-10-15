@@ -549,11 +549,19 @@ export class CompetitionService {
   }
 
   async listPublicMedia(competitionId: string) {
-    const competition = await this.repository.getCompetitionRecord(competitionId);
-    if (!competition || !competition.published || competition.status === "DRAFT") {
-      throw errors.badRequest("COMPETITION_NOT_FOUND", "Competition not found.");
-    }
-    return { posts: await this.repository.listCompetitionMedia(competitionId, false) };
+    const competition=await this.repository.getCompetitionRecord(competitionId);
+    if(!competition||!competition.published||competition.status==="DRAFT")
+      throw errors.badRequest("COMPETITION_NOT_FOUND","Competition not found.");
+    return {posts:await this.repository.listCompetitionMedia(competitionId,false)};
+  }
+
+  async listPublicMediaPage(competitionId:string,options:{
+    page:number;limit:number;kind:"all"|"photos";sort:"newest"|"oldest";
+  }){
+    const competition=await this.repository.getCompetitionRecord(competitionId);
+    if(!competition||!competition.published||competition.status==="DRAFT")
+      throw errors.badRequest("COMPETITION_NOT_FOUND","Competition not found.");
+    return this.repository.listPublicCompetitionMediaPage(competitionId,options);
   }
 
   async createMediaPost(

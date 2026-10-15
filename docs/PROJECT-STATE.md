@@ -1,3 +1,8 @@
+## Competition Detail — Phase 7: public Media and About (2026-10-15)
+- Media > Updates / Photos uses a dedicated client with stable server pagination, sort, refresh, load-more, error retry without discarding prior pages, native post sharing and full-photo lightbox with previous/next. The API validates page/limit/type/sort; SQL scopes by competition, PUBLISHED and PUBLIC before pagination. The original no-query media response stays compatible for older clients and the Home preview.
+- About > Information / Rules / Prizes / Venue shows confirmed schedule, format, registration, points and tie-break configuration, organizer-published reward categories and real hosting-venue navigation. No fictional awards, referee rules or venue-contact values. Registration shortcut only when active; separate full About screen remains.
+- EN/Dari/Pashto RTL, Phase 7 API tests, source regression gate and full verification command updated. No migration or dependencies. Physical Android/production DB QA outstanding; see `docs/COMPETITION-DETAIL-PHASE7.md`.
+
 ## Venue Detail — Phase 7: cross-tab regression, stale-request safety and release QA (October 14, 2026)
 
 - Audited the live public Venue Detail implementation (all **5 main tabs and 21 subtabs**, user shortcuts, deep links, privacy, owner vs player vs guest states, RTL/localization and server-owned booking rules). Preserved the Phase 1–6 feature set unchanged except for targeted fixes below.

@@ -346,6 +346,19 @@ export class FakeCompetitionRepository implements CompetitionRepository {
     return next;
   }
 
+  async listPublicCompetitionMediaPage(competitionId:string,options:
+    Parameters<CompetitionRepository["listPublicCompetitionMediaPage"]>[1]){
+    const rows=[...this.mediaPosts.values()].filter(post=>
+      post.competitionId===competitionId&&post.status==="PUBLISHED"&&
+      (options.kind==="all"||Boolean(post.imageUrl)));
+    rows.sort((a,b)=>options.sort==="oldest"?
+      a.publishedAt.localeCompare(b.publishedAt)||a.id.localeCompare(b.id):
+      b.publishedAt.localeCompare(a.publishedAt)||b.id.localeCompare(a.id));
+    const offset=(options.page-1)*options.limit;
+    return {posts:rows.slice(offset,offset+options.limit),page:options.page,
+      limit:options.limit,hasMore:rows.length>offset+options.limit};
+  }
+
   async listCompetitionMedia(competitionId:string,includeUnpublished:boolean){
     return [...this.mediaPosts.values()]
       .filter((post)=>post.competitionId===competitionId&&(includeUnpublished||post.status==="PUBLISHED"))

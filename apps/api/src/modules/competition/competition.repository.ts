@@ -927,6 +927,33 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     return this.getRegistration(input.competitionId, input.teamId);
   }
 
+  /** Filter audience and attachment presence BEFORE limit/offset to avoid leaking private rows. */
+  async listPublicCompetitionMediaPage(competitionId:string,options:{
+    page:number;limit:number;kind:"all"|"photos";sort:"newest"|"oldest";
+  }):Promise<{posts:CompetitionMediaPostDto[];page:number;limit:number;hasMore:boolean}>{
+    const {page,limit,kind,sort}=options;
+    const rows=await this.db.select({
+      id:socialPosts.id,body:socialPosts.body,imageUrl:socialPosts.imageUrl,
+      status:socialPosts.status,publishedAt:socialPosts.publishedAt,
+      unpublishedAt:socialPosts.unpublishedAt,
+    }).from(socialPosts).where(and(
+      eq(socialPosts.entityType,"COMPETITION"),
+      eq(socialPosts.entityId,competitionId),
+      eq(socialPosts.status,"PUBLISHED"),
+      eq(socialPosts.visibility,"PUBLIC"),
+      kind==="photos"?isNotNull(socialPosts.imageUrl):undefined,
+      kind==="photos"?ne(socialPosts.imageUrl,""):undefined,
+    )).orderBy(
+      sort==="oldest"?asc(socialPosts.publishedAt):desc(socialPosts.publishedAt),
+      sort==="oldest"?asc(socialPosts.id):desc(socialPosts.id),
+    ).limit(limit+1).offset((page-1)*limit);
+    return {posts:rows.slice(0,limit).map(row=>({
+      id:row.id,competitionId,body:row.body,imageUrl:row.imageUrl,status:row.status,
+      publishedAt:row.publishedAt.toISOString(),
+      unpublishedAt:row.unpublishedAt?.toISOString()??null,
+    })),page,limit,hasMore:rows.length>limit};
+  }
+
   async listCompetitionMedia(competitionId: string, includeUnpublished: boolean): Promise<CompetitionMediaPostDto[]> {
     const rows = await this.db.select().from(socialPosts)
       .where(and(
