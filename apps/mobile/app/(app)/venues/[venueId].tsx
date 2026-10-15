@@ -6,6 +6,7 @@ import {useCallback,useEffect,useRef,useState} from "react";
 import {Image,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions} from "react-native";
 import {marketingApi,resolveMediaImageUrl,venueApi} from "../../../src/lib/api";
 import {AppText} from "../../../src/components/ui/AppText";
+import {VenueHeroReviewBadge} from "../../../src/components/venues/VenueHeroReviewBadge";
 import {Button} from "../../../src/components/ui/Button";
 import {Card} from "../../../src/components/ui/Card";
 import {DataLoadingState} from "../../../src/components/ui/DataLoadingState";
@@ -146,17 +147,9 @@ export default function VenueDetailScreen(){
           </View>}
       </View>
       <View style={styles.identity}>
-        <View style={styles.avatarFrame}>
-          {resolveMediaImageUrl(venue.pageProfileImageUrl)?
-            <Image source={{uri:resolveMediaImageUrl(venue.pageProfileImageUrl)!}}
-              style={styles.avatar} resizeMode="cover"/>:
-            <View style={[styles.avatar,styles.avatarFallback]}>
-              <AppText weight="bold" variant="title" style={{color:colors.primary}}>
-                {venue.name.trim().slice(0,2).toUpperCase()}
-              </AppText>
-            </View>}
-        </View>
         <AppText variant="title" weight="bold" style={{textAlign:"center"}}>{venue.name}</AppText>
+        <VenueHeroReviewBadge venueId={venue.id}
+          onOpenReviews={()=>chooseMain("about","reviews")}/>
         <View style={[styles.location,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Ionicons name="location-outline" color={colors.textMuted} size={16}/>
           <AppText variant="caption" muted>{venue.city+", "+venue.province}</AppText>
@@ -261,13 +254,10 @@ export default function VenueDetailScreen(){
 const styles=StyleSheet.create({
   header:{backgroundColor:colors.surface,borderRadius:radius.lg,borderWidth:1,
     borderColor:colors.border,overflow:"hidden"},
-  cover:{height:156,backgroundColor:"#173B7B"},
+  cover:{height:184,backgroundColor:"#173B7B"},
   coverFallback:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:"#1E3A8A"},
-  identity:{alignItems:"center",paddingHorizontal:spacing.md,paddingBottom:spacing.md,gap:spacing.sm},
-  avatarFrame:{width:94,height:94,padding:4,backgroundColor:colors.surface,
-    borderRadius:47,marginTop:-44},
-  avatar:{height:"100%",width:"100%",borderRadius:43},
-  avatarFallback:{alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
+  identity:{alignItems:"center",paddingHorizontal:spacing.md,paddingTop:spacing.md,
+    paddingBottom:spacing.md,gap:spacing.sm},
   location:{alignItems:"center",justifyContent:"center",gap:4,flexWrap:"wrap"},
   actions:{width:"100%",gap:spacing.sm},
   primaryAction:{flex:1,minWidth:0,paddingHorizontal:spacing.xs},
