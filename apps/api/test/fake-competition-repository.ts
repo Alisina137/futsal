@@ -166,7 +166,7 @@ export class FakeCompetitionRepository implements CompetitionRepository {
   }
 
   async listPublicVenueMatches(venueId:string,query:import("@leaguekick/contracts").VenueMatchQuery,now:Date){
-    const matches=[...this.matches.values()].filter(match=>{
+    const all=[...this.matches.values()].filter(match=>{
       const comp=this.competitions.get(match.competitionId);
       const actualVenueId=(match as CompetitionMatchDto&{venueId?:string}).venueId;
       return actualVenueId===venueId&&comp?.published&&
@@ -174,6 +174,45 @@ export class FakeCompetitionRepository implements CompetitionRepository {
         (query.scope==="results"?["COMPLETED","CORRECTED"].includes(match.status):
           match.status==="IN_PROGRESS"||
           (match.status==="SCHEDULED"&&match.startsAt!==null&&Date.parse(match.startsAt)>=now.getTime()));
+    });
+    const dateParts=(iso:string)=>{
+      const cells=new Intl.DateTimeFormat("en-GB",{
+        timeZone:"Asia/Kabul",calendar:"gregory",year:"numeric",month:"2-digit",day:"2-digit",
+      }).formatToParts(new Date(iso));
+      const value=Object.fromEntries(cells.map(cell=>[cell.type,cell.value]));
+      const year=Number(value.year),month=Number(value.month);
+      const d=new Date(Date.UTC(year,month-1,Number(value.day)));
+      d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
+      return {year,month,week:Math.ceil((d.getTime()-Date.UTC(d.getUTCFullYear(),0,1)+86400000)/604800000)};
+    };
+    const competitionMap=new Map<string,string>(),teamMap=new Map<string,string>();
+    const years=new Set<number>(),months=new Set<number>(),weeks=new Set<number>();
+    for(const match of all){
+      competitionMap.set(match.competitionId,this.competitions.get(match.competitionId)!.name);
+      if(match.homeTeamId&&match.homeTeamName)teamMap.set(match.homeTeamId,match.homeTeamName);
+      if(match.awayTeamId&&match.awayTeamName)teamMap.set(match.awayTeamId,match.awayTeamName);
+      if(match.startsAt){
+        const parts=dateParts(match.startsAt);
+        years.add(parts.year);months.add(parts.month);weeks.add(parts.week);
+      }
+    }
+    const byName=(a:{id:string;name:string},b:{id:string;name:string})=>
+      a.name.localeCompare(b.name)||a.id.localeCompare(b.id);
+    const facets={
+      competitions:[...competitionMap].map(([id,name])=>({id,name})).sort(byName),
+      teams:[...teamMap].map(([id,name])=>({id,name})).sort(byName),
+      years:[...years].sort((a,b)=>b-a),months:[...months].sort((a,b)=>a-b),
+      weeks:[...weeks].sort((a,b)=>a-b),
+    };
+    const matches=all.filter(match=>{
+      if(query.competitionId&&match.competitionId!==query.competitionId)return false;
+      if(query.teamId&&match.homeTeamId!==query.teamId&&match.awayTeamId!==query.teamId)return false;
+      if(query.year===undefined&&query.month===undefined&&query.week===undefined)return true;
+      if(!match.startsAt)return false;
+      const parts=dateParts(match.startsAt);
+      return (query.year===undefined||parts.year===query.year)&&
+        (query.month===undefined||parts.month===query.month)&&
+        (query.week===undefined||parts.week===query.week);
     }).sort((a,b)=>query.scope==="results"
       ?(b.startsAt??"").localeCompare(a.startsAt??"")||a.id.localeCompare(b.id)
       :(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
@@ -184,10 +223,13 @@ export class FakeCompetitionRepository implements CompetitionRepository {
         competitionName:this.competitions.get(match.competitionId)!.name,
         startsAt:match.startsAt,endsAt:match.endsAt,
         stage:match.stage,roundNumber:match.roundNumber,
+        homeTeamId:match.homeTeamId,awayTeamId:match.awayTeamId,
         homeTeamName:match.homeTeamName,awayTeamName:match.awayTeamName,
+        homeLogoUrl:match.homeTeamId?this.teams.get(match.homeTeamId)?.logoUrl??null:null,
+        awayLogoUrl:match.awayTeamId?this.teams.get(match.awayTeamId)?.logoUrl??null:null,
         homeScore:match.homeScore,awayScore:match.awayScore,status:match.status,
       })),total,page:query.page,limit:query.limit,
-      hasMore:query.page*query.limit<total};
+      hasMore:query.page*query.limit<total,facets};
   }
 
   async listMyPublicCompetitions(userId:string):Promise<CompetitionListItemDto[]>{
