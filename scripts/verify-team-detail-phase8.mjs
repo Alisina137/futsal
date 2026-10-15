@@ -18,7 +18,7 @@ const strictAll=(haystack,tokens,label)=>tokens.forEach(token=>
 
 strictAll(screen,[
   'testID="team-profile-cover"',
-  'testID="team-main-tab-"',
+  'testID={"team-main-tab-"+item.id}',
   'testID="team-tab-content"',
   'testID="team-squad-grid"',
   'testID="team-match-list"',
@@ -96,6 +96,7 @@ strictAll(managerProfile,[
 // Three-language Team Detail copy must continue to contain each tab,
 // selected subtab, role action and retry. These are the user-facing routes
 // taken during E2E smoke and are required for EN, Dari and Pashto.
+const localeBody=screen.split('const words:')[1]?.split("\\n};")[0]??"";
 const allUserVisibleKeys=[
   "media","squad","matches","competitions","stats","about",
   "players","leaders","upcoming","results","active","past","overview",
@@ -105,7 +106,7 @@ const allUserVisibleKeys=[
   "statsSnapshot","statsLeaderNote","compConfirmed",
 ];
 for(const key of allUserVisibleKeys)
-  assert.equal(screen.split(key+":").length,4,
+  assert.equal(localeBody.split(key+":").length,4,
     "Missing EN / Dari / Pashto localized label: "+key);
 
 const cases=read("scripts/tests/team-detail-phase8-regression.test.mjs");
