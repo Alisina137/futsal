@@ -687,7 +687,8 @@ export default function TeamDetailExperience(){
                 {tx(outcome==="WIN"?"matchWin":outcome==="DRAW"?"matchDraw":"matchLoss")}
               </AppText>
             </View>:null}
-            <View style={[styles.fixtureDate,rowDirection]}>
+            <View style={[styles.fixtureDate,rowDirection]} accessible accessibilityRole="text"
+              accessibilityLabel={m.startsAt?formatCompetitionDateTime(m.startsAt,language):tx("datePending")}>
               <Ionicons name="calendar-outline" size={17} color={colors.textMuted}/>
               {when?<View style={{flex:1,gap:2}}>
                 <AppText variant="caption" muted>{when.date}</AppText>
