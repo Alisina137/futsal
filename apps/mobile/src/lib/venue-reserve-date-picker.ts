@@ -1,6 +1,6 @@
 import {addDays,isSameDisplayMonth,monthGridRange,moveView,
-  type TimetableCalendarLanguage} from "./timetable-calendar";
-import {isVenueBookingDay} from "./venue-detail-dates";
+  type TimetableCalendarLanguage} from "./timetable-calendar.ts";
+import {isVenueBookingDay} from "./venue-detail-dates.ts";
 
 export type VenuePickerDay={
   date:string;
