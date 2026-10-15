@@ -14,7 +14,7 @@ import {LeagueStandingsTable} from "./LeagueStandingsTable";
 import {CompetitionMatchList} from "./CompetitionMatchList";
 import {Card} from "../ui/Card";
 
-export type CompetitionProfileTab="HOME"|"MATCHES"|"STANDINGS"|"STATS"|"TEAMS";
+export type CompetitionProfileTab="HOME"|"MATCHES"|"STANDINGS"|"STATS"|"TEAMS"|"MEDIA"|"ABOUT";
 type Stage="GROUPS"|"KNOCKOUT";
 type StatMetric="goals"|"assists"|"appearances"|"cleanSheets"|"yellowCards"|"redCards"|"playerOfMatchAwards";
 const STAT_METRICS:StatMetric[]=["goals","assists","appearances","cleanSheets","yellowCards","redCards","playerOfMatchAwards"];
@@ -22,6 +22,7 @@ type Props={
   competition:CompetitionDto;
   posts:CompetitionMediaPostDto[];
   activeTab:CompetitionProfileTab;
+  subtab?:string;
   registration:ReactNode;
   onTabChange:(tab:CompetitionProfileTab)=>void;
   initialStage?:Stage|undefined;
@@ -29,11 +30,12 @@ type Props={
 };
 
 export const COMPETITION_PROFILE_TABS:CompetitionProfileTab[]=[
-  "HOME","MATCHES","STANDINGS","STATS","TEAMS",
+  "HOME","MATCHES","STANDINGS","STATS","TEAMS","MEDIA","ABOUT",
 ];
 export const COMPETITION_TAB_ICONS:Record<CompetitionProfileTab,keyof typeof Ionicons.glyphMap>={
   HOME:"home-outline",MATCHES:"calendar-outline",
   STANDINGS:"podium-outline",STATS:"stats-chart-outline",TEAMS:"people-outline",
+  MEDIA:"images-outline",ABOUT:"information-circle-outline",
 };
 const isResult=(match:CompetitionMatchDto)=>match.status==="COMPLETED"||match.status==="CORRECTED";
 const displayTime=(value:string|null,language:ReturnType<typeof useLocale>["language"])=>value
@@ -294,10 +296,12 @@ function CompetitionTeams({competition,registration}:{competition:CompetitionDto
 /** The competition Home is a news feed. Only matches actually marked IN_PROGRESS
  * appear as live scores; completed results and upcoming fixtures have their own tabs.
  * Feed entries are not truncated, hidden, or reclassified as fake social posts. */
-function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"onTabChange">){
+function Home({competition,posts,onTabChange,mode="HOME",view="OVERVIEW"}:
+  Pick<Props,"competition"|"posts"|"onTabChange">&{mode?:"HOME"|"MEDIA";view?:string}){
   const offlineIds=new Set(competition.teams.filter(team=>team.offline).map(team=>team.teamId));
   const {t,isRTL,language}=useLocale();
   const [feedView,setFeedView]=useState<"UPDATES"|"PHOTOS">("UPDATES");
+  const currentFeed=mode==="MEDIA"?(view==="PHOTOS"?"PHOTOS":"UPDATES"):feedView;
   const [lightbox,setLightbox]=useState<string|null>(null);
   const live=competition.matches.filter(match=>match.status==="IN_PROGRESS")
     .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
@@ -307,6 +311,7 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
   const startDate=displayTime(competition.startsAt,language);
   const accepted=competition.teams.filter(team=>team.status==="ACCEPTED").length;
   return <View style={styles.stack} testID="competition-home-feed">
+    {mode==="HOME"&&view==="OVERVIEW"?<>
     <Card testID="competition-home-overview" style={styles.overview}>
       <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.headingIcon}><Ionicons name="information-circle-outline" size={20} color={colors.primary}/></View>
@@ -358,7 +363,8 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
         <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={17} color={colors.primary}/>
       </Pressable>
     </Card>
-    {competition.status==="REGISTRATION_OPEN"?<Pressable testID="competition-registration-cta"
+    </>:null}
+    {mode==="HOME"&&view==="OVERVIEW"&&competition.status==="REGISTRATION_OPEN"?<Pressable testID="competition-registration-cta"
       accessibilityRole="button" onPress={()=>onTabChange("TEAMS")}
       style={[styles.registrationCta,{flexDirection:isRTL?"row-reverse":"row"}]}>
       <View style={styles.ctaIcon}><Ionicons name="people-outline" color="#FFFFFF" size={25}/></View>
@@ -373,6 +379,7 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
       <View style={styles.ctaArrow}><Ionicons
         name={isRTL?"arrow-back":"arrow-forward"} color={colors.primary} size={21}/></View>
     </Pressable>:null}
+    {mode==="HOME"&&(view==="OVERVIEW"||view==="LIVE")?<>
     {live.length>0?<View testID="competition-live-scoreboard" style={styles.liveContainer}>
       <View style={[styles.liveHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.liveDot}/>
@@ -386,24 +393,28 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
       </View>
       {live.map(match=><MatchCard key={match.id} match={match} offlineIds={offlineIds}/>)}
     </View>:null}
-    <View testID="competition-home-media-tabs" style={[styles.mediaSwitcher,{flexDirection:isRTL?"row-reverse":"row"}]}>
+    {live.length===0&&view==="LIVE"?<Placeholder
+      title={t("competition.profile.noLiveMatches")} icon="radio-outline"/>:null}
+    </>:null}
+    {(mode==="MEDIA"||view==="HIGHLIGHTS")?<>
+    {mode==="HOME"?<View testID="competition-home-media-tabs" style={[styles.mediaSwitcher,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {(["UPDATES","PHOTOS"] as const).map(view=><Pressable key={view}
         testID={`competition-home-view-${view}`}
-        accessibilityRole="tab" accessibilityState={{selected:feedView===view}}
+        accessibilityRole="tab" accessibilityState={{selected:currentFeed===view}}
         onPress={()=>setFeedView(view)}
-        style={[styles.mediaTab,feedView===view&&styles.mediaTabActive]}>
+        style={[styles.mediaTab,currentFeed===view&&styles.mediaTabActive]}>
         <Ionicons name={view==="UPDATES"?"newspaper-outline":"images-outline"} size={17}
-          color={feedView===view?"#FFFFFF":colors.primary}/>
+          color={currentFeed===view?"#FFFFFF":colors.primary}/>
         <AppText weight="semibold" variant="caption"
-          style={{color:feedView===view?"#FFFFFF":colors.primary}}>
+          style={{color:currentFeed===view?"#FFFFFF":colors.primary}}>
           {t(view==="UPDATES"?"competition.phase4.updates":"competition.phase4.photos")}
         </AppText>
-        <AppText variant="caption" style={{color:feedView===view?"#FFFFFF":colors.textMuted}}>
+        <AppText variant="caption" style={{color:currentFeed===view?"#FFFFFF":colors.textMuted}}>
           {view==="UPDATES"?updates.length:photos.length}
         </AppText>
       </Pressable>)}
-    </View>
-    {feedView==="UPDATES"?<>
+    </View>:null}
+    {currentFeed==="UPDATES"?<>
       <SectionHeading title={t("competition.profile.allPosts")} icon="newspaper-outline" count={updates.length}/>
       {updates.length===0?<Placeholder title={t("competition.publicMediaEmpty")} icon="newspaper-outline"/>:null}
       {updates.map(post=><Card key={post.id} testID={`competition-post-${post.id}`} style={styles.post}>
@@ -449,15 +460,123 @@ function Home({competition,posts,onTabChange}:Pick<Props,"competition"|"posts"|"
         {lightbox?<Image source={{uri:lightbox}} resizeMode="contain" style={styles.lightboxImage}/>:null}
       </View>
     </Modal>
+    </>:null}
   </View>;
 }
 
-export function CompetitionProfileSections({competition,posts,activeTab,registration,onTabChange,initialStage,initialMatchFilter}:Props){
-  if(activeTab==="HOME")return <Home competition={competition} posts={posts} onTabChange={onTabChange}/>;
+
+function CompetitionAboutSection({competition,subtab}:{
+  competition:CompetitionDto;subtab:string;
+}){
+  const {t,isRTL,language}=useLocale();
+  const line=(label:string,value:string)=><View key={label} style={[styles.scoreRow,
+    {flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",flexWrap:"wrap"}]}>
+    <AppText muted>{label}</AppText><AppText weight="semibold">{value}</AppText>
+  </View>;
+  const date=(date:string|null)=>date?formatLocalDateTimeParts(date,language).date:
+    t("competition.profile.notSet");
+  const category=subtab==="PRIZES"?"gift-outline":subtab==="VENUE"?"location-outline":
+    "information-circle-outline";
+  return <View testID="competition-about-subtab" style={styles.stack}>
+    <SectionHeading icon={category} title={t(`competition.detail.sub.${subtab}` as never)}/>
+    <Card style={styles.stack}>
+      {subtab==="INFORMATION"?<>
+        <AppText weight="bold" variant="bodyLarge">{competition.name}</AppText>
+        <AppText muted>{competition.description?.trim()||t("competition.profile.noDescription")}</AppText>
+        {line(t("competition.format"),t(`competition.format.${competition.format}` as never))}
+        {line(t("competition.startsAt"),date(competition.startsAt))}
+        {line(t("competition.endsAt"),date(competition.endsAt))}
+      </>:null}
+      {subtab==="RULES"?<>
+        {line(t("competition.winPoints"),String(competition.winPoints))}
+        {line(t("competition.drawPoints"),String(competition.drawPoints))}
+        {line(t("competition.lossPoints"),String(competition.lossPoints))}
+        {line(t("competition.profile.tieBreakOrder"),
+          competition.tieBreakOrder.map(rule=>t(`competition.profile.tieBreak.${rule}` as never)).join(" · "))}
+      </>:null}
+      {subtab==="PRIZES"?(competition.rewards.length?
+        competition.rewards.map((reward,index)=><View key={index} style={{gap:spacing.xs}}>
+          <AppText weight="bold">{reward.title}</AppText>
+          <AppText style={{color:colors.primary}}>{reward.prize}</AppText>
+          {reward.description?<AppText muted>{reward.description}</AppText>:null}
+        </View>):<Placeholder title={t("competition.rewards.empty")} icon="gift-outline"/>):null}
+      {subtab==="VENUE"?<Pressable accessibilityRole="button"
+        onPress={()=>router.push({pathname:"/venues/[venueId]",
+          params:{venueId:competition.venueId}})}
+        style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="location-outline" size={22} color={colors.primary}/>
+        <AppText weight="semibold" style={{flex:1}}>{competition.venueName}</AppText>
+        <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.primary}/>
+      </Pressable>:null}
+      <Pressable testID="competition-about-full" accessibilityRole="button"
+        onPress={()=>router.push({pathname:"/competitions/[competitionId]/about",
+          params:{competitionId:competition.id}})} style={styles.progressionLink}>
+        <AppText weight="semibold" style={{color:colors.primary}}>
+          {t("competition.phase4.fullAbout")}
+        </AppText>
+      </Pressable>
+    </Card>
+  </View>;
+}
+
+function CompetitionTeamMetrics({competition,subtab}:{competition:CompetitionDto;subtab:string}){
+  const {t,isRTL}=useLocale();
+  const participating=competition.teams.filter(team=>team.status==="ACCEPTED");
+  const finished=competition.matches.filter(match=>isResult(match)&&
+    match.homeScore!==null&&match.awayScore!==null);
+  if(subtab==="FAIR_PLAY"){
+    const byTeam=participating.map(team=>({
+      ...team,yellow:competition.playerStats.filter(row=>row.teamId===team.teamId)
+        .reduce((sum,row)=>sum+row.yellowCards,0),
+      red:competition.playerStats.filter(row=>row.teamId===team.teamId)
+        .reduce((sum,row)=>sum+row.redCards,0),
+    })).filter(team=>team.yellow>0||team.red>0)
+      .sort((a,b)=>a.red-b.red||a.yellow-b.yellow||a.teamName.localeCompare(b.teamName));
+    return <View testID="competition-fairplay-stats" style={styles.stack}>
+      <SectionHeading title={t("competition.detail.sub.FAIR_PLAY")} icon="shield-checkmark-outline"/>
+      <AppText variant="caption" muted>{t("competition.detail.fairPlayHint")}</AppText>
+      {byTeam.length?byTeam.map(team=><Card key={team.teamId} style={styles.scoreRow}>
+        <AppText weight="semibold" style={{flex:1}}>{team.teamName}</AppText>
+        <AppText>🟨 {team.yellow}  🟥 {team.red}</AppText>
+      </Card>):<Placeholder title={t("competition.phase5.noRecordedMetric")} icon="stats-chart-outline"/>}
+    </View>;
+  }
+  const rows=participating.map(team=>{
+    const matches=finished.filter(m=>m.homeTeamId===team.teamId||m.awayTeamId===team.teamId);
+    const goals=matches.reduce((sum,m)=>sum+(m.homeTeamId===team.teamId?m.homeScore!:m.awayScore!),0);
+    const conceded=matches.reduce((sum,m)=>sum+(m.homeTeamId===team.teamId?m.awayScore!:m.homeScore!),0);
+    return {...team,played:matches.length,goals,conceded};
+  }).sort((a,b)=>b.goals-a.goals||b.played-a.played||a.teamName.localeCompare(b.teamName));
+  return <View testID="competition-team-stats" style={styles.stack}>
+    <SectionHeading title={t("competition.detail.sub.TEAMS")} icon="stats-chart-outline"/>
+    <AppText variant="caption" muted>{t("competition.phase5.verifiedOnly")}</AppText>
+    {rows.length?rows.map(team=><Card key={team.teamId} style={styles.stack}>
+      <AppText weight="bold">{team.teamName}</AppText>
+      <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <AppText variant="caption" muted>{t("competition.played")}: {team.played}</AppText>
+        <AppText variant="caption" muted>{t("competition.standingsGoalsFor")}: {team.goals}</AppText>
+        <AppText variant="caption" muted>{t("competition.standingsGoalsAgainst")}: {team.conceded}</AppText>
+      </View>
+    </Card>):<Placeholder title={t("competition.profile.noTeams")} icon="people-outline"/>}
+  </View>;
+}
+export function CompetitionProfileSections({competition,posts,activeTab,subtab,registration,onTabChange,initialStage,initialMatchFilter}:Props){
+  if(activeTab==="HOME")return <Home competition={competition} posts={posts}
+    onTabChange={onTabChange} view={subtab??"OVERVIEW"}/>;
   if(activeTab==="MATCHES")return <CompetitionMatchList
-    competition={competition} initialFilter={initialMatchFilter??"ALL"}/>;
-  if(activeTab==="STANDINGS")return <CompetitionStandings competition={competition} initialStage={initialStage}/>;
-  if(activeTab==="STATS")return <CompetitionStats competition={competition}/>;
+    competition={competition} initialFilter={subtab==="UPCOMING"?"UPCOMING":
+      subtab==="LIVE"?"LIVE":subtab==="RESULTS"?"FINISHED":initialMatchFilter??"ALL"}/>;
+  if(activeTab==="STANDINGS")return <CompetitionStandings
+    competition={competition} initialStage={subtab==="KNOCKOUT"?"KNOCKOUT":
+      initialStage??"GROUPS"}/>;
+  if(activeTab==="STATS")return subtab==="TEAMS"||subtab==="FAIR_PLAY"?
+    <CompetitionTeamMetrics competition={competition} subtab={subtab}/>:
+    <CompetitionStats competition={competition}/>;
+  if(activeTab==="MEDIA")return <Home competition={competition} posts={posts}
+    onTabChange={onTabChange} mode="MEDIA" view={subtab??"UPDATES"}/>;
+  if(activeTab==="ABOUT")return <CompetitionAboutSection competition={competition}
+    subtab={subtab??"INFORMATION"}/>;
+  if(activeTab==="TEAMS"&&subtab==="PARTICIPANTS")return <CompetitionTeams competition={competition} registration={registration}/>;
   return <CompetitionTeams competition={competition} registration={registration}/>;
 }
 
