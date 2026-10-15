@@ -115,10 +115,14 @@ export default function CompetitionDetailScreen(){
     setParticipations([]);setMyTeams([]);setOrganizerCanManage(false);
     setParticipationError(false);setIntent(null);
     try{
-      const [{competition:next},mediaResult]=await Promise.all([
+      // Public competition identity is authoritative. A failed media feed must not
+      // turn an otherwise available competition into a full-screen load error.
+      const [competitionResult,mediaResult]=await Promise.allSettled([
         competitionApi.get(competitionId),competitionApi.media(competitionId),
       ]);
       if(!valid())return;
+      if(competitionResult.status!=="fulfilled")throw competitionResult.reason;
+      const {competition:next}=competitionResult.value;
       let owned:TeamListItemDto[]=[];
       let registrations:CompetitionParticipationDto[]=[];
       let registrationFailed=false,canManage=false;
@@ -141,7 +145,8 @@ export default function CompetitionDetailScreen(){
         }
       }
       if(!valid())return;
-      setCompetition(next);setMediaPosts(mediaResult.posts);
+      setCompetition(next);
+      setMediaPosts(mediaResult.status==="fulfilled"?mediaResult.value.posts:[]);
       setParticipations(registrations);setParticipationError(registrationFailed);
       setMyTeams(owned);
       setSelectedTeamId(current=>owned.some(team=>team.id===current)?current:owned[0]?.id??null);
