@@ -223,13 +223,20 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     }).from(playerMatchStats)
       .innerJoin(competitionMatches, eq(playerMatchStats.matchId, competitionMatches.id))
       .innerJoin(users, eq(playerMatchStats.playerUserId, users.id))
-      .leftJoin(playerProfiles, eq(playerMatchStats.playerUserId, playerProfiles.userId))
+      // Public leaderboards never fall back to the account name of a private
+      // player. Active player profile + membership + account are required.
+      .innerJoin(playerProfiles, eq(playerMatchStats.playerUserId, playerProfiles.userId))
       .innerJoin(teams, eq(playerMatchStats.teamId, teams.id))
+      .innerJoin(teamMemberships,and(eq(teamMemberships.teamId,playerMatchStats.teamId),
+        eq(teamMemberships.userId,playerMatchStats.playerUserId)))
+
       // Only finalized official results contribute to public leaderboards.
       // Draft/live/postponed fixtures cannot expose unverified player figures.
       .where(and(
         eq(competitionMatches.competitionId, competitionId),
         inArray(competitionMatches.status, ["COMPLETED", "CORRECTED"]),
+        eq(playerProfiles.visibility,"PUBLIC"),eq(teamMemberships.status,"ACTIVE"),
+        eq(users.status,"ACTIVE"),
       ))
       .groupBy(
         playerMatchStats.playerUserId,
@@ -241,7 +248,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
 
     return rows.map((row) => ({
       playerUserId: row.playerUserId,
-      publicDisplayName: row.publicDisplayName ?? row.fallbackName,
+      publicDisplayName: row.publicDisplayName,
       teamId: row.teamId,
       teamName: row.teamName,
       appearances: Number(row.appearances ?? 0),
@@ -1167,11 +1174,16 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     }).from(playerMatchStats)
       .innerJoin(users,eq(playerMatchStats.playerUserId,users.id))
       .innerJoin(teams,eq(playerMatchStats.teamId,teams.id))
-      .leftJoin(playerProfiles,eq(playerMatchStats.playerUserId,playerProfiles.userId))
-      .where(eq(playerMatchStats.matchId,matchId));
+      .innerJoin(playerProfiles,eq(playerMatchStats.playerUserId,playerProfiles.userId))
+      .innerJoin(teamMemberships,and(eq(teamMemberships.teamId,playerMatchStats.teamId),
+        eq(teamMemberships.userId,playerMatchStats.playerUserId)))
+      // A finalized score does not override a private or deactivated player.
+      .where(and(eq(playerMatchStats.matchId,matchId),
+        eq(playerProfiles.visibility,"PUBLIC"),eq(teamMemberships.status,"ACTIVE"),
+        eq(users.status,"ACTIVE")));
     return rows.map(row=>({
       playerUserId:row.playerUserId,teamId:row.teamId,teamName:row.teamName,
-      publicDisplayName:row.publicDisplayName??row.fallbackName,
+      publicDisplayName:row.publicDisplayName,
       appeared:row.appeared,goals:row.goals,assists:row.assists,
       yellowCards:row.yellowCards,redCards:row.redCards,
       cleanSheet:row.cleanSheet,playerOfMatch:row.playerOfMatch,

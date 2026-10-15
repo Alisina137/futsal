@@ -85,7 +85,7 @@ check(page.includes("setInterval(()=>void refreshScore(),25000)")
   "Live scores must refresh only while the foreground Home profile is focused and clean up timers.");
 check(directory.includes('tab:"STANDINGS"'),"Competition standings quick actions should open the tab inside the profile.");
 check(page.includes('if(input==="RESULTS")return "MATCHES"')
-  &&page.includes('initialMatchFilter={tab==="RESULTS"?"FINISHED":"ALL"}'),
+  &&page.includes('initialMatchFilter={tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL"}'),
   "Old Results URLs must still open the Finished filter under Matches.");
 for(const key of ["competition.profile.tab.HOME","competition.profile.tab.MATCHES",
   "competition.profile.tab.STANDINGS","competition.profile.tab.STATS","competition.profile.tab.TEAMS",

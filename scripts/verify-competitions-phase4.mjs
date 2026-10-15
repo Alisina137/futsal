@@ -34,7 +34,7 @@ for(const marker of ["competition-home-overview","competition-home-feed",
  assert.ok(sections.includes(marker),"Home overview/media UI missing "+marker);
 }
 assert.ok(sections.includes('(["UPDATES","PHOTOS"] as const).map(view=>')&&
- sections.includes('feedView===view')&&
+ sections.includes('currentFeed===view')&&
  sections.includes('updates.map(post=>')&&
  sections.includes('const updates=posts.slice().sort(')&&
  sections.includes('photos=updates.filter(post=>Boolean(resolveMediaImageUrl(post.imageUrl)))')&&
