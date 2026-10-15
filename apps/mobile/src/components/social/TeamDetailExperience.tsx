@@ -1134,7 +1134,7 @@ export default function TeamDetailExperience(){
           {tx(({
             manager:"aboutMemberManager",captain:"aboutMemberCaptain",player:"aboutMemberPlayer",
             pending:"aboutMemberPending",signIn:"aboutMemberSignIn",
-            verifyEmail:"aboutMemberVerify",roleRestricted:"aboutMemberRole",
+            "verifyEmail":"aboutMemberVerify",roleRestricted:"aboutMemberRole",
             invitationOnly:"aboutMemberInvite",rejected:"aboutMemberRejected",
             cancelled:"aboutMemberCancelled",eligible:"aboutMemberEligible",
           } as const)[memberPresentation])}
