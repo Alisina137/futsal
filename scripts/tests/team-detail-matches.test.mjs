@@ -11,7 +11,7 @@ const matches=[
   row("live","IN_PROGRESS","2026-10-18T08:00:00Z"),
   row("postponed","POSTPONED",null),
   row("win","COMPLETED","2026-10-11T08:00:00Z",3,2),
-  row("loss","CORRECTED","2026-10-12T08:00:00Z",1,4,"them","us","league"),
+  row("loss","CORRECTED","2026-10-12T08:00:00Z",4,1,"them","us","league"),
   row("draw","COMPLETED","2026-10-10T08:00:00Z",2,2),
   row("unverified","COMPLETED","2026-10-09T08:00:00Z",null,1),
   row("other","SCHEDULED","2026-10-17T08:00:00Z",null,null,"other","them"),
