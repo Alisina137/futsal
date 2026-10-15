@@ -2283,6 +2283,7 @@ export const competitionListItemDtoSchema = competitionDtoSchema.omit({
   matches: true,
   standings: true,
   playerStats: true,
+  teamDisciplineStats: true,
   championTeamId: true,
   rewards: true,
 }).extend({
