@@ -104,6 +104,7 @@ export default function VenueSettingsScreen(){
     // Returning from timetable or subscription must never overwrite unsaved edits.
     if(loadedToken.current===token&&dirtyRef.current)return;
     const request=++generation.current;
+    if(loadedToken.current!==token){setSaved(false);setConfirmPause(false);}
     setLoading(true);setError(null);
     try{
       const result=await ownerApi.settings(token);
