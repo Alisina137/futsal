@@ -94,7 +94,7 @@ export default function OwnerBlockedTimesScreen(){
       setError(cause instanceof ApiRequestError&&cause.code==="SLOT_UNAVAILABLE"
         ?t("schedule.conflict"):t("owner.phase4.unblockError"));
       setConfirm(null);
-      await load().catch(()=>{});
+      // Keep the error visible; retry refreshes and reconciles the state.
     }finally{
       writeLock.current=false;setBusy(false);
     }
