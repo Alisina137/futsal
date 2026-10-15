@@ -40,3 +40,22 @@ export function ownerBlockOverlaps(
     return Date.parse(event.startsAt)<endMs&&Date.parse(event.endsAt)>startMs;
   });
 }
+
+/** The visible calendar must always correspond to the currently selected
+ * account, court, day, view and query window. Never reuse an old court's data. */
+export type OwnerCalendarSelection={
+  token:string;areaId:string|null;view:"MONTH"|"WEEK"|"DAY";
+  anchorDate:string;from:string;to:string;
+};
+export function ownerCalendarSelectionMatches(
+  loaded:OwnerCalendarSelection|null,
+  selected:OwnerCalendarSelection,
+):boolean{
+  return loaded!==null
+    &&loaded.token===selected.token
+    &&loaded.areaId===selected.areaId
+    &&loaded.view===selected.view
+    &&loaded.anchorDate===selected.anchorDate
+    &&loaded.from===selected.from
+    &&loaded.to===selected.to;
+}
