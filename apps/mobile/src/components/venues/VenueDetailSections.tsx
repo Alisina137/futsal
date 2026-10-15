@@ -29,7 +29,7 @@ import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
 import {DataLoadingState} from "../ui/DataLoadingState";
-import {TextField} from "../ui/TextField";
+import {VenueReserveDatePicker} from "./VenueReserveDatePicker";
 
 export type VenueMainTab="media"|"reserve"|"competitions"|"updates"|"about";
 export type VenueMediaSub="posts"|"photos"|"videos";
@@ -559,8 +559,8 @@ export function VenueReserveContent({venue,sub,startsAt,promotionId,bookingDate}
           <Button style={{flex:1}} variant="secondary" label={tr("nextDate")}
             disabled={!dateValid||date>=maximum} onPress={()=>setDate(shiftVenueDate(date,1))}/>
         </View>
-        <TextField label={t("booking.date")} value={date} onChangeText={setDate}
-          forceLtr hint={"YYYY-MM-DD · "+tr("dateLimit")+" "+maximum}/>
+        <VenueReserveDatePicker selected={date} today={today}
+          maximumAdvanceBookingDays={venue.maximumAdvanceBookingDays} onChange={setDate}/>
         {!dateValid?<AppText variant="caption" style={{color:colors.warning}}>{tr("invalidDate")}</AppText>:null}
         <Button variant="secondary" disabled={!dateValid} label={t("common.retry")}
           onPress={()=>setReload(v=>v+1)} loading={loading}/>

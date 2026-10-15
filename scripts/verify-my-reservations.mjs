@@ -49,7 +49,7 @@ for(const marker of [
  'disabled={!canNetwork}','cancellationPolicySnapshot',
  'router.push({pathname:"/venues/[venueId]"','focusAvailability:"1"',
  'bookingDate(item.startsAt,language)','bookingTime(item.startsAt)',
- 'setCancelTarget(item)','setFilter("ALL")',
+ 'setCancelTarget(item)','chooseGroup("ALL")','filterNav.focus(next,true)',
 ]){
  assert.ok(component.includes(marker),"My Reserves UX invariant missing: "+marker);
 }

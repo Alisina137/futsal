@@ -5,6 +5,7 @@ import {router} from "expo-router";
 import {useMemo,useState} from "react";
 import {Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {formatCalendarDate} from "../../lib/timetable-calendar";
+import {useVisibleTab} from "../../hooks/useVisibleTab";
 import {formatSlotStartTime} from "../../lib/slot-display";
 import {displayReservations,reservationCounts,reservationDateKey,
   reservationGroup,reservationGroups,type ReservationGroup} from "../../lib/reservation-view";
@@ -45,6 +46,11 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
   const {isOnline,apiReachable}=useNetwork();
   const tr=(key:string)=>t(("booking.reserves."+key) as never);
   const [filter,setFilter]=useState<ReservationGroup>("ALL");
+  const filterNav=useVisibleTab<ReservationGroup>(filter);
+  function chooseGroup(next:ReservationGroup){
+    setFilter(next);
+    filterNav.focus(next,true);
+  }
   const [expandedId,setExpandedId]=useState<string|null>(null);
   const [cancelTarget,setCancelTarget]=useState<BookingDto|null>(null);
   const [cancelBusy,setCancelBusy]=useState(false);
@@ -96,7 +102,7 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
         const palette=statePalette[group];
         return <Pressable key={group} accessibilityRole="button"
           accessibilityLabel={tr(group)+": "+counts[group]}
-          onPress={()=>setFilter(group)}
+          onPress={()=>chooseGroup(group)}
           style={({pressed})=>[styles.summaryCard,
             {borderColor:filter===group?palette.ink:colors.border},
             pressed&&styles.pressed]}>
@@ -109,10 +115,17 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
       })}
     </View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
+      testID="my-reservations-filter-nav"
+      ref={filterNav.scrollRef}
+      onLayout={filterNav.onViewport}
+      onContentSizeChange={filterNav.onContentSize}
       style={styles.filterScroll} contentContainerStyle={[styles.filterRow,rtlRow]}>
       {reservationGroups.map(group=><Pressable key={group}
+        testID={"my-reservations-filter-"+group}
         accessibilityRole="tab" accessibilityState={{selected:filter===group}}
-        onPress={()=>setFilter(group)}
+        accessibilityLabel={tr(group)+" ("+counts[group]+")"}
+        onLayout={event=>filterNav.cellLayout(group,event)}
+        onPress={()=>chooseGroup(group)}
         style={({pressed})=>[styles.filterChip,
           filter===group&&styles.filterChipActive,pressed&&styles.pressed]}>
         <AppText variant="caption" weight="bold"
@@ -143,7 +156,7 @@ export function ReservationsPanel({items,loading,error,onRefresh,onCancel,scoped
     {!loading&&items.length>0&&visible.length===0?<Card style={styles.empty}>
       <Ionicons name="filter-outline" color={colors.textMuted} size={28}/>
       <AppText weight="semibold" style={styles.centerText}>{tr("noMatches")}</AppText>
-      <Button variant="secondary" label={tr("showAll")} onPress={()=>setFilter("ALL")}/>
+      <Button variant="secondary" label={tr("showAll")} onPress={()=>chooseGroup("ALL")}/>
     </Card>:null}
     {visible.map(item=>{
       const group=reservationGroup(item,now);
@@ -279,8 +292,8 @@ const styles=StyleSheet.create({
   summaryIcon:{width:34,height:34,borderRadius:radius.sm,alignItems:"center",justifyContent:"center"},
   summaryLabel:{textAlign:"center",fontSize:11},
   filterScroll:{flexGrow:0},
-  filterRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,paddingVertical:2},
-  filterChip:{minHeight:39,paddingHorizontal:spacing.md,backgroundColor:colors.surface,
+  filterRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,paddingVertical:2,flexWrap:"nowrap"},
+  filterChip:{minHeight:44,paddingHorizontal:spacing.md,backgroundColor:colors.surface,
     borderColor:colors.border,borderWidth:1,borderRadius:radius.pill,
     alignItems:"center",justifyContent:"center"},
   filterChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},
