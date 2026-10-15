@@ -27,7 +27,7 @@ for(const token of [
 
 for(const token of [
   'return null;', 'if(status==="DRAFT")return null',
-  'status==="COMPLETED"','CANCELLED','ARCHIVED',
+  'pastStatuses.has(status)','CANCELLED','ARCHIVED',
   'filter.format==="all"||comp.format===filter.format',
   'filter.status==="all"||comp.status===filter.status',
   'm.competitionId===competitionId&&(m.homeTeamId===teamId||m.awayTeamId===teamId)',
