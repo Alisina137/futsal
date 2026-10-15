@@ -1243,12 +1243,6 @@ export default function TeamDetailExperience(){
         </Pressable>
       </View>
       <View style={styles.identity}>
-        {resolveMediaImageUrl(team.logoUrl)?<Image source={{uri:resolveMediaImageUrl(team.logoUrl)!}}
-          style={styles.teamLogo}/>:
-          <View style={[styles.teamLogo,styles.avatarEmpty]}>
-            <AppText variant="title" weight="bold" style={{color:colors.primary}}>
-              {team.name.slice(0,2).toUpperCase()}</AppText>
-          </View>}
         <AppText variant="title" weight="bold" numberOfLines={3}
           style={styles.teamName}>{team.name}</AppText>
         {profile?.description?<AppText variant="caption" muted
@@ -1424,8 +1418,7 @@ const styles=StyleSheet.create({
   coverShare:{position:"absolute",top:spacing.sm,width:44,height:44,
     borderRadius:radius.pill,backgroundColor:"rgba(0,0,0,.42)",
     alignItems:"center",justifyContent:"center"},
-  identity:{alignItems:"center",gap:spacing.sm,padding:spacing.md,paddingTop:0},
-  teamLogo:{height:84,width:84,borderRadius:42,marginTop:-40,backgroundColor:colors.surface},  
+  identity:{alignItems:"center",gap:spacing.sm,padding:spacing.md,paddingTop:spacing.md},
   teamName:{textAlign:"center",maxWidth:"100%",lineHeight:29},
   avatarEmpty:{backgroundColor:colors.primarySoft,justifyContent:"center",alignItems:"center"},
   summary:{width:"100%",justifyContent:"space-between",paddingVertical:spacing.md,borderTopWidth:1,
