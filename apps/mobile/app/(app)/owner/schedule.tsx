@@ -354,7 +354,7 @@ export default function OwnerScheduleScreen(){
       onLayout={(event)=>{
         weekListY.current=event.nativeEvent.layout.y;
         if(renderedView==="WEEK"&&displayedCalendar?.days.some((day)=>day.date===todayDate)){
-          focusTodayWeekRow(calendar.from);
+          focusTodayWeekRow(displayedCalendar.from);
         }
       }}
     >
@@ -366,7 +366,7 @@ export default function OwnerScheduleScreen(){
         :displayedCalendar
           ?renderedView==="MONTH"
             ?<MonthView
-              days={calendar.days}
+              days={displayedCalendar.days}
               anchorDate={renderedAnchorDate}
               language={language}
               selected={renderedAnchorDate}
@@ -374,7 +374,7 @@ export default function OwnerScheduleScreen(){
             />
             :renderedView==="WEEK"
               ?<MemoWeekView
-                days={displayedCalendar.days}
+                days={visibleDays}
                 language={language}
                 t={t}
                 todayDate={todayDate}
@@ -383,7 +383,7 @@ export default function OwnerScheduleScreen(){
                 onOpenDay={openCalendarDay}
               />
               :<MemoDaySlotView
-                day={selectedDay}
+                day={filteredSelectedDay}
                 language={language}
                 t={t}
                 onSelectSlot={onSelectSlot}
