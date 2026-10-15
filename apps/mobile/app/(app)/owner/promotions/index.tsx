@@ -30,10 +30,13 @@ export default function OwnerPromotionsScreen(){
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
   const [confirm,setConfirm]=useState<PromotionDto|null>(null);
-  const [busy,setBusy]=useState(false);
+  const [busyToken,setBusyToken]=useState<string|null>(null);
+  const busy=busyToken===token;
   const [now,setNow]=useState(Date.now());
   const requestId=useRef(0);
-  const writing=useRef(false);
+  const activeToken=useRef(token);
+  activeToken.current=token;
+  const writing=useRef<string|null>(null);
   const safeItems=loadedToken===token?items:[];
 
   const load=useCallback(async()=>{
@@ -63,17 +66,20 @@ export default function OwnerPromotionsScreen(){
   const counts=ownerPromotionCounts(safeItems,now);
   async function close(){
     const promotion=confirm;
-    if(!token||!promotion||writing.current)return;
-    writing.current=true;setBusy(true);setError(null);
+    if(!token||!promotion||writing.current===token)return;
+    writing.current=token;setBusyToken(token);setError(null);
     const actorToken=token;
     try{
       await ownerApi.closePromotion(actorToken,promotion.id);
-      if(actorToken!==token)return;
+      if(actorToken!==activeToken.current)return;
       setConfirm(null);
       await load();
     }catch{
-      if(actorToken===token)setError(t("ownerMarketing.closePromotionError"));
-    }finally{writing.current=false;setBusy(false);}
+      if(actorToken===activeToken.current)setError(t("ownerMarketing.closePromotionError"));
+    }finally{
+      if(writing.current===actorToken)writing.current=null;
+      setBusyToken(current=>current===actorToken?null:current);
+    }
   }
 
   if(loading&&loadedToken!==token)return <Screen embedded>
@@ -147,7 +153,7 @@ export default function OwnerPromotionsScreen(){
       </Card>;
     })}
 
-    <Modal transparent visible={confirm!==null} animationType="fade"
+    <Modal transparent visible={confirm!==null&&loadedToken===token} animationType="fade"
       onRequestClose={()=>{if(!busy)setConfirm(null);}}>
       <View style={styles.overlay}><Card style={styles.dialog}>
         <AppText variant="bodyLarge" weight="bold">{t("owner.phase6.closeTitle")}</AppText>

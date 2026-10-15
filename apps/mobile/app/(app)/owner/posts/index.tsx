@@ -37,6 +37,8 @@ export default function OwnerPostsScreen(){
   const [pageError,setPageError]=useState(false);
   const [search,setSearch]=useState("");
   const serial=useRef(0);
+  const currentActor=useRef(token);
+  currentActor.current=token;
   const items=postsToken===token?rawItems:[];
   const page=pageToken===token?rawPage:null;
   const [filter,setFilter]=useState<Filter>("ALL");
@@ -81,7 +83,8 @@ export default function OwnerPostsScreen(){
 
   useEffect(()=>{
     setEditingPage(false);setFilter("ALL");setSearch("");setError(null);
-  },[session?.user.id]);
+    setBusy(null);setPageSaving(false);
+  },[session?.user.id,token]);
   useFocusEffect(useCallback(()=>{
     void load();return()=>{serial.current++;};
   },[load]));
@@ -104,7 +107,9 @@ export default function OwnerPostsScreen(){
   }
 
   async function savePage(){
-    if(!session||!page||pageSaving)return;
+    if(!session||!page||pageSaving||pageToken!==token)return;
+    const actorToken=session.accessToken;
+    if(actorToken!==currentActor.current)return;
     setPageSaving(true);setError(null);
     try{
       const result=await ownerApi.updateMediaPage(session.accessToken,{
@@ -112,43 +117,62 @@ export default function OwnerPostsScreen(){
         pageCoverImageUrl:coverDraft||null,
         pageBio:bioDraft.trim()||null,
       });
+      if(actorToken!==currentActor.current)return;
       setPage(result.page);
       setEditingPage(false);
     }catch{
-      setError(t("media.pageSaveError"));
-    }finally{setPageSaving(false);}
+      if(actorToken===currentActor.current)setError(t("media.pageSaveError"));
+    }finally{
+      if(actorToken===currentActor.current)setPageSaving(false);
+    }
   }
 
   async function toggle(item:VenuePostDto){
-    if(!session||busy)return;
+    if(!session||busy||postsToken!==token)return;
+    const actorToken=session.accessToken;
+    if(actorToken!==currentActor.current)return;
     setBusy(item.id);setError(null);
     try{
       if(item.status==="PUBLISHED")await ownerApi.unpublishPost(session.accessToken,item.id);
       else await ownerApi.publishPost(session.accessToken,item.id);
-      await load();
-    }catch{setError(t("media.statusError"));}
-    finally{setBusy(null);}
+      if(actorToken===currentActor.current)await load();
+    }catch{
+      if(actorToken===currentActor.current)setError(t("media.statusError"));
+    }finally{
+      if(actorToken===currentActor.current)setBusy(null);
+    }
   }
 
   async function setVisibility(item:VenuePostDto,visibility:VenuePostVisibility){
-    if(!session||busy||item.visibility===visibility)return;
+    if(!session||busy||item.visibility===visibility||postsToken!==token)return;
+    const actorToken=session.accessToken;
+    if(actorToken!==currentActor.current)return;
     setBusy(item.id);setError(null);
     try{
       await ownerApi.setPostVisibility(session.accessToken,item.id,visibility);
-      await load();
-    }catch{setError(t("media.visibilityError"));}
-    finally{setBusy(null);}
+      if(actorToken===currentActor.current)await load();
+    }catch{
+      if(actorToken===currentActor.current)setError(t("media.visibilityError"));
+    }finally{
+      if(actorToken===currentActor.current)setBusy(null);
+    }
   }
 
   async function remove(item:VenuePostDto){
-    if(!session||busy)return;
+    if(!session||busy||postsToken!==token)return;
+    const actorToken=session.accessToken;
+    if(actorToken!==currentActor.current)return;
     setBusy(item.id);setError(null);
     try{
       await ownerApi.deletePost(session.accessToken,item.id);
+      if(actorToken!==currentActor.current)return;
       setItems((current)=>current.filter((value)=>value.id!==item.id));
-      setPage((current)=>current?{...current,postCount:Math.max(0,current.postCount-1)}:current);
-    }catch{setError(t("media.deleteError"));}
-    finally{setBusy(null);}
+      if(pageToken===actorToken)setPage((current)=>current?{...current,postCount:Math.max(0,current.postCount-1)}:current);
+    }catch{
+      if(actorToken===currentActor.current)setError(t("media.deleteError"));
+    }finally{
+      if(actorToken===currentActor.current)setBusy(null);
+    }
   }
 
   function confirmDelete(item:VenuePostDto){
@@ -163,13 +187,18 @@ export default function OwnerPostsScreen(){
   }
 
   async function cancelSchedule(item:VenuePostDto,scheduleId:string){
-    if(!session||busy)return;
+    if(!session||busy||postsToken!==token)return;
+    const actorToken=session.accessToken;
+    if(actorToken!==currentActor.current)return;
     setBusy(item.id);setError(null);
     try{
       await ownerApi.cancelPostSchedule(session.accessToken,item.id,scheduleId);
-      await load();
-    }catch{setError(t("media.scheduleCancelError"));}
-    finally{setBusy(null);}
+      if(actorToken===currentActor.current)await load();
+    }catch{
+      if(actorToken===currentActor.current)setError(t("media.scheduleCancelError"));
+    }finally{
+      if(actorToken===currentActor.current)setBusy(null);
+    }
   }
 
   if(loading&&postsToken!==token&&pageToken!==token)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={650}/></Screen>;

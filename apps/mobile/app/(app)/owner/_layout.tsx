@@ -11,7 +11,9 @@ import { AppHeader } from "../../../src/components/ui/AppHeader";
 export default function OwnerLayout(){
   const pathname=usePathname();
   const {session}=useAuth();
-  if(session&&!session.user.roles.includes("VENUE_OWNER"))return <Redirect href="/dashboard"/>;
+  // While auth hydrates, never mount a private owner shell with a missing identity.
+  if(!session)return null;
+  if(!session.user.roles.includes("VENUE_OWNER"))return <Redirect href="/dashboard"/>;
   const showTimetableNav=isTimetableRoute(pathname);
   return <SafeAreaView style={styles.safe} edges={["top","left","right"]}>
     <AppHeader/>

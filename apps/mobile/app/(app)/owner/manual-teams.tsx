@@ -22,10 +22,13 @@ export default function OwnerManualTeamsScreen() {
   const [teams,setTeams]=useState<ManualTeamDto[]>([]);
   const [loadedToken,setLoadedToken]=useState<string|null>(null);
   const serial=useRef(0);
+  const currentActor=useRef(token);
+  currentActor.current=token;
   const [name,setName]=useState("");
   const [city,setCity]=useState("");
   const [editingId,setEditingId]=useState<string|null>(null);
-  const [busy,setBusy]=useState(false);
+  const [busyToken,setBusyToken]=useState<string|null>(null);
+  const busy=busyToken===token;
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
@@ -49,7 +52,7 @@ export default function OwnerManualTeamsScreen() {
   },[load]));
   useEffect(()=>{
     setEditingId(null);setName("");setCity("");setMessage(null);setError(null);
-  },[userId]);
+  },[userId,token]);
   const visibleTeams=loadedToken===token?teams:[];
 
   function beginEdit(team:ManualTeamDto){
@@ -59,20 +62,26 @@ export default function OwnerManualTeamsScreen() {
     setEditingId(null);setName("");setCity("");
   }
   async function save(){
-    if(!session||busy||name.trim().length<2||city.trim().length<2)return;
-    setBusy(true);setError(null);setMessage(null);
+    if(!session||busy||name.trim().length<2||city.trim().length<2||loadedToken!==token)return;
+    const actorToken=session.accessToken;
+    if(actorToken!==currentActor.current)return;
+    setBusyToken(actorToken);setError(null);setMessage(null);
     try {
       if(editingId){
-        await manualTeamApi.update(session.accessToken,editingId,{name:name.trim(),city:city.trim()});
+        await manualTeamApi.update(actorToken,editingId,{name:name.trim(),city:city.trim()});
       }else{
-        await manualTeamApi.create(session.accessToken,{name:name.trim(),city:city.trim()});
+        await manualTeamApi.create(actorToken,{name:name.trim(),city:city.trim()});
       }
+      if(actorToken!==currentActor.current)return;
       reset();
       await load();
-      setMessage(t("manualTeams.saved"));
+      if(actorToken===currentActor.current)setMessage(t("manualTeams.saved"));
     }catch(e){
-      setError(e instanceof ApiRequestError?e.message:t("manualTeams.saveError"));
-    }finally{setBusy(false);}
+      if(actorToken===currentActor.current)
+        setError(e instanceof ApiRequestError?e.message:t("manualTeams.saveError"));
+    }finally{
+      setBusyToken(current=>current===actorToken?null:current);
+    }
   }
 
   return <Screen embedded>
