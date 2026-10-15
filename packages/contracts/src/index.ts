@@ -2235,6 +2235,15 @@ export const playerCompetitionStatDtoSchema = z.object({
 });
 export type PlayerCompetitionStatDto = z.infer<typeof playerCompetitionStatDtoSchema>;
 
+/** Aggregate recorded cards for accepted teams. Contains NO player identities;
+ * includes disciplinary events from players whose profiles are not public. */
+export const competitionTeamDisciplineDtoSchema=z.object({
+  teamId:z.string().uuid(),
+  yellowCards:z.number().int().min(0),
+  redCards:z.number().int().min(0),
+});
+export type CompetitionTeamDisciplineDto=z.infer<typeof competitionTeamDisciplineDtoSchema>;
+
 export const competitionDtoSchema = z.object({
   id: z.string().uuid(),
   venueId: z.string().uuid(),
@@ -2262,6 +2271,8 @@ export const competitionDtoSchema = z.object({
   matches: z.array(competitionMatchDtoSchema),
   standings: z.array(competitionStandingRowDtoSchema),
   playerStats: z.array(playerCompetitionStatDtoSchema),
+  /** Optional for legacy public snapshots; absent is NOT a zero-card report. */
+  teamDisciplineStats:z.array(competitionTeamDisciplineDtoSchema).optional(),
   championTeamId: z.string().uuid().nullable(),
   rewards:z.array(competitionRewardSchema),
 });
