@@ -3,10 +3,12 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {SocialFollowStateDto,TeamDto,TeamJoinRequestStatus} from "@leaguekick/contracts";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {Image,Modal,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions} from "react-native";
+import {Image,Linking,Modal,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions} from "react-native";
 import {marketingApi,resolveMediaImageUrl,teamApi,teamManagerApi,teamPublicApi,
   type TeamManagerProfileDetails,type TeamPublicHighlights} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
+import {teamDetailJoinAction,displayTeamFollowerCount,publicTeamTelephoneUrl} from
+  "../../lib/team-detail-actions";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -55,6 +57,10 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     topPlayers:"Top players",noPublicLeaders:"No verified public player statistics yet.",
     goals:"Goals",assists:"Assists",appearances:"Played",showMore:"Load more posts",
     mediaLoadError:"Could not load older posts.",refresh:"Refresh",viewPost:"View post",
+    signInToFollow:"Sign in to follow",verifiedToJoin:"Verify your email to request membership.",
+    verifyEmail:"Verify email",invitationNote:"This team accepts invitations only.",
+    quickSquad:"View squad",quickResults:"Recent results",quickAbout:"About team",
+    teamContact:"Call team",membershipStatus:"Membership",viewMemberArea:"Member area",
   },
   "fa-AF":{
     media:"رسانه",squad:"بازیکنان",matches:"مسابقات",competitions:"رقابت‌ها",stats:"آمار",about:"درباره",
@@ -85,6 +91,10 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     topPlayers:"بازیکنان برتر",noPublicLeaders:"هنوز آمار تأییدشدهٔ عمومی بازیکنان وجود ندارد.",
     goals:"گل",assists:"پاس گل",appearances:"بازی",showMore:"نمایش پست‌های بیشتر",
     mediaLoadError:"پست‌های قدیمی بارگذاری نشد.",refresh:"تازه‌سازی",viewPost:"نمایش پست",
+    signInToFollow:"برای دنبال‌کردن وارد شوید",verifiedToJoin:"برای درخواست عضویت ایمیل خود را تأیید کنید.",
+    verifyEmail:"تأیید ایمیل",invitationNote:"این تیم فقط با دعوت عضو می‌پذیرد.",
+    quickSquad:"دیدن بازیکنان",quickResults:"نتایج اخیر",quickAbout:"درباره تیم",
+    teamContact:"تماس با تیم",membershipStatus:"عضویت",viewMemberArea:"بخش اعضا",
   },
   "ps-AF":{
     media:"رسنۍ",squad:"لوبغاړي",matches:"لوبې",competitions:"سیالۍ",stats:"شمېرې",about:"په اړه",
@@ -115,6 +125,10 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     topPlayers:"غوره لوبغاړي",noPublicLeaders:"تر اوسه تایید شوې عامه د لوبغاړو شمېرې نشته.",
     goals:"ګولونه",assists:"مرستې",appearances:"لوبې",showMore:"نور پوسټونه",
     mediaLoadError:"زاړه پوسټونه پورته نشول.",refresh:"تازه کول",viewPost:"پوسټ وګورئ",
+    signInToFollow:"د تعقیب لپاره ننوزئ",verifiedToJoin:"د غړیتوب غوښتنې لپاره خپل برېښنالیک تایید کړئ.",
+    verifyEmail:"برېښنالیک تایید کړئ",invitationNote:"دا ټیم یوازې په بلنه غړي مني.",
+    quickSquad:"لوبغاړي وګورئ",quickResults:"وروستۍ پایلې",quickAbout:"د ټیم په اړه",
+    teamContact:"ټیم ته زنګ",membershipStatus:"غړیتوب",viewMemberArea:"د غړو برخه",
   },
 };
 
@@ -270,7 +284,7 @@ export default function TeamDetailExperience(){
     }
   }
   async function requestJoin(){
-    if(!session||member||joinBusy||joinStatus==="PENDING"||!joinAllowed)return;
+    if(!session||joinAction!=="request"||joinBusy)return;
     const action=++joinActionSequence.current;
     setJoinBusy(true);setError(null);
     try{
@@ -283,7 +297,7 @@ export default function TeamDetailExperience(){
     }
   }
   async function cancelJoin(){
-    if(!session||joinBusy||joinStatus!=="PENDING")return;
+    if(!session||joinBusy||joinAction!=="cancel")return;
     const action=++joinActionSequence.current;
     setJoinBusy(true);setError(null);
     try{
@@ -300,6 +314,11 @@ export default function TeamDetailExperience(){
     try{await Share.share({message:team.name+" · "+team.city+"\nleaguekick://teams/"+team.id});}
     catch{/* Cancelled native share sheet. */}
   }
+  async function callTeam(){
+    if(!contactHref)return;
+    try{await Linking.openURL(contactHref);}
+    catch{setError(tx("error"));}
+  }
   function chooseTab(value:Tab,target?:TeamDetailSubtabs[Tab]){
     setNavState(current=>switchTeamMain(current,value,target));
     // Keep vertical position; reveal the selected horizontal tab in RTL/LTR.
@@ -308,6 +327,13 @@ export default function TeamDetailExperience(){
   }
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
     :team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
+  const joinAction=teamDetailJoinAction({
+    signedIn:!!session,emailVerified:session?.user.emailVerified===true,
+    hasAssignedRole:(session?.user.roles.length??0)>0,
+    member,manager:role==="MANAGER",pending:joinStatus==="PENDING",
+    allowJoinRequests:joinAllowed,
+  });
+  const contactHref=publicTeamTelephoneUrl(profile?.contactPhone);
   const rowDirection={flexDirection:isRTL?"row-reverse" as const:"row" as const};
   const cover=resolveMediaImageUrl(profile?.coverImageUrl);
   const teamColor=profile?.primaryColor??colors.primary;
@@ -559,18 +585,25 @@ export default function TeamDetailExperience(){
           value={t(`teams.privacy.${team.privacy}` as never)} rtl={isRTL}/>
         {profile?.contactPhone?<InfoLine icon="call-outline" label={tx("contact")}
           value={profile.contactPhone} rtl={isRTL}/>:null}
+        {contactHref?<Button label={tx("teamContact")} variant="secondary"
+          icon={<Ionicons name="call-outline" size={17} color={colors.primary}/>}
+          onPress={()=>void callTeam()}/>:null}
       </Card>:<Card style={styles.postCard}>
         <AppText variant="bodyLarge" weight="bold">{tx("members")}</AppText>
         <AppText muted>{tx("joinDescription")}</AppText>
         {joinStatus==="PENDING"?<AppText style={{color:colors.warning}} weight="semibold">
           {t("teams.joinRequestPending")}</AppText>:null}
-        {!member&&role!=="MANAGER"&&session?<Button
-          label={joinStatus==="PENDING"?t("teams.phase4.cancelRequest"):
-            !joinAllowed?t("teams.invitationOnly"):t("teams.requestToJoin")}
-          disabled={!joinAllowed&&joinStatus!=="PENDING"} loading={joinBusy} variant="secondary"
-          onPress={()=>void (joinStatus==="PENDING"?cancelJoin():requestJoin())}/>:null}
-        {!member&&!joinAllowed&&joinStatus!=="PENDING"?
-          <AppText variant="caption" muted>{t("teams.phase4.invitationOnlyHelp")}</AppText>:null}
+        {(joinAction==="request"||joinAction==="cancel")?<Button
+          label={joinAction==="cancel"?t("teams.phase4.cancelRequest"):t("teams.requestToJoin")}
+          loading={joinBusy} variant="secondary"
+          onPress={()=>void (joinAction==="cancel"?cancelJoin():requestJoin())}/>:null}
+        {joinAction==="verifyEmail"?<>
+          <AppText variant="caption" muted>{tx("verifiedToJoin")}</AppText>
+          <Button variant="secondary" label={tx("verifyEmail")}
+            onPress={()=>router.push("/profile/email")}/>
+        </>:null}
+        {joinAction==="invitationOnly"?<AppText variant="caption" muted>
+          {tx("invitationNote")}</AppText>:null}
         {role?<AppText weight="semibold" style={{color:colors.primary}}>
           {t("teams.myRole")}: {t(`teams.role.${role}` as never)}</AppText>:null}
         {role?<Button label={tx("viewActivity")} variant="secondary"
@@ -606,9 +639,16 @@ export default function TeamDetailExperience(){
     <View style={styles.profileCard}>
       <View testID="team-profile-cover" style={[styles.cover,{backgroundColor:teamColor}]}>
         {cover?<Image source={{uri:cover}} resizeMode="cover" style={StyleSheet.absoluteFill}/>:<>
-          <Ionicons name="shield-outline" size={62} color="rgba(255,255,255,.75)"/>
+          <View style={styles.coverCircleLarge}/>
+          <View style={styles.coverCircleSmall}/>
+          <Ionicons name="shield-outline" size={54} color="rgba(255,255,255,.82)"/>
           <AppText variant="caption" style={{color:"#FFFFFF"}}>{tx("noCover")}</AppText>
         </>}
+        <Pressable testID="team-header-share" accessibilityRole="button"
+          accessibilityLabel={tx("share")} onPress={()=>void share()}
+          style={[styles.coverShare,{right:isRTL?undefined:spacing.sm,left:isRTL?spacing.sm:undefined}]}>
+          <Ionicons name="share-social-outline" size={20} color="#FFFFFF"/>
+        </Pressable>
       </View>
       <View style={styles.identity}>
         {resolveMediaImageUrl(team.logoUrl)?<Image source={{uri:resolveMediaImageUrl(team.logoUrl)!}}
@@ -617,12 +657,13 @@ export default function TeamDetailExperience(){
             <AppText variant="title" weight="bold" style={{color:colors.primary}}>
               {team.name.slice(0,2).toUpperCase()}</AppText>
           </View>}
-        <AppText variant="title" weight="bold" style={{textAlign:"center"}}>{team.name}</AppText>
+        <AppText variant="title" weight="bold" numberOfLines={3}
+          style={styles.teamName}>{team.name}</AppText>
         {profile?.description?<AppText variant="caption" muted
           numberOfLines={2} style={{textAlign:"center"}}>{profile.description}</AppText>:null}
         <View style={[styles.horizontal,rowDirection,{justifyContent:"center"}]}>
           <Ionicons name="location-outline" color={colors.textMuted} size={15}/>
-          <AppText muted variant="caption">
+          <AppText muted variant="caption" numberOfLines={2} style={{flexShrink:1,textAlign:"center"}}>
             {[team.city,profile?.district,profile?.province].filter(Boolean).join(" · ")}
           </AppText>
           {role?<AppText weight="semibold" variant="caption" style={{color:colors.primary}}>
@@ -630,28 +671,52 @@ export default function TeamDetailExperience(){
         </View>
         <View style={[styles.summary,rowDirection]}>
           <SummaryStat label={t("publicProfile.members")} value={String(team.rosterCount)}/>
-          <SummaryStat label={t("publicProfile.followers")} value={String(followState?.followerCount??0)}/>
+          <SummaryStat label={t("publicProfile.followers")}
+            value={displayTeamFollowerCount(followState?.followerCount)}/>
           <SummaryStat label={t("publicProfile.privacy")}
             value={t(`teams.privacy.${team.privacy}` as never)}/>
         </View>
-        <View style={[styles.horizontal,rowDirection]}>
-          <Button style={{flex:1}} variant={followState?.following?"secondary":"primary"}
-            label={followState?.following?t("social.unfollow"):t("social.follow")}
-            loading={followBusy} disabled={!session||!followState} onPress={()=>void toggleFollow()}/>
-          {role==="MANAGER"?<Button style={{flex:1}} label={t("teams.manage")} variant="secondary"
+        <View testID="team-header-actions" style={[styles.actionRow,rowDirection]}>
+          <Button style={styles.actionButton} variant={followState?.following?"secondary":"primary"}
+            label={!session?tx("signInToFollow"):followState?.following?t("social.unfollow"):t("social.follow")}
+            loading={followBusy} disabled={!!session&&!followState}
+            onPress={()=>session?void toggleFollow():router.push("/login")}/>
+          {role==="MANAGER"?<Button style={styles.actionButton} label={t("teams.manage")}
+            variant="secondary"
             onPress={()=>router.push({pathname:"/teams/[teamId]/manage",params:{teamId:id}})}/>:
-            member?<Button style={{flex:1}} label={tx("joined")} variant="secondary" disabled onPress={()=>{}}/>:
-            <Button style={{flex:1}} variant="secondary" loading={joinBusy}
-              label={joinStatus==="PENDING"?t("teams.phase4.cancelRequest"):
-                !joinAllowed?t("teams.invitationOnly"):t("teams.requestToJoin")}
-              disabled={!session||(!joinAllowed&&joinStatus!=="PENDING")}
-              onPress={()=>void (joinStatus==="PENDING"?cancelJoin():requestJoin())}/>}
+            role?<Button style={styles.actionButton} label={tx("viewMemberArea")}
+              variant="secondary" onPress={()=>chooseTab("about","members")}/>:
+            (joinAction==="request"||joinAction==="cancel")?<Button
+              style={styles.actionButton} variant="secondary" loading={joinBusy}
+              label={joinAction==="cancel"?t("teams.phase4.cancelRequest"):t("teams.requestToJoin")}
+              onPress={()=>void (joinAction==="cancel"?cancelJoin():requestJoin())}/>:null}
         </View>
-        <View style={[styles.horizontal,rowDirection,{justifyContent:"center"}]}>
-          <Pressable accessibilityRole="button" onPress={()=>void share()} style={styles.smallAction}>
-            <Ionicons name="share-social-outline" size={20} color={colors.primary}/>
-            <AppText variant="caption" weight="semibold">{tx("share")}</AppText>
+        {joinAction==="verifyEmail"?<View testID="team-verify-email-hint"
+          style={[styles.membershipHint,rowDirection]}>
+          <Ionicons name="mail-unread-outline" size={19} color={colors.primary}/>
+          <AppText variant="caption" style={{flex:1}}>{tx("verifiedToJoin")}</AppText>
+          <Pressable accessibilityRole="button" onPress={()=>router.push("/profile/email")}>
+            <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+              {tx("verifyEmail")}</AppText>
           </Pressable>
+        </View>:null}
+        {joinAction==="invitationOnly"?<View style={[styles.membershipHint,rowDirection]}>
+          <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted}/>
+          <AppText variant="caption" muted style={{flex:1}}>{tx("invitationNote")}</AppText>
+        </View>:null}
+        <View testID="team-header-shortcuts" style={[styles.shortcuts,rowDirection]}>
+          {([
+            {id:"squad",sub:"players",icon:"people-outline",text:"quickSquad"},
+            {id:"matches",sub:"results",icon:"football-outline",text:"quickResults"},
+            {id:"about",sub:"overview",icon:"information-circle-outline",text:"quickAbout"},
+          ] as const).map(item=><Pressable key={item.id} accessibilityRole="button"
+            testID={"team-shortcut-"+item.id} accessibilityLabel={tx(item.text)}
+            onPress={()=>chooseTab(item.id,item.sub)} style={({pressed})=>[
+              styles.shortcut,pressed&&styles.subPressed]}>
+            <Ionicons name={item.icon} size={19} color={colors.primary}/>
+            <AppText variant="caption" weight="semibold" numberOfLines={2}
+              style={{textAlign:"center",color:colors.primary}}>{tx(item.text)}</AppText>
+          </Pressable>)}
         </View>
         {joinStatus==="PENDING"&&!member?<View style={styles.pending}>
           <Ionicons name="time-outline" size={18} color={colors.warning}/>
@@ -735,14 +800,30 @@ function InfoLine({icon,label,value,rtl}:{icon:keyof typeof Ionicons.glyphMap;
 const styles=StyleSheet.create({
   horizontal:{flexDirection:"row",gap:spacing.sm,alignItems:"center"},
   profileCard:{borderRadius:radius.lg,backgroundColor:colors.surface,overflow:"hidden"},
-  cover:{height:160,backgroundColor:colors.primary,alignItems:"center",justifyContent:"center",gap:4},
+  cover:{height:184,backgroundColor:colors.primary,alignItems:"center",justifyContent:"center",gap:4,
+    position:"relative",overflow:"hidden"},  
+  coverCircleLarge:{position:"absolute",width:260,height:260,borderRadius:130,
+    borderWidth:32,borderColor:"rgba(255,255,255,.08)",right:-86,top:-110},
+  coverCircleSmall:{position:"absolute",width:190,height:190,borderRadius:95,
+    backgroundColor:"rgba(255,255,255,.07)",left:-85,bottom:-90},
+  coverShare:{position:"absolute",top:spacing.sm,width:44,height:44,
+    borderRadius:radius.pill,backgroundColor:"rgba(0,0,0,.42)",
+    alignItems:"center",justifyContent:"center"},
   identity:{alignItems:"center",gap:spacing.sm,padding:spacing.md,paddingTop:0},
-  teamLogo:{height:90,width:90,borderRadius:45,marginTop:-44,borderWidth:4,borderColor:colors.surface},
+  teamLogo:{height:84,width:84,borderRadius:42,marginTop:-40,backgroundColor:colors.surface},  
+  teamName:{textAlign:"center",maxWidth:"100%",lineHeight:29},
   avatarEmpty:{backgroundColor:colors.primarySoft,justifyContent:"center",alignItems:"center"},
   summary:{width:"100%",justifyContent:"space-between",paddingVertical:spacing.md,borderTopWidth:1,
     borderBottomWidth:1,borderColor:colors.border},
   summaryItem:{flex:1,alignItems:"center",gap:4},
-  smallAction:{flexDirection:"row",gap:5,padding:spacing.sm,alignItems:"center"},
+  actionRow:{width:"100%",flexWrap:"wrap",gap:spacing.sm,justifyContent:"center"},
+  actionButton:{flexGrow:1,flexBasis:"44%"},
+  membershipHint:{width:"100%",alignItems:"center",padding:spacing.sm,gap:spacing.sm,
+    backgroundColor:colors.primarySoft,borderRadius:radius.md},
+  shortcuts:{width:"100%",gap:spacing.xs,justifyContent:"space-between",marginTop:spacing.xs},
+  shortcut:{flex:1,minWidth:0,minHeight:66,backgroundColor:colors.surfaceMuted,
+    borderRadius:radius.md,alignItems:"center",justifyContent:"center",
+    paddingHorizontal:spacing.xs,paddingVertical:spacing.sm,gap:4},
   pending:{flexDirection:"row",gap:spacing.sm,padding:spacing.sm,backgroundColor:colors.surfaceMuted,
     borderRadius:radius.sm,alignItems:"center"},
   tabContainer:{borderTopWidth:1,borderBottomWidth:1,borderColor:colors.border,backgroundColor:colors.surface},
