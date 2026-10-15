@@ -32,6 +32,12 @@ export function computeOwnerOverview(
     .filter(event=>event.startsAt&&Date.parse(event.startsAt)>=nowMs
       &&(confirmed(event)||event.type==="COMPETITION"))
     .sort((a,b)=>Date.parse(a.startsAt!)-Date.parse(b.startsAt!));
+  // A calendar day's availableCount can include slots that have already
+  // elapsed. Only future AVAILABLE/PROMOTION events are still bookable.
+  const remainingSlots=day?[...new Map(day.events
+    .filter(event=>event.startsAt&&Date.parse(event.startsAt)>nowMs
+      &&(event.type==="AVAILABLE"||event.type==="PROMOTION"))
+    .map(event=>[event.id,event])).values()].length:null;
   const livePending=snapshot.pending===null?null:snapshot.pending
     .filter(booking=>booking.status==="PENDING"&&Date.parse(booking.startsAt)>nowMs);
   const active=snapshot.competitions===null?null:
@@ -43,7 +49,7 @@ export function computeOwnerOverview(
 
   return {
     confirmedToday:day?uniqueBookings.length:null,
-    availableToday:day?day.availableCount:null,
+    availableToday:remainingSlots,
     confirmedBookingValueToday:day?uniqueBookings.reduce(
       (sum,event)=>sum+(event.priceAfn??0),0):null,
     upcoming,
