@@ -440,8 +440,8 @@ export default function TeamDetailExperience(){
       ):<View testID="team-squad-grid" style={[styles.squadGrid,rowDirection]}>
         {listing.members.map(player=>{
           const canOpenPlayer=mayOpenPublicPlayer(player.userId,publicPlayerIds);
-          const isManager=player.userId===team.managerUserId||player.role==="MANAGER";
-          const isCaptain=player.userId===team.captainUserId||player.role==="CAPTAIN";
+          const isManager=player.userId===team.managerUserId;
+          const isCaptain=player.userId===team.captainUserId;
           return <Pressable key={player.userId} accessibilityRole="button"
             testID={"team-squad-player-"+player.userId}
             accessibilityLabel={player.publicDisplayName}
