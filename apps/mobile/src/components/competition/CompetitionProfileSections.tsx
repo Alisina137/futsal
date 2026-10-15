@@ -17,6 +17,7 @@ import {LeagueStandingsTable} from "./LeagueStandingsTable";
 import {CompetitionKnockoutBracket} from "./CompetitionKnockoutBracket";
 import {competitionStandingGroups,provisionalQualificationZone} from "../../lib/competition-detail-standings";
 import {CompetitionMatchList,type MatchFilter} from "./CompetitionMatchList";
+import {CompetitionMediaPanel} from "./CompetitionMediaPanel";
 import type {CompetitionMatchPreferences} from "../../lib/competition-detail-match-filters";
 import {Card} from "../ui/Card";
 
@@ -782,8 +783,8 @@ export function CompetitionProfileSections({competition,posts,activeTab,subtab,r
   if(activeTab==="STATS")return subtab==="TEAMS"||subtab==="FAIR_PLAY"?
     <CompetitionTeamMetrics competition={competition} subtab={subtab}/>:
     <CompetitionStats competition={competition}/>;
-  if(activeTab==="MEDIA")return <Home competition={competition} posts={posts}
-    onTabChange={onTabChange} mode="MEDIA" view={subtab??"UPDATES"}/>;
+  if(activeTab==="MEDIA")return <CompetitionMediaPanel competition={competition}
+    view={subtab??"UPDATES"}/>;
   if(activeTab==="ABOUT")return <CompetitionAboutSection competition={competition}
     subtab={subtab??"INFORMATION"}/>;
   if(activeTab==="TEAMS")return <CompetitionTeams competition={competition}
