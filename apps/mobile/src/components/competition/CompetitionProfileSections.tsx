@@ -668,7 +668,7 @@ function CompetitionAboutSection({competition,subtab}:{
       {line(t("competition.registrationDeadline"),datetime(competition.registrationClosesAt))}
       {line(t("competition.startsAt"),datetime(competition.startsAt))}
       {line(t("competition.endsAt"),datetime(competition.endsAt))}
-      <Pressable accessibilityRole="button" testID="competition-about-registration"
+      {competition.status==="REGISTRATION_OPEN"?<Pressable accessibilityRole="button" testID="competition-about-registration"
         onPress={()=>router.push({pathname:"/competitions/[competitionId]",
           params:{competitionId:competition.id,tab:"TEAMS",subtab:"REGISTRATION"}})}
         style={styles.progressionLink}>
@@ -676,7 +676,7 @@ function CompetitionAboutSection({competition,subtab}:{
         <AppText weight="semibold" style={{color:colors.primary,flex:1}}>
           {t("competition.detail.registrationDetails")}
         </AppText>
-      </Pressable>
+      </Pressable>:null}
     </Card>:null}
     {subtab==="RULES"?<Card testID="competition-phase7-rules" style={styles.stack}>
       <AppText variant="caption" muted>{t("competition.detail.phase7.rulesScope")}</AppText>
