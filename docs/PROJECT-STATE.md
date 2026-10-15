@@ -1,3 +1,8 @@
+## Public Team Detail — cover-only profile hero (2026-10-16)
+- **Teams → Team Detail** now displays the existing team **cover/background image only**, without the circular team logo/profile image or two-letter initials fallback overlapping the lower center of that cover. The team name begins with natural padding below the cover instead of negative avatar overlap.
+- Kept the cover upload / manager profile settings, brand color and no-cover fallback, share, follow/join/manage actions, team description, location, public member/follower counts, quick links, all six public tabs and roster/player avatars unchanged. Only the redundant public **team hero profile circle** was removed (not player images or team logos elsewhere).
+- Added the `pnpm verify:team-cover-only-hero` structural regression in the full release gate. No database/API/schema changes or dependencies. Real Android UI and RTL visual acceptance remains outstanding.
+
 ## Public Team Detail — viewer-relative colored final results (2026-10-16)
 - **Teams → Team Detail → Matches → Results** now distinguishes match outcomes visually from the perspective of the **team whose detail page is open**, regardless of whether that team played home or away. Verified **win** → green card border, softly green-tinted bordered fixture/score panel and green score/Win label; **loss** → red border/panel/score/Loss; **draw** → neutral gray border/panel/score/Draw.
 - Outcome labels reuse existing EN/Dari/Pashto translations, improve non-color accessibility and announce the result alongside the score. Existing winner bold / loser muted team names, fixture information and match-detail links remain unchanged.
