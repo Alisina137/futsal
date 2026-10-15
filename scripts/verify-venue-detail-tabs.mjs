@@ -48,8 +48,8 @@ check(venueUpdates.includes('router.push("/notifications/preferences")')&&
   venueUpdates.includes("venueApi.scheduleChanges(venue.id,from,to)"),
   "Updates must show real scoped alerts, schedules and global notification settings.");
 check(venueCompetition.includes("competitionApi.discover(queryFor(venue.id,sub,1))")&&
-  venueCompetition.includes("competitionApi.venueMatches(venue.id,matchScope,1)")&&
-  venueCompetition.includes('testID={"venue-match-"+match.id}'),
+  venueCompetition.includes("competitionApi.venueMatches(venue.id,matchScope,1,selectedMatchQuery)")&&
+  venueCompetition.includes('<VenueMatchCard key={match.id}'),
   "Competitions must use server-scoped paginated lists and real matches.");
 check(booking.includes("bookingApi.create")&&booking.includes("startsAt"),
   "Booking confirmation must remain routed through the server-authoritative booking service.");
