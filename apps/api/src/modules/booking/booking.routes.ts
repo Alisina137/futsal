@@ -6,6 +6,7 @@ import {
   dateOnlySchema,
   manualBookingRequestSchema,
   onlineBookingRequestSchema,
+  ownerBookingListQuerySchema,
   venueBlockRequestSchema,
   venueDirectoryFiltersSchema,
   venueReviewCreateSchema,
@@ -186,6 +187,13 @@ export function createOwnerScheduleRouter(booking: BookingService, tokens: Token
       const date = dateOnlySchema.parse(request.query.date);
       response.json(await booking.getOwnerSchedule(request.auth!.userId, date));
     } catch (error) { next(error); }
+  });
+
+  router.get("/bookings",async(request,response,next)=>{
+    try{
+      const input=ownerBookingListQuerySchema.parse(request.query);
+      response.json(await booking.listOwnerBookings(request.auth!.userId,input));
+    }catch(error){next(error);}
   });
 
   router.get("/bookings/pending",async(request,response,next)=>{

@@ -825,4 +825,106 @@ describe("Phase 3 availability and booking API", () => {
     expect(response.body.timeline.every((slot:{status:string})=>slot.status==="NOTICE_REQUIRED")).toBe(true);
   });
 
+
+  it("paginates owner-only booking records with stable sorting and no cross-venue identity leakage",async()=>{
+    const {app,authRepository,bookingRepository}=setup();
+    const a=await register(app,authRepository,"VENUE_OWNER","0702924401");
+    const b=await register(app,authRepository,"VENUE_OWNER","0702924402");
+    const player=await register(app,authRepository,"PLAYER","0702924403");
+    const {venue,areaId}=bookingRepository.seedVenue(a.body.user.id);
+    const other=bookingRepository.seedVenue(b.body.user.id);
+    const ids:string[]=[];
+    for(let i=0;i<19;i++){
+      const id="00000000-0000-4000-bbbb-"+String(i+1).padStart(12,"0");
+      ids.push(id);
+      bookingRepository.bookings.set(id,{
+        id,venueId:venue.id,venueName:venue.name,areaId,areaName:"Pitch 1",
+        playerUserId:null,source:i%2?"MANUAL":"ONLINE",status:"CONFIRMED",
+        startsAt:new Date(Date.UTC(2026,9,5,i%12,0,0)).toISOString(),
+        endsAt:new Date(Date.UTC(2026,9,5,i%12+1,0,0)).toISOString(),
+        priceAfn:1200,currency:"AFN",customerName:"Alpha Customer "+i,
+        customerPhone:"+93700000000",note:null,cancellationPolicySnapshot:"Test",
+        cancelledAt:null,cancellationReason:null,
+      });
+    }
+    const secretId="aaaaaaaa-0000-4000-8000-000000000001";
+    bookingRepository.bookings.set(secretId,{
+      ...bookingRepository.bookings.get(ids[0]!)!,
+      id:secretId,venueId:other.venue.id,areaId:other.areaId,
+      areaName:"Secret Court",customerName:"Secret Customer",customerPhone:"+93777777777",
+    });
+    const auth={Authorization:"Bearer "+a.body.accessToken};
+    const unauth=await request(app).get("/api/v1/owner/bookings");
+    expect(unauth.status).toBe(401);
+    expect((await request(app).get("/api/v1/owner/bookings").set(
+      "Authorization","Bearer "+player.body.accessToken)).status).toBe(403);
+    const one=await request(app).get("/api/v1/owner/bookings")
+      .query({scope:"ALL",page:1,pageSize:5}).set(auth);
+    expect(one.status).toBe(200);
+    expect(one.body.pageSize).toBe(5);
+    expect(one.body.total).toBe(19);
+    expect(one.body.hasMore).toBe(true);
+    expect(one.body.bookings).toHaveLength(5);
+    const two=await request(app).get("/api/v1/owner/bookings")
+      .query({scope:"ALL",page:2,pageSize:5}).set(auth);
+    expect(two.status).toBe(200);
+    expect(two.body.bookings).toHaveLength(5);
+    const pageIds=[...one.body.bookings,...two.body.bookings].map((item:{id:string})=>item.id);
+    expect(new Set(pageIds).size).toBe(10);
+    expect(JSON.stringify(one.body)+JSON.stringify(two.body)).not.toContain("Secret Customer");
+    expect(JSON.stringify(one.body)+JSON.stringify(two.body)).not.toContain(secretId);
+    expect(JSON.stringify(one.body)+JSON.stringify(two.body)).not.toContain("+93777777777");
+    const otherView=await request(app).get("/api/v1/owner/bookings")
+      .query({scope:"ALL"}).set("Authorization","Bearer "+b.body.accessToken);
+    expect(otherView.body.total).toBe(1);
+    expect(otherView.body.bookings[0].id).toBe(secretId);
+  });
+
+  it("enforces upcoming/history status filters, source and venue-local inclusive date windows",async()=>{
+    const {app,authRepository,bookingRepository,clock}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0702924404");
+    const {venue,areaId}=bookingRepository.seedVenue(owner.body.user.id);
+    const add=(id:string,start:string,end:string,status:"PENDING"|"CONFIRMED"|"CANCELLED",
+      source:"ONLINE"|"MANUAL",name:string)=>{
+      bookingRepository.bookings.set(id,{id,venueId:venue.id,venueName:venue.name,
+        areaId,areaName:"Pitch A",playerUserId:null,source,status,
+        startsAt:start,endsAt:end,priceAfn:2000,currency:"AFN",
+        customerName:name,customerPhone:null,note:null,cancellationPolicySnapshot:"Policy",
+        cancelledAt:status==="CANCELLED"?clock.now.toISOString():null,
+        cancellationReason:status==="CANCELLED"?"Cancelled":null});
+    };
+    add("00000000-0000-4000-bbbb-000000000101","2026-10-05T08:00:00Z","2026-10-05T09:00:00Z","CONFIRMED","ONLINE","Ada");
+    add("00000000-0000-4000-bbbb-000000000102","2026-10-02T08:00:00Z","2026-10-02T09:00:00Z","CONFIRMED","MANUAL","Bashir");
+    add("00000000-0000-4000-bbbb-000000000103","2026-10-06T08:00:00Z","2026-10-06T09:00:00Z","PENDING","ONLINE","Farid");
+    add("00000000-0000-4000-bbbb-000000000104","2026-10-07T08:00:00Z","2026-10-07T09:00:00Z","CANCELLED","MANUAL","Darya");
+    const auth={Authorization:"Bearer "+owner.body.accessToken};
+    const get=(query:Record<string,string>)=>request(app).get("/api/v1/owner/bookings").query(query).set(auth);
+    const upcoming=await get({scope:"UPCOMING"});
+    expect(upcoming.status).toBe(200);
+    expect(upcoming.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Ada"]);
+    const history=await get({scope:"HISTORY"});
+    expect(history.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Darya","Bashir"]);
+    const all=await get({scope:"ALL",source:"MANUAL",status:"CONFIRMED"});
+    expect(all.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Bashir"]);
+    const search=await get({scope:"ALL",q:"ada"});
+    expect(search.body.total).toBe(1);
+    const date=await get({scope:"ALL",from:"2026-10-05",to:"2026-10-05"});
+    expect(date.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Ada"]);
+  });
+
+  it("rejects invalid / excessive owner booking queries rather than scanning or leaking records",async()=>{
+    const {app,authRepository,bookingRepository}=setup();
+    const owner=await register(app,authRepository,"VENUE_OWNER","0702924405");
+    bookingRepository.seedVenue(owner.body.user.id);
+    const auth={Authorization:"Bearer "+owner.body.accessToken};
+    for(const query of [
+      {page:"0"},{pageSize:"500"},{page:"501"},{scope:"UNKNOWN"},
+      {from:"2026-02-30"},{from:"2026-10-30",to:"2026-10-01"},
+      {q:"x".repeat(101)},{source:"INVALID"},{status:"UNKNOWN"},
+    ]){
+      const response=await request(app).get("/api/v1/owner/bookings").query(query).set(auth);
+      expect(response.status).toBe(400);
+    }
+  });
+
 });

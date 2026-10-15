@@ -1,3 +1,9 @@
+## Venue Owner Dashboard — Phase 3: Bookings Management (2026-10-15)
+- Owner Bookings now has **Pending, Upcoming, All Bookings and History** subtabs, with focused RTL navigation, existing pending approve/reject inbox, confirmed future records, server-paged searchable source/status/date filtered all-time directory, and cancelled/completed history.
+- Added GET `/api/v1/owner/bookings` (VENUE_OWNER only) with bounded Zod pagination; SQL filters apply strict tenant-scoped venue ID before query/search/count/sort/page, with owner venue timezone-resolved ISO date bounds. Source and status filters include online/manual and pending/confirmed/cancelled. No new migration.
+- Pending inbox continues the original authoritative business write logic. Future confirmed cancellation requires a confirmation modal and uses the existing venue-scoped API; no invented payment/refund workflows. UI has account-scoped async invalidation, polling, date validation, accessible touch targets and complete EN/Dari/Pashto copy.
+- Fake repository and real SQL directory share filtering semantics, covered by API tenant/role/isolation/pagination integration tests, pure tab/date tests and Phase 3 structural gate in `pnpm verify`. See `docs/VENUE-OWNER-DASHBOARD-PHASE3.md`. Physical Android and real DB signoff remains required. Phase 4 will focus on advanced Schedule controls.
+
 ## Venue Owner Dashboard — Phase 2: Today, Action Center and Performance (2026-10-15)
 - Implemented three functional Overview subtabs with RTL focus, localized EN/Dari/Pashto controls, accessible touch targets and safe actor-reset selection.
 - **Today** summarizes existing authoritative calendar, pending-booking and competition datasets: today's confirmed bookings and booking value (not cash), still-future bookable slots, future requests, active competitions, today's remaining matches and upcoming schedule with Kabul-local explicit AM/PM.

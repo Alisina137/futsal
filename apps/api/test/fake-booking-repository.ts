@@ -7,6 +7,7 @@ import type {
   CreateBookingRecordInput,
   OccupancyRecord,
   PromotionPriceRecord,
+  OwnerBookingDirectoryFilters,
 } from "../src/modules/booking/booking.types.js";
 
 function overlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
@@ -322,6 +323,31 @@ export class FakeBookingRepository implements BookingRepository {
     return [...this.bookings.values()]
       .filter(booking=>booking.venueId===venueId&&booking.source==="ONLINE"&&booking.status==="PENDING")
       .sort((a,b)=>a.startsAt.localeCompare(b.startsAt));
+  }
+
+  async listOwnerBookingDirectory(venueId:string,f:OwnerBookingDirectoryFilters){
+    const needle=f.q.trim().toLocaleLowerCase("en-US");
+    const items=[...this.bookings.values()].filter(booking=>{
+      if(booking.venueId!==venueId)return false;
+      if(f.scope==="UPCOMING"&&!(booking.status==="CONFIRMED"&&
+        Date.parse(booking.startsAt)>=f.now.getTime()))return false;
+      if(f.scope==="HISTORY"&&!(booking.status==="CANCELLED"||
+        (booking.status==="CONFIRMED"&&Date.parse(booking.endsAt)<f.now.getTime())))return false;
+      if(f.status&&booking.status!==f.status)return false;
+      if(f.source&&booking.source!==f.source)return false;
+      if(f.from&&Date.parse(booking.startsAt)<f.from.getTime())return false;
+      if(f.toExclusive&&Date.parse(booking.startsAt)>=f.toExclusive.getTime())return false;
+      if(needle&&![booking.customerName,booking.customerPhone,booking.areaName].some(
+        item=>item?.toLocaleLowerCase("en-US").includes(needle)))return false;
+      return true;
+    }).sort((a,b)=>{
+      const date=a.startsAt.localeCompare(b.startsAt);
+      return f.scope==="UPCOMING"?(date||a.id.localeCompare(b.id)):
+        (-date||b.id.localeCompare(a.id));
+    });
+    const start=(f.page-1)*f.pageSize;
+    return {bookings:items.slice(start,start+f.pageSize),page:f.page,
+      pageSize:f.pageSize,total:items.length,hasMore:start+f.pageSize<items.length};
   }
 
   async listVenueBookings(venueId: string, startsAt: Date, endsAt: Date) {

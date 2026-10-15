@@ -3,6 +3,7 @@ import type {
   ManualBookingRequest,
   OnlineBookingRequest,
   OwnerScheduleResponse,
+  OwnerBookingListQuery,
   PublicVenueListResponse,
   VenueAvailabilityResponse,
   VenueDirectoryFilters,
@@ -506,6 +507,23 @@ export class BookingService {
       bookings:await this.repository.listPendingOnlineVenueBookings(venue.id),
       generatedAt:this.now().toISOString(),
     };
+  }
+
+  /** Paginated owner-only booking directory with server-side tenant scope. */
+  async listOwnerBookings(ownerUserId:string,query:OwnerBookingListQuery){
+    const venue=await this.repository.getOwnerVenueRecord(ownerUserId);
+    if(!venue)throw errors.badRequest("VENUE_REQUIRED","Complete venue setup first.");
+    const boundsFrom=query.from?dayBounds(query.from,venue.timezone).startsAt:undefined;
+    const boundsTo=query.to?dayBounds(query.to,venue.timezone).endsAt:undefined;
+    const page=await this.repository.listOwnerBookingDirectory(venue.id,{
+      scope:query.scope,q:query.q,page:query.page,pageSize:query.pageSize,
+      now:this.now(),
+      ...(query.status?{status:query.status}:{}),
+      ...(query.source?{source:query.source}:{}),
+      ...(boundsFrom?{from:boundsFrom}:{}),
+      ...(boundsTo?{toExclusive:boundsTo}:{}),
+    });
+    return {...page,generatedAt:this.now().toISOString()};
   }
 
   async getOwnerSchedule(ownerUserId: string, date: string): Promise<OwnerScheduleResponse> {

@@ -34,6 +34,8 @@ import type {
   VenueSlotWatchCreate,
   VenueSlotWatchDto,
   BookingDto,
+  OwnerBookingListQuery,
+  OwnerBookingListResponse,
   OnlineBookingRequest,
   ManualBookingRequest,
   OwnerScheduleResponse,
@@ -444,6 +446,15 @@ export const ownerApi = {
   preview: (accessToken: string) => request<OwnerOnboardingStatus>("/api/v1/owner/venue/preview", {}, accessToken),
   startTrial: (accessToken: string) =>
     request<OwnerOnboardingStatus>("/api/v1/owner/trial/start", { method: "POST" }, accessToken),
+  listBookings: (accessToken:string,filters:Partial<OwnerBookingListQuery>={}) =>{
+    const params=new URLSearchParams();
+    for(const [key,value] of Object.entries(filters)){
+      if(value!==undefined&&value!==null&&String(value)!=="")params.set(key,String(value));
+    }
+    const query=params.toString();
+    return request<OwnerBookingListResponse>("/api/v1/owner/bookings"+
+      (query?"?"+query:""),{cache:"no-store"},accessToken);
+  },
   pendingBookings: (accessToken:string) =>
     request<{bookings:BookingDto[];generatedAt:string}>("/api/v1/owner/bookings/pending",{},accessToken),
   schedule: (accessToken: string, date: string) =>
