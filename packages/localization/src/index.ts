@@ -9,6 +9,19 @@ export const languages = [
 export const defaultLanguage: LanguageCode = "fa-AF";
 
 const en = {
+  "publicPlayer.title": "Player profile",
+  "publicPlayer.represents": "Current team",
+  "publicPlayer.verifiedStats": "Verified match statistics",
+  "publicPlayer.appearances": "Appearances",
+  "publicPlayer.goals": "Goals",
+  "publicPlayer.assists": "Assists",
+  "publicPlayer.statsEmpty": "No official match statistics are published for this player yet.",
+  "publicPlayer.statsUnavailable": "Match statistics are temporarily unavailable.",
+  "publicPlayer.statsLoading": "Loading verified statistics...",
+  "publicPlayer.statsExplanation": "Statistics come only from completed, published competition matches for active public teams.",
+  "publicPlayer.unavailable": "Player profile unavailable",
+  "publicPlayer.teamStats": "{played} played · {goals} goals · {assists} assists",
+
   "owner.phase7.analyticsRange.INVALID": "Enter a real date in YYYY-MM-DD format (Gregorian calendar).",
   "owner.phase7.analyticsRange.INVERTED": "The start date cannot be after the end date.",
   "owner.phase7.analyticsRange.FUTURE": "Analytics cannot include future dates.",
@@ -3485,6 +3498,19 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const fa = {
+  "publicPlayer.title": "پروفایل بازیکن",
+  "publicPlayer.represents": "تیم فعلی",
+  "publicPlayer.verifiedStats": "آمار تأییدشده مسابقات",
+  "publicPlayer.appearances": "بازی‌ها",
+  "publicPlayer.goals": "گول‌ها",
+  "publicPlayer.assists": "پاس گول",
+  "publicPlayer.statsEmpty": "هنوز آمار رسمی مسابقات این بازیکن منتشر نشده است.",
+  "publicPlayer.statsUnavailable": "آمار مسابقات در حال حاضر در دسترس نیست.",
+  "publicPlayer.statsLoading": "در حال بارگذاری آمار تأییدشده...",
+  "publicPlayer.statsExplanation": "آمار فقط از مسابقات تکمیل‌شده و منتشرشده تیم‌های عمومی فعال گرفته می‌شود.",
+  "publicPlayer.unavailable": "پروفایل بازیکن در دسترس نیست",
+  "publicPlayer.teamStats": "{played} بازی · {goals} گول · {assists} پاس گول",
+
   "owner.phase7.analyticsRange.INVALID": "تاریخ معتبر را به شکل YYYY-MM-DD (تقویم میلادی) وارد کنید.",
   "owner.phase7.analyticsRange.INVERTED": "تاریخ شروع نمی‌تواند پس از تاریخ پایان باشد.",
   "owner.phase7.analyticsRange.FUTURE": "گزارش تحلیلی نمی‌تواند تاریخ‌های آینده را شامل شود.",
@@ -6959,6 +6985,19 @@ const fa = {
 } satisfies Record<TranslationKey, string>;
 
 const ps = {
+  "publicPlayer.title": "د لوبغاړي پروفایل",
+  "publicPlayer.represents": "اوسنۍ لوبډله",
+  "publicPlayer.verifiedStats": "تایید شوې د لوبو شمېرې",
+  "publicPlayer.appearances": "لوبې",
+  "publicPlayer.goals": "ګولونه",
+  "publicPlayer.assists": "د ګول پاسونه",
+  "publicPlayer.statsEmpty": "د دې لوبغاړي رسمي د لوبو شمېرې لا نه دي خپرې شوې.",
+  "publicPlayer.statsUnavailable": "د لوبو شمېرې اوس نه شي ترلاسه کېدای.",
+  "publicPlayer.statsLoading": "تایید شوې شمېرې لوډ کېږي...",
+  "publicPlayer.statsExplanation": "شمېرې یوازې د فعالو عامه لوبډلو له بشپړو او خپرو شوو سیالیو څخه دي.",
+  "publicPlayer.unavailable": "د لوبغاړي پروفایل شتون نه لري",
+  "publicPlayer.teamStats": "{played} لوبې · {goals} ګولونه · {assists} پاسونه",
+
   "owner.phase7.analyticsRange.INVALID": "سمه نېټه د YYYY-MM-DD (میلادي کلیز) په بڼه ولیکئ.",
   "owner.phase7.analyticsRange.INVERTED": "د پیل نېټه د پای له نېټې وروسته نه شي کېدای.",
   "owner.phase7.analyticsRange.FUTURE": "تحلیلي راپور کې راتلونکې نېټې نه شي شاملېدای.",
