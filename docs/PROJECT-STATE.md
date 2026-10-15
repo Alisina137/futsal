@@ -1,3 +1,9 @@
+## Public Venue Detail — Posts category navigation & newest-first feed (2026-10-15)
+- Fixed Venue > detail > Media > Posts category chips: **All posts** is selected by default; returning to Posts also resets to All posts. Active filter is a genuine accessible, horizontally focused tab (48px target) and remains mounted during fetching, failure/retry and empty-category states.
+- Category selection does not hide or replace the whole filter/navigation bar with a skeleton. Only the corresponding post results area loads; the parent Media > Posts/Photos/Videos navigation remains intact. Existing published/visibility audience rules and server-backed paginated filters are preserved.
+- Removed the redundant **Newest first / Oldest first** sort buttons. Both initial and Load More API requests always use `sort:"newest"`, keeping newest published posts first while maintaining pagination.
+- Added `pnpm verify:venue-post-navigation` to the complete release gate and updated the Phase 5 venue-media verifier; no schema, endpoint or dependency changes. Android Expo Go interaction/RTL and live-data testing still required before release sign-off.
+
 ## Venue Owner Dashboard — Phase 8: Cross-tab regression & release readiness (2026-10-15)
 - Completed source-level seven-section and nested dashboard cross-tab audit. `/dashboard` keeps one persistent header and role-gated owner nav; the shell no longer mounts with an absent session.
 - Schedule now displays data only for the latest account/court/date/view/range selection and checks returned calendar from/to/area against the requested scope; prior owner's slot/block confirmation and action callbacks cannot affect a new account. Failed initial calendar loads show retry rather than an infinite skeleton.
