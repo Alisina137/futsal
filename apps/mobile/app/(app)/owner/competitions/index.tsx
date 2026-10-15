@@ -93,7 +93,57 @@ export default function OwnerCompetitionListScreen(){
       </Card>
     </View>
 
-    <Button label={t("competition.create")} onPress={()=>router.push("/owner/competitions/create")}/>
+    <View testID="owner-phase5-competition-controls" style={styles.controlPanel}>
+      <AppText weight="bold" variant="bodyLarge">{t("owner.phase5.title")}</AppText>
+      <TextField label={t("owner.phase5.search")} placeholder={t("owner.phase5.searchHint")}
+        value={query} onChangeText={setQuery} maxLength={140}/>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {ownerCompetitionGroups.map(value=><Pressable key={value}
+          testID={`owner-phase5-group-${value}`}
+          accessibilityRole="tab" accessibilityState={{selected:group===value}}
+          onPress={()=>{setGroup(value);setSelectedId(null);}}
+          style={[styles.filter,group===value&&styles.filterActive]}>
+          <AppText variant="caption" weight="semibold"
+            style={group===value?{color:colors.primary}:undefined}>
+            {t(`owner.phase5.group.${value}` as never)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+      <AppText variant="caption" muted>{t("owner.phase5.sortBy")}</AppText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {ownerCompetitionOrders.map(value=><Pressable key={value}
+          accessibilityRole="button" accessibilityState={{selected:order===value}}
+          onPress={()=>setOrder(value)} style={[styles.filter,order===value&&styles.filterActive]}>
+          <AppText variant="caption" weight="semibold"
+            style={order===value?{color:colors.primary}:undefined}>
+            {t(`owner.phase5.order.${value}` as never)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+      <AppText variant="caption" muted>{t("owner.phase5.format")}</AppText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {(["ALL","LEAGUE","GROUP_KNOCKOUT","KNOCKOUT"] as const).map(value=>
+          <Pressable key={value} accessibilityRole="button"
+            accessibilityState={{selected:format===value}}
+            onPress={()=>setFormat(value)}
+            style={[styles.filter,format===value&&styles.filterActive]}>
+            <AppText variant="caption" weight="semibold"
+              style={format===value?{color:colors.primary}:undefined}>
+              {value==="ALL"?t("owner.phase5.allFormats"):t(`competition.format.${value}` as never)}
+            </AppText>
+          </Pressable>)}
+      </ScrollView>
+    </View>
+    <View style={[styles.quickLinks,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <Button style={{flex:1}} label={t("owner.phase5.newCompetition")}
+        onPress={()=>router.push("/owner/competitions/create")}/>
+      <Button style={{flex:1}} variant="secondary"
+        label={t("owner.dashboardSubnav.offlineTeams")}
+        onPress={()=>router.push("/owner/manual-teams")}/>
+    </View>
 
     <ScrollView
       horizontal
@@ -103,7 +153,9 @@ export default function OwnerCompetitionListScreen(){
     >
       {filters.map((value)=><Pressable
         key={value}
-        onPress={()=>setFilter(value)}
+        accessibilityRole="button"
+        accessibilityState={{selected:filter===value}}
+        onPress={()=>{setFilter(value);setSelectedId(null);}}
         style={[
           styles.filter,
           filter===value&&styles.filterActive,
@@ -122,7 +174,7 @@ export default function OwnerCompetitionListScreen(){
     <Button label={t("common.retry")} onPress={()=>void load()} loading={loading} variant="ghost"/>
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
-    {!loading&&visible.length===0?<Card><AppText>{t("competition.control.noFilteredCompetitions")}</AppText></Card>:null}
+    {!loading&&!error&&renderReady&&visible.length===0?<Card><AppText>{t("competition.control.noFilteredCompetitions")}</AppText></Card>:null}
 
     {visible.map((item)=>{
       const starts=item.startsAt?formatLocalDateTimeParts(item.startsAt,language):null;
@@ -224,6 +276,8 @@ export default function OwnerCompetitionListScreen(){
 }
 
 const styles=StyleSheet.create({
+  controlPanel:{gap:spacing.sm},
+  quickLinks:{gap:spacing.sm},
   summaryCard:{flex:1,alignItems:"center",gap:spacing.xs,padding:spacing.md},
   filterScroller:{
     flexGrow:0,
@@ -235,7 +289,7 @@ const styles=StyleSheet.create({
     alignItems:"center",
   },
   filter:{
-    height:42,
+    minHeight:44,
     alignSelf:"flex-start",
     justifyContent:"center",
     paddingHorizontal:spacing.md,
