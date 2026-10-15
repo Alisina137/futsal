@@ -28,7 +28,7 @@ function FixtureMatchCard({match,scope,timeZone,testID,statusLabel,missingScoreL
   teamOutcome,teamOutcomeLabel}:{
   match:FixtureMatch;scope:"upcoming"|"results";timeZone:string;
   testID:string;statusLabel?:string;missingScoreLabel?:string;
-  teamOutcome?:TeamResultOutcome|null;teamOutcomeLabel?:string;
+  teamOutcome?:TeamResultOutcome|null;teamOutcomeLabel?:string|undefined;
 }){
   const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(("vd4."+key) as never);
