@@ -31,7 +31,7 @@ has("service",["async listOwnerBookings(ownerUserId:string,query:OwnerBookingLis
   "getOwnerVenueRecord(ownerUserId)","listOwnerBookingDirectory(venue.id",
   "dayBounds(query.from,venue.timezone)","dayBounds(query.to,venue.timezone)"]);
 has("repository",["async listOwnerBookingDirectory(venueId:string,filters:OwnerBookingDirectoryFilters)",
-  "eq(bookings.venueId,venueId)","filters.scope==="UPCOMING"",
+  "eq(bookings.venueId,venueId)",'filters.scope==="UPCOMING"',
   'filters.scope==="HISTORY"',"ilike(bookings.customerName","ilike(venueAreas.name",
   "count(*)::int","limit(filters.pageSize+1)","offset((filters.page-1)*filters.pageSize)",
   "orderBy(...sorting)"]);
