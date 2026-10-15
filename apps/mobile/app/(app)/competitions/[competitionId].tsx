@@ -1,16 +1,17 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {CompetitionDto,CompetitionMediaPostDto,CompetitionParticipationDto,SocialFollowStateDto,TeamDirectoryItemDto,TeamListItemDto,ManualTeamDto} from "@leaguekick/contracts";
+import type {CompetitionDto,CompetitionMediaPostDto,CompetitionParticipationDto,SocialFollowStateDto,TeamListItemDto} from "@leaguekick/contracts";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {AppState,Image,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions,type LayoutChangeEvent} from "react-native";
-import {competitionApi,marketingApi,ownerApi,manualTeamApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
+import {competitionApi,marketingApi,ownerApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
 import {formatCompetitionDateTime} from "../../../src/lib/date-time";
 import {competitionHomeSnapshot,competitionShareMessage} from "../../../src/lib/competition-detail-home";
 import {emptyCompetitionMatchPreferences,type CompetitionMatchPreferences}
   from "../../../src/lib/competition-detail-match-filters";
 import type {MatchFilter} from "../../../src/components/competition/CompetitionMatchList";
-import {TextField} from "../../../src/components/ui/TextField";
+import {competitionRegistrationSummary,eligibleCompetitionTeams,visibleCompetitionParticipations}
+  from "../../../src/lib/competition-detail-teams";
 import {CompetitionParticipationPanel} from "../../../src/components/competition/CompetitionParticipationPanel";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
@@ -62,12 +63,7 @@ export default function CompetitionDetailScreen(){
   const [participationError,setParticipationError]=useState(false);
   const [intent,setIntent]=useState<{kind:"register"|"accept"|"decline"|"withdraw";teamId:string}|null>(null);
 
-  const [organizerCanInvite,setOrganizerCanInvite]=useState(false);
-  const [directoryTeams,setDirectoryTeams]=useState<TeamDirectoryItemDto[]>([]);
-  const [manualTeams,setManualTeams]=useState<ManualTeamDto[]>([]);
-  const [selectedManualId,setSelectedManualId]=useState<string|null>(null);
-  const [invitedTeamId,setInvitedTeamId]=useState<string|null>(null);
-  const [teamSearch,setTeamSearch]=useState("");
+  const [organizerCanManage,setOrganizerCanManage]=useState(false);
   const [mediaPosts,setMediaPosts]=useState<CompetitionMediaPostDto[]>([]);
   const [followState,setFollowState]=useState<SocialFollowStateDto|null>(null);
   const [loading,setLoading]=useState(true);
@@ -103,9 +99,8 @@ export default function CompetitionDetailScreen(){
     lastActorIdentity.current=actorIdentity;
     loadGeneration.current++;
     setCompetition(null);setMediaPosts([]);setParticipations([]);setMyTeams([]);
-    setSelectedTeamId(null);setParticipationError(false);setOrganizerCanInvite(false);
-    setDirectoryTeams([]);setManualTeams([]);setSelectedManualId(null);
-    setInvitedTeamId(null);setIntent(null);setTeamSearch("");
+    setSelectedTeamId(null);setParticipationError(false);setOrganizerCanManage(false);
+    setIntent(null);
     setFollowState(null);setFollowBusy(false);setBusy(false);setMessage(null);
     setError(null);setLoading(true);
   },[actorIdentity]);
@@ -117,9 +112,8 @@ export default function CompetitionDetailScreen(){
     setLoading(true);setError(null);
     // A permission may have been revoked while this page was away. Clear
     // privileged data before each focused reload or retry.
-    setParticipations([]);setMyTeams([]);setOrganizerCanInvite(false);
-    setDirectoryTeams([]);setManualTeams([]);setParticipationError(false);
-    setSelectedManualId(null);setInvitedTeamId(null);setIntent(null);
+    setParticipations([]);setMyTeams([]);setOrganizerCanManage(false);
+    setParticipationError(false);setIntent(null);
     try{
       const [{competition:next},mediaResult]=await Promise.all([
         competitionApi.get(competitionId),competitionApi.media(competitionId),
@@ -127,8 +121,7 @@ export default function CompetitionDetailScreen(){
       if(!valid())return;
       let owned:TeamListItemDto[]=[];
       let registrations:CompetitionParticipationDto[]=[];
-      let registrationFailed=false,inviteAllowed=false;
-      let ownerDirectory:TeamDirectoryItemDto[]=[],ownerManual:ManualTeamDto[]=[];
+      let registrationFailed=false,canManage=false;
       if(session){
         const [participation,managed]=await Promise.allSettled([
           competitionApi.myParticipations(session.accessToken,competitionId),
@@ -143,14 +136,7 @@ export default function CompetitionDetailScreen(){
           try{
             const status=await ownerApi.getStatus(session.accessToken);
             if(!valid())return;
-            if(status.venue?.id===next.venueId){
-              const [directory,manual]=await Promise.all([
-                teamApi.directory(session.accessToken).catch(()=>({teams:[] as TeamDirectoryItemDto[]})),
-                manualTeamApi.mine(session.accessToken).catch(()=>({teams:[] as ManualTeamDto[]})),
-              ]);
-              if(!valid())return;
-              inviteAllowed=true;ownerDirectory=directory.teams;ownerManual=manual.teams;
-            }
+            if(status.venue?.id===next.venueId)canManage=true;
           }catch{/* Organizer privileges default to unavailable on failed authorization. */}
         }
       }
@@ -159,8 +145,7 @@ export default function CompetitionDetailScreen(){
       setParticipations(registrations);setParticipationError(registrationFailed);
       setMyTeams(owned);
       setSelectedTeamId(current=>owned.some(team=>team.id===current)?current:owned[0]?.id??null);
-      setOrganizerCanInvite(inviteAllowed);
-      setDirectoryTeams(ownerDirectory);setManualTeams(ownerManual);
+      setOrganizerCanManage(canManage);
     }catch{if(valid()){setCompetition(null);setError(t("competition.loadError"));}}
     finally{if(valid())setLoading(false);}
   },[competitionId,session?.accessToken,session?.user.id,retry,t]);
@@ -272,35 +257,6 @@ export default function CompetitionDetailScreen(){
       await load();
     }finally{if(actor===lastActorIdentity.current)setBusy(false);}
   }
-  async function inviteAsOrganizer(){
-    if(!session||!competitionId||!organizerCanInvite||!invitedTeamId||busy)return;
-    const actor=actorIdentity;
-    setBusy(true);setError(null);setMessage(null);
-    try{
-      // Invitations remain INVITED until the actual team manager accepts.
-      await competitionApi.inviteTeam(session.accessToken,competitionId,{teamId:invitedTeamId,seed:null});
-      if(actor!==lastActorIdentity.current)return;
-      setInvitedTeamId(null);
-      await load();
-      if(actor===lastActorIdentity.current)setMessage(t("competition.organizerInvitationSent"));
-    }catch{if(actor===lastActorIdentity.current)setError(t("competition.inviteError"));}
-    finally{if(actor===lastActorIdentity.current)setBusy(false);}
-  }
-  async function registerManualTeam(){
-    if(!session||!competitionId||!organizerCanInvite||!selectedManualId||busy)return;
-    const actor=actorIdentity;
-    setBusy(true);setError(null);setMessage(null);
-    try{
-      await manualTeamApi.register(session.accessToken,competitionId,selectedManualId);
-      if(actor!==lastActorIdentity.current)return;
-      setSelectedManualId(null);
-      await load();
-      if(actor===lastActorIdentity.current)setMessage(t("manualTeams.registered"));
-    }catch(e){
-      if(actor===lastActorIdentity.current)
-        setError(e instanceof Error?e.message:t("manualTeams.registrationError"));
-    }finally{if(actor===lastActorIdentity.current)setBusy(false);}
-  }
   function focusSelectedTab(target:CompetitionProfileTab,animated=true){
     const bounds=tabPositions.current.get(target);
     if(!bounds||!tabViewportWidth.current)return;
@@ -346,24 +302,14 @@ export default function CompetitionDetailScreen(){
   }
 
   const availableSubtabs=competition?allowedCompetitionSubtabs(activeTab,competition.format,{
-    registrationOpen:competition.status==="REGISTRATION_OPEN",
-    hasParticipation:participations.length>0,
+    registrationOpen:competitionRegistrationSummary(competition).availableForApply,
+    hasParticipation:!participationError&&participations.length>0,
   }):[];
   const selectedSubtab=resolvedCompetitionSubtab(navigation,activeTab,availableSubtabs);
-  const representedIds=new Set([
-    ...(competition?.teams.filter(team=>!["REJECTED","WITHDRAWN"].includes(team.status))
-      .map(team=>team.teamId)??[]),
-    ...participations.filter(item=>!["REJECTED","WITHDRAWN"].includes(item.status))
-      .map(item=>item.teamId),
-  ]);
-  const availableOwnerTeams=organizerCanInvite
-    ?directoryTeams.filter(team=>!representedIds.has(team.id))
-    :[];
-  const filteredOwnerTeams=availableOwnerTeams.filter(team=>
-    [team.name,team.city].some(value=>value.toLowerCase().includes(teamSearch.trim().toLowerCase()))
-  ).slice(0,12);
-  const eligibleManagedTeams=myTeams.filter(team=>!representedIds.has(team.id));
-  const eligibleManualTeams=manualTeams.filter(team=>!representedIds.has(team.id));
+  const summary=competition?competitionRegistrationSummary(competition):null;
+  const eligibleManagedTeams=competition&&session?
+    eligibleCompetitionTeams(myTeams,competition,participations,session.user.id):[];
+  const myParticipation=visibleCompetitionParticipations(participations);
   const accepted=competition?.teams.filter(team=>team.status==="ACCEPTED")??[];
   const home=competition?competitionHomeSnapshot(competition):null;
   const played=competition?.matches.filter(match=>match.status==="COMPLETED"||match.status==="CORRECTED").length??0;
@@ -377,8 +323,7 @@ export default function CompetitionDetailScreen(){
   const cover=resolveMediaImageUrl(competition?.coverImageUrl??mediaPosts.find(post=>post.imageUrl)?.imageUrl??null);
   const logo=resolveMediaImageUrl(competition?.logoUrl??null);
 
-  const registrationOpen=competition?.status==="REGISTRATION_OPEN"&&
-    (!competition.registrationClosesAt||Date.parse(competition.registrationClosesAt)>Date.now());
+  const registrationOpen=summary?.availableForApply??false;
   const full=Boolean(competition&&accepted.length>=competition.maxTeams);
   function openHomeAction(){
     if(!home)return;
@@ -387,7 +332,7 @@ export default function CompetitionDetailScreen(){
       chooseCompetitionMain(current,home.action.main),home.action.main,
       home.action.sub,allowedCompetitionSubtabs(home.action.main,competition!.format,{
         registrationOpen:competition!.status==="REGISTRATION_OPEN",
-        hasParticipation:participations.length>0,
+        hasParticipation:!participationError&&participations.length>0,
       })));
   }
   const canApply=registrationOpen&&!full&&!participationError;
