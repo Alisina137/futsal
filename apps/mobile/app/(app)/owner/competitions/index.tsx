@@ -182,8 +182,7 @@ export default function OwnerCompetitionListScreen(){
       const feeLabel=compactLabel(t("competition.registrationFee"));
       const deadlineLabel=compactLabel(t("competition.registrationDeadline"));
       const startsLabel=compactLabel(t("competition.startsAt"));
-      return <Pressable
-        key={item.id}
+      return <View key={item.id} style={{gap:spacing.sm}}><Pressable
         onPress={()=>router.push({pathname:"/owner/competitions/[competitionId]/manage",params:{competitionId:item.id}})}
         style={({pressed})=>[styles.cardPressable,pressed&&styles.cardPressed]}
       >
@@ -270,7 +269,13 @@ export default function OwnerCompetitionListScreen(){
             </View>
           </View>
         </Card>
-      </Pressable>;
+      </Pressable>
+      <Button variant="secondary"
+        label={selectedId===item.id?t("owner.phase5.hideOperations"):t("owner.phase5.showOperations")}
+        onPress={()=>setSelectedId(current=>current===item.id?null:item.id)}/>
+      {selectedId===item.id?<OwnerCompetitionOperations
+        token={token} competitionId={item.id}/>:null}
+      </View>;
     })}
   </Screen>;
 }
