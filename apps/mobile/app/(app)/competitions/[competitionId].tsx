@@ -336,18 +336,16 @@ export default function CompetitionDetailScreen(){
       })));
   }
   const canApply=registrationOpen&&!full&&!participationError;
-  const applicationForm=competition?.status==="REGISTRATION_OPEN"&&session?
+  const applicationForm=competition&&session&&selectedSubtab==="REGISTRATION"?
     <Card onLayout={registrationLayout} style={styles.registration}>
       <View style={[styles.registerTitle,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <View style={styles.registerIcon}>
-          <Ionicons name="person-add-outline" color={colors.primary} size={21}/>
-        </View>
+        <View style={styles.registerIcon}><Ionicons name="person-add-outline" color={colors.primary} size={21}/></View>
         <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>{t("competition.register")}</AppText>
       </View>
-      {eligibleManagedTeams.length>0?<AppText muted>{t("competition.selectTeam")}</AppText>:null}
-      {eligibleManagedTeams.length===0&&!organizerCanInvite
-        ?<AppText>{t("competition.noTeamsForRegistration")}</AppText>:null}
+      {eligibleManagedTeams.length>0?<AppText muted>{t("competition.selectTeam")}</AppText>:
+        <AppText muted>{t("competition.noTeamsForRegistration")}</AppText>}
       {eligibleManagedTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
+        testID={`competition-register-team-${team.id}`}
         accessibilityState={{selected:selectedTeamId===team.id}}
         onPress={()=>setSelectedTeamId(team.id)}
         style={[styles.teamChoice,{flexDirection:isRTL?"row-reverse":"row"},
@@ -360,64 +358,13 @@ export default function CompetitionDetailScreen(){
           <AppText variant="caption" muted>{team.city}</AppText>
         </View>
       </Pressable>)}
-      <AppText variant="caption" muted>
-        {t("competition.phase3.feeAmount")}: {competition.registrationFeeAfn} AFN
-      </AppText>
+      <AppText variant="caption" muted>{t("competition.phase3.feeAmount")}: {competition.registrationFeeAfn} AFN</AppText>
       {full?<AppText style={{color:colors.danger}}>{t("competition.phase3.full")}</AppText>:null}
-      {!registrationOpen?<AppText style={{color:colors.danger}}>
-        {t("competition.phase3.deadline")}</AppText>:null}
+      {!registrationOpen?<AppText style={{color:colors.danger}}>{t("competition.phase3.deadline")}</AppText>:null}
       {eligibleManagedTeams.length>0?<Button label={t("competition.register")}
         onPress={()=>selectedTeamId&&setIntent({kind:"register",teamId:selectedTeamId})}
         loading={busy} disabled={!canApply||!selectedTeamId||
           !eligibleManagedTeams.some(team=>team.id===selectedTeamId)}/>:null}
-      {organizerCanInvite?<>
-        <View style={{height:1,backgroundColor:colors.border,marginVertical:spacing.xs}}/>
-        <AppText weight="bold" variant="bodyLarge">{t("manualTeams.registerDirect")}</AppText>
-        <AppText muted>{t("manualTeams.registerDirectHint")}</AppText>
-        {eligibleManualTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
-          accessibilityState={{selected:selectedManualId===team.id}}
-          onPress={()=>setSelectedManualId(team.id)}
-          style={[styles.teamChoice,{flexDirection:isRTL?"row-reverse":"row"},
-            selectedManualId===team.id&&styles.teamSelected]}>
-          <View style={styles.radioOuter}>
-            {selectedManualId===team.id?<View style={styles.radioInner}/>:null}
-          </View>
-          <View style={{flex:1}}>
-            <AppText weight="semibold">{team.name}</AppText>
-            <AppText variant="caption" muted>{team.city} · {t("competition.manualTeamBadge")}</AppText>
-          </View>
-        </Pressable>)}
-        <Button label={t("manualTeams.registerDirect")} loading={busy}
-          disabled={!selectedManualId||!eligibleManualTeams.some(team=>team.id===selectedManualId)}
-          onPress={()=>void registerManualTeam()}/>
-        <Button variant="secondary" label={t("manualTeams.create")} onPress={()=>
-          router.push("/owner/manual-teams")}/>
-
-        <View style={{height:1,backgroundColor:colors.border,marginVertical:spacing.xs}}/>
-        <AppText weight="bold" variant="bodyLarge">{t("competition.inviteTeam")}</AppText>
-        <AppText muted>{t("competition.organizerInviteHint")}</AppText>
-        {availableOwnerTeams.length>0?<TextField label={t("teams.searchName")}
-          placeholder={t("teams.searchPlaceholder")} value={teamSearch}
-          onChangeText={setTeamSearch}/>:null}
-        {availableOwnerTeams.length===0?<AppText muted>{t("competition.control.noTeamsAvailable")}</AppText>:null}
-        {availableOwnerTeams.length>0&&filteredOwnerTeams.length===0
-          ?<AppText muted>{t("teams.noMatches")}</AppText>:null}
-        {filteredOwnerTeams.map(team=><Pressable key={team.id} accessibilityRole="radio"
-          accessibilityState={{selected:invitedTeamId===team.id}}
-          onPress={()=>setInvitedTeamId(team.id)}
-          style={[styles.teamChoice,{flexDirection:isRTL?"row-reverse":"row"},
-            invitedTeamId===team.id&&styles.teamSelected]}>
-          <View style={styles.radioOuter}>
-            {invitedTeamId===team.id?<View style={styles.radioInner}/>:null}
-          </View>
-          <View style={{flex:1}}>
-            <AppText weight="semibold">{team.name}</AppText>
-            <AppText variant="caption" muted>{team.city}</AppText>
-          </View>
-        </Pressable>)}
-        <Button label={t("competition.inviteTeam")} onPress={()=>void inviteAsOrganizer()}
-          loading={busy} disabled={!invitedTeamId||!availableOwnerTeams.some(team=>team.id===invitedTeamId)}/>
-      </>:null}
     </Card>:null;
   const activeIntentTeam=intent&&myTeams.find(team=>team.id===intent.teamId);
   const confirmationMessage=intent?.kind==="register"?
@@ -426,18 +373,62 @@ export default function CompetitionDetailScreen(){
     }):intent?.kind==="accept"?t("competition.phase3.confirmAccept"):
     intent?.kind==="decline"?t("competition.phase3.confirmDecline"):
     t("competition.phase3.confirmWithdraw");
-  const registration=session?<View style={styles.registration}>
-    {participationError?<Card style={styles.registration}>
+  const registration=<View testID="competition-registration-experience" style={styles.registration}>
+    {selectedSubtab==="REGISTRATION"&&summary&&competition?<Card style={styles.registration}>
+      <View style={[styles.registerTitle,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="clipboard-outline" color={colors.primary} size={22}/>
+        <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>
+          {t("competition.detail.registrationDetails")}
+        </AppText>
+        <View style={styles.badge}>
+          <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+            {t(`competition.detail.registrationState.${summary.state}` as never)}
+          </AppText>
+        </View>
+      </View>
+      <AppText muted>{t("competition.detail.registrationExplainer")}</AppText>
+      <View style={[styles.summaryFacts,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <AppText weight="semibold">
+          {t("competition.profile.registeredTeams")}: {summary.acceptedCount}/{competition.maxTeams}
+        </AppText>
+        <AppText weight="semibold">
+          {t("competition.registrationFee")}: {competition.registrationFeeAfn} AFN
+        </AppText>
+      </View>
+      {competition.registrationClosesAt?<AppText variant="caption" muted>
+        {t("competition.registrationDeadline")}: {formatCompetitionDateTime(competition.registrationClosesAt,language)}
+      </AppText>:null}
+      {!session?<Button variant="secondary" label={t("competition.detail.signInToRegister")}
+        onPress={()=>router.push("/login")}/>:null}
+    </Card>:null}
+    {selectedSubtab==="MY_PARTICIPATION"&&session?<>
+      {participationError?<Card style={styles.registration}>
+        <AppText style={{color:colors.danger}}>{t("competition.phase3.reloadError")}</AppText>
+        <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/>
+      </Card>:null}
+      {!participationError&&myParticipation.length===0?<Card>
+        <AppText muted>{t("competition.detail.noParticipation")}</AppText>
+      </Card>:null}
+      {!participationError?<CompetitionParticipationPanel
+        participations={myParticipation} busy={busy}
+        onAccept={teamId=>setIntent({kind:"accept",teamId})}
+        onDecline={teamId=>setIntent({kind:"decline",teamId})}
+        onWithdraw={teamId=>setIntent({kind:"withdraw",teamId})}/>:null}
+    </>:null}
+    {selectedSubtab==="REGISTRATION"&&participationError&&session?<Card style={styles.registration}>
       <AppText style={{color:colors.danger}}>{t("competition.phase3.reloadError")}</AppText>
       <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/>
     </Card>:null}
-    {selectedSubtab!=="REGISTRATION"?<CompetitionParticipationPanel
-      participations={participations} busy={busy}
-      onAccept={teamId=>setIntent({kind:"accept",teamId})}
-      onDecline={teamId=>setIntent({kind:"decline",teamId})}
-      onWithdraw={teamId=>setIntent({kind:"withdraw",teamId})}/>:null}
-    {selectedSubtab!=="MY_PARTICIPATION"?applicationForm:null}
-    {intent?<Card style={styles.registration}>
+    {selectedSubtab==="REGISTRATION"&&session?applicationForm:null}
+    {activeTab==="TEAMS"&&organizerCanManage&&selectedSubtab==="PARTICIPANTS"?
+      <Card testID="competition-owner-management-entry" style={styles.registration}>
+        <AppText weight="bold">{t("competition.detail.organizerHeading")}</AppText>
+        <AppText muted>{t("competition.detail.organizerHint")}</AppText>
+        <Button label={t("competition.detail.manageTeams")} variant="secondary"
+          onPress={()=>router.push({pathname:"/owner/competitions/[competitionId]/manage",
+            params:{competitionId,tab:"TEAMS"}})}/>
+      </Card>:null}
+    {intent&&activeTab==="TEAMS"?<Card style={styles.registration}>
       <AppText variant="bodyLarge" weight="bold">{t("competition.phase3.confirmTitle")}</AppText>
       <AppText>{confirmationMessage}</AppText>
       <View style={[styles.registerTitle,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -447,8 +438,8 @@ export default function CompetitionDetailScreen(){
           disabled={busy} onPress={()=>setIntent(null)}/>
       </View>
     </Card>:null}
-    {message?<AppText style={{color:colors.success}}>{message}</AppText>:null}
-  </View>:null;
+    {message&&activeTab==="TEAMS"?<AppText style={{color:colors.success}}>{message}</AppText>:null}
+  </View>;
 
   if(loading||lastActorIdentity.current!==actorIdentity)
     return <Screen showHeader><DataLoadingState variant="detail" minHeight={540}/></Screen>;
