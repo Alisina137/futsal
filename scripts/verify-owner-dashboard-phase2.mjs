@@ -46,7 +46,7 @@ check(projections,[
   'snapshot.competitions===null?null','status.subscription.activeUntil',
   'items.push({key:"pending"','items.push({key:"subscription"',
   'items.push({key:"paused"','items.push({key:"registrations"',
-  'grossBookingValueAfn', 'cancellationRate:analytics.cancellationRate',
+  'grossBookingValueAfn', 'cancellations:analytics.cancellationRate',
 ],"authoritative projections");
 check(bookings,['<OwnerPendingBookings token={session?.accessToken}/>'],
   "existing booking action integration");
