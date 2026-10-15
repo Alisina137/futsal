@@ -3,9 +3,10 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {CompetitionDto,CompetitionMediaPostDto,CompetitionParticipationDto,SocialFollowStateDto,TeamDirectoryItemDto,TeamListItemDto,ManualTeamDto} from "@leaguekick/contracts";
 import {router,useFocusEffect,useLocalSearchParams} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {AppState,Image,Pressable,ScrollView,StyleSheet,View,useWindowDimensions,type LayoutChangeEvent} from "react-native";
+import {AppState,Image,Pressable,ScrollView,Share,StyleSheet,View,useWindowDimensions,type LayoutChangeEvent} from "react-native";
 import {competitionApi,marketingApi,ownerApi,manualTeamApi,resolveMediaImageUrl,teamApi} from "../../../src/lib/api";
 import {formatCompetitionDateTime} from "../../../src/lib/date-time";
+import {competitionHomeSnapshot,competitionShareMessage} from "../../../src/lib/competition-detail-home";
 import {TextField} from "../../../src/components/ui/TextField";
 import {CompetitionParticipationPanel} from "../../../src/components/competition/CompetitionParticipationPanel";
 import {AppText} from "../../../src/components/ui/AppText";
@@ -69,6 +70,7 @@ export default function CompetitionDetailScreen(){
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
   const [followBusy,setFollowBusy]=useState(false);
+  const [shareBusy,setShareBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
   const [retry,setRetry]=useState(0);
@@ -186,6 +188,18 @@ export default function CompetitionDetailScreen(){
     });
     return()=>{active=false;clearInterval(timer);appState.remove();};
   },[competitionId,activeTab]));
+
+  async function shareCompetition(){
+    if(!competition||shareBusy)return;
+    setShareBusy(true);
+    try{
+      await Share.share({message:competitionShareMessage(
+        competition.name,competition.id,competition.venueName)});
+    }catch{
+      // Do not claim a share succeeded when the operating system refused it.
+      setError(t("competition.detail.shareError"));
+    }finally{setShareBusy(false);}
+  }
 
   async function toggleFollow(){
     if(!session||!competitionId||!followState||followBusy)return;
@@ -311,6 +325,7 @@ export default function CompetitionDetailScreen(){
   const eligibleManagedTeams=myTeams.filter(team=>!representedIds.has(team.id));
   const eligibleManualTeams=manualTeams.filter(team=>!representedIds.has(team.id));
   const accepted=competition?.teams.filter(team=>team.status==="ACCEPTED")??[];
+  const home=competition?competitionHomeSnapshot(competition):null;
   const played=competition?.matches.filter(match=>match.status==="COMPLETED"||match.status==="CORRECTED").length??0;
   const inProgress=competition?.matches.filter(match=>match.status==="IN_PROGRESS").length??0;
   const nextDate=competition?.status==="REGISTRATION_OPEN"
@@ -325,6 +340,16 @@ export default function CompetitionDetailScreen(){
   const registrationOpen=competition?.status==="REGISTRATION_OPEN"&&
     (!competition.registrationClosesAt||Date.parse(competition.registrationClosesAt)>Date.now());
   const full=Boolean(competition&&accepted.length>=competition.maxTeams);
+  function openHomeAction(){
+    if(!home)return;
+    switchTab(home.action.main);
+    setNavigation(current=>chooseCompetitionSubtab(
+      chooseCompetitionMain(current,home.action.main),home.action.main,
+      home.action.sub,allowedCompetitionSubtabs(home.action.main,competition!.format,{
+        registrationOpen:competition!.status==="REGISTRATION_OPEN",
+        hasParticipation:participations.length>0,
+      })));
+  }
   const canApply=registrationOpen&&!full&&!participationError;
   const applicationForm=competition?.status==="REGISTRATION_OPEN"&&session?
     <Card onLayout={registrationLayout} style={styles.registration}>
@@ -466,7 +491,7 @@ export default function CompetitionDetailScreen(){
           <Ionicons name="trophy-outline" size={80} color="#B7D2FF"/>
         </>}
         {cover?<View style={styles.coverShade}/>:null}
-        <View style={styles.coverTop}>
+        <View style={[styles.coverTop,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <View testID="competition-hero-status" style={[styles.heroStatus,
             competition.status==="IN_PROGRESS"&&styles.heroLive]}>
             {competition.status==="IN_PROGRESS"?<View style={styles.heroLiveDot}/>:null}
@@ -474,6 +499,11 @@ export default function CompetitionDetailScreen(){
               {t(`competition.status.${competition.status}` as never)}
             </AppText>
           </View>
+          <Pressable accessibilityRole="button" testID="competition-cover-share"
+            accessibilityLabel={t("competition.detail.share")} disabled={shareBusy}
+            onPress={()=>void shareCompetition()} style={styles.shareCoverButton}>
+            <Ionicons name="share-social-outline" size={21} color="#FFFFFF"/>
+          </Pressable>
         </View>
         <View style={styles.coverFormat}>
           <AppText variant="caption" weight="bold" style={{color:"#FFFFFF"}}>
@@ -488,7 +518,9 @@ export default function CompetitionDetailScreen(){
               <Ionicons name="trophy" size={45} color={colors.primary}/>}
           </View>
         </View>
-        <AppText variant="title" weight="bold" style={styles.name}>{competition.name}</AppText>
+        <AppText variant="title" weight="bold" style={styles.name} numberOfLines={3}>
+          {competition.name}
+        </AppText>
         {competition.description?.trim()?<AppText numberOfLines={2}
           style={styles.identityDescription} muted>{competition.description.trim()}</AppText>:null}
         <Pressable accessibilityRole="button" onPress={()=>router.push({
@@ -520,14 +552,16 @@ export default function CompetitionDetailScreen(){
             variant="secondary" style={{flex:1}}/>
           {followState?<Button label={followState.following?t("social.unfollow"):t("social.follow")}
             onPress={()=>void toggleFollow()} loading={followBusy}
-            variant={followState.following?"secondary":"primary"} style={{flex:1}}/>:null}
+            variant={followState.following?"secondary":"primary"} style={{flex:1}}/>:
+            !session?<Button label={t("social.follow")} variant="secondary"
+              onPress={()=>router.push("/login")} style={{flex:1}}/>:null}
         </View>
-        <Button label={competition.status==="REGISTRATION_OPEN"?
+        <Button label={home?.action.sub==="REGISTRATION"?
           t("competition.phase4.registerTeam"):
-          competition.status==="IN_PROGRESS"?t("competition.phase4.liveMatches"):
-          competition.status==="COMPLETED"?t("competition.phase4.finishedResults"):
+          home?.action.sub==="LIVE"?t("competition.phase4.liveMatches"):
+          home?.action.sub==="RESULTS"?t("competition.phase4.finishedResults"):
           t("competition.phase4.viewSchedule")}
-          onPress={()=>switchTab(competition.status==="REGISTRATION_OPEN"?"TEAMS":"MATCHES")}
+          onPress={openHomeAction}
           style={{width:"100%",marginTop:spacing.sm}}/>
       </View>
     </View>
@@ -670,6 +704,8 @@ const styles=StyleSheet.create({
     justifyContent:"center"},
   heroLive:{backgroundColor:"#AB1717"},
   heroLiveDot:{width:7,height:7,borderRadius:4,backgroundColor:"#FFFFFF"},
+  shareCoverButton:{width:44,height:44,borderRadius:22,backgroundColor:"rgba(7,24,49,.79)",
+    alignItems:"center",justifyContent:"center",marginStart:"auto"},
   coverAccent:{position:"absolute",width:210,height:210,right:-85,top:-65,borderRadius:105,
     backgroundColor:"#2467CE",opacity:.6},
   coverFormat:{position:"absolute",bottom:spacing.sm,right:spacing.sm,
