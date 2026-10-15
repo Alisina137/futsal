@@ -39,13 +39,16 @@ export function CompetitionParticipationPanel({
           </AppText>
         </View>
       </View>
+      <AppText variant="caption" muted testID={`competition-participation-hint-${item.teamId}`}>
+        {t(`competition.detail.participationHint.${item.status}` as never)}
+      </AppText>
       <View style={[styles.details,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Ionicons name="wallet-outline" size={16} color={colors.textMuted}/>
         <AppText variant="caption" muted>
           {t("competition.phase3.feeStatus")}: {t(`competition.feeStatus.${item.feeStatus}` as never)}
         </AppText>
       </View>
-      {item.status==="INVITED"&&item.canRespond?
+      {item.status==="INVITED"&&item.isManager&&item.canRespond?
         <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Pressable disabled={busy} accessibilityRole="button"
             testID={`competition-accept-${item.teamId}`}
@@ -64,7 +67,7 @@ export function CompetitionParticipationPanel({
             </AppText>
           </Pressable>
         </View>:null}
-      {item.canWithdraw&&item.status!=="INVITED"?
+      {item.isManager&&item.canWithdraw&&item.status!=="INVITED"?
         <Pressable disabled={busy} accessibilityRole="button"
           testID={`competition-withdraw-${item.teamId}`}
           onPress={()=>onWithdraw?.(item.teamId)}
