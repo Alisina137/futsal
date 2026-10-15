@@ -775,7 +775,8 @@ export type TeamPublicHighlights={
   posts:TeamPublicPost[];
   competitions:Array<{id:string;name:string;status:string;format:string;startsAt:string|null;endsAt:string|null}>;
   matches:Array<{id:string;competitionId:string;competitionName:string;homeTeamId:string|null;
-    awayTeamId:string|null;homeTeamName:string;awayTeamName:string;status:string;stage:string;
+    awayTeamId:string|null;homeTeamName:string;awayTeamName:string;
+    homeLogoUrl?:string|null;awayLogoUrl?:string|null;status:string;stage:string;
     startsAt:string|null;homeScore:number|null;awayScore:number|null}>;
   stats:{played:number;wins:number;draws:number;losses:number;goalsFor:number;
     goalsAgainst:number;goalDifference:number;winRate:number;
