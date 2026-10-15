@@ -36,8 +36,8 @@ assert(header.includes('const hasDashboard=availableDashboardRoles(user?.roles??
   !header.includes('href:"/dashboard/player"'),
   "The shared hamburger must expose one role-aware Dashboard, not a separate Player Dashboard.");
 assert(dashboard.includes("roles.includes"),"Role-aware dashboard resolver missing.");
-assert(dashboard.includes('roles.includes("VENUE_OWNER")')&&dashboard.includes('<Redirect href="/owner/competitions"/>'),
-  "Venue Owner dashboard must enter the persistent owner shell at Competitions.");
+assert(dashboard.includes('roles.includes("VENUE_OWNER")')&&dashboard.includes('<Redirect href="/owner/overview"/>'),
+  "Venue Owner dashboard must enter the persistent owner shell at Overview.");
 assert(dashboard.includes('roles.includes("TEAM_MANAGER")'),"Team Owner dashboard shell missing.");
 assert(dashboard.includes('if(roles.includes("PLAYER"))return <PlayerDashboard/>;')&&
   dashboard.includes('if(preferred==="PLAYER"&&roles.includes("PLAYER"))return <PlayerDashboard/>;')&&
@@ -65,24 +65,29 @@ assert(
   "Venue Owner navigation must keep top and bottom divider lines.",
 );
 assert(ownerTopNav.includes("usePathname"), "Venue Owner navigation must derive the current section from the route.");
-assert(ownerTopNav.includes('pathname==="/dashboard"||pathname.startsWith("/owner/competitions")'), "Venue Owner dashboard must focus the Competitions tab by default.");
+assert(ownerTopNav.includes("ownerSectionForPath(pathname)") && ownerTopNav.includes('testID="owner-phase1-main-nav"'), "Venue Owner navigation must focus Overview by default and follow canonical route mapping.");
 assert(ownerTopNav.includes("itemActive") && ownerTopNav.includes("accessibilityState={{selected}}"), "Venue Owner navigation must visibly and accessibly highlight the active tab.");
-assert(ownerTopNav.includes("router.replace(item.href)"), "Venue Owner navigation must switch sections as tab-like navigation.");
+assert(ownerTopNav.includes("router.replace(route)"), "Venue Owner navigation must switch canonical section routes.");
 assert(ownerTopNav.includes("focusActive") && ownerTopNav.includes("scrollTo({x,y:0,animated})"), "Venue Owner navigation must keep the active tab scrolled into view after route changes.");
 assert(ownerTopNav.includes("onContentSizeChange") && ownerTopNav.includes("handleItemLayout"), "Venue Owner navigation must measure its scroll content and tabs before restoring active-tab focus.");
 
-const ownerCompetitionRoute = ownerTopNav.indexOf('href:"/owner/competitions"');
-const ownerScheduleRoute = ownerTopNav.indexOf('href:"/owner/schedule"');
-const ownerPostsRoute = ownerTopNav.indexOf('href:"/owner/posts"');
-const ownerAnalysisRoute = ownerTopNav.indexOf('href:"/owner/analytics"');
-const ownerSettingsRoute = ownerTopNav.indexOf('href:"/owner/settings"');
+const ownerRoutes=read("apps/mobile/src/lib/owner-dashboard-navigation.ts");
+const ownerOverviewRoute=ownerRoutes.indexOf('href:"/owner/overview"');
+const ownerBookingsRoute=ownerRoutes.indexOf('href:"/owner/bookings"');
+const ownerCompetitionRoute = ownerRoutes.indexOf('href:"/owner/competitions"');
+const ownerScheduleRoute = ownerRoutes.indexOf('href:"/owner/schedule"');
+const ownerPostsRoute = ownerRoutes.indexOf('href:"/owner/posts"');
+const ownerAnalysisRoute = ownerRoutes.indexOf('href:"/owner/analytics"');
+const ownerSettingsRoute = ownerRoutes.indexOf('href:"/owner/settings"');
 assert(
-  ownerCompetitionRoute >= 0
-    && ownerCompetitionRoute < ownerScheduleRoute
-    && ownerScheduleRoute < ownerPostsRoute
+  ownerOverviewRoute >= 0
+    && ownerOverviewRoute < ownerBookingsRoute
+    && ownerBookingsRoute < ownerScheduleRoute
+    && ownerScheduleRoute < ownerCompetitionRoute
+    && ownerCompetitionRoute < ownerPostsRoute
     && ownerPostsRoute < ownerAnalysisRoute
     && ownerAnalysisRoute < ownerSettingsRoute,
-  "Venue Owner navigation order must be Competitions → Venue Time Table → Media → Analysis → Venue Settings.",
+  "Venue Owner navigation order must be Overview → Bookings → Schedule → Competitions → Media → Analytics → Settings.",
 );
 
 for (const [name, source] of [
