@@ -1,10 +1,14 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { CompetitionListItemDto, CompetitionStatus } from "@leaguekick/contracts";
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { router,useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { AppState,Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { competitionApi,resolveMediaImageUrl } from "../../../../src/lib/api";
+import {OwnerCompetitionOperations} from "../../../../src/components/owner/OwnerCompetitionOperations";
+import {ownerCompetitionGroups,ownerCompetitionOrders,selectOwnerCompetitions,ownerCompetitionOverviewCounts,
+  type OwnerCompetitionGroup,type OwnerCompetitionOrder} from "../../../../src/lib/owner-competition-management";
+import { TextField } from "../../../../src/components/ui/TextField";
 import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
 import { AppText } from "../../../../src/components/ui/AppText";
 import { Button } from "../../../../src/components/ui/Button";
@@ -24,37 +28,62 @@ function compactLabel(value:string){
 export default function OwnerCompetitionListScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
+  const token=session?.accessToken;
   const [items,setItems]=useState<CompetitionListItemDto[]>([]);
+  const [loadedToken,setLoadedToken]=useState<string|null>(null);
   const [filter,setFilter]=useState<Filter>("ALL");
+  const [group,setGroup]=useState<OwnerCompetitionGroup>("ALL");
+  const [format,setFormat]=useState<"ALL"|"LEAGUE"|"KNOCKOUT"|"GROUP_KNOCKOUT">("ALL");
+  const [order,setOrder]=useState<OwnerCompetitionOrder>("NEXT");
+  const [query,setQuery]=useState("");
+  const [selectedId,setSelectedId]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
+  const serial=useRef(0);
 
   const load=useCallback(async()=>{
-    if(!session)return;
+    const request=++serial.current;
+    if(!token){setItems([]);setLoadedToken(null);setLoading(false);return;}
     setLoading(true);setError(null);
-    try{setItems((await competitionApi.ownerList(session.accessToken)).competitions);}
-    catch{setError(t("competition.loadError"));}
-    finally{setLoading(false);}
-  },[session,t]);
+    try{
+      const response=await competitionApi.ownerList(token);
+      if(request!==serial.current)return;
+      setItems(response.competitions);
+      setLoadedToken(token);
+    }catch{
+      if(request===serial.current)setError(t("competition.loadError"));
+    }finally{
+      if(request===serial.current)setLoading(false);
+    }
+  },[token,t]);
 
-  useEffect(()=>{void load();},[load]);
+  useFocusEffect(useCallback(()=>{
+    setSelectedId(null);
+    void load();
+    const timer=setInterval(()=>{
+      if(AppState.currentState==="active")void load();
+    },60_000);
+    return()=>{serial.current++;clearInterval(timer);};
+  },[load]));
 
-  const visible=useMemo(
-    ()=>filter==="ALL"?items:items.filter((item)=>item.status===filter),
-    [filter,items],
-  );
-  const activeCount=items.filter((item)=>["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS"].includes(item.status)).length;
+  const safeItems=loadedToken===token?items:[];
+  const visible=useMemo(()=>selectOwnerCompetitions(safeItems,{
+    group,status:filter,format,query,order,
+  },Date.now()),[safeItems,group,filter,format,query,order]);
+  const counts=ownerCompetitionOverviewCounts(safeItems);
+  const activeCount=counts.active;
+  const renderReady=loadedToken===token;
 
-  if(loading)return <Screen embedded>
+  if(loading&&!renderReady)return <Screen embedded>
     <DataLoadingState variant="dashboard" minHeight={500}/>
   </Screen>;
 
-  return <Screen embedded>
+  return <Screen embedded refreshing={loading&&renderReady} onRefresh={()=>void load()}>
 
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
       <Card style={styles.summaryCard}>
         <Ionicons name="trophy-outline" size={22} color={colors.primary}/>
-        <AppText variant="bodyLarge" weight="bold">{items.length}</AppText>
+        <AppText variant="bodyLarge" weight="bold">{counts.total}</AppText>
         <AppText variant="caption" muted>{t("competition.control.total")}</AppText>
       </Card>
       <Card style={styles.summaryCard}>
