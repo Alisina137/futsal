@@ -40,10 +40,11 @@ assert(comments.includes("toggleCommentLike"), "comments page must expose commen
 
 const venueSections=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
 assert(venue.includes("styles.header") && venue.includes("styles.cover") &&
-  venue.includes("pageCoverImageUrl") && venue.includes("pageProfileImageUrl") &&
-  venue.includes("<VenueAboutContent") && venue.includes("<VenueReserveContent") &&
+  venue.includes("pageCoverImageUrl") && !venue.includes("pageProfileImageUrl") &&
+  venue.includes("<VenueHeroReviewBadge") && venue.includes("<VenueAboutContent") &&
+  venue.includes("<VenueReserveContent") &&
   venueSections.includes("venue.cancellationPolicy") && venueSections.includes("venueApi.availability"),
-  "public Venue profile must retain cover, identity, about and live reservations in its new tabs.");
+  "Public venue profile must retain the cover-only hero, real ratings, About and live reservations.");
 assert(team.includes("styles.profileCard") && team.includes("styles.cover") && team.includes("styles.summary") && team.includes("publicProfile.followers"), "public Team profile styling missing");
 
 assert((localization.match(/"social\.commentsPageTitle"/g) ?? []).length === 3, "comments page title missing in one or more languages");
