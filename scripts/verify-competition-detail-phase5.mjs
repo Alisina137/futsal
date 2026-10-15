@@ -44,7 +44,7 @@ for(const marker of ['item.isManager&&item.canRespond','item.isManager&&item.can
  assert.ok(panel.includes(marker),"Phase 5 must respect authoritative private status: "+marker);
 }
 for(const marker of ["competitionApi.inviteTeam(","manualTeamApi.register(","competitionApi.decideRegistration(",
- 'tab==="TEAMS"?"TEAMS":"OVERVIEW"'])
+ 'value==="FIXTURES"?"FIXTURES":value==="TEAMS"?"TEAMS":"OVERVIEW"'])
  assert.ok(owner.includes(marker),"Organizer writes must exist only in authenticated owner dashboard: "+marker);
 assert.ok(!page.includes("competitionApi.inviteTeam(")&&
   !page.includes("manualTeamApi.register(")&&
