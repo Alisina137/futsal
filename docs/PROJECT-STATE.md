@@ -1,3 +1,11 @@
+## Venue Owner Dashboard — Phase 2: Today, Action Center and Performance (2026-10-15)
+- Implemented three functional Overview subtabs with RTL focus, localized EN/Dari/Pashto controls, accessible touch targets and safe actor-reset selection.
+- **Today** summarizes existing authoritative calendar, pending-booking and competition datasets: today's confirmed bookings and booking value (not cash), still-future bookable slots, future requests, active competitions, today's remaining matches and upcoming schedule with Kabul-local explicit AM/PM.
+- **Action Center** deep-links pending approvals, subscription expiry/renewal, paused online booking and open competition registration windows. No artificial “pending team registrations” number is inferred.
+- **Performance** reuses venue analytics for the current inclusive 7-day Kabul period: gross booking value, booking counts, occupancy, cancellations, online mix and previous-period comparisons, with explicit not-collected-cash language.
+- Request resilience: scoped initial owner status gate; optional calendar/pending/competitions/analytics via Promise.allSettled, unknown values remain unknown, account/date/request sequence guards, focus and foreground refresh, pull-to-refresh; Phase 1 inbox continues authoritative writes. No new API route/migration.
+- Eleven data-derivation tests, Phase 2 structural/localization gate and updated legacy Phase 1 gate run within `pnpm verify`. See `docs/VENUE-OWNER-DASHBOARD-PHASE2.md`. Android/real DB sign-off is required. Phase 3 will extend the Bookings tab.
+
 ## Venue Owner Dashboard — Phase 1: foundation and navigation (2026-10-15)
 - Venue Owner /dashboard now lands on /owner/overview, with one persistent header and **seven** owner main tabs: Overview, Bookings, Schedule, Competitions, Media & Marketing, Analytics, Settings. Non-owners cannot access the owner shell. Role subscription CTA opens Overview.
 - Existing server-backed OwnerDashboard refactored as embedded Overview: pending booking preview, venue setup/subscription alerts, actionable links, focus reload, token-scoped private data and stale-request invalidation. API failure is not mistaken for missing venue. New Bookings route reuses full owner approval inbox without duplicating booking logic.
