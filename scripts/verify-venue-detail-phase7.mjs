@@ -65,7 +65,7 @@ includes(competition,[
   "compMoreError","matchMoreError",
   "setCompMoreError(true)","setMatchMoreError(true)",
   "setCompetitions(previous=>","setMatches(previous=>",
-  'competitionApi.venueMatches(venue.id,matchScope,1)',
+  'competitionApi.venueMatches(venue.id,matchScope,1,selectedMatchQuery)',
   'competitionApi.discover(queryFor(venue.id,sub,1))',
 ],"Competitions pagination UX must retain loaded cards after a network error");
 includes(reviews,[

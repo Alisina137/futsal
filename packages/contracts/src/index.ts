@@ -2378,6 +2378,11 @@ export type CompetitionDiscoveryQuery=z.infer<typeof competitionDiscoveryQuerySc
 /** One paginated list of public matches played at this actual venue, not other fields. */
 export const venueMatchQuerySchema=z.object({
   scope:z.enum(["upcoming","results"]).default("upcoming"),
+  competitionId:z.string().uuid().optional(),
+  teamId:z.string().uuid().optional(),
+  year:z.coerce.number().int().min(2000).max(2100).optional(),
+  month:z.coerce.number().int().min(1).max(12).optional(),
+  week:z.coerce.number().int().min(1).max(53).optional(),
   page:z.coerce.number().int().min(1).max(500).default(1),
   limit:z.coerce.number().int().min(1).max(25).default(12),
 });
@@ -2390,8 +2395,12 @@ export const venueMatchItemSchema=z.object({
   endsAt:isoDateTimeSchema.nullable(),
   stage:competitionMatchStageSchema,
   roundNumber:z.number().int().min(1),
+  homeTeamId:z.string().uuid().nullable(),
+  awayTeamId:z.string().uuid().nullable(),
   homeTeamName:z.string().nullable(),
   awayTeamName:z.string().nullable(),
+  homeLogoUrl:z.string().nullable(),
+  awayLogoUrl:z.string().nullable(),
   homeScore:z.number().int().nullable(),
   awayScore:z.number().int().nullable(),
   status:competitionMatchStatusSchema,
@@ -2402,6 +2411,12 @@ export const venueMatchPageSchema=z.object({
   matches:z.array(venueMatchItemSchema),
   total:z.number().int().nonnegative(),page:z.number().int().positive(),
   limit:z.number().int().positive(),hasMore:z.boolean(),
+  facets:z.object({
+    competitions:z.array(z.object({id:z.string().uuid(),name:z.string()})),
+    teams:z.array(z.object({id:z.string().uuid(),name:z.string()})),
+    years:z.array(z.number().int()),months:z.array(z.number().int()),
+    weeks:z.array(z.number().int()),
+  }),
 });
 export type VenueMatchPage=z.infer<typeof venueMatchPageSchema>;
 export const competitionDiscoveryItemSchema=competitionListItemDtoSchema.extend({

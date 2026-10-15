@@ -6,9 +6,12 @@ import type {
 } from "@leaguekick/contracts";
 import {router} from "expo-router";
 import {useEffect,useRef,useState} from "react";
-import {Image,Pressable,View} from "react-native";
+import {Image,Pressable,ScrollView,View} from "react-native";
 import {competitionApi,resolveMediaImageUrl} from "../../lib/api";
 import {formatLocalDateTime} from "../../lib/date-time";
+import {emptyVenueMatchFilters,emptyVenueMatchFacets,type VenueMatchFilters} from "../../lib/venue-match-filters";
+import {VenueMatchSelect} from "./VenueMatchSelect";
+import {VenueMatchCard} from "./VenueMatchCard";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -51,6 +54,23 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
   const [compError,setCompError]=useState(false);
   const [compMoreError,setCompMoreError]=useState(false);
   const [matchScope,setMatchScope]=useState<MatchScope>("upcoming");
+  const [matchFilters,setMatchFilters]=useState<VenueMatchFilters>(emptyVenueMatchFilters);
+  const [matchFacets,setMatchFacets]=useState(emptyVenueMatchFacets);
+  const [matchTotal,setMatchTotal]=useState(0);
+  const selectedMatchQuery={
+    ...(matchFilters.competitionId?{competitionId:matchFilters.competitionId}:{}),
+    ...(matchFilters.teamId?{teamId:matchFilters.teamId}:{}),
+    ...(matchFilters.year?{year:Number(matchFilters.year)}:{}),
+    ...(matchFilters.month?{month:Number(matchFilters.month)}:{}),
+    ...(matchFilters.week?{week:Number(matchFilters.week)}:{}),
+  };
+  function changeMatchFilter(key:keyof VenueMatchFilters,value:string){
+    setMatchFilters(current=>({...current,[key]:value}));
+  }
+  function selectMatchScope(next:MatchScope){
+    if(next===matchScope)return;
+    setMatchScope(next);setMatchFilters(emptyVenueMatchFilters);
+  }
   const [matches,setMatches]=useState<VenueMatchItem[]>([]);
   const [matchPage,setMatchPage]=useState(1);
   const [matchHasMore,setMatchHasMore]=useState(false);
@@ -70,13 +90,14 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
     setCompetitions([]);setCompPage(1);setCompHasMore(false);
     setCompError(false);setCompMoreError(false);
     setCompLoading(!isMatches);setCompLoadingMore(false);
-    setMatches([]);setMatchPage(1);setMatchHasMore(false);
+    setMatches([]);setMatchPage(1);setMatchHasMore(false);setMatchTotal(0);
     setMatchError(false);setMatchMoreError(false);
     setMatchLoading(isMatches);setMatchLoadingMore(false);
     if(isMatches){
-      void competitionApi.venueMatches(venue.id,matchScope,1).then(result=>{
+      void competitionApi.venueMatches(venue.id,matchScope,1,selectedMatchQuery).then(result=>{
         if(request!==epoch.current)return;
         setMatches(result.matches);setMatchPage(result.page);setMatchHasMore(result.hasMore);
+        setMatchFacets(result.facets);setMatchTotal(result.total);
       }).catch(()=>{if(request===epoch.current)setMatchError(true);})
         .finally(()=>{if(request===epoch.current)setMatchLoading(false);});
     }else{
@@ -88,7 +109,8 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
         .finally(()=>{if(request===epoch.current)setCompLoading(false);});
     }
     return()=>{epoch.current+=1;};
-  },[venue.id,sub,matchScope,refresh]);
+  },[venue.id,sub,matchScope,refresh,matchFilters.competitionId,matchFilters.teamId,
+    matchFilters.year,matchFilters.month,matchFilters.week]);
 
   async function loadMoreCompetitions(){
     if(isMatches||compLoading||compLoadingMore||!compHasMore)return;
@@ -109,7 +131,7 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
     const request=epoch.current;
     setMatchLoadingMore(true);setMatchMoreError(false);
     try{
-      const result=await competitionApi.venueMatches(venue.id,matchScope,matchPage+1);
+      const result=await competitionApi.venueMatches(venue.id,matchScope,matchPage+1,selectedMatchQuery);
       if(request!==epoch.current)return;
       setMatches(previous=>[...previous,...result.matches.filter(item=>
         !previous.some(old=>old.id===item.id))]);
@@ -123,39 +145,61 @@ export function VenueCompetitionsPanel({venue,sub}:{venue:PublicVenueDto;sub:Ven
     <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm}}>
       {(["upcoming","results"] as const).map(value=>
         <Button key={value} label={tr("matchScope."+value)}
-          style={{flex:1}} disabled={matchLoading}
+          style={{flex:1}}
           variant={matchScope===value?"primary":"secondary"}
-          onPress={()=>setMatchScope(value)}/>)}
+          onPress={()=>selectMatchScope(value)}/>)}
     </View>
     <AppText variant="caption" muted>{tr("matchesDescription")}</AppText>
+    {/* One scrollable five-column row, never five vertically stacked filters. */}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}
+      testID="venue-match-filter-rail" style={{flexGrow:0}}
+      contentContainerStyle={{gap:spacing.sm,flexDirection:isRTL?"row-reverse":"row"}}>
+      <VenueMatchSelect label={tr("matchesFilter.competition")}
+        testID="venue-match-filter-competition" icon="trophy-outline"
+        value={matchFilters.competitionId} allLabel={tr("matchesFilter.all")}
+        options={matchFacets.competitions.map(item=>({value:item.id,label:item.name}))}
+        onSelect={next=>changeMatchFilter("competitionId",next)}/>
+      <VenueMatchSelect label={tr("matchesFilter.team")}
+        testID="venue-match-filter-team" icon="shirt-outline"
+        value={matchFilters.teamId} allLabel={tr("matchesFilter.all")}
+        options={matchFacets.teams.map(item=>({value:item.id,label:item.name}))}
+        onSelect={next=>changeMatchFilter("teamId",next)}/>
+      <VenueMatchSelect label={tr("matchesFilter.year")}
+        testID="venue-match-filter-year" icon="calendar-outline"
+        value={matchFilters.year} allLabel={tr("matchesFilter.all")}
+        options={matchFacets.years.map(year=>({value:String(year),label:String(year)}))}
+        onSelect={next=>changeMatchFilter("year",next)}/>
+      <VenueMatchSelect label={tr("matchesFilter.month")}
+        testID="venue-match-filter-month" icon="calendar-number-outline"
+        value={matchFilters.month} allLabel={tr("matchesFilter.all")}
+        options={matchFacets.months.map(month=>({value:String(month),
+          label:new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
+            month:"long",timeZone:"UTC",calendar:"gregory",
+          }).format(new Date(Date.UTC(2024,month-1,1)))}))}
+        onSelect={next=>changeMatchFilter("month",next)}/>
+      <VenueMatchSelect label={tr("matchesFilter.week")}
+        testID="venue-match-filter-week" icon="calendar-clear-outline"
+        value={matchFilters.week} allLabel={tr("matchesFilter.all")}
+        options={matchFacets.weeks.map(week=>({value:String(week),
+          label:t("vd4.matchesFilter.weekNumber",{number:week})}))}
+        onSelect={next=>changeMatchFilter("week",next)}/>
+    </ScrollView>
+    <View style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"center",gap:spacing.sm}}>
+      <AppText variant="caption" muted style={{flex:1}}>
+        {t("vd4.matchesFilter.count",{shown:matches.length,total:matchTotal})}
+      </AppText>
+      {Object.values(matchFilters).some(Boolean)?<Button
+        label={tr("matchesFilter.clear")} variant="secondary"
+        onPress={()=>setMatchFilters(emptyVenueMatchFilters)}/>:null}
+    </View>
     {matchLoading?<DataLoadingState variant="list" minHeight={170}/>:null}
     {matchError?<Card style={{gap:spacing.sm}}>
       <AppText style={{color:colors.danger}}>{tr("matchesLoadError")}</AppText>{retry}
     </Card>:null}
     {!matchLoading&&!matchError&&!matches.length?
       <Card><AppText muted>{tr("noMatches")}</AppText>{retry}</Card>:null}
-    {matches.map(match=><Card key={match.id} testID={"venue-match-"+match.id}
-      style={{gap:spacing.sm}}>
-      <View style={{flexDirection:isRTL?"row-reverse":"row",alignItems:"center",gap:spacing.xs}}>
-        <Ionicons name="football-outline" size={20} color={colors.primary}/>
-        <AppText weight="semibold" style={{flex:1}}>{match.competitionName}</AppText>
-        <AppText variant="caption" muted>{tr("matchStatus."+match.status)}</AppText>
-      </View>
-      {match.startsAt?<AppText variant="caption" muted>
-        {formatLocalDateTime(match.startsAt,language,venue.timezone)}
-      </AppText>:null}
-      <AppText weight="bold" style={{textAlign:"center"}}>
-        {(match.homeTeamName??tr("toBeDecided"))+"  "+
-        (matchScope==="results"&&match.homeScore!==null&&match.awayScore!==null
-          ?match.homeScore+" – "+match.awayScore:"vs")+"  "+
-        (match.awayTeamName??tr("toBeDecided"))}
-      </AppText>
-      <Button variant="secondary" label={tr("viewMatch")}
-        onPress={()=>router.push({
-          pathname:"/competitions/[competitionId]/matches/[matchId]",
-          params:{competitionId:match.competitionId,matchId:match.id},
-        })}/>
-    </Card>)}
+    {matches.map(match=><VenueMatchCard key={match.id}
+      match={match} scope={matchScope} timeZone={venue.timezone}/>)}
     {matchMoreError?<AppText variant="caption" style={{color:colors.danger}}>
       {tr("matchesLoadError")}</AppText>:null}
     {matchHasMore?<Button variant="secondary" label={tr("loadMore")}

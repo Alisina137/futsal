@@ -1257,10 +1257,18 @@ export const manualTeamApi = {
 };
 
 export const competitionApi = {
-  venueMatches:(venueId:string,scope:"upcoming"|"results",page=1)=>
-    networkRequest<VenueMatchPage>(
-      `/api/v1/venues/${encodeURIComponent(venueId)}/competition-matches?scope=${scope}&page=${page}&limit=12`,
-      {cache:"no-store"}),
+  venueMatches:(venueId:string,scope:"upcoming"|"results",page=1,
+    filters?:{competitionId?:string;teamId?:string;year?:number;month?:number;week?:number})=>{
+    const params=new URLSearchParams({scope,page:String(page),limit:"12"});
+    if(filters?.competitionId)params.set("competitionId",filters.competitionId);
+    if(filters?.teamId)params.set("teamId",filters.teamId);
+    if(filters?.year!==undefined)params.set("year",String(filters.year));
+    if(filters?.month!==undefined)params.set("month",String(filters.month));
+    if(filters?.week!==undefined)params.set("week",String(filters.week));
+    return networkRequest<VenueMatchPage>(
+      `/api/v1/venues/${encodeURIComponent(venueId)}/competition-matches?${params.toString()}`,
+      {cache:"no-store"});
+  },
   myParticipations:(accessToken:string,competitionId?:string)=>
     request<CompetitionParticipationsResponse>(
       competitionId?`/api/v1/competitions/${competitionId}/participation`:

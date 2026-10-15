@@ -4,6 +4,7 @@ const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const nav=read("apps/mobile/src/lib/venue-detail-navigation.ts");
 const sections=read("apps/mobile/src/components/venues/VenueDetailSections.tsx");
 const panel=read("apps/mobile/src/components/venues/VenueCompetitionsPanel.tsx");
+const matchCard=read("apps/mobile/src/components/venues/VenueMatchCard.tsx");
 const api=read("apps/mobile/src/lib/api.ts");
 const contracts=read("packages/contracts/src/index.ts");
 const routes=read("apps/api/src/modules/competition/competition.routes.ts");
@@ -47,18 +48,21 @@ contains(repository,[
 ],"match venue, privacy/status restrictions and pagination");
 contains(panel,[
   "competitionApi.discover(queryFor(venue.id,sub,1))",
-  "competitionApi.venueMatches(venue.id,matchScope,1)",
+  "competitionApi.venueMatches(venue.id,matchScope,1,selectedMatchQuery)",
   'scope:"registration"','phase:"upcoming"', 'status:"IN_PROGRESS"', 'phase:"history"',
   'testID={"venue-competition-"+item.id}',
-  'testID={"venue-match-"+match.id}',
+  '<VenueMatchCard key={match.id}',
   'width:88,height:88', 'flexDirection:"row"',
   'router.push({pathname:"/competitions/[competitionId]"',
-  'pathname:"/competitions/[competitionId]/matches/[matchId]"',
-  'formatLocalDateTime(match.startsAt,language,venue.timezone)',
+  'formatLocalDateTime(item.startsAt,language,venue.timezone)',
   "const request=++epoch.current",
   "if(request!==epoch.current)return",
   "compHasMore","matchHasMore","setCompError(true)","setMatchError(true)",
 ],"visible real venue discovery, cards, scores, route targets and race safety");
+contains(matchCard,['testID={"venue-match-"+match.id}',
+  'pathname:"/competitions/[competitionId]/matches/[matchId]"',
+  'venueMatchResultEmphasis','match.homeScore','match.awayScore'],
+  "real routed scorecards with winner/loser styling");
 assert.ok(!panel.includes("competitionApi.list()"),"Do not client-filter a global competition list.");
 contains(api,["venueMatches:(venueId:string","networkRequest<VenueMatchPage>","venueId:string","competitionApi ="],"typed mobile API");
 contains(fake,["async listPublicVenueMatches","filters.venueId===undefined"].filter(Boolean).slice(0,1),"fake backend");
