@@ -707,7 +707,8 @@ export default function TeamDetailExperience(){
         m.status==="POSTPONED"?tx("postponed"):tx("scheduled");
     const outcomeLabel=(m:TeamPublicHighlights["matches"][number])=>{
       const outcome=phase==="results"?teamMatchOutcome(m,id):null;
-      return outcome?label(outcome):null;
+      return outcome?tx(({win:"statsResultWins",loss:"statsResultLosses",
+        draw:"statsResultDraws"} as const)[outcome]):null;
     };
     return <View testID="team-match-list" style={{gap:spacing.md}}>
       <Card style={{gap:spacing.sm}}>
