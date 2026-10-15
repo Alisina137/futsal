@@ -324,6 +324,11 @@ export default function CompetitionDetailScreen(){
     // A tab selection is not a command to move the outer page.
     requestAnimationFrame(()=>focusSelectedTab(next,true));
   }
+  function onStandingsStageChange(stage:"GROUPS"|"KNOCKOUT"){
+    setNavigation(current=>chooseCompetitionSubtab(
+      chooseCompetitionMain(current,"STANDINGS"),"STANDINGS",stage,
+      allowedCompetitionSubtabs("STANDINGS",competition?.format??"LEAGUE")));
+  }
   function onMatchStatusChange(next:MatchFilter){
     const name=next==="FINISHED"?"RESULTS":
       next==="UPCOMING"?"UPCOMING":next==="LIVE"?"LIVE":"ALL";
@@ -732,6 +737,7 @@ export default function CompetitionDetailScreen(){
         posts={mediaPosts} activeTab={activeTab} subtab={selectedSubtab}
         registration={registration} onTabChange={switchTab}
         initialStage={selectedSubtab==="KNOCKOUT"?"KNOCKOUT":undefined}
+        onStandingsStageChange={onStandingsStageChange}
         initialMatchFilter={extraMatchStatus??(tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL")}
         matchPreferences={matchPreferences}
         onMatchPreferencesChange={setMatchPreferences}

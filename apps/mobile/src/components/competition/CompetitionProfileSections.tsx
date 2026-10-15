@@ -12,6 +12,8 @@ import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {LeagueStandingsTable} from "./LeagueStandingsTable";
+import {CompetitionKnockoutBracket} from "./CompetitionKnockoutBracket";
+import {competitionStandingGroups,provisionalQualificationZone} from "../../lib/competition-detail-standings";
 import {CompetitionMatchList,type MatchFilter} from "./CompetitionMatchList";
 import type {CompetitionMatchPreferences} from "../../lib/competition-detail-match-filters";
 import {Card} from "../ui/Card";
@@ -28,6 +30,7 @@ type Props={
   registration:ReactNode;
   onTabChange:(tab:CompetitionProfileTab)=>void;
   initialStage?:Stage|undefined;
+  onStandingsStageChange?:((stage:Stage)=>void)|undefined;
   initialMatchFilter?:MatchFilter|undefined;
   matchPreferences?:CompetitionMatchPreferences;
   onMatchPreferencesChange?:(next:CompetitionMatchPreferences)=>void;
@@ -134,33 +137,46 @@ function MatchCard({match,offlineIds}:{match:CompetitionMatchDto;offlineIds:Set<
   </Card>;
 }
 
-function CompetitionStandings({competition,initialStage}:{competition:CompetitionDto;initialStage?:Stage|undefined}){
+function CompetitionStandings({competition,initialStage,onStageChange}:{
+  competition:CompetitionDto;initialStage?:Stage|undefined;
+  onStageChange?:((stage:Stage)=>void)|undefined;
+}){
   const {t,isRTL}=useLocale();
   const mixed=competition.format==="GROUP_KNOCKOUT";
   const knockoutOnly=competition.format==="KNOCKOUT";
   const [stage,setStage]=useState<Stage>(initialStage??(knockoutOnly?"KNOCKOUT":"GROUPS"));
+  const selectedStage=initialStage??stage;
   const [roundSelection,setRoundSelection]=useState<number|null>(null);
+  const [selectedGroup,setSelectedGroup]=useState("ALL");
   const offlineIds=new Set(competition.teams.filter(team=>team.offline).map(team=>team.teamId));
-  // In the official knockout engine, round 1 is the final; higher values precede it.
+  // Round 1 is the official final. We never infer a winner or an opponent.
   const knockout=competition.matches.filter(match=>match.stage==="KNOCKOUT")
     .sort((a,b)=>b.roundNumber-a.roundNumber||a.slotNumber-b.slotNumber);
   const rounds=[...new Set(knockout.map(match=>match.roundNumber))];
   const currentRound=roundSelection!==null&&rounds.includes(roundSelection)?roundSelection:rounds[0];
-  const groups=[...new Set(competition.standings.map(row=>row.groupName??""))];
+  const grouped=competitionStandingGroups(competition.standings,
+    competition.format==="LEAGUE"?"LEAGUE":"GROUP");
+  const currentGroup=grouped.some(group=>group.key===selectedGroup)?selectedGroup:"ALL";
+  const visibleGroups=currentGroup==="ALL"?grouped:
+    grouped.filter(group=>group.key===currentGroup);
+
   return <View style={styles.stack} testID="competition-phase5-standings">
     <SectionHeading title={t(mixed?"competition.profile.stages":"competition.standings")} icon="podium-outline"/>
     {mixed?<View style={[styles.stageSwitch,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {(["GROUPS","KNOCKOUT"] as const).map(option=>
         <Pressable key={option} testID={`competition-stage-${option}`} accessibilityRole="tab"
-          accessibilityState={{selected:stage===option}} onPress={()=>setStage(option)}
-          style={[styles.stageButton,stage===option&&styles.stageActive]}>
-          <AppText weight="semibold" variant="caption" style={{color:stage===option?"#FFFFFF":colors.primary}}>
+          accessibilityState={{selected:selectedStage===option}}
+          onPress={()=>{setStage(option);onStageChange?.(option);}}
+          style={[styles.stageButton,selectedStage===option&&styles.stageActive]}>
+          <AppText weight="semibold" variant="caption"
+            style={{color:selectedStage===option?"#FFFFFF":colors.primary}}>
             {t(option==="GROUPS"?"competition.profile.groupStage":"competition.profile.knockoutStage")}
           </AppText>
         </Pressable>)}
     </View>:null}
-    {knockoutOnly||mixed&&stage==="KNOCKOUT"?<>
+    {knockoutOnly||mixed&&selectedStage==="KNOCKOUT"?<>
       {knockout.length===0?<Placeholder title={t("competition.noBracket")} icon="git-branch-outline"/>:null}
+      <CompetitionKnockoutBracket competition={competition}/>
       {rounds.length>0?<ScrollView horizontal showsHorizontalScrollIndicator={false}
         testID="competition-bracket-round-selector"
         contentContainerStyle={[styles.bracketRounds,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -185,14 +201,47 @@ function CompetitionStandings({competition,initialStage}:{competition:Competitio
     </>:<>
       {competition.standings.length===0?<Placeholder title={t("competition.noStandings")}
         icon="podium-outline"/>:null}
-      {groups.map(group=><Card key={group||"league"} style={styles.tableCard}>
-        {group?<AppText variant="bodyLarge" weight="bold">
-          {t("competition.group",{name:group})}
-        </AppText>:null}
+      {mixed&&grouped.length>1?<ScrollView horizontal
+        testID="competition-group-selector" showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.bracketRounds,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {["ALL",...grouped.map(group=>group.key)].map(key=><Pressable key={key}
+          testID={`competition-group-option-${key}`} accessibilityRole="tab"
+          accessibilityState={{selected:currentGroup===key}}
+          onPress={()=>setSelectedGroup(key)}
+          style={[styles.roundChip,currentGroup===key&&styles.roundChipActive]}>
+          <AppText variant="caption" weight="semibold"
+            style={{color:currentGroup===key?"#FFFFFF":colors.primary}}>
+            {key==="ALL"?t("competition.detail.allGroups"):
+              t("competition.group",{name:key})}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>:null}
+      {visibleGroups.map(group=><Card key={group.key||"league"} style={styles.tableCard}>
+        {group.label?<View style={[styles.groupHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={{flex:1,gap:2}}>
+            <AppText variant="bodyLarge" weight="bold">
+              {t("competition.group",{name:group.label})}
+            </AppText>
+            <AppText variant="caption" muted>
+              {t("competition.detail.groupTeamCount",{count:group.rows.length})}
+            </AppText>
+          </View>
+          <Ionicons name="people-outline" size={22} color={colors.primary}/>
+        </View>:null}
+        {competition.format==="GROUP_KNOCKOUT"&&group.label&&
+          provisionalQualificationZone(group,competition.qualifiersPerGroup).length>0?
+          <View testID={`competition-provisional-group-${group.key}`}
+            style={[styles.groupProvisional,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="information-circle-outline" color="#146B39" size={17}/>
+            <AppText variant="caption" style={{color:"#146B39",flex:1}}>
+              {t("competition.detail.provisionalZone",{
+                count:provisionalQualificationZone(group,competition.qualifiersPerGroup).length})}
+            </AppText>
+          </View>:null}
         <LeagueStandingsTable competition={competition}
           stage={competition.format==="LEAGUE"?"LEAGUE":"GROUP"}
           qualifiers={competition.format==="GROUP_KNOCKOUT"?competition.qualifiersPerGroup??undefined:undefined}
-          rows={competition.standings.filter(row=>(row.groupName??"")===group)}/>
+          rows={group.rows}/>
       </Card>)}
     </>}
   </View>;
@@ -660,7 +709,7 @@ function CompetitionTeamMetrics({competition,subtab}:{competition:CompetitionDto
   </View>;
 }
 export function CompetitionProfileSections({competition,posts,activeTab,subtab,registration,onTabChange,
-  initialStage,initialMatchFilter,matchPreferences,onMatchPreferencesChange,onMatchStatusChange,
+  initialStage,onStandingsStageChange,initialMatchFilter,matchPreferences,onMatchPreferencesChange,onMatchStatusChange,
   onMatchRefresh,matchRefreshing,myAcceptedTeamId}:Props){
   if(activeTab==="HOME")return <Home competition={competition} posts={posts}
     onTabChange={onTabChange} view={subtab??"OVERVIEW"}/>;
@@ -672,7 +721,7 @@ export function CompetitionProfileSections({competition,posts,activeTab,subtab,r
     refreshing={matchRefreshing} myAcceptedTeamId={myAcceptedTeamId}/>;
   if(activeTab==="STANDINGS")return <CompetitionStandings
     competition={competition} initialStage={subtab==="KNOCKOUT"?"KNOCKOUT":
-      initialStage??"GROUPS"}/>;
+      initialStage??"GROUPS"} onStageChange={onStandingsStageChange}/>;
   if(activeTab==="STATS")return subtab==="TEAMS"||subtab==="FAIR_PLAY"?
     <CompetitionTeamMetrics competition={competition} subtab={subtab}/>:
     <CompetitionStats competition={competition}/>;
@@ -700,6 +749,9 @@ const styles=StyleSheet.create({
   progressionLink:{gap:6,alignItems:"center",padding:spacing.sm,backgroundColor:colors.primarySoft,
     borderRadius:radius.sm,minHeight:44},
   bracketRounds:{gap:spacing.sm,paddingVertical:3,alignItems:"center"},
+  groupHeading:{alignItems:"center",gap:spacing.sm},
+  groupProvisional:{gap:spacing.xs,alignItems:"center",backgroundColor:"#F0FAF4",
+    borderRadius:radius.md,padding:spacing.sm},
   roundChip:{minHeight:44,minWidth:72,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,
     paddingHorizontal:spacing.md,flexDirection:"row",alignItems:"center",gap:6,justifyContent:"center",
     backgroundColor:colors.surface},
