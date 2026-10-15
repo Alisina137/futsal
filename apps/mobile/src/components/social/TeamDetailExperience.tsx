@@ -325,6 +325,9 @@ export default function TeamDetailExperience(){
   const [photo,setPhoto]=useState<string|null>(null);
   const mainNav=useVisibleTab<Tab>(tab);
   const subNav=useVisibleTab<string>(subs[tab]??subNavigation[tab][0]!);
+  // Position chips are a separate horizontal navigation from Squad's
+  // Players/Leadership subtabs. Center the active choice on first layout/tap.
+  const squadPositionNav=useVisibleTab<SquadPositionFilter>(squadPosition);
   const lastId=useRef(id);
   const loadGeneration=useRef(0);
   const followActionSequence=useRef(0);
@@ -500,6 +503,10 @@ export default function TeamDetailExperience(){
     mainNav.focus(value,true);
     if(target)subNav.focus(target,true);
   }
+  function chooseSquadPosition(position:SquadPositionFilter){
+    setSquadPosition(position);
+    squadPositionNav.focus(position,true);
+  }
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
     :member&&team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
   const joinAction=teamDetailJoinAction({
@@ -559,18 +566,22 @@ export default function TeamDetailExperience(){
         {leadersOnly?<AppText variant="caption" muted>{tx("squadLeadersHint")}</AppText>:null}
       </Card>
 
-      {!leadersOnly&&team.members.length>0?<>
-        <TextField testID="team-squad-search" label={tx("squadFind")}
+      {!leadersOnly?<>
+        {team.members.length>0?<TextField testID="team-squad-search" label={tx("squadFind")}
           value={squadQuery} onChangeText={setSquadQuery}
-          autoCorrect={false} maxLength={80} returnKeyType="search"/>
+          autoCorrect={false} maxLength={80} returnKeyType="search"/>:null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          testID="team-squad-position-nav" ref={squadPositionNav.scrollRef}
+          onLayout={squadPositionNav.onViewport}
+          onContentSizeChange={squadPositionNav.onContentSize}
           style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
           {squadPositionFilters.map(position=><Pressable key={position}
             testID={"team-squad-filter-"+position}
-            accessibilityRole="button" accessibilityLabel={position==="ALL"?tx("squadAll"):
+            accessibilityRole="tab" accessibilityLabel={position==="ALL"?tx("squadAll"):
               t(`teams.position.${position}` as never)}
+            onLayout={event=>squadPositionNav.cellLayout(position,event)}
             accessibilityState={{selected:squadPosition===position}}
-            onPress={()=>setSquadPosition(position)}
+            onPress={()=>chooseSquadPosition(position)}
             style={[styles.squadFilter,squadPosition===position&&styles.squadFilterActive]}>
             <AppText variant="caption" weight="semibold"
               style={{color:squadPosition===position?"#FFFFFF":colors.primary}}>
@@ -1423,7 +1434,7 @@ const styles=StyleSheet.create({
   squadCountBadge:{minWidth:45,minHeight:42,alignItems:"center",justifyContent:"center",
     borderRadius:radius.md,backgroundColor:colors.primarySoft},
   squadFilters:{gap:spacing.xs,paddingVertical:spacing.xs,alignItems:"center"},
-  squadFilter:{minHeight:39,justifyContent:"center",borderRadius:radius.pill,
+  squadFilter:{minHeight:44,justifyContent:"center",borderRadius:radius.pill,
     borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,
     paddingHorizontal:spacing.md,paddingVertical:spacing.xs},
   squadFilterActive:{backgroundColor:colors.primary,borderColor:colors.primary},
