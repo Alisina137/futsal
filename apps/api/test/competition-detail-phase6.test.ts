@@ -6,7 +6,7 @@ import {FakeCompetitionRepository} from "./fake-competition-repository.js";
 
 const now=new Date("2026-10-15T06:00:00.000Z");
 const input:CompetitionCreateRequest={
-  name:"Public Phase 6 Cup",description:null,format:"LEAGUE",maxTeams:4,
+  name:"Public Phase 6 Cup",description:"Public aggregate regression",format:"LEAGUE",maxTeams:4,
   registrationFeeAfn:0,winPoints:3,drawPoints:1,lossPoints:0,
   tieBreakOrder:["POINTS","GOAL_DIFFERENCE","GOALS_FOR","HEAD_TO_HEAD","ADMIN"],
   groupCount:null,qualifiersPerGroup:null,
