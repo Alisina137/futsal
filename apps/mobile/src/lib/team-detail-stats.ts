@@ -43,7 +43,7 @@ export function teamPlayerLeaders(
   const rest:TeamPlayerStatMetric[]=metric==="goals"?["assists","appearances"]:
     metric==="assists"?["goals","appearances"]:["goals","assists"];
   return [...players].sort((a,b)=>b[metric]-a[metric]||
-    b[rest[0]]-a[rest[0]]||b[rest[1]]-a[rest[1]]||
+    b[rest[0]!]-a[rest[0]!]||b[rest[1]!]-a[rest[1]!]||
     a.displayName.localeCompare(b.displayName)||a.userId.localeCompare(b.userId))
     .slice(0,Math.max(0,Math.floor(limit)));
 }
