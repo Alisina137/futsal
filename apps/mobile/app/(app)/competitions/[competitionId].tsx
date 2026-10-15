@@ -189,19 +189,21 @@ export default function CompetitionDetailScreen(){
 
   async function toggleFollow(){
     if(!session||!competitionId||!followState||followBusy)return;
+    const actor=actorIdentity;
     setFollowBusy(true);setError(null);
     try{
       const next=followState.following
         ?await marketingApi.socialUnfollow(session.accessToken,"COMPETITION",competitionId)
         :await marketingApi.socialFollow(session.accessToken,"COMPETITION",competitionId);
-      setFollowState(next);
-    }catch{setError(t("social.followError"));}
-    finally{setFollowBusy(false);}
+      if(actor===lastActorIdentity.current)setFollowState(next);
+    }catch{if(actor===lastActorIdentity.current)setError(t("social.followError"));}
+    finally{if(actor===lastActorIdentity.current)setFollowBusy(false);}
   }
 
   async function executeIntent(){
     if(!session||!competitionId||!intent||busy||participationError)return;
     const item=intent;
+    const actor=actorIdentity;
     setBusy(true);setError(null);setMessage(null);
     try{
       if(item.kind==="register"){
@@ -214,40 +216,48 @@ export default function CompetitionDetailScreen(){
         await competitionApi.respondInvitation(session.accessToken,competitionId,item.teamId,
           {status:item.kind==="accept"?"ACCEPTED":"REJECTED"});
       }
+      if(actor!==lastActorIdentity.current)return;
       setIntent(null);
       await load();
+      if(actor!==lastActorIdentity.current)return;
       setMessage(item.kind==="register"?t("competition.registrationSent"):
         t("competition.phase3.actionCompleted"));
     }catch(e){
       // The API carries specific reasons like full, duplicate, deadline or unauthorized.
+      if(actor!==lastActorIdentity.current)return;
       setError(e instanceof Error?e.message:t("competition.phase3.actionError"));
       setIntent(null);
       await load();
-    }finally{setBusy(false);}
+    }finally{if(actor===lastActorIdentity.current)setBusy(false);}
   }
   async function inviteAsOrganizer(){
-    if(!session||!competitionId||!organizerCanInvite||!invitedTeamId)return;
+    if(!session||!competitionId||!organizerCanInvite||!invitedTeamId||busy)return;
+    const actor=actorIdentity;
     setBusy(true);setError(null);setMessage(null);
     try{
       // Invitations remain INVITED until the actual team manager accepts.
       await competitionApi.inviteTeam(session.accessToken,competitionId,{teamId:invitedTeamId,seed:null});
+      if(actor!==lastActorIdentity.current)return;
       setInvitedTeamId(null);
       await load();
-      setMessage(t("competition.organizerInvitationSent"));
-    }catch{setError(t("competition.inviteError"));}
-    finally{setBusy(false);}
+      if(actor===lastActorIdentity.current)setMessage(t("competition.organizerInvitationSent"));
+    }catch{if(actor===lastActorIdentity.current)setError(t("competition.inviteError"));}
+    finally{if(actor===lastActorIdentity.current)setBusy(false);}
   }
   async function registerManualTeam(){
-    if(!session||!competitionId||!organizerCanInvite||!selectedManualId)return;
+    if(!session||!competitionId||!organizerCanInvite||!selectedManualId||busy)return;
+    const actor=actorIdentity;
     setBusy(true);setError(null);setMessage(null);
     try{
       await manualTeamApi.register(session.accessToken,competitionId,selectedManualId);
+      if(actor!==lastActorIdentity.current)return;
       setSelectedManualId(null);
       await load();
-      setMessage(t("manualTeams.registered"));
+      if(actor===lastActorIdentity.current)setMessage(t("manualTeams.registered"));
     }catch(e){
-      setError(e instanceof Error?e.message:t("manualTeams.registrationError"));
-    }finally{setBusy(false);}
+      if(actor===lastActorIdentity.current)
+        setError(e instanceof Error?e.message:t("manualTeams.registrationError"));
+    }finally{if(actor===lastActorIdentity.current)setBusy(false);}
   }
   function focusSelectedTab(target:CompetitionProfileTab,animated=true){
     const bounds=tabPositions.current.get(target);
