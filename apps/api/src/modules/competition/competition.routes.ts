@@ -25,6 +25,12 @@ import type { TokenService } from "../auth/token.service.js";
 import type { CompetitionService } from "./competition.service.js";
 
 const idSchema = z.string().uuid();
+const publicMediaQuerySchema=z.object({
+  page:z.coerce.number().int().min(1).max(100000).default(1),
+  limit:z.coerce.number().int().min(1).max(24).default(12),
+  kind:z.enum(["all","photos"]).default("all"),
+  sort:z.enum(["newest","oldest"]).default("newest"),
+}).strict();
 
 export function createCompetitionRouter(service: CompetitionService, tokens: TokenService) {
   const router = Router();
@@ -109,7 +115,9 @@ export function createCompetitionRouter(service: CompetitionService, tokens: Tok
   router.get("/competitions/:competitionId/media", async (request, response, next) => {
     try {
       const competitionId = idSchema.parse(request.params.competitionId);
-      response.json(await service.listPublicMedia(competitionId));
+      const options=Object.keys(request.query).length?
+        publicMediaQuerySchema.parse(request.query):undefined;
+      response.json(await service.listPublicMedia(competitionId,options));
     } catch (error) { next(error); }
   });
 
