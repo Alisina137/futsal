@@ -40,9 +40,9 @@ export function ownerSectionForPath(path:string):OwnerDashboardSection{
 }
 
 /** Remember only real, section-level subtab routes, never private detail URLs. */
-export function ownerRememberableSectionRoute(path:string):OwnerSectionRoute|null{
-  if(path==="/owner/manual-teams")return "/owner/competitions";
-  if(path==="/owner/promotions")return "/owner/posts";
+export type OwnerRememberableRoute=OwnerSectionRoute|"/owner/manual-teams"|"/owner/promotions";
+export function ownerRememberableSectionRoute(path:string):OwnerRememberableRoute|null{
+  if(path==="/owner/manual-teams"||path==="/owner/promotions")return path;
   return ownerDashboardSections.find(item=>item.href===path)?.href??null;
 }
 export function ownerSectionRoot(section:OwnerDashboardSection):OwnerSectionRoute{
