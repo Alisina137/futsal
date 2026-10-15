@@ -35,9 +35,9 @@ export default function DashboardScreen(){
   if(roles.includes("REFEREE"))return <RefereeDashboard/>;
   // The hamburger still has exactly one Dashboard item; selection is stored per account.
   if(preferred==="PLAYER"&&roles.includes("PLAYER"))return <PlayerDashboard/>;
-  if(preferred==="VENUE_OWNER"&&roles.includes("VENUE_OWNER"))return <Redirect href="/owner/competitions"/>;
+  if(preferred==="VENUE_OWNER"&&roles.includes("VENUE_OWNER"))return <Redirect href="/owner/overview"/>;
   if(preferred==="TEAM_MANAGER"&&roles.includes("TEAM_MANAGER"))return <TeamManagerDashboard/>;
-  if(roles.includes("VENUE_OWNER"))return <Redirect href="/owner/competitions"/>;
+  if(roles.includes("VENUE_OWNER"))return <Redirect href="/owner/overview"/>;
   if(roles.includes("TEAM_MANAGER"))return <TeamManagerDashboard/>;
   if(roles.includes("PLAYER"))return <PlayerDashboard/>;
   // Base normal accounts do not have a role dashboard; stale local preference

@@ -208,7 +208,8 @@ assert(venueWebMap.includes('readOnly?:boolean')&&venueWebMap.includes('if(!${re
 assert(settingsPage.includes('onPress={confirmLocation}')&&settingsPage.includes('setMapPoint(draftMapPoint)')&&
   settingsPage.includes('editDraftCoordinates(draftLatitude,value)')&&settingsPage.includes('editDraftCoordinates(value,draftLongitude)'),
   "Native/alternative map and manual coordinates must confirm into venue latitude and longitude.");
-assert(ownerNav.includes('href:"/owner/settings"'),"Last Venue Owner tab must open the dedicated Venue Settings page.");
+const ownerDashboardRoutes=read("apps/mobile/src/lib/owner-dashboard-navigation.ts");
+assert(ownerDashboardRoutes.includes('href:"/owner/settings"'),"Last Venue Owner tab must open dedicated Venue Settings.");
 assert(!ownerNav.includes('labelKey:"owner.dashboardNav.settings",href:"/owner/onboarding"'),"Venue Settings tab must not route back to onboarding.");
 
 assert(mobileApi.includes("ownerApi")&&mobileApi.includes("updateSettings")&&mobileApi.includes("confirmBooking"),"Mobile API must support Venue Settings and booking approval.");
