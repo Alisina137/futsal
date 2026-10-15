@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { OwnerVenueSettingsDto,VenueAmenity } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { VenueGoogleMap } from "../../../src/components/owner/VenueGoogleMap";
@@ -16,6 +16,7 @@ import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
+import { ownerVenueSettingsDirty } from "../../../src/lib/owner-venue-settings-draft";
 
 const AMENITIES:VenueAmenity[]=[
   "LIGHTING","PARKING","CHANGING_ROOM","SHOWERS",
@@ -39,10 +40,20 @@ export default function VenueSettingsScreen(){
   const [mapProvider,setMapProvider]=useState<"OSM"|"GOOGLE">("OSM");
   const [mapWebUnavailable,setMapWebUnavailable]=useState(false);
   const [mapWebReady,setMapWebReady]=useState(false);
-  const [data,setData]=useState<OwnerVenueSettingsDto|null>(null);
+  const token=session?.accessToken;
+  const [record,setRecord]=useState<{token:string;value:OwnerVenueSettingsDto}|null>(null);
+  const data=record&&record.token===token?record.value:null;
+  const generation=useRef(0);
+  const loadedToken=useRef<string|null>(null);
+  const dirtyRef=useRef(false);
+  const draftSignature=useRef("");
+  const currentToken=useRef(token);
+  currentToken.current=token;
+  const [confirmPause,setConfirmPause]=useState(false);
   const [section,setSection]=useState<Section>("GENERAL");
   const [loading,setLoading]=useState(true);
-  const [saving,setSaving]=useState(false);
+  const [savingToken,setSavingToken]=useState<string|null>(null);
+  const saving=savingToken===token;
   const [saved,setSaved]=useState(false);
   const [error,setError]=useState<string|null>(null);
 
@@ -61,8 +72,8 @@ export default function VenueSettingsScreen(){
   const [amenities,setAmenities]=useState<VenueAmenity[]>([]);
   const [houseRules,setHouseRules]=useState("");
 
-  const hydrate=useCallback((next:OwnerVenueSettingsDto)=>{
-    setData(next);
+  const hydrate=useCallback((next:OwnerVenueSettingsDto,actorToken:string)=>{
+    setRecord({token:actorToken,value:next});
     setPublicPhone(next.publicPhone);
     setWhatsappPhone(next.whatsappPhone??"");
     setLatitude(next.latitude===null?"":String(next.latitude));
@@ -79,18 +90,45 @@ export default function VenueSettingsScreen(){
     setHouseRules(next.houseRules??"");
   },[]);
 
+  const draft={
+    publicPhone,whatsappPhone,latitude,longitude,courtName,duration,basePrice,
+    bookingMode,onlineBookingEnabled,noticeMinutes,advanceDays,cancellationPolicy,
+    amenities,houseRules,
+  };
+  const dirty=!!data&&ownerVenueSettingsDirty(data,draft);
+  dirtyRef.current=dirty;
+  draftSignature.current=JSON.stringify(draft);
+
   const load=useCallback(async()=>{
-    if(!session)return;
+    if(!token)return;
+    // Returning from timetable or subscription must never overwrite unsaved edits.
+    if(loadedToken.current===token&&dirtyRef.current)return;
+    const request=++generation.current;
+    if(loadedToken.current!==token){setSaved(false);setConfirmPause(false);}
     setLoading(true);setError(null);
     try{
-      const result=await ownerApi.settings(session.accessToken);
-      hydrate(result.settings);
+      const result=await ownerApi.settings(token);
+      if(request!==generation.current||currentToken.current!==token)return;
+      hydrate(result.settings,token);
+      loadedToken.current=token;
     }catch{
-      setError(t("venueSettings.loadError"));
-    }finally{setLoading(false);}
-  },[hydrate,session,t]);
+      if(request===generation.current&&currentToken.current===token)
+        setError(t("venueSettings.loadError"));
+    }finally{
+      if(request===generation.current&&currentToken.current===token)setLoading(false);
+    }
+  },[hydrate,token,t]);
 
-  useFocusEffect(useCallback(()=>{void load();},[load]));
+  useFocusEffect(useCallback(()=>{
+    void load();
+    return ()=>{generation.current++;};
+  },[load]));
+
+  function discardDraft(){
+    if(!data||!token)return;
+    hydrate(data,token);
+    setSaved(false);setError(null);
+  }
 
   const numeric=useMemo(()=>({
     duration:Number(duration),
@@ -200,13 +238,19 @@ export default function VenueSettingsScreen(){
     return null;
   }
 
-  async function save(){
-    if(!session||saving)return;
+  async function save(pauseConfirmed=false){
+    if(!token||saving||!data)return;
     const validation=validate();
     if(validation){setError(validation);return;}
-    setSaving(true);setSaved(false);setError(null);
+    if(data.onlineBookingEnabled&&!onlineBookingEnabled&&!pauseConfirmed){
+      setConfirmPause(true);
+      return;
+    }
+    const beforeSave=draftSignature.current;
+    const request=++generation.current;
+    setSavingToken(token);setSaved(false);setError(null);
     try{
-      const result=await ownerApi.updateSettings(session.accessToken,{
+      const result=await ownerApi.updateSettings(token,{
         publicPhone:publicPhone.trim(),
         whatsappPhone:whatsappPhone.trim(),
         latitude:numeric.latitude,
@@ -222,13 +266,23 @@ export default function VenueSettingsScreen(){
         amenities,
         houseRules:houseRules.trim()||null,
       });
-      hydrate(result.settings);
-      setSaved(true);
+      if(request!==generation.current||currentToken.current!==token)return;
+      loadedToken.current=token;
+      if(draftSignature.current===beforeSave){
+        hydrate(result.settings,token);
+        setSaved(true);
+      }else{
+        // Changes typed during a save remain visible and dirty.
+        setRecord({token,value:result.settings});
+      }
     }catch(cause){
+      if(request!==generation.current||currentToken.current!==token)return;
       if(cause instanceof ApiRequestError&&cause.code==="INVALID_VENUE_PHONE")setError(t("venueSettings.validation.phone"));
       else if(cause instanceof ApiRequestError&&cause.code==="VENUE_SUSPENDED")setError(t("venueSettings.suspendedError"));
       else setError(t("venueSettings.saveError"));
-    }finally{setSaving(false);}
+    }finally{
+      setSavingToken(current=>current===token?null:current);
+    }
   }
 
   if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={620}/></Screen>;
@@ -254,10 +308,20 @@ export default function VenueSettingsScreen(){
     </View>
 
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-      {sections.map((item)=><Pressable key={item} onPress={()=>setSection(item)} style={[styles.tab,section===item&&styles.tabActive]}>
+      {sections.map((item)=><Pressable key={item} onPress={()=>setSection(item)}
+        accessibilityRole="tab" accessibilityState={{selected:section===item}}
+        style={[styles.tab,section===item&&styles.tabActive]}>
         <AppText variant="caption" weight="bold" style={section===item?styles.tabTextActive:undefined}>{t(`venueSettings.section.${item}` as never)}</AppText>
       </Pressable>)}
     </ScrollView>
+
+    {dirty?<Card style={styles.draftNotice}>
+      <Ionicons name="create-outline" size={20} color={colors.primary}/>
+      <View style={{flex:1,gap:3}}>
+        <AppText weight="semibold">{t("owner.phase7.unsavedChanges")}</AppText>
+        <AppText variant="caption" muted>{t("owner.phase7.unsavedChangesHint")}</AppText>
+      </View>
+    </Card>:null}
 
     {error?<Card style={styles.errorCard}><AppText style={{color:colors.danger}}>{error}</AppText></Card>:null}
     {saved?<Card style={styles.successCard}><View style={styles.inline}><Ionicons name="checkmark-circle" size={20} color={colors.success}/><AppText weight="semibold" style={{color:colors.success}}>{t("venueSettings.saved")}</AppText></View></Card>:null}
@@ -417,7 +481,26 @@ export default function VenueSettingsScreen(){
       </Card>
     </>:null}
 
-    {section!=="ACCESS"?<Button label={t("venueSettings.save")} onPress={()=>void save()} loading={saving}/>:null}
+    <View style={styles.draftActions}>
+      {dirty?<Button label={t("owner.phase7.discardChanges")} onPress={discardDraft}
+        variant="secondary" disabled={saving}/>:null}
+      <Button label={t("venueSettings.save")} onPress={()=>void save()}
+        loading={saving} disabled={!dirty||saving}/>
+    </View>
+
+    {confirmPause?<Modal transparent visible animationType="fade"
+      onRequestClose={()=>setConfirmPause(false)}>
+      <View style={styles.confirmOverlay}>
+        <Card style={styles.confirmCard}>
+          <AppText variant="bodyLarge" weight="bold">{t("owner.phase7.pauseTitle")}</AppText>
+          <AppText>{t("owner.phase7.pauseDescription")}</AppText>
+          <Button label={t("owner.phase7.pauseConfirm")}
+            onPress={()=>{setConfirmPause(false);void save(true);}}/>
+          <Button label={t("owner.phase7.pauseCancel")} variant="secondary"
+            onPress={()=>setConfirmPause(false)}/>
+        </Card>
+      </View>
+    </Modal>:null}
 
     {savedAddressOpen?<Modal
       visible
@@ -580,6 +663,10 @@ function ManagementLink({icon,title,body,onPress}:{icon:keyof typeof Ionicons.gl
 
 const styles=StyleSheet.create({
   hero:{alignItems:"center",gap:spacing.md,padding:spacing.md,borderRadius:radius.lg,backgroundColor:"#0F3D8C"},
+  draftNotice:{flexDirection:"row",gap:spacing.sm,alignItems:"flex-start",backgroundColor:colors.primarySoft},
+  draftActions:{gap:spacing.sm},
+  confirmOverlay:{flex:1,backgroundColor:"#0008",justifyContent:"center",padding:spacing.lg},
+  confirmCard:{maxWidth:480,width:"100%",alignSelf:"center",gap:spacing.md},
   heroIcon:{width:52,height:52,borderRadius:16,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(255,255,255,.14)"},
   statusGrid:{flexDirection:"row",gap:spacing.xs,flexWrap:"wrap"},
   statusCard:{minWidth:"47%",flexGrow:1,gap:3,padding:spacing.sm},

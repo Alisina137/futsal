@@ -68,7 +68,7 @@ for(const marker of [
   "WeekdayBars",
   "cancellationReasons",
   "customerPrivacy",
-  "promotionConversion",
+  "marketingAttributionNote",
   "competitionBusiness",
 ]){
   assert(mobile.includes(marker),`Owner Analysis UI missing: ${marker}`);
@@ -92,4 +92,4 @@ for(const key of [
 
 assert(tests.includes("averageBookingValueAfn")&&tests.includes("comparison.previousFrom"),"Expanded owner analytics regression assertions missing.");
 
-console.log("Owner Analysis verified: timetable-aware capacity, period comparison, revenue/booking/customer/marketing/competition metrics, trend breakdowns, privacy-safe customer aggregation, and localized mobile decision dashboard are present.");
+console.log("Owner Analysis verified (including truthful promotion attribution instead of campaign-conversion ratios): timetable-aware capacity, period comparison, revenue/booking/customer/marketing/competition metrics, trend breakdowns, privacy-safe customer aggregation, and localized mobile decision dashboard are present.");
