@@ -21,6 +21,8 @@ export const ownerDashboardSubsections={
   media:[
     {key:"posts",href:"/owner/posts",labelKey:"owner.dashboardSubnav.posts"},
     {key:"promotions",href:"/owner/promotions",labelKey:"owner.dashboardSubnav.promotions"},
+    {key:"profile",href:"/owner/media-profile",labelKey:"owner.dashboardSubnav.publicProfile"},
+    {key:"reviews",href:"/owner/media-reviews",labelKey:"owner.dashboardSubnav.reviews"},
   ],
 } as const;
 
@@ -33,7 +35,8 @@ export function ownerSectionForPath(path:string):OwnerDashboardSection{
      inPath(path,"/owner/manual-booking")||inPath(path,"/owner/block-time")||
      inPath(path,"/owner/blocks"))return "schedule";
   if(inPath(path,"/owner/competitions")||inPath(path,"/owner/manual-teams"))return "competitions";
-  if(inPath(path,"/owner/posts")||inPath(path,"/owner/promotions"))return "media";
+  if(inPath(path,"/owner/posts")||inPath(path,"/owner/promotions")||
+     inPath(path,"/owner/media-profile")||inPath(path,"/owner/media-reviews"))return "media";
   if(inPath(path,"/owner/analytics"))return "analysis";
   if(inPath(path,"/owner/settings")||inPath(path,"/owner/onboarding")||
      inPath(path,"/owner/subscription")||inPath(path,"/owner/referees"))return "settings";
@@ -41,9 +44,11 @@ export function ownerSectionForPath(path:string):OwnerDashboardSection{
 }
 
 /** Remember only real, section-level subtab routes, never private detail URLs. */
-export type OwnerRememberableRoute=OwnerSectionRoute|"/owner/manual-teams"|"/owner/promotions";
+export type OwnerRememberableRoute=OwnerSectionRoute|"/owner/manual-teams"|"/owner/promotions"|
+  "/owner/media-profile"|"/owner/media-reviews";
 export function ownerRememberableSectionRoute(path:string):OwnerRememberableRoute|null{
-  if(path==="/owner/manual-teams"||path==="/owner/promotions")return path;
+  if(path==="/owner/manual-teams"||path==="/owner/promotions"||
+     path==="/owner/media-profile"||path==="/owner/media-reviews")return path;
   return ownerDashboardSections.find(item=>item.href===path)?.href??null;
 }
 export function ownerSectionRoot(section:OwnerDashboardSection):OwnerSectionRoute{
@@ -51,12 +56,16 @@ export function ownerSectionRoot(section:OwnerDashboardSection):OwnerSectionRout
 }
 export function ownerSecondaryRoute(path:string):"competitions"|"media"|null{
   if(inPath(path,"/owner/competitions")||inPath(path,"/owner/manual-teams"))return "competitions";
-  if(inPath(path,"/owner/posts")||inPath(path,"/owner/promotions"))return "media";
+  if(inPath(path,"/owner/posts")||inPath(path,"/owner/promotions")||
+     inPath(path,"/owner/media-profile")||inPath(path,"/owner/media-reviews"))return "media";
   return null;
 }
 export function ownerSubsectionRoute(
   path:string,section:"competitions"|"media",
 ):string{
   if(section==="competitions")return inPath(path,"/owner/manual-teams")?"offline":"all";
-  return inPath(path,"/owner/promotions")?"promotions":"posts";
+  if(inPath(path,"/owner/promotions"))return "promotions";
+  if(inPath(path,"/owner/media-profile"))return "profile";
+  if(inPath(path,"/owner/media-reviews"))return "reviews";
+  return "posts";
 }
