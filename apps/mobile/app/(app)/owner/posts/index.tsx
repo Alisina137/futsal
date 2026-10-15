@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { VenueMediaPageDto, VenuePostDto, VenuePostVisibility } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
 import { MediaImagePicker } from "../../../../src/components/owner/media/MediaImagePicker";
 import { AppText } from "../../../../src/components/ui/AppText";
@@ -12,6 +12,7 @@ import { DataLoadingState } from "../../../../src/components/ui/DataLoadingState
 import { Screen } from "../../../../src/components/ui/Screen";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { ownerApi, resolveMediaImageUrl } from "../../../../src/lib/api";
+import {ownerPostsForView} from "../../../../src/lib/owner-media-marketing";
 import { formatLocalDateTimeParts, formatPostTimeAgo } from "../../../../src/lib/date-time";
 import { usePostTimeNow } from "../../../../src/hooks/usePostTimeNow";
 import { useAuth } from "../../../../src/providers/AuthProvider";
@@ -27,8 +28,17 @@ export default function OwnerPostsScreen(){
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const postNow=usePostTimeNow();
-  const [items,setItems]=useState<VenuePostDto[]>([]);
-  const [page,setPage]=useState<VenueMediaPageDto|null>(null);
+  const token=session?.accessToken;
+  const [rawItems,setItems]=useState<VenuePostDto[]>([]);
+  const [rawPage,setPage]=useState<VenueMediaPageDto|null>(null);
+  const [postsToken,setPostsToken]=useState<string|null>(null);
+  const [pageToken,setPageToken]=useState<string|null>(null);
+  const [postsError,setPostsError]=useState(false);
+  const [pageError,setPageError]=useState(false);
+  const [search,setSearch]=useState("");
+  const serial=useRef(0);
+  const items=postsToken===token?rawItems:[];
+  const page=pageToken===token?rawPage:null;
   const [filter,setFilter]=useState<Filter>("ALL");
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState<string|null>(null);
@@ -40,34 +50,44 @@ export default function OwnerPostsScreen(){
   const [bioDraft,setBioDraft]=useState("");
 
   const load=useCallback(async()=>{
-    if(!session)return;
-    setLoading(true);setError(null);
-    try{
-      const [posts,pageResult]=await Promise.all([
-        ownerApi.posts(session.accessToken),
-        ownerApi.mediaPage(session.accessToken),
-      ]);
-      setItems(posts.posts);
-      setPage(pageResult.page);
+    const request=++serial.current;
+    if(!token){
+      setItems([]);setPage(null);setPostsToken(null);setPageToken(null);
+      setLoading(false);return;
+    }
+    setLoading(true);setError(null);setPostsError(false);setPageError(false);
+    const [postsResult,pageResult]=await Promise.allSettled([
+      ownerApi.posts(token),
+      ownerApi.mediaPage(token),
+    ] as const);
+    if(request!==serial.current)return;
+    if(postsResult.status==="fulfilled"){
+      setItems(postsResult.value.posts);setPostsToken(token);
+    }else{
+      setItems([]);setPostsToken(null);setPostsError(true);
+    }
+    if(pageResult.status==="fulfilled"){
+      setPage(pageResult.value.page);setPageToken(token);
       if(!editingPage){
-        setProfileDraft(pageResult.page.pageProfileImageUrl??"");
-        setCoverDraft(pageResult.page.pageCoverImageUrl??"");
-        setBioDraft(pageResult.page.pageBio??"");
+        setProfileDraft(pageResult.value.page.pageProfileImageUrl??"");
+        setCoverDraft(pageResult.value.page.pageCoverImageUrl??"");
+        setBioDraft(pageResult.value.page.pageBio??"");
       }
-    }catch{
-      setError(t("media.loadError"));
-    }finally{setLoading(false);}
-  },[editingPage,session,t]);
+    }else{
+      setPage(null);setPageToken(null);setPageError(true);
+    }
+    setLoading(false);
+  },[editingPage,token]);
 
-  useFocusEffect(useCallback(()=>{void load();},[load]));
+  useEffect(()=>{
+    setEditingPage(false);setFilter("ALL");setSearch("");setError(null);
+  },[session?.user.id]);
+  useFocusEffect(useCallback(()=>{
+    void load();return()=>{serial.current++;};
+  },[load]));
 
-  const visible=useMemo(()=>items.filter((item)=>{
-    if(filter==="ALL")return true;
-    if(filter==="PUBLISHED")return item.status==="PUBLISHED"&&item.visibility!=="PRIVATE";
-    if(filter==="DRAFT")return item.status==="UNPUBLISHED"&&!isPendingSchedule(item);
-    if(filter==="SCHEDULED")return isPendingSchedule(item);
-    return item.visibility==="PRIVATE";
-  }),[filter,items]);
+  const visible=useMemo(()=>ownerPostsForView(items,filter,search),
+    [items,filter,search]);
 
   const stats=useMemo(()=>({
     published:items.filter((item)=>item.status==="PUBLISHED"&&item.visibility!=="PRIVATE").length,
@@ -152,7 +172,7 @@ export default function OwnerPostsScreen(){
     finally{setBusy(null);}
   }
 
-  if(loading)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={650}/></Screen>;
+  if(loading&&postsToken!==token&&pageToken!==token)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={650}/></Screen>;
 
   const profileImage=resolveMediaImageUrl(page?.pageProfileImageUrl);
   const coverImage=resolveMediaImageUrl(page?.pageCoverImageUrl);
@@ -247,6 +267,10 @@ export default function OwnerPostsScreen(){
       </View>
     </Card>:null}
 
+    {(postsError||pageError)?<Card style={styles.errorCard}>
+      <AppText style={{color:colors.danger}}>{t("owner.phase6.partialMediaError")}</AppText>
+      <Button label={t("common.retry")} onPress={()=>void load()} variant="secondary"/>
+    </Card>:null}
     {error?<Card style={styles.errorCard}>
       <AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={t("common.retry")} onPress={()=>void load()} variant="secondary"/>
@@ -279,9 +303,13 @@ export default function OwnerPostsScreen(){
       <Insight icon="people-outline" value={page?.followerCount??0} label={t("media.followers")}/>
     </View>
 
+    <TextField label={t("owner.phase6.searchPosts")} value={search}
+      onChangeText={setSearch} maxLength={120}/>
     <View style={[styles.tabs,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {(["ALL","PUBLISHED","DRAFT","SCHEDULED","PRIVATE"] as const).map((value)=><Pressable
         key={value}
+        accessibilityRole="tab" accessibilityState={{selected:filter===value}}
+        accessibilityLabel={t(`media.filter.${value}` as never)}
         onPress={()=>setFilter(value)}
         style={[styles.tab,filter===value&&styles.tabActive]}
       >
@@ -291,7 +319,7 @@ export default function OwnerPostsScreen(){
       </Pressable>)}
     </View>
 
-    {!visible.length?<Card style={styles.emptyCard}>
+    {!postsError&&postsToken===token&&!visible.length?<Card style={styles.emptyCard}>
       <View style={styles.emptyIcon}><Ionicons name="newspaper-outline" size={30} color={colors.primary}/></View>
       <AppText variant="bodyLarge" weight="bold">{t("media.emptyTitle")}</AppText>
       <AppText muted style={{textAlign:"center"}}>{t("media.emptyBody")}</AppText>
@@ -494,7 +522,7 @@ const styles=StyleSheet.create({
   insight:{minWidth:"23%",flexGrow:1,alignItems:"center",paddingVertical:spacing.sm,paddingHorizontal:spacing.xs,borderRadius:radius.md,backgroundColor:colors.surface,gap:2,borderWidth:1,borderColor:colors.border},
   insightIcon:{width:30,height:30,borderRadius:15,alignItems:"center",justifyContent:"center",backgroundColor:colors.primarySoft},
   tabs:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,padding:4,gap:2,flexWrap:"wrap"},
-  tab:{flexGrow:1,minHeight:40,paddingHorizontal:spacing.sm,alignItems:"center",justifyContent:"center",borderRadius:radius.sm},
+  tab:{flexGrow:1,minHeight:44,paddingHorizontal:spacing.sm,alignItems:"center",justifyContent:"center",borderRadius:radius.sm},
   tabActive:{backgroundColor:colors.primarySoft},
   tabTextActive:{color:colors.primary},
   emptyCard:{alignItems:"center",gap:spacing.sm,padding:spacing.xl},
