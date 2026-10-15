@@ -298,6 +298,26 @@ export default function OwnerScheduleScreen(){
         </View>
       </View>
 
+      {availableAreas.length>0?<View style={styles.areaSection} testID="owner-phase4-court-filter">
+        <AppText variant="caption" weight="semibold">{t("owner.phase4.courtFilter")}</AppText>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.chips,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          {[{id:null,name:t("owner.phase4.allCourts")},...availableAreas].map(area=>{
+            const selected=selectedAreaId===area.id;
+            return <Pressable key={area.id??"all"}
+              accessibilityRole="button" accessibilityState={{selected}}
+              onPress={()=>{
+                if(selected)return;
+                setSelectedSlot(null);setCalendarLoading(true);
+                setSelectedAreaId(area.id);
+              }}
+              style={[styles.chip,selected&&styles.chipActive]}>
+              <AppText variant="caption" weight="semibold"
+                style={selected?styles.chipTextActive:undefined}>{area.name}</AppText>
+            </Pressable>;
+          })}
+        </ScrollView>
+      </View>:null}
       <View style={[styles.segmented,{flexDirection:isRTL?"row-reverse":"row"}]}>
         {views.map((item)=><Pressable
           key={item}
@@ -309,6 +329,21 @@ export default function OwnerScheduleScreen(){
           </AppText>
         </Pressable>)}
       </View>
+      {view!=="MONTH"?<View style={styles.areaSection} testID="owner-phase4-status-filters">
+        <AppText variant="caption" weight="semibold">{t("owner.phase4.statusFilter")}</AppText>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.chips,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          {statusFilters.map(type=><Pressable key={type}
+            accessibilityRole="button" accessibilityState={{selected:selectedType===type}}
+            onPress={()=>{setSelectedType(type);setSelectedSlot(null);}}
+            style={[styles.chip,selectedType===type&&styles.chipActive]}>
+            <AppText variant="caption" weight="semibold"
+              style={selectedType===type?styles.chipTextActive:undefined}>
+              {type==="ALL"?t("owner.phase4.allStatuses"):t(`schedule.event.${type}` as never)}
+            </AppText>
+          </Pressable>)}
+        </ScrollView>
+      </View>:null}
 
     </Card>
 
@@ -318,7 +353,7 @@ export default function OwnerScheduleScreen(){
       style={styles.calendarDataArea}
       onLayout={(event)=>{
         weekListY.current=event.nativeEvent.layout.y;
-        if(renderedView==="WEEK"&&calendar?.days.some((day)=>day.date===todayDate)){
+        if(renderedView==="WEEK"&&displayedCalendar?.days.some((day)=>day.date===todayDate)){
           focusTodayWeekRow(calendar.from);
         }
       }}
@@ -328,7 +363,7 @@ export default function OwnerScheduleScreen(){
           variant="calendar"
           minHeight={view==="MONTH"?430:view==="WEEK"?390:330}
         />
-        :calendar
+        :displayedCalendar
           ?renderedView==="MONTH"
             ?<MonthView
               days={calendar.days}
@@ -339,7 +374,7 @@ export default function OwnerScheduleScreen(){
             />
             :renderedView==="WEEK"
               ?<MemoWeekView
-                days={calendar.days}
+                days={displayedCalendar.days}
                 language={language}
                 t={t}
                 todayDate={todayDate}
@@ -921,6 +956,7 @@ const styles=StyleSheet.create({
   segment:{flex:1,minHeight:42,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
   segmentActive:{backgroundColor:colors.primarySoft},
   segmentTextActive:{color:colors.primary},
+  areaSection:{gap:spacing.xs,marginTop:spacing.sm},
   chips:{gap:spacing.sm,paddingVertical:spacing.xs},
   chip:{minHeight:38,paddingHorizontal:spacing.md,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface},
   chipActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
