@@ -80,9 +80,10 @@ check(sections.includes('return <CompetitionTeams competition={competition} regi
   "Registration must render under Teams and all registration shortcuts must open that tab.");
 check(page.includes("setInterval(()=>void refreshScore(),25000)")
   &&page.includes('AppState.currentState!=="active"')
-  &&page.includes('activeTab!=="HOME"')
-  &&page.includes("appState.remove()"),
-  "Live scores must refresh only while the foreground Home profile is focused and clean up timers.");
+  &&page.includes('"HOME","MATCHES","STANDINGS","STATS"')
+  &&page.includes("appState.remove()")
+  &&page.includes("actor!==lastActorIdentity.current||generation!==loadGeneration.current"),
+  "Live scores must refresh safely for Home, Matches and standing/stats tabs while in the foreground.");
 check(directory.includes('tab:"STANDINGS"'),"Competition standings quick actions should open the tab inside the profile.");
 check(page.includes('if(input==="RESULTS")return "MATCHES"')
   &&page.includes('initialMatchFilter={tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL"}'),
