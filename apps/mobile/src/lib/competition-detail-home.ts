@@ -16,7 +16,8 @@ export function competitionHomeSnapshot(competition:Pick<CompetitionDto,
   "status"|"teams"|"matches"|"championTeamId"|"maxTeams"|"registrationClosesAt">,
   now:Date=new Date()){
   const accepted=competition.teams.filter(team=>team.status==="ACCEPTED");
-  const live=competition.matches.filter(match=>match.status==="IN_PROGRESS").sort((a,b)=>
+  const live=["COMPLETED","ARCHIVED","CANCELLED"].includes(competition.status)?[]:
+    competition.matches.filter(match=>match.status==="IN_PROGRESS").sort((a,b)=>
     (a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
   const upcoming=competition.matches.filter(match=>match.status==="SCHEDULED"&&
     finiteDate(match.startsAt)!==null&&finiteDate(match.startsAt)!>=now.getTime())
