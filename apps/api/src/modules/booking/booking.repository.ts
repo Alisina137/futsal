@@ -15,13 +15,14 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, asc, desc, eq, gt, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   BookingRepository,
   BookingVenueRecord,
   CreateBookingRecordInput,
   OccupancyRecord,
+  OwnerBookingDirectoryFilters,
 } from "./booking.types.js";
 
 type DbBookingProjection = {
@@ -638,6 +639,49 @@ export class DrizzleBookingRepository implements BookingRepository {
       gt(bookings.endsAt, startsAt),
     ));
     return rows.map(bookingDto).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  }
+
+  async listOwnerBookingDirectory(venueId:string,filters:OwnerBookingDirectoryFilters){
+    const q=filters.q.trim().replace(/[\\%_]/g,character=>"\\"+character);
+    const conditions=[
+      eq(bookings.venueId,venueId),
+      ...(filters.status?[eq(bookings.status,filters.status)]:[]),
+      ...(filters.source?[eq(bookings.source,filters.source)]:[]),
+      ...(filters.from?[gte(bookings.startsAt,filters.from)]:[]),
+      ...(filters.toExclusive?[lt(bookings.startsAt,filters.toExclusive)]:[]),
+      ...(filters.scope==="UPCOMING"?[
+        eq(bookings.status,"CONFIRMED" as const),gte(bookings.startsAt,filters.now),
+      ]:filters.scope==="HISTORY"?[
+        or(eq(bookings.status,"CANCELLED" as const),and(
+          eq(bookings.status,"CONFIRMED" as const),lt(bookings.endsAt,filters.now),
+        ))!,
+      ]:[]),
+      ...(q?[or(
+        ilike(bookings.customerName,`%${q}%`),
+        ilike(bookings.customerPhone,`%${q}%`),
+        ilike(users.displayName,`%${q}%`),
+        ilike(users.phoneE164,`%${q}%`),
+        ilike(venueAreas.name,`%${q}%`),
+      )!]:[]),
+    ];
+    const where=and(...conditions);
+    const sorting=filters.scope==="UPCOMING"?
+      [asc(bookings.startsAt),asc(bookings.id)]:
+      [desc(bookings.startsAt),desc(bookings.id)];
+    const [rows,totals]=await Promise.all([
+      this.bookingProjectionQuery().where(where)
+        .orderBy(...sorting).limit(filters.pageSize+1)
+        .offset((filters.page-1)*filters.pageSize),
+      this.db.select({total:sql<number>`count(*)::int`}).from(bookings)
+        .innerJoin(venueAreas,eq(bookings.areaId,venueAreas.id))
+        .leftJoin(users,eq(bookings.playerUserId,users.id))
+        .where(where),
+    ]);
+    return {
+      bookings:rows.slice(0,filters.pageSize).map(bookingDto),
+      page:filters.page,pageSize:filters.pageSize,
+      total:Number(totals[0]?.total??0),hasMore:rows.length>filters.pageSize,
+    };
   }
 
   async listPendingOnlineVenueBookings(venueId: string) {
