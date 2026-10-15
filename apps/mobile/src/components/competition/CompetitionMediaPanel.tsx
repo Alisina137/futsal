@@ -48,7 +48,7 @@ export function CompetitionMediaPanel({competition,view}:{
   },[competition.id,kind,sort,retry]);
 
   async function loadMore(){
-    if(loading||loadingMore||!hasMore||error)return;
+    if(loading||loadingMore||!hasMore)return;
     const token=generation.current,nextPage=page+1;
     setLoadingMore(true);
     try{
@@ -153,7 +153,7 @@ export function CompetitionMediaPanel({competition,view}:{
       </AppText>
       <Pressable accessibilityRole="button" style={styles.action}
         testID="competition-media-retry"
-        onPress={()=>{if(page===0)setRetry(n=>n+1);else setError(false);}}>
+        onPress={()=>{if(page===0)setRetry(n=>n+1);else void loadMore();}}>
         <AppText weight="semibold" style={{color:colors.primary}}>{t("common.retry")}</AppText>
       </Pressable>
     </Card>:null}

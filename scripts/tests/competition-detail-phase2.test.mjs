@@ -55,7 +55,9 @@ test("next fixture excludes past, postponed, unscheduled and cancelled matches",
 });
 
 test("verified completed results count only official scored matches",()=>{
-  const s=competitionHomeSnapshot(cup({status:"COMPLETED",matches:[
+  const s=competitionHomeSnapshot(cup({status:"COMPLETED",
+    teams:[{teamId:"A",status:"ACCEPTED"},{teamId:"B",status:"ACCEPTED"}],
+    matches:[
     match("ok","COMPLETED",null,2,0),
     match("corrected","CORRECTED",null,0,1),
     match("notScored","COMPLETED"),
