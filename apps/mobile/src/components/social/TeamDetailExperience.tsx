@@ -7,6 +7,8 @@ import {Image,Linking,Modal,Pressable,ScrollView,Share,StyleSheet,View,useWindow
 import {marketingApi,resolveMediaImageUrl,teamApi,teamManagerApi,teamPublicApi,
   type TeamManagerProfileDetails,type TeamPublicHighlights} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
+import {finished,teamMatchOutcome,teamMatchRows,teamMatchCompetitions,
+  type TeamMatchFilter} from "../../lib/team-detail-matches";
 import {teamDetailJoinAction,displayTeamFollowerCount,publicTeamTelephoneUrl} from
   "../../lib/team-detail-actions";
 import {AppText} from "../ui/AppText";
@@ -36,6 +38,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     posts:"Posts",photos:"Photos",players:"Players",leaders:"Leadership",upcoming:"Upcoming",results:"Results",
     active:"Active",past:"Past",overview:"Overview",form:"Recent form",members:"Membership",
     noPosts:"No posts published by this team yet.",noPhotos:"No team photos yet.",
+    matchAll:"All",matchLive:"Live",matchScheduled:"Scheduled",matchPostponed:"Postponed",matchWin:"Wins",matchDraw:"Draws",matchLoss:"Losses",matchCup:"Competition",matchNoFilter:"No matches for these filters.",matchOpenCompetition:"Competition details",matchSummary:"Matches shown",matchUnknownScore:"Result pending",
     noGames:"No matches to show.",noCompetitions:"No competitions to show.",noRoster:"No players to show.",
     noLeaders:"No captain has been appointed.",privateRoster:"This team's player list is private.",
     error:"Unable to load team updates.",retry:"Try again",share:"Share",joined:"Member",record:"Match record",
@@ -77,6 +80,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     posts:"پست‌ها",photos:"عکس‌ها",players:"بازیکنان",leaders:"رهبران",upcoming:"آینده",results:"نتایج",
     active:"جاری",past:"گذشته",overview:"نمای کلی",form:"نتایج اخیر",members:"عضویت",
     noPosts:"هنوز پستی منتشر نشده است.",noPhotos:"هنوز عکسی نشر نشده است.",
+    matchAll:"همه",matchLive:"زنده",matchScheduled:"برنامه‌ریزی‌شده",matchPostponed:"به تعویق‌افتاده",matchWin:"برد",matchDraw:"مساوی",matchLoss:"باخت",matchCup:"رقابت",matchNoFilter:"برای این فیلترها مسابقه‌ای یافت نشد.",matchOpenCompetition:"جزئیات رقابت",matchSummary:"مسابقات نمایش‌داده‌شده",matchUnknownScore:"نتیجه در انتظار",
     noGames:"مسابقه‌ای برای نمایش نیست.",noCompetitions:"رقابتی برای نمایش نیست.",noRoster:"بازیکنی برای نمایش نیست.",
     noLeaders:"هنوز کپیتان تعیین نشده است.",privateRoster:"فهرست بازیکنان این تیم خصوصی است.",
     error:"بارگیری معلومات تیم ناموفق بود.",retry:"تلاش دوباره",share:"اشتراک‌گذاری",joined:"عضو",record:"کارنامه مسابقات",
@@ -118,6 +122,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     posts:"پوسټونه",photos:"انځورونه",players:"لوبغاړي",leaders:"مشران",upcoming:"راتلونکې",results:"پایلې",
     active:"روانې",past:"تېرې",overview:"لنډیز",form:"وروستۍ پایلې",members:"غړیتوب",
     noPosts:"تر اوسه پوسټ نشته.",noPhotos:"تر اوسه انځور نشته.",
+    matchAll:"ټولې",matchLive:"ژوندۍ",matchScheduled:"ټاکل شوې",matchPostponed:"ځنډېدلې",matchWin:"بریاوې",matchDraw:"مساوي",matchLoss:"ماتې",matchCup:"سیالي",matchNoFilter:"د دې چاڼګرونو لپاره لوبه ونه موندل شوه.",matchOpenCompetition:"د سیالۍ جزییات",matchSummary:"ښودل شوې لوبې",matchUnknownScore:"پایله لا نه ده ثبت شوې",
     noGames:"د ښودلو لوبې نشته.",noCompetitions:"د ښودلو سیالۍ نشته.",noRoster:"لوبغاړي نشته.",
     noLeaders:"تر اوسه کپتان نه دی ټاکل شوی.",privateRoster:"د دې ټیم د لوبغاړو لېست شخصي دی.",
     error:"د ټیم د معلوماتو ترلاسه کول ناکام شول.",retry:"بیا هڅه",share:"شریکول",joined:"غړی",record:"د لوبو ریکارډ",
@@ -165,6 +170,8 @@ export default function TeamDetailExperience(){
   const {height:viewportHeight,width:viewportWidth}=useWindowDimensions();
   const tx=(key:string)=>words[language][key]??words.en[key]??key;
   const [team,setTeam]=useState<TeamDto|null>(null);
+  const [matchFilters,setMatchFilters]=useState<{upcoming:TeamMatchFilter;results:TeamMatchFilter}>({upcoming:"all",results:"all"});
+  const [matchCompetitions,setMatchCompetitions]=useState<{upcoming:string;results:string}>({upcoming:"all",results:"all"});
   // Only public roster identities are eligible for /players/[playerId] links.
   const [publicPlayerIds,setPublicPlayerIds]=useState<string[]>([]);
   const [squadQuery,setSquadQuery]=useState("");
@@ -207,6 +214,7 @@ export default function TeamDetailExperience(){
     loadGeneration.current++;postsGeneration.current++;
     followActionSequence.current++;joinActionSequence.current++;
     setTeam(null);setProfile(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
+    setMatchFilters({upcoming:"all",results:"all"});setMatchCompetitions({upcoming:"all",results:"all"});
     setPublicPlayerIds([]);setSquadQuery("");setSquadPosition("ALL");
     setHighlights(null);setOlderPosts([]);setMorePostsAvailable(false);
     setMorePostsBusy(false);setMorePostsError(null);setPublicBusy(false);setPhoto(null);
@@ -522,52 +530,105 @@ export default function TeamDetailExperience(){
     </Card>)}{footer}</>;
   }
   function matchesContent(data:TeamPublicHighlights){
-    const finished=(m:TeamPublicHighlights["matches"][number])=>
-      ["COMPLETED","CORRECTED"].includes(m.status);
-    const rows=data.matches.filter(m=>subs.matches==="results"?finished(m):
-      ["SCHEDULED","IN_PROGRESS","POSTPONED"].includes(m.status))
-      .sort((a,b)=>subs.matches==="results"
-        ?(Date.parse(b.startsAt??"")||0)-(Date.parse(a.startsAt??"")||0)
-        :(Date.parse(a.startsAt??"")||Number.MAX_SAFE_INTEGER)-(Date.parse(b.startsAt??"")||Number.MAX_SAFE_INTEGER));
-    if(!rows.length)return empty(tx("noGames"),"football-outline");
-    return rows.map(m=><Card key={m.id} style={styles.fixture}>
-      <View style={[styles.fixtureHeading,rowDirection]}>
-        <View style={{flex:1,gap:3}}>
-          <AppText weight="semibold" numberOfLines={1}>{m.competitionName}</AppText>
-          <AppText variant="caption" muted>{m.stage}</AppText>
+    const phase=subs.matches;
+    const selected=matchFilters[phase],competition=matchCompetitions[phase];
+    const all=teamMatchRows(data.matches,id,phase);
+    const rows=teamMatchRows(data.matches,id,phase,selected,competition);
+    const cups=teamMatchCompetitions(data.matches,id,phase);
+    const filters:TeamMatchFilter[]=phase==="results"?
+      ["all","win","draw","loss"]:["all","live","scheduled","postponed"];
+    const label=(filter:TeamMatchFilter)=>tx(({all:"matchAll",live:"matchLive",
+      scheduled:"matchScheduled",postponed:"matchPostponed",win:"matchWin",
+      draw:"matchDraw",loss:"matchLoss"} as const)[filter]);
+    return <View testID="team-match-list" style={{gap:spacing.md}}>
+      <Card style={{gap:spacing.sm}}>
+        <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
+          <AppText variant="bodyLarge" weight="bold">{tx(phase)}</AppText>
+          <AppText variant="caption" muted>{tx("matchSummary")}: {rows.length}/{all.length}</AppText>
         </View>
-        <View style={[styles.fixtureStatus,{backgroundColor:finished(m)?"#DCFCE7":
-          m.status==="IN_PROGRESS"?"#DBEAFE":"#FEF3C7"}]}>
-          <AppText variant="caption" weight="bold" style={{color:finished(m)?"#166534":
-            m.status==="IN_PROGRESS"?"#1D4ED8":"#92400E"}}>
-            {tx(finished(m)?"resultsVerified":m.status==="IN_PROGRESS"?"live":
-              m.status==="POSTPONED"?"postponed":"scheduled")}
-          </AppText>
-        </View>
-      </View>
-      <View style={[styles.scoreRow,rowDirection]}>
-        <AppText weight="semibold" style={{flex:1,textAlign:"center"}}>
-          {m.homeTeamId===id?team?.name:m.homeTeamName||"—"}
-        </AppText>
-        <View style={styles.scoreBadge}>
-          <AppText weight="bold" style={{color:colors.primary}}>
-            {finished(m)?`${m.homeScore??"—"} : ${m.awayScore??"—"}`:tx("versus") }
-          </AppText>
-        </View>
-        <AppText weight="semibold" style={{flex:1,textAlign:"center"}}>
-          {m.awayTeamId===id?team?.name:m.awayTeamName||"—"}
-        </AppText>
-      </View>
-      <View style={[styles.fixtureDate,rowDirection]}>
-        <Ionicons name="calendar-outline" size={17} color={colors.textMuted}/>
-        <AppText variant="caption" muted style={{flex:1}}>
-          {m.startsAt?formatCompetitionDateTime(m.startsAt,language):tx("datePending")}
-        </AppText>
-      </View>
-      <Button label={tx("viewMatch")} variant="secondary"
-        onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
-          params:{competitionId:m.competitionId,matchId:m.id}})}/>
-    </Card>);
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
+          {filters.map(value=><Pressable key={value} testID={"team-match-status-"+value}
+            accessibilityRole="button" accessibilityLabel={label(value)}
+            accessibilityState={{selected:selected===value}}
+            onPress={()=>setMatchFilters(current=>({...current,[phase]:value}))}
+            style={[styles.squadFilter,selected===value&&styles.squadFilterActive]}>
+            <AppText variant="caption" weight="semibold"
+              style={{color:selected===value?"#FFFFFF":colors.primary}}>{label(value)}</AppText>
+          </Pressable>)}
+        </ScrollView>
+        {cups.length>1?<View style={{gap:spacing.xs}}>
+          <AppText variant="caption" muted>{tx("matchCup")}</AppText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
+            {[{id:"all",name:tx("matchAll")},...cups].map(cup=><Pressable key={cup.id}
+              testID={"team-match-competition-"+cup.id}
+              accessibilityRole="button" accessibilityLabel={cup.name}
+              accessibilityState={{selected:competition===cup.id}}
+              onPress={()=>setMatchCompetitions(current=>({...current,[phase]:cup.id}))}
+              style={[styles.squadFilter,competition===cup.id&&styles.squadFilterActive]}>
+              <AppText variant="caption" weight="semibold" numberOfLines={1}
+                style={{color:competition===cup.id?"#FFFFFF":colors.primary}}>{cup.name}</AppText>
+            </Pressable>)}
+          </ScrollView>
+        </View>:null}
+      </Card>
+      {!rows.length?empty(tx(all.length?"matchNoFilter":"noGames"),"football-outline"):
+        rows.map(m=>{
+          const result=teamMatchOutcome(m,id);
+          const statusLabel=finished(m)?"resultsVerified":m.status==="IN_PROGRESS"?"live":
+            m.status==="POSTPONED"?"postponed":"scheduled";
+          return <Card key={m.id} style={styles.fixture}>
+            <View style={[styles.fixtureHeading,rowDirection]}>
+              <Pressable accessibilityRole="button" style={{flex:1,gap:3}}
+                accessibilityLabel={tx("matchOpenCompetition")+": "+m.competitionName}
+                onPress={()=>router.push({pathname:"/competitions/[competitionId]",
+                  params:{competitionId:m.competitionId}})}>
+                <AppText weight="semibold" numberOfLines={2}>{m.competitionName}</AppText>
+                <AppText variant="caption" muted>{m.stage}</AppText>
+              </Pressable>
+              <View style={[styles.fixtureStatus,{backgroundColor:finished(m)?"#DCFCE7":
+                m.status==="IN_PROGRESS"?"#DBEAFE":"#FEF3C7"}]}>
+                <AppText variant="caption" weight="bold" style={{color:finished(m)?"#166534":
+                  m.status==="IN_PROGRESS"?"#1D4ED8":"#92400E"}}>
+                  {tx(statusLabel)}
+                </AppText>
+              </View>
+            </View>
+            <View style={[styles.scoreRow,rowDirection]}>
+              <AppText weight="semibold" numberOfLines={2} style={{flex:1,textAlign:"center"}}>
+                {m.homeTeamId===id?team?.name:m.homeTeamName||"—"}
+              </AppText>
+              <View style={styles.scoreBadge}>
+                <AppText weight="bold" style={{color:colors.primary}}>
+                  {finished(m)&&m.homeScore!==null&&m.awayScore!==null?
+                    `${m.homeScore} : ${m.awayScore}`:tx("versus")}
+                </AppText>
+              </View>
+              <AppText weight="semibold" numberOfLines={2} style={{flex:1,textAlign:"center"}}>
+                {m.awayTeamId===id?team?.name:m.awayTeamName||"—"}
+              </AppText>
+            </View>
+            {result?<View style={[styles.fixtureStatus,{alignSelf:"center",
+              backgroundColor:result==="win"?"#DCFCE7":result==="loss"?"#FEE2E2":"#F1F5F9"}]}>
+              <AppText variant="caption" weight="semibold" style={{color:result==="win"?"#166534":
+                result==="loss"?"#991B1B":colors.textMuted}}>
+                {label(result)}
+              </AppText>
+            </View>:finished(m)?<AppText variant="caption" muted
+              style={{textAlign:"center"}}>{tx("matchUnknownScore")}</AppText>:null}
+            <View style={[styles.fixtureDate,rowDirection]}>
+              <Ionicons name="calendar-outline" size={17} color={colors.textMuted}/>
+              <AppText variant="caption" muted style={{flex:1}}>
+                {m.startsAt?formatCompetitionDateTime(m.startsAt,language):tx("datePending")}
+              </AppText>
+            </View>
+            <Button label={tx("viewMatch")} variant="secondary"
+              onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
+                params:{competitionId:m.competitionId,matchId:m.id}})}/>
+          </Card>;
+        })}
+    </View>;
   }
   function competitionsContent(data:TeamPublicHighlights){
     const old=["COMPLETED","ARCHIVED","CANCELLED"];
