@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {OwnerOnboardingStatus} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
-import {useCallback,useMemo,useRef,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {AppState,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {ApiRequestError,competitionApi,ownerApi} from "../../lib/api";
 import {
@@ -41,13 +41,10 @@ export function OwnerDashboard(){
   const [loading,setLoading]=useState(true);
   const [now,setNow]=useState(Date.now());
   const generation=useRef(0);
-  const lastUser=useRef(userId);
-  if(lastUser.current!==userId){
-    lastUser.current=userId;
-    // Route memory is scoped to one signed-in account, not the next actor.
-    // Changing a user's dashboard should never preserve the previous view.
-    if(tab!=="today")setTab("today");
-  }
+  useEffect(()=>{
+    // Never retain another owner's selected private overview section.
+    setTab("today");
+  },[userId]);
   const dayKey=todayKabul();
   const current=loaded?.token===token?loaded:null;
   const status=current?.status??null;
@@ -264,7 +261,8 @@ export function OwnerDashboard(){
         <AppText weight="bold" variant="bodyLarge">{t("owner.phase2.actionCenter")}</AppText>
         <AppText variant="caption" muted>{t("owner.phase2.actionsSubtitle")}</AppText>
         {!summary?<Card><AppText muted>{t("owner.phase2.unavailable")}</AppText></Card>
-          :attention.length===0?<Card style={styles.stack}>
+          :attention.length===0&&summary.pendingCount!==null
+            &&summary.registrationOpenCount!==null?<Card style={styles.stack}>
             <Ionicons name="checkmark-circle-outline" size={30} color={colors.success}/>
             <AppText weight="semibold">{t("owner.phase2.allCaughtUp")}</AppText>
             <AppText muted>{t("owner.phase2.allCaughtUpBody")}</AppText>
