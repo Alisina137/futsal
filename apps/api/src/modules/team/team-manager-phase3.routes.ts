@@ -57,8 +57,20 @@ export function aggregatePublicPlayerStats(rows:ReadonlyArray<{
     current.assists+=r.assists;
     players.set(r.userId,current);
   }
-  return [...players.values()].sort((a,b)=>b.goals-a.goals||b.assists-a.assists||
-    b.appearances-a.appearances||a.displayName.localeCompare(b.displayName)).slice(0,20);
+  // A goals-only top-20 slice incorrectly omits top assist/appearance leaders.
+  // Return the union of the top 20 for each verified metric (at most 60)
+  // while preserving goals-first ordering for existing clients.
+  const available=[...players.values()];
+  const ranked=(metric:"goals"|"assists"|"appearances")=>
+    [...available].sort((a,b)=>b[metric]-a[metric]||b.goals-a.goals||
+      b.assists-a.assists||b.appearances-a.appearances||
+      a.displayName.localeCompare(b.displayName)||a.userId.localeCompare(b.userId)).slice(0,20);
+  const selected=new Map<string,(typeof available)[number]>();
+  for(const metric of ["goals","assists","appearances"] as const)
+    for(const player of ranked(metric))selected.set(player.userId,player);
+  return [...selected.values()].sort((a,b)=>b.goals-a.goals||b.assists-a.assists||
+    b.appearances-a.appearances||a.displayName.localeCompare(b.displayName)||
+    a.userId.localeCompare(b.userId));
 }
 export class TeamManagerPhase3Service{
   constructor(private readonly db:Database,private readonly now:()=>Date=()=>new Date(),
