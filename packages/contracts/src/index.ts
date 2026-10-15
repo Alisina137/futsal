@@ -1214,6 +1214,32 @@ export const bookingDtoSchema = z.object({
 });
 export type BookingDto = z.infer<typeof bookingDtoSchema>;
 
+/** An authenticated owner's paged venue booking directory. All filters run
+ * on the server before pagination; never fetch all customer records to search. */
+export const ownerBookingListQuerySchema=z.object({
+  scope:z.enum(["UPCOMING","ALL","HISTORY"]).default("UPCOMING"),
+  status:bookingStatusSchema.optional(),
+  source:bookingSourceSchema.optional(),
+  q:z.string().trim().max(100).default(""),
+  from:dateOnlySchema.optional(),
+  to:dateOnlySchema.optional(),
+  page:z.coerce.number().int().min(1).max(500).default(1),
+  pageSize:z.coerce.number().int().min(5).max(50).default(20),
+}).refine(input=>!input.from||!input.to||input.from<=input.to,{
+  message:"From date must not exceed to date",path:["to"],
+});
+export type OwnerBookingListQuery=z.infer<typeof ownerBookingListQuerySchema>;
+export const ownerBookingListResponseSchema=z.object({
+  bookings:z.array(bookingDtoSchema),
+  page:z.number().int().min(1),
+  pageSize:z.number().int().min(5).max(50),
+  total:z.number().int().min(0),
+  hasMore:z.boolean(),
+  generatedAt:isoDateTimeSchema,
+});
+export type OwnerBookingListResponse=z.infer<typeof ownerBookingListResponseSchema>;
+
+
 export const venueBlockDtoSchema = z.object({
   id: z.string().uuid(),
   venueId: z.string().uuid(),
