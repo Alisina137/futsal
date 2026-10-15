@@ -42,7 +42,7 @@ export default function VenueSettingsScreen(){
   const [mapWebReady,setMapWebReady]=useState(false);
   const token=session?.accessToken;
   const [record,setRecord]=useState<{token:string;value:OwnerVenueSettingsDto}|null>(null);
-  const data=record?.token===token?record.value:null;
+  const data=record&&record.token===token?record.value:null;
   const generation=useRef(0);
   const loadedToken=useRef<string|null>(null);
   const dirtyRef=useRef(false);
