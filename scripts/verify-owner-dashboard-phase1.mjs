@@ -52,7 +52,6 @@ must(overviewRoute,['<OwnerDashboard/>'],"Overview route");
 must(overview,['<Screen embedded>','useFocusEffect','const generation=useRef(0)',
   'if(request!==generation.current)return;',
   'const liveStatus=loadedToken===token?status:null;',
-  'status?.venue', // explicit note: owner status usage
   'testID="owner-phase1-overview"','<OwnerPendingBookings token={token} compact/>',
   'testID={`owner-phase1-shortcut-${item.key}`}',
   '/owner/bookings','/owner/schedule','/owner/competitions','/owner/analytics',
