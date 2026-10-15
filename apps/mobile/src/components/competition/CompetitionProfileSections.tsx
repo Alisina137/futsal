@@ -172,7 +172,7 @@ function CompetitionStandings({competition,initialStage,onStageChange}:{
             style={{color:selectedStage===option?"#FFFFFF":colors.primary}}>
             {t(option==="GROUPS"?"competition.profile.groupStage":"competition.profile.knockoutStage")}
           </AppText>
-        </Press>)}
+        </Pressable>)}
     </View>:null}
     {knockoutOnly||mixed&&selectedStage==="KNOCKOUT"?<>
       {knockout.length===0?<Placeholder title={t("competition.noBracket")} icon="git-branch-outline"/>:null}
