@@ -798,6 +798,7 @@ export default function TeamDetailExperience(){
                 <Ionicons name={isRTL?"chevron-back":"chevron-forward"}
                   size={18} color={colors.primary}/>
               </View>
+              <AppText variant="caption" muted>{tx("compRecentNote")}</AppText>
             </Pressable>:null}
             <View style={[styles.horizontal,rowDirection,{flexWrap:"wrap"}]}>
               <Button label={tx("viewCompetition")} variant="secondary"
