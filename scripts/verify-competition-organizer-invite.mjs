@@ -10,18 +10,22 @@ assert(page.includes('session.user.roles.includes("VENUE_OWNER")')
   && page.includes("ownerApi.getStatus(session.accessToken)")
   && page.includes("status.venue?.id===next.venueId"),
   "Venue owner inviting must verify the competition hosting venue.");
-assert(page.includes("teamApi.directory(session.accessToken)")
-  && page.includes('!["REJECTED","WITHDRAWN"].includes(team.status)')
-  && page.includes("!representedIds.has(team.id)"),
-  "Organizer picker must list active teams not currently represented.");
-assert(page.includes("competitionApi.inviteTeam(session.accessToken,competitionId,{teamId:invitedTeamId,seed:null})")
-  && page.includes("competitionApi.register(session.accessToken,competitionId,item.teamId)")
-  && page.includes('if(item.kind==="register")'),
-  "Organizer invitations and manager applications must stay separate.");
-assert(page.includes('t("competition.organizerInviteHint")')
-  && page.includes('t("competition.organizerInvitationSent")')
-  && page.includes("inviteAsOrganizer()"),
-  "Teams tab must explain and expose the venue owner invitation action.");
+const dashboard=read("apps/mobile/app/(app)/owner/competitions/[competitionId]/manage.tsx");
+assert(!page.includes("inviteAsOrganizer()")&&!page.includes("registerManualTeam()")&&
+  !page.includes("teamApi.directory(session.accessToken)")&&
+  page.includes('testID="competition-owner-management-entry"')&&
+  page.includes('params:{competitionId,tab:"TEAMS"}'),
+  "Public Teams must link to the organizer console, never duplicate invitation or manual-team writes.");
+assert(dashboard.includes("teamApi.directory(")&&
+  dashboard.includes("competitionApi.inviteTeam(")&&
+  dashboard.includes("manualTeamApi.register(")&&
+  dashboard.includes("competitionApi.decideRegistration(")&&
+  dashboard.includes('tab==="TEAMS"?"TEAMS":"OVERVIEW"'),
+  "Existing owner-only Teams console must retain active team invitations, approvals and manual registrations.");
+assert(page.includes("ownerApi.getStatus(session.accessToken)")&&
+  page.includes("status.venue?.id===next.venueId")&&
+  page.includes("competitionApi.register(session.accessToken,competitionId,item.teamId)"),
+  "Public owner navigation and manager applications require separate verified authorization.");
 assert(service.includes("async inviteTeam(ownerUserId")
   && service.includes("await this.ownerCompetition(ownerUserId, competitionId)")
   && service.includes("team.managerUserId !== userId"),
