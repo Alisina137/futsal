@@ -1131,8 +1131,13 @@ export default function TeamDetailExperience(){
           </AppText>
         </View>:null}
         <AppText testID="team-about-membership-message">
-          {tx("aboutMember"+memberPresentation[0].toUpperCase()+
-            memberPresentation.slice(1))}
+          {tx(({
+            manager:"aboutMemberManager",captain:"aboutMemberCaptain",player:"aboutMemberPlayer",
+            pending:"aboutMemberPending",signIn:"aboutMemberSignIn",
+            verifyEmail:"aboutMemberVerify",roleRestricted:"aboutMemberRole",
+            invitationOnly:"aboutMemberInvite",rejected:"aboutMemberRejected",
+            cancelled:"aboutMemberCancelled",eligible:"aboutMemberEligible",
+          } as const)[memberPresentation])}
         </AppText>
         {!hasMemberAccess?<AppText variant="caption" muted>{tx("joinDescription")}</AppText>:null}
         {joinStatus==="PENDING"&&!hasMemberAccess?<View style={[styles.horizontal,rowDirection]}>
