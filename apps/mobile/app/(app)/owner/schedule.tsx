@@ -138,6 +138,7 @@ export default function OwnerScheduleScreen(){
   const todayDate=useMemo(()=>todayKabul(),[]);
   const [busy,setBusy]=useState<string|null>(null);
   const [selectedSlot,setSelectedSlot]=useState<{event:VenueCalendarEvent;date:string}|null>(null);
+  const [pendingAction,setPendingAction]=useState<{kind:"cancel"|"unblock";id:string}|null>(null);
   const onSelectSlot=useCallback((event:VenueCalendarEvent,date:string)=>setSelectedSlot({event,date}),[]);
   const [error,setError]=useState<string|null>(null);
   const range=useMemo(()=>rangeForView(view,anchorDate,language),[view,anchorDate,language]);
@@ -407,13 +408,35 @@ export default function OwnerScheduleScreen(){
       }}
       onCancelBooking={(id)=>{
         setSelectedSlot(null);
-        void cancelBooking(id);
+        setPendingAction({kind:"cancel",id});
       }}
       onUnblock={(id)=>{
         setSelectedSlot(null);
-        void unblock(id);
+        setPendingAction({kind:"unblock",id});
       }}
     />:null}
+    <Modal visible={pendingAction!==null} transparent animationType="fade"
+      onRequestClose={()=>{if(!busy)setPendingAction(null);}}>
+      <View style={styles.slotModalOverlay}>
+        <Card style={styles.confirmCard}>
+          <AppText variant="bodyLarge" weight="bold">
+            {pendingAction?.kind==="unblock"?t("owner.phase4.unblockTitle"):t("owner.phase4.cancelBookingTitle")}
+          </AppText>
+          <AppText>{pendingAction?.kind==="unblock"
+            ?t("owner.phase4.unblockConfirm"):t("owner.phase4.cancelBookingConfirm")}</AppText>
+          <Button label={pendingAction?.kind==="unblock"?t("schedule.unblock"):t("schedule.cancelBooking")}
+            variant="danger" loading={Boolean(busy)}
+            onPress={()=>{
+              if(!pendingAction||busy)return;
+              const action=pendingAction;setPendingAction(null);
+              if(action.kind==="unblock")void unblock(action.id);
+              else void cancelBooking(action.id);
+            }}/>
+          <Button label={t("common.cancel")} variant="secondary" disabled={Boolean(busy)}
+            onPress={()=>setPendingAction(null)}/>
+        </Card>
+      </View>
+    </Modal>
   </Screen>;
 }
 
@@ -933,6 +956,7 @@ function Legend({t}:{t:ReturnType<typeof useLocale>["t"]}){
 
 
 const styles=StyleSheet.create({
+  confirmCard:{width:"100%",maxWidth:480,alignSelf:"center",gap:spacing.md},
   pendingBadge:{alignSelf:"flex-start",paddingHorizontal:spacing.xs,paddingVertical:2,borderRadius:radius.pill,backgroundColor:"#FEF3C7"},
   pendingBadgeText:{color:"#92400E"},
   errorCard:{borderColor:colors.danger},
