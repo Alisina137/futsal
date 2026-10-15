@@ -12,7 +12,8 @@ import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {LeagueStandingsTable} from "./LeagueStandingsTable";
-import {CompetitionMatchList} from "./CompetitionMatchList";
+import {CompetitionMatchList,type MatchFilter} from "./CompetitionMatchList";
+import type {CompetitionMatchPreferences} from "../../lib/competition-detail-match-filters";
 import {Card} from "../ui/Card";
 
 export type CompetitionProfileTab="HOME"|"MATCHES"|"STANDINGS"|"STATS"|"TEAMS"|"MEDIA"|"ABOUT";
@@ -27,7 +28,13 @@ type Props={
   registration:ReactNode;
   onTabChange:(tab:CompetitionProfileTab)=>void;
   initialStage?:Stage|undefined;
-  initialMatchFilter?:"ALL"|"FINISHED"|undefined;
+  initialMatchFilter?:MatchFilter|undefined;
+  matchPreferences?:CompetitionMatchPreferences;
+  onMatchPreferencesChange?:(next:CompetitionMatchPreferences)=>void;
+  onMatchStatusChange?:(next:MatchFilter)=>void;
+  onMatchRefresh?:()=>void;
+  matchRefreshing?:boolean;
+  myAcceptedTeamId?:string|null;
 };
 
 export const COMPETITION_PROFILE_TABS:CompetitionProfileTab[]=[
@@ -652,12 +659,17 @@ function CompetitionTeamMetrics({competition,subtab}:{competition:CompetitionDto
     </Card>):<Placeholder title={t("competition.profile.noTeams")} icon="people-outline"/>}
   </View>;
 }
-export function CompetitionProfileSections({competition,posts,activeTab,subtab,registration,onTabChange,initialStage,initialMatchFilter}:Props){
+export function CompetitionProfileSections({competition,posts,activeTab,subtab,registration,onTabChange,
+  initialStage,initialMatchFilter,matchPreferences,onMatchPreferencesChange,onMatchStatusChange,
+  onMatchRefresh,matchRefreshing,myAcceptedTeamId}:Props){
   if(activeTab==="HOME")return <Home competition={competition} posts={posts}
     onTabChange={onTabChange} view={subtab??"OVERVIEW"}/>;
   if(activeTab==="MATCHES")return <CompetitionMatchList
     competition={competition} initialFilter={subtab==="UPCOMING"?"UPCOMING":
-      subtab==="LIVE"?"LIVE":subtab==="RESULTS"?"FINISHED":initialMatchFilter??"ALL"}/>;
+      subtab==="LIVE"?"LIVE":subtab==="RESULTS"?"FINISHED":initialMatchFilter??"ALL"}
+    preferences={matchPreferences} onPreferencesChange={onMatchPreferencesChange}
+    onPrimaryFilterChange={onMatchStatusChange} onRefresh={onMatchRefresh}
+    refreshing={matchRefreshing} myAcceptedTeamId={myAcceptedTeamId}/>;
   if(activeTab==="STANDINGS")return <CompetitionStandings
     competition={competition} initialStage={subtab==="KNOCKOUT"?"KNOCKOUT":
       initialStage??"GROUPS"}/>;
