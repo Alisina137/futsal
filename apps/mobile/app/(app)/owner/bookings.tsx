@@ -153,7 +153,7 @@ export default function OwnerBookingsScreen(){
             style={tab===id?styles.selectedText:undefined}>
             {t(`owner.phase3.tab.${id}` as never)}
           </AppText>
-        </Press>)}
+        </Pressable>)}
       </ScrollView>
     </View>
 
