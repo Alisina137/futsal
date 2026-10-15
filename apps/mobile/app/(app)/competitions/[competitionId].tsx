@@ -421,11 +421,12 @@ export default function CompetitionDetailScreen(){
       <AppText style={{color:colors.danger}}>{t("competition.phase3.reloadError")}</AppText>
       <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/>
     </Card>:null}
-    <CompetitionParticipationPanel participations={participations} busy={busy}
+    {selectedSubtab!=="REGISTRATION"?<CompetitionParticipationPanel
+      participations={participations} busy={busy}
       onAccept={teamId=>setIntent({kind:"accept",teamId})}
       onDecline={teamId=>setIntent({kind:"decline",teamId})}
-      onWithdraw={teamId=>setIntent({kind:"withdraw",teamId})}/>
-    {applicationForm}
+      onWithdraw={teamId=>setIntent({kind:"withdraw",teamId})}/>:null}
+    {selectedSubtab!=="MY_PARTICIPATION"?applicationForm:null}
     {intent?<Card style={styles.registration}>
       <AppText variant="bodyLarge" weight="bold">{t("competition.phase3.confirmTitle")}</AppText>
       <AppText>{confirmationMessage}</AppText>
