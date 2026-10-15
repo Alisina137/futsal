@@ -304,7 +304,8 @@ function Home({competition,posts,onTabChange,mode="HOME",view="OVERVIEW"}:
   const [feedView,setFeedView]=useState<"UPDATES"|"PHOTOS">("UPDATES");
   const currentFeed=mode==="MEDIA"?(view==="PHOTOS"?"PHOTOS":"UPDATES"):feedView;
   const [lightbox,setLightbox]=useState<string|null>(null);
-  const live=competition.matches.filter(match=>match.status==="IN_PROGRESS")
+  const live=competition.matches.filter(match=>match.status==="IN_PROGRESS"&&
+    !["COMPLETED","ARCHIVED","CANCELLED"].includes(competition.status))
     .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
   const updates=posts.slice().sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)||b.id.localeCompare(a.id));
   const photos=updates.filter(post=>Boolean(resolveMediaImageUrl(post.imageUrl)));
