@@ -5,6 +5,9 @@ import {router} from "expo-router";
 import {useMemo,useState} from "react";
 import {Image,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
+import {emptyCompetitionMatchPreferences,matchFitsPreferences,
+  normalizedCompetitionMatchPreferences,type CompetitionMatchPreferences,
+  type CompetitionMatchDatePreset} from "../../lib/competition-detail-match-filters";
 import {formatFixtureSchedule,groupMatchesByRound} from "../../lib/competition-match-schedule";
 import {formatRefereeScheduleParts} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -38,15 +41,32 @@ function TeamLogo({uri}:{uri:string|null|undefined}){
       <Ionicons name="shield-outline" color={colors.primary} size={24}/>}
   </View>;
 }
-export function CompetitionMatchList({competition,initialFilter="ALL"}:{
+export function CompetitionMatchList({competition,initialFilter="ALL",
+  preferences,onPreferencesChange,onPrimaryFilterChange,refreshing=false,onRefresh}:{
   competition:CompetitionDto;initialFilter?:MatchFilter|undefined;
+  preferences?:CompetitionMatchPreferences;
+  onPreferencesChange?:(next:CompetitionMatchPreferences)=>void;
+  onPrimaryFilterChange?:(next:MatchFilter)=>void;
+  refreshing?:boolean;onRefresh?:()=>void;
 }){
   const {t,language,isRTL}=useLocale();
   const [filter,setFilter]=useState<MatchFilter>(initialFilter);
-  const [teamFilter,setTeamFilter]=useState("ALL");
-  const [stageFilter,setStageFilter]=useState<"ALL"|CompetitionMatchDto["stage"]>("ALL");
-  const [roundFilter,setRoundFilter]=useState<number|null>(null);
-  const [groupFilter,setGroupFilter]=useState("ALL");
+  const [localPreferences,setLocalPreferences]=useState<CompetitionMatchPreferences>(
+    emptyCompetitionMatchPreferences);
+  const currentPreferences=normalizedCompetitionMatchPreferences(
+    preferences??localPreferences,competition);
+  const {teamId:teamFilter,stage:stageFilter,round:roundFilter,
+    group:groupFilter,date:dateFilter}=currentPreferences;
+  const changePreferences=(patch:Partial<CompetitionMatchPreferences>)=>{
+    const next={...currentPreferences,...patch};
+    if(onPreferencesChange)onPreferencesChange(next);
+    else setLocalPreferences(next);
+  };
+  const setDateFilter=(date:CompetitionMatchDatePreset)=>changePreferences({date});
+  const chooseFilter=(next:MatchFilter)=>{
+    setFilter(next);
+    onPrimaryFilterChange?.(next);
+  };
   const teams=useMemo(()=>new Map(competition.teams.map(team=>[team.teamId,team])),[competition.teams]);
   const totals={
     ALL:competition.matches.length,
@@ -63,8 +83,9 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
     .map(match=>match.roundNumber))].sort((a,b)=>a-b);
   const groupNames=[...new Set(competition.matches.filter(match=>match.stage==="GROUP")
     .map(match=>match.groupName).filter((name):name is string=>Boolean(name)))].sort();
-  const extraFiltersActive=teamFilter!=="ALL"||stageFilter!=="ALL"||roundFilter!==null||groupFilter!=="ALL";
-  const clearExtraFilters=()=>{setTeamFilter("ALL");setStageFilter("ALL");setRoundFilter(null);setGroupFilter("ALL");};
+  const extraFiltersActive=teamFilter!=="ALL"||stageFilter!=="ALL"||
+    roundFilter!==null||groupFilter!=="ALL"||dateFilter!=="ALL";
+  const clearExtraFilters=()=>changePreferences(emptyCompetitionMatchPreferences);
   const matches=useMemo(()=>order(competition.matches.filter(match=>
     filter==="ALL"?true:
       filter==="FINISHED"?done(match):
@@ -74,8 +95,9 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
   ).filter(match=>(teamFilter==="ALL"||match.homeTeamId===teamFilter||match.awayTeamId===teamFilter)&&
     (stageFilter==="ALL"||match.stage===stageFilter)&&
     (roundFilter===null||match.roundNumber===roundFilter)&&
-    (groupFilter==="ALL"||match.groupName===groupFilter))),
-    [competition.matches,filter,teamFilter,stageFilter,roundFilter,groupFilter]);
+    (groupFilter==="ALL"||match.groupName===groupFilter)&&
+    matchFitsPreferences(match,currentPreferences))),
+    [competition.matches,filter,teamFilter,stageFilter,roundFilter,groupFilter,dateFilter]);
   const groups=useMemo(()=>groupMatchesByRound(matches),[matches]);
   const roundsInStage=useMemo(()=>{
     const maximum=new Map<CompetitionMatchDto["stage"],number>();
@@ -89,12 +111,29 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
     params:{competitionId:competition.id,matchId:match.id},
   });
   return <View style={styles.container} testID="competition-matches-list">
+    <View testID="competition-match-filter-summary" style={[styles.summaryStrip,
+      {flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={{flex:1,gap:2}}>
+        <AppText weight="semibold" variant="caption">
+          {t("competition.detail.matchFilterSummary",{shown:matches.length,total:competition.matches.length})}
+        </AppText>
+        <AppText variant="caption" muted>{t("competition.detail.matchFilterHint")}</AppText>
+      </View>
+      {onRefresh?<Pressable testID="competition-match-refresh" accessibilityRole="button"
+        accessibilityLabel={t("competition.detail.refreshMatches")}
+        disabled={refreshing} onPress={onRefresh} style={styles.refreshAction}>
+        <Ionicons name="refresh-outline" size={18} color={colors.primary}/>
+        <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+          {refreshing?t("competition.detail.refreshing"):t("competition.detail.refresh")}
+        </AppText>
+      </Pressable>:null}
+    </View>
     <ScrollView testID="match-filter-rail" horizontal showsHorizontalScrollIndicator={false}
       style={styles.filterViewport}
       contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {FILTERS.map(value=><Pressable key={value} testID={`match-filter-${value}`}
         accessibilityRole="tab" accessibilityState={{selected:value===filter}}
-        onPress={()=>setFilter(value)}
+        onPress={()=>chooseFilter(value)}
         style={[styles.chip,filter===value&&styles.selected]}>
         <AppText variant="caption" weight="semibold" numberOfLines={1}
           style={{color:filter===value?"#FFFFFF":colors.text}}>
@@ -114,7 +153,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
         {[{teamId:"ALL",teamName:t("competition.phase5.allTeams")},...acceptedTeams].map(team=>
           <Pressable key={team.teamId} testID={`match-team-${team.teamId}`}
             accessibilityRole="tab" accessibilityState={{selected:teamFilter===team.teamId}}
-            onPress={()=>setTeamFilter(team.teamId)} style={[styles.refineChip,teamFilter===team.teamId&&styles.selected]}>
+            onPress={()=>changePreferences({teamId:team.teamId})} style={[styles.refineChip,teamFilter===team.teamId&&styles.selected]}>
             <AppText variant="caption" weight="semibold" numberOfLines={1}
               style={{color:teamFilter===team.teamId?"#FFFFFF":colors.primary}}>{team.teamName}</AppText>
           </Pressable>)}
@@ -127,7 +166,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
         {(["ALL",...stages] as Array<"ALL"|CompetitionMatchDto["stage"]>).map(stage=>
           <Pressable key={stage} testID={`match-stage-${stage}`}
             accessibilityRole="tab" accessibilityState={{selected:stageFilter===stage}}
-            onPress={()=>{setStageFilter(stage);setRoundFilter(null);setGroupFilter("ALL");}}
+            onPress={()=>changePreferences({stage,round:null,group:"ALL"})}
             style={[styles.refineChip,stageFilter===stage&&styles.selected]}>
             <AppText variant="caption" weight="semibold"
               style={{color:stageFilter===stage?"#FFFFFF":colors.primary}}>
@@ -144,7 +183,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
         {[null,...rounds].map(round=><Pressable key={round??"ALL"}
           testID={`match-round-select-${round??"ALL"}`}
           accessibilityRole="tab" accessibilityState={{selected:roundFilter===round}}
-          onPress={()=>setRoundFilter(round)} style={[styles.refineChip,roundFilter===round&&styles.selected]}>
+          onPress={()=>changePreferences({round})} style={[styles.refineChip,roundFilter===round&&styles.selected]}>
           <AppText variant="caption" weight="semibold"
             style={{color:roundFilter===round?"#FFFFFF":colors.primary}}>
             {round===null?t("competition.phase5.filter.allRounds"):t("competition.round",{number:round})}
@@ -159,7 +198,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
         contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
         {["ALL",...groupNames].map(group=><Pressable key={group}
           testID={`match-group-${group}`} accessibilityRole="tab"
-          accessibilityState={{selected:groupFilter===group}} onPress={()=>setGroupFilter(group)}
+          accessibilityState={{selected:groupFilter===group}} onPress={()=>changePreferences({group})}
           style={[styles.refineChip,groupFilter===group&&styles.selected]}>
           <AppText variant="caption" weight="semibold"
             style={{color:groupFilter===group?"#FFFFFF":colors.primary}}>
@@ -168,6 +207,22 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
         </Pressable>)}
       </ScrollView>
     </View>:null}
+    <View testID="competition-match-date-filters" style={styles.refineSection}>
+      <AppText variant="caption" weight="semibold">{t("competition.detail.dateFilter")}</AppText>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        {(["ALL","TODAY","TOMORROW","NEXT_7_DAYS"] as const).map(preset=>
+          <Pressable key={preset} testID={`competition-match-date-${preset}`}
+            accessibilityRole="tab" accessibilityState={{selected:dateFilter===preset}}
+            onPress={()=>setDateFilter(preset)}
+            style={[styles.refineChip,dateFilter===preset&&styles.selected]}>
+            <AppText variant="caption" weight="semibold"
+              style={{color:dateFilter===preset?"#FFFFFF":colors.primary}}>
+              {t(`competition.detail.date.${preset}` as never)}
+            </AppText>
+          </Pressable>)}
+      </ScrollView>
+    </View>
     {extraFiltersActive?<Pressable testID="competition-match-clear-filters" accessibilityRole="button"
       style={styles.clearFilters} onPress={clearExtraFilters}>
       <Ionicons name="close-circle-outline" size={18} color={colors.primary}/>
@@ -175,11 +230,19 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
         {t("competition.phase5.filter.clear")}
       </AppText>
     </Pressable>:null}
-    {matches.length===0?<Card style={styles.empty}>
+    {matches.length===0?<Card style={styles.empty} testID="competition-match-empty">
       <Ionicons name="calendar-outline" size={30} color={colors.primary}/>
       <AppText muted style={{textAlign:"center"}}>
         {t("competition.matchList.empty")}
       </AppText>
+      {extraFiltersActive?<Pressable accessibilityRole="button"
+        testID="competition-match-empty-reset" onPress={clearExtraFilters}
+        style={styles.refreshAction}>
+        <Ionicons name="close-circle-outline" color={colors.primary} size={18}/>
+        <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>
+          {t("competition.phase5.filter.clear")}
+        </AppText>
+      </Pressable>:null}
     </Card>:null}
     {groups.map(group=><View key={group.key} style={styles.roundGroup}
         testID={`match-round-${group.stage}-${group.roundNumber}`}>
@@ -292,6 +355,11 @@ export function CompetitionMatchList({competition,initialFilter="ALL"}:{
 }
 const styles=StyleSheet.create({
   container:{gap:spacing.md},
+  summaryStrip:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.md,padding:spacing.sm,alignItems:"center",gap:spacing.sm},
+  refreshAction:{minHeight:44,paddingHorizontal:spacing.sm,borderRadius:radius.md,
+    flexDirection:"row",gap:5,alignItems:"center",justifyContent:"center",
+    backgroundColor:colors.primarySoft},
   filterViewport:{height:50,minHeight:50,maxHeight:50,flexGrow:0,flexShrink:0},
   filters:{gap:spacing.sm,alignItems:"center",paddingVertical:3},
   refineSection:{gap:3},
