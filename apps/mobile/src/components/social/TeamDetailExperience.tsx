@@ -10,6 +10,9 @@ import {formatCompetitionDateTime} from "../../lib/date-time";
 import {teamDetailJoinAction,displayTeamFollowerCount,publicTeamTelephoneUrl} from
   "../../lib/team-detail-actions";
 import {AppText} from "../ui/AppText";
+import {TextField} from "../ui/TextField";
+import {teamSquadView,canDisplayTeamRoster,mayOpenPublicPlayer,squadPositionFilters,
+  type SquadPositionFilter} from "../../lib/team-detail-squad";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
 import {DataLoadingState} from "../ui/DataLoadingState";
@@ -61,6 +64,13 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     verifyEmail:"Verify email",invitationNote:"This team accepts invitations only.",
     quickSquad:"View squad",quickResults:"Recent results",quickAbout:"About team",
     teamContact:"Call team",membershipStatus:"Membership",viewMemberArea:"Member area",
+    squadFind:"Search players or jersey numbers",squadAll:"All positions",
+    squadVisible:"Visible players",squadOf:"of",squadFiltered:"Matching players",
+    squadNotPublic:"Some player profiles are not public.",
+    squadNoMatches:"No players match this search and position.",
+    squadLeadersHint:"Manager and captain profiles appear here when visible.",
+    squadNoPublicLeaders:"Team leadership has no publicly visible profiles.",
+    squadPrivateProfile:"Player details are private",squadOpenPlayer:"View player",
   },
   "fa-AF":{
     media:"رسانه",squad:"بازیکنان",matches:"مسابقات",competitions:"رقابت‌ها",stats:"آمار",about:"درباره",
@@ -95,6 +105,13 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     verifyEmail:"تأیید ایمیل",invitationNote:"این تیم فقط با دعوت عضو می‌پذیرد.",
     quickSquad:"دیدن بازیکنان",quickResults:"نتایج اخیر",quickAbout:"درباره تیم",
     teamContact:"تماس با تیم",membershipStatus:"عضویت",viewMemberArea:"بخش اعضا",
+    squadFind:"جستجوی بازیکن یا شماره پیراهن",squadAll:"همه پُست‌ها",
+    squadVisible:"بازیکنان قابل نمایش",squadOf:"از",squadFiltered:"بازیکنان مطابق",
+    squadNotPublic:"پروفایل بعضی بازیکنان عمومی نیست.",
+    squadNoMatches:"بازیکنی مطابق جستجو و پُست انتخاب‌شده یافت نشد.",
+    squadLeadersHint:"پروفایل مدیر و کپیتان در صورت عمومی‌بودن نمایش داده می‌شود.",
+    squadNoPublicLeaders:"پروفایل عمومی برای رهبران تیم موجود نیست.",
+    squadPrivateProfile:"جزئیات بازیکن خصوصی است",squadOpenPlayer:"دیدن بازیکن",
   },
   "ps-AF":{
     media:"رسنۍ",squad:"لوبغاړي",matches:"لوبې",competitions:"سیالۍ",stats:"شمېرې",about:"په اړه",
@@ -129,6 +146,13 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     verifyEmail:"برېښنالیک تایید کړئ",invitationNote:"دا ټیم یوازې په بلنه غړي مني.",
     quickSquad:"لوبغاړي وګورئ",quickResults:"وروستۍ پایلې",quickAbout:"د ټیم په اړه",
     teamContact:"ټیم ته زنګ",membershipStatus:"غړیتوب",viewMemberArea:"د غړو برخه",
+    squadFind:"لوبغاړی یا د کمیس شمېره ولټوئ",squadAll:"ټول ځایونه",
+    squadVisible:"ښکاره لوبغاړي",squadOf:"له",squadFiltered:"موندل شوي لوبغاړي",
+    squadNotPublic:"د ځینو لوبغاړو پروفایلونه عام نه دي.",
+    squadNoMatches:"د لټون او ځای سره برابر لوبغاړی ونه موندل شو.",
+    squadLeadersHint:"د مدیر او کپتان پروفایلونه یوازې هغه مهال ښکاري چې عام وي.",
+    squadNoPublicLeaders:"د ټیم د مشرانو عام پروفایلونه نشته.",
+    squadPrivateProfile:"د لوبغاړي جزییات شخصي دي",squadOpenPlayer:"لوبغاړی وګورئ",
   },
 };
 
@@ -141,6 +165,10 @@ export default function TeamDetailExperience(){
   const {height:viewportHeight,width:viewportWidth}=useWindowDimensions();
   const tx=(key:string)=>words[language][key]??words.en[key]??key;
   const [team,setTeam]=useState<TeamDto|null>(null);
+  // Only public roster identities are eligible for /players/[playerId] links.
+  const [publicPlayerIds,setPublicPlayerIds]=useState<string[]>([]);
+  const [squadQuery,setSquadQuery]=useState("");
+  const [squadPosition,setSquadPosition]=useState<SquadPositionFilter>("ALL");
   const [profile,setProfile]=useState<Omit<TeamManagerProfileDetails,"allowJoinRequests"|"whatsappGroupUrl">|null>(null);
   const [member,setMember]=useState(false),[loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
@@ -179,6 +207,7 @@ export default function TeamDetailExperience(){
     loadGeneration.current++;postsGeneration.current++;
     followActionSequence.current++;joinActionSequence.current++;
     setTeam(null);setProfile(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
+    setPublicPlayerIds([]);setSquadQuery("");setSquadPosition("ALL");
     setHighlights(null);setOlderPosts([]);setMorePostsAvailable(false);
     setMorePostsBusy(false);setMorePostsError(null);setPublicBusy(false);setPhoto(null);
     setFollowState(null);setFollowBusy(false);setJoinBusy(false);setError(null);
@@ -201,6 +230,8 @@ export default function TeamDetailExperience(){
         teamApi.publicJoinPolicy(id).catch(()=>({allowJoinRequests:false})),
       ]);
       let next=result.team;
+      const publicIds=result.team.privacy==="PUBLIC"?
+        result.team.members.map(player=>player.userId):[];
       let isMember=false,request:TeamJoinRequestStatus|null=null;
       if(session){
         try{
@@ -214,6 +245,7 @@ export default function TeamDetailExperience(){
         }catch{/* Public team details remain usable when private reads fail. */}
       }
       if(loadGeneration.current!==generation)return;
+      setPublicPlayerIds(publicIds);
       setTeam(next);setProfile(details?.profile??null);
       setMember(isMember);setJoinStatus(request);setJoinAllowed(policy.allowJoinRequests);
     }catch{
@@ -349,41 +381,106 @@ export default function TeamDetailExperience(){
   function rosterContent(){
     if(!team)return null;
     const visible=team.privacy==="PUBLIC"||member||role==="MANAGER";
-    if(!visible)return empty(tx("privateRoster"),"lock-closed-outline");
-    const players=subs.squad==="leaders"?team.members.filter(p=>p.role==="CAPTAIN"):team.members;
-    if(!players.length)return empty(tx(subs.squad==="leaders"?"noLeaders":"noRoster"),"people-outline");
-    return <View testID="team-squad-grid" style={[styles.squadGrid,rowDirection]}>
-      {players.map(player=><Pressable key={player.userId} accessibilityRole="button"
-      style={[styles.rosterItem,bigScreen&&styles.rosterItemWide]}
-      onPress={()=>router.push({pathname:"/players/[playerId]",params:{playerId:player.userId}})}>
-      <Card style={[styles.rosterCard,{borderLeftColor:teamColor}]}>
-        <View style={[styles.horizontal,rowDirection]}>
-          {resolveMediaImageUrl(player.imageUrl)?<Image source={{uri:resolveMediaImageUrl(player.imageUrl)!}}
-            style={styles.playerAvatar}/>:
-            <View style={[styles.playerAvatar,styles.avatarEmpty]}>
-              <AppText weight="bold" style={{color:colors.primary}}>
-                {player.publicDisplayName.slice(0,2).toUpperCase()}
-              </AppText>
-            </View>}
-          <View style={[{flex:1,gap:3},textAlign]}>
-            <AppText weight="bold" numberOfLines={1}>{player.publicDisplayName}</AppText>
-            <AppText variant="caption" muted numberOfLines={2}>
-              {t(`teams.position.${player.position}` as never)}
+    if(!visible||!canDisplayTeamRoster(team.privacy,member,role==="MANAGER"))
+      return empty(tx("privateRoster"),"lock-closed-outline");
+
+    const leadersOnly=subs.squad==="leaders";
+    const listing=teamSquadView(team.members,team.managerUserId,team.captainUserId,{
+      query:leadersOnly?"":squadQuery,
+      position:leadersOnly?"ALL":squadPosition,
+      leadersOnly,
+    });
+    const restricted=team.rosterCount>team.members.length;
+    return <View style={styles.squadSection}>
+      <Card style={styles.squadOverview} testID="team-squad-summary">
+        <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
+          <View style={{flex:1,gap:3}}>
+            <AppText variant="bodyLarge" weight="bold">{tx(leadersOnly?"leaders":"players")}</AppText>
+            <AppText variant="caption" muted>
+              {tx("squadVisible")}: {listing.visibleCount} {tx("squadOf")} {team.rosterCount}
             </AppText>
-            {player.role==="CAPTAIN"||player.role==="MANAGER"?<View
-              style={[styles.memberTag,{backgroundColor:colors.primarySoft}]}>
-              <AppText variant="caption" weight="bold" style={{color:teamColor}}>
-                {tx(player.role==="CAPTAIN"?"captain":"manager")}
-              </AppText>
-            </View>:null}
           </View>
-          {player.shirtNumber?<View style={styles.jerseyBadge}>
-            <AppText variant="caption" muted>#{player.shirtNumber}</AppText>
-          </View>:null}
-          <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.textMuted}/>
+          <View style={styles.squadCountBadge}>
+            <AppText weight="bold" style={{color:colors.primary}}>{listing.members.length}</AppText>
+          </View>
         </View>
+        {restricted?<View style={[styles.horizontal,rowDirection]}>
+          <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted}/>
+          <AppText variant="caption" muted style={{flex:1}}>{tx("squadNotPublic")}</AppText>
+        </View>:null}
+        {leadersOnly?<AppText variant="caption" muted>{tx("squadLeadersHint")}</AppText>:null}
       </Card>
-    </Pressable>)}</View>;
+
+      {!leadersOnly&&team.members.length>0?<>
+        <TextField testID="team-squad-search" label={tx("squadFind")}
+          value={squadQuery} onChangeText={setSquadQuery}
+          autoCorrect={false} maxLength={80} returnKeyType="search"/>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          style={{flexGrow:0}} contentContainerStyle={[styles.squadFilters,rowDirection]}>
+          {squadPositionFilters.map(position=><Pressable key={position}
+            testID={"team-squad-filter-"+position}
+            accessibilityRole="button" accessibilityLabel={position==="ALL"?tx("squadAll"):
+              t(`teams.position.${position}` as never)}
+            accessibilityState={{selected:squadPosition===position}}
+            onPress={()=>setSquadPosition(position)}
+            style={[styles.squadFilter,squadPosition===position&&styles.squadFilterActive]}>
+            <AppText variant="caption" weight="semibold"
+              style={{color:squadPosition===position?"#FFFFFF":colors.primary}}>
+              {position==="ALL"?tx("squadAll"):t(`teams.position.${position}` as never)}
+            </AppText>
+          </Pressable>)}
+        </ScrollView>
+        <AppText variant="caption" muted>{tx("squadFiltered")}: {listing.members.length}</AppText>
+      </>:null}
+
+      {!listing.members.length?empty(
+        leadersOnly?tx(team.captainUserId?"squadNoPublicLeaders":"noLeaders"):
+          (squadQuery.trim()||squadPosition!=="ALL")?tx("squadNoMatches"):tx("noRoster"),
+        leadersOnly?"ribbon-outline":"people-outline"
+      ):<View testID="team-squad-grid" style={[styles.squadGrid,rowDirection]}>
+        {listing.members.map(player=>{
+          const canOpenPlayer=mayOpenPublicPlayer(player.userId,publicPlayerIds);
+          const isManager=player.userId===team.managerUserId||player.role==="MANAGER";
+          const isCaptain=player.userId===team.captainUserId||player.role==="CAPTAIN";
+          return <Pressable key={player.userId} accessibilityRole="button"
+            testID={"team-squad-player-"+player.userId}
+            accessibilityLabel={player.publicDisplayName}
+            accessibilityHint={canOpenPlayer?tx("squadOpenPlayer"):tx("squadPrivateProfile")}
+            accessibilityState={{disabled:!canOpenPlayer}} disabled={!canOpenPlayer}
+            style={({pressed})=>[styles.rosterItem,bigScreen&&styles.rosterItemWide,
+              pressed&&canOpenPlayer&&styles.subPressed]}
+            onPress={()=>router.push({pathname:"/players/[playerId]",params:{playerId:player.userId}})}>
+            <Card style={[styles.rosterCard,{borderLeftColor:teamColor}]}>
+              <View style={[styles.horizontal,rowDirection]}>
+                {resolveMediaImageUrl(player.imageUrl)?<Image
+                  source={{uri:resolveMediaImageUrl(player.imageUrl)!}} style={styles.playerAvatar}/>:
+                  <View style={[styles.playerAvatar,styles.avatarEmpty]}>
+                    <AppText weight="bold" style={{color:colors.primary}}>
+                      {player.publicDisplayName.slice(0,2).toUpperCase()}
+                    </AppText>
+                  </View>}
+                <View style={[{flex:1,gap:3},textAlign]}>
+                  <AppText weight="bold" numberOfLines={2}>{player.publicDisplayName}</AppText>
+                  <AppText variant="caption" muted numberOfLines={2}>
+                    {t(`teams.position.${player.position}` as never)}
+                  </AppText>
+                  {isManager||isCaptain?<View style={styles.memberTag}>
+                    <AppText variant="caption" weight="bold" style={{color:colors.primary}}>
+                      {tx(isManager?"manager":"captain")}
+                    </AppText>
+                  </View>:null}
+                </View>
+                {player.shirtNumber?<View style={styles.jerseyBadge}>
+                  <AppText variant="caption" weight="semibold">#{player.shirtNumber}</AppText>
+                </View>:null}
+                {canOpenPlayer?<Ionicons name={isRTL?"chevron-back":"chevron-forward"}
+                  size={18} color={colors.textMuted}/>:null}
+              </View>
+            </Card>
+          </Pressable>;
+        })}
+      </View>}
+    </View>;
   }
   function mediaContent(data:TeamPublicHighlights){
     const allPosts=[...data.posts,...olderPosts];
@@ -840,6 +937,15 @@ const styles=StyleSheet.create({
   subSelected:{borderColor:colors.primary,backgroundColor:colors.primary},
   subPressed:{opacity:0.8},
   empty:{alignItems:"center",gap:spacing.md,padding:spacing.xl,minHeight:160,justifyContent:"center"},
+  squadSection:{gap:spacing.md},
+  squadOverview:{padding:spacing.md,gap:spacing.sm},
+  squadCountBadge:{minWidth:45,minHeight:42,alignItems:"center",justifyContent:"center",
+    borderRadius:radius.md,backgroundColor:colors.primarySoft},
+  squadFilters:{gap:spacing.xs,paddingVertical:spacing.xs,alignItems:"center"},
+  squadFilter:{minHeight:39,justifyContent:"center",borderRadius:radius.pill,
+    borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,
+    paddingHorizontal:spacing.md,paddingVertical:spacing.xs},
+  squadFilterActive:{backgroundColor:colors.primary,borderColor:colors.primary},
   squadGrid:{flexWrap:"wrap",gap:spacing.sm,alignItems:"stretch"},
   rosterItem:{width:"100%"},
   rosterItemWide:{width:"48.5%"},
