@@ -42,12 +42,13 @@ function TeamLogo({uri}:{uri:string|null|undefined}){
   </View>;
 }
 export function CompetitionMatchList({competition,initialFilter="ALL",
-  preferences,onPreferencesChange,onPrimaryFilterChange,refreshing=false,onRefresh}:{
+  preferences,onPreferencesChange,onPrimaryFilterChange,refreshing=false,onRefresh,
+  myAcceptedTeamId=null}:{
   competition:CompetitionDto;initialFilter?:MatchFilter|undefined;
   preferences?:CompetitionMatchPreferences;
   onPreferencesChange?:(next:CompetitionMatchPreferences)=>void;
   onPrimaryFilterChange?:(next:MatchFilter)=>void;
-  refreshing?:boolean;onRefresh?:()=>void;
+  refreshing?:boolean;onRefresh?:()=>void;myAcceptedTeamId?:string|null;
 }){
   const {t,language,isRTL}=useLocale();
   const [filter,setFilter]=useState<MatchFilter>(initialFilter);
@@ -146,6 +147,20 @@ export function CompetitionMatchList({competition,initialFilter="ALL",
         </View>
       </Pressable>)}
     </ScrollView>
+    {myAcceptedTeamId&&acceptedTeams.some(team=>team.teamId===myAcceptedTeamId)?
+      <Pressable testID="competition-my-team-fixtures" accessibilityRole="button"
+        onPress={()=>changePreferences({teamId:teamFilter===myAcceptedTeamId?"ALL":myAcceptedTeamId})}
+        style={[styles.myTeamShortcut,{flexDirection:isRTL?"row-reverse":"row"},
+          teamFilter===myAcceptedTeamId&&styles.myTeamShortcutActive]}>
+        <Ionicons name="shirt-outline" size={19}
+          color={teamFilter===myAcceptedTeamId?"#FFFFFF":colors.primary}/>
+        <AppText weight="semibold" variant="caption" style={{
+          color:teamFilter===myAcceptedTeamId?"#FFFFFF":colors.primary,flex:1}}>
+          {t("competition.detail.myTeamMatches")}
+        </AppText>
+        <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={17}
+          color={teamFilter===myAcceptedTeamId?"#FFFFFF":colors.primary}/>
+      </Pressable>:null}
     {acceptedTeams.length>0?<View style={styles.refineSection} testID="competition-match-team-filters">
       <AppText variant="caption" weight="semibold">{t("competition.phase5.filter.team")}</AppText>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -357,6 +372,10 @@ const styles=StyleSheet.create({
   container:{gap:spacing.md},
   summaryStrip:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
     borderRadius:radius.md,padding:spacing.sm,alignItems:"center",gap:spacing.sm},
+  myTeamShortcut:{minHeight:45,paddingHorizontal:spacing.md,borderRadius:radius.md,
+    backgroundColor:colors.primarySoft,gap:spacing.sm,alignItems:"center",borderWidth:1,
+    borderColor:colors.border},
+  myTeamShortcutActive:{backgroundColor:colors.primary,borderColor:colors.primary},
   refreshAction:{minHeight:44,paddingHorizontal:spacing.sm,borderRadius:radius.md,
     flexDirection:"row",gap:5,alignItems:"center",justifyContent:"center",
     backgroundColor:colors.primarySoft},
