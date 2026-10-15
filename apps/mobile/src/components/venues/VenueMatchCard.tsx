@@ -6,6 +6,7 @@ import {Image,Pressable,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
 import {formatLocalDateTimeParts} from "../../lib/date-time";
 import {venueMatchResultEmphasis} from "../../lib/venue-match-filters";
+import {teamResultTheme,type TeamResultOutcome} from "../../lib/team-result-theme";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Card} from "../ui/Card";
@@ -23,12 +24,6 @@ type FixtureMatch={
   homeTeamName:string|null;awayTeamName:string|null;homeLogoUrl?:string|null;awayLogoUrl?:string|null;
   homeScore:number|null;awayScore:number|null;status:string;
 };
-type TeamResultOutcome="win"|"loss"|"draw";
-const teamResultColors:Record<TeamResultOutcome,{border:string;surface:string;text:string}>={
-  win:{border:"#86EFAC",surface:"#F0FDF4",text:"#166534"},
-  loss:{border:"#FCA5A5",surface:"#FEF2F2",text:"#991B1B"},
-  draw:{border:"#CBD5E1",surface:"#F1F5F9",text:"#475569"},
-};
 function FixtureMatchCard({match,scope,timeZone,testID,statusLabel,missingScoreLabel,
   teamOutcome,teamOutcomeLabel}:{
   match:FixtureMatch;scope:"upcoming"|"results";timeZone:string;
@@ -42,8 +37,10 @@ function FixtureMatchCard({match,scope,timeZone,testID,statusLabel,missingScoreL
   const emph=venueMatchResultEmphasis(match.status,match.homeScore,match.awayScore);
   // Only Team Detail > Results has a viewer-relative outcome. Venue cards
   // and upcoming/unscored matches keep their original neutral presentation.
-  const resultColors=finished&&teamOutcome&&match.homeScore!==null&&
-    match.awayScore!==null?teamResultColors[teamOutcome]:null;
+  const resultColors=teamResultTheme({
+    scope,status:match.status,homeScore:match.homeScore,
+    awayScore:match.awayScore,outcome:teamOutcome,
+  });
   const date=match.startsAt?formatLocalDateTimeParts(match.startsAt,language,timeZone):null;
   const teamWeight=(side:"home"|"away")=>
     finished&&emph[side]==="winner"?"bold" as const:"medium" as const;
