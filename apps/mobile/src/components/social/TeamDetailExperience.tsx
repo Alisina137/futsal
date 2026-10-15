@@ -15,6 +15,8 @@ import {Screen} from "../ui/Screen";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {useVisibleTab} from "../../hooks/useVisibleTab";
+import {initialTeamNavigation,switchTeamMain,switchTeamSub,teamDetailSubtabs,
+  type TeamDetailSubtabs} from "../../lib/team-detail-navigation";
 
 type Tab="media"|"squad"|"matches"|"competitions"|"stats"|"about";
 const navigation:{id:Tab;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -22,10 +24,7 @@ const navigation:{id:Tab;icon:keyof typeof Ionicons.glyphMap}[]=[
   {id:"matches",icon:"football-outline"},{id:"competitions",icon:"trophy-outline"},
   {id:"stats",icon:"stats-chart-outline"},{id:"about",icon:"information-circle-outline"},
 ];
-const subNavigation:Record<Tab,string[]>={
-  media:["posts","photos"],squad:["players","leaders"],matches:["upcoming","results"],
-  competitions:["active","past"],stats:["overview","form","topPlayers"],about:["overview","members"],
-};
+const subNavigation=teamDetailSubtabs;
 const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
   en:{
     media:"Media",squad:"Squad",matches:"Matches",competitions:"Competitions",stats:"Statistics",about:"About",
@@ -120,7 +119,9 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
 };
 
 export default function TeamDetailExperience(){
-  const {teamId}=useLocalSearchParams<{teamId:string}>();
+  const {teamId,tab:requestedTab,subtab:requestedSub}=useLocalSearchParams<{
+    teamId:string;tab?:string;subtab?:string;
+  }>();
   const id=typeof teamId==="string"?teamId:"";
   const {session}=useAuth(),{t,isRTL,language}=useLocale();
   const {height:viewportHeight,width:viewportWidth}=useWindowDimensions();
@@ -134,11 +135,9 @@ export default function TeamDetailExperience(){
   const [joinStatus,setJoinStatus]=useState<TeamJoinRequestStatus|null>(null);
   const [joinAllowed,setJoinAllowed]=useState(false);
   const [joinBusy,setJoinBusy]=useState(false);
-  const [tab,setTab]=useState<Tab>("media");
-  const [subs,setSubs]=useState<Record<Tab,string>>({
-    media:"posts",squad:"players",matches:"upcoming",
-    competitions:"active",stats:"overview",about:"overview",
-  });
+  const [navState,setNavState]=useState(()=>initialTeamNavigation(requestedTab,requestedSub));
+  const tab:Tab=navState.main;
+  const subs=navState.sub;
   const [highlights,setHighlights]=useState<TeamPublicHighlights|null>(null);
   const [olderPosts,setOlderPosts]=useState<TeamPublicHighlights["posts"]>([]);
   const [morePostsAvailable,setMorePostsAvailable]=useState(false);
@@ -152,6 +151,31 @@ export default function TeamDetailExperience(){
   const subNav=useVisibleTab<string>(subs[tab]??subNavigation[tab][0]!);
   const lastId=useRef(id);
   const loadGeneration=useRef(0);
+  const followActionSequence=useRef(0);
+  const joinActionSequence=useRef(0);
+  const actorIdentity=id+"|"+(session?.user.id??"anonymous")+"|"+(session?.accessToken??"");
+  const lastActorIdentity=useRef(actorIdentity);
+
+  // Reject stale private data and writes before rendering a different team/account.
+  useEffect(()=>{
+    if(lastActorIdentity.current===actorIdentity)return;
+    const teamChanged=lastId.current!==id;
+    lastActorIdentity.current=actorIdentity;
+    lastId.current=id;
+    loadGeneration.current++;postsGeneration.current++;
+    followActionSequence.current++;joinActionSequence.current++;
+    setTeam(null);setProfile(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
+    setHighlights(null);setOlderPosts([]);setMorePostsAvailable(false);
+    setMorePostsBusy(false);setMorePostsError(null);setPublicBusy(false);setPhoto(null);
+    setFollowState(null);setFollowBusy(false);setJoinBusy(false);setError(null);
+    if(teamChanged)setNavState(initialTeamNavigation(requestedTab,requestedSub));
+  },[actorIdentity,id]);
+
+  // Route parameters override a tab only when the caller provides them.
+  useEffect(()=>{
+    if(requestedTab!==undefined||requestedSub!==undefined)
+      setNavState(initialTeamNavigation(requestedTab,requestedSub));
+  },[id,requestedTab,requestedSub]);
 
   const load=useCallback(async()=>{
     if(!id)return;
@@ -186,18 +210,10 @@ export default function TeamDetailExperience(){
   // privileges and pending requests without retaining another team's response.
   useFocusEffect(useCallback(()=>{
     setHighlights(null);setOlderPosts([]);setMorePostsAvailable(false);
-    postsGeneration.current++;setMorePostsError(null);
+    postsGeneration.current++;setMorePostsError(null);setMorePostsBusy(false);
     void load();
     return()=>{loadGeneration.current++;postsGeneration.current++;};
   },[load]));
-  useEffect(()=>{
-    if(lastId.current===id)return;
-    lastId.current=id;
-    setTeam(null);setProfile(null);setHighlights(null);
-    postsGeneration.current++;setOlderPosts([]);setMorePostsAvailable(false);
-    setMorePostsError(null);setMorePostsBusy(false);setPhoto(null);
-    setTab("media");setFollowState(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
-  },[id]);
   useFocusEffect(useCallback(()=>{
     if(!session||!id){setFollowState(null);return;}
     let live=true;
@@ -236,48 +252,59 @@ export default function TeamDetailExperience(){
   }
   function refreshHighlights(){
     postsGeneration.current++;setOlderPosts([]);setMorePostsAvailable(false);setMorePostsError(null);
-    setHighlights(null);setRetryCounter(n=>n+1);
+    setMorePostsBusy(false);setHighlights(null);setRetryCounter(n=>n+1);
   }
   async function toggleFollow(){
     if(!session||!followState||followBusy)return;
+    const action=++followActionSequence.current;
     setFollowBusy(true);setError(null);
     try{
-      setFollowState(followState.following
+      const result=followState.following
         ?await marketingApi.socialUnfollow(session.accessToken,"TEAM",id)
-        :await marketingApi.socialFollow(session.accessToken,"TEAM",id));
-    }catch{setError(t("social.followError"));}
-    finally{setFollowBusy(false);}
+        :await marketingApi.socialFollow(session.accessToken,"TEAM",id);
+      if(action===followActionSequence.current)setFollowState(result);
+    }catch{
+      if(action===followActionSequence.current)setError(t("social.followError"));
+    }finally{
+      if(action===followActionSequence.current)setFollowBusy(false);
+    }
   }
   async function requestJoin(){
     if(!session||member||joinBusy||joinStatus==="PENDING"||!joinAllowed)return;
+    const action=++joinActionSequence.current;
     setJoinBusy(true);setError(null);
     try{
       const result=await teamApi.requestJoin(session.accessToken,id);
-      setJoinStatus(result.request.status);
-    }catch{setError(t("teams.joinRequestError"));}
-    finally{setJoinBusy(false);}
+      if(action===joinActionSequence.current)setJoinStatus(result.request.status);
+    }catch{
+      if(action===joinActionSequence.current)setError(t("teams.joinRequestError"));
+    }finally{
+      if(action===joinActionSequence.current)setJoinBusy(false);
+    }
   }
   async function cancelJoin(){
     if(!session||joinBusy||joinStatus!=="PENDING")return;
+    const action=++joinActionSequence.current;
     setJoinBusy(true);setError(null);
     try{
       await teamApi.cancelJoin(session.accessToken,id);
-      setJoinStatus(null);
-    }catch{setError(t("teams.phase4.cancelRequestError"));}
-    finally{setJoinBusy(false);}
+      if(action===joinActionSequence.current)setJoinStatus(null);
+    }catch{
+      if(action===joinActionSequence.current)setError(t("teams.phase4.cancelRequestError"));
+    }finally{
+      if(action===joinActionSequence.current)setJoinBusy(false);
+    }
   }
   async function share(){
     if(!team)return;
     try{await Share.share({message:team.name+" · "+team.city+"\nleaguekick://teams/"+team.id});}
     catch{/* Cancelled native share sheet. */}
   }
-  function chooseTab(value:Tab){
-    if(value!==tab){
-      setSubs(current=>({...current,[value]:subNavigation[value][0]!}));
-      setTab(value);
-    }
-    // Keep current vertical position and only reveal the selected horizontal tab.
+  function chooseTab(value:Tab,target?:TeamDetailSubtabs[Tab]){
+    setNavState(current=>switchTeamMain(current,value,target));
+    // Keep vertical position; reveal the selected horizontal tab in RTL/LTR.
     mainNav.focus(value,true);
+    if(target)subNav.focus(target,true);
   }
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
     :team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
@@ -568,6 +595,8 @@ export default function TeamDetailExperience(){
     if(tab==="competitions")return competitionsContent(highlights);
     return statsContent(highlights);
   }
+  if(lastActorIdentity.current!==actorIdentity||(team&&team.id!==id))
+    return <Screen showHeader><DataLoadingState variant="detail" minHeight={480}/></Screen>;
   if(loading&&!team)return <Screen showHeader><DataLoadingState variant="detail" minHeight={480}/></Screen>;
   if(!team)return <Screen showHeader><Card style={styles.empty}>
     <AppText style={{color:colors.danger}}>{error??t("teams.publicTeamLoadError")}</AppText>
@@ -635,6 +664,7 @@ export default function TeamDetailExperience(){
         onContentSizeChange={mainNav.onContentSize} horizontal showsHorizontalScrollIndicator={false}
         style={{flexGrow:0}} contentContainerStyle={[styles.tabs,rowDirection]}>
         {navigation.map(item=><Pressable key={item.id} accessibilityRole="tab"
+          testID={"team-main-tab-"+item.id} accessibilityLabel={tx(item.id)}
           onLayout={event=>mainNav.cellLayout(item.id,event)}
           accessibilityState={{selected:tab===item.id}}
           style={[styles.tab,tab===item.id&&styles.tabSelected]} onPress={()=>chooseTab(item.id)}>
@@ -656,7 +686,10 @@ export default function TeamDetailExperience(){
           accessibilityState={{selected:subs[tab]===key}}
           style={({pressed})=>[styles.sub,subs[tab]===key&&styles.subSelected,
             pressed&&styles.subPressed]}
-          onPress={()=>{setSubs(current=>({...current,[tab]:key}));subNav.focus(key,true);}}>
+          onPress={()=>{
+            setNavState(current=>switchTeamSub(current,tab,key as TeamDetailSubtabs[Tab]));
+            subNav.focus(key,true);
+          }}>
           <AppText variant="body" weight="semibold" numberOfLines={2}
             style={{color:subs[tab]===key?colors.surface:colors.text,textAlign:"center"}}>
             {tx(key)}
