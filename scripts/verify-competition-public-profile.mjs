@@ -3,6 +3,7 @@ const read=p=>fs.readFileSync(new URL(`../${p}`,import.meta.url),"utf8");
 const check=(value,why)=>{if(!value)throw Error(why);};
 const page=read("apps/mobile/app/(app)/competitions/[competitionId].tsx");
 const sections=read("apps/mobile/src/components/competition/CompetitionProfileSections.tsx");
+const stats=read("apps/mobile/src/lib/competition-detail-statistics.ts");
 const directory=read("apps/mobile/src/components/social/CompetitionDirectoryExperience.tsx");
 const about=read("apps/mobile/app/(app)/competitions/[competitionId]/about.tsx");
 const localization=read("packages/localization/src/index.ts");
@@ -43,7 +44,9 @@ check(sections.includes('competition.format==="LEAGUE"')&&sections.includes("<Le
   &&leagueBoard.includes('testID="league-scrollable-stats"'),
   "League standings must keep teams fixed and make statistics horizontally swipeable.");
 check(sections.includes('testID={`competition-stats-${value}`}')
-  &&sections.includes('"goals","assists","appearances"')&&sections.includes('b[metric]-a[metric]')
+  &&sections.includes('"goals","assists","appearances"')&&stats.includes('b[metric]-a[metric]')
+  &&stats.includes('accepted.has(stat.teamId)')
+  &&sections.includes('competitionPlayerLeaders(competition,metric,teamId)')
   &&sections.includes('pathname:"/players/[playerId]"'),
   "Goal and assist leaderboards must be separately sortable and link to player profiles.");
 check(sections.includes('team.status==="ACCEPTED"')&&sections.includes("resolveMediaImageUrl(team.logoUrl)")
