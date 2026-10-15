@@ -1146,16 +1146,17 @@ export default function TeamDetailExperience(){
             {t("teams.joinRequestPending")}
           </AppText>
         </View>:null}
-        {(joinAction==="request"||joinAction==="cancel")?<Button
-          testID="team-about-join-action" variant="secondary" loading={joinBusy}
-          label={joinAction==="cancel"?t("teams.phase4.cancelRequest"):t("teams.requestToJoin")}
-          onPress={()=>void (joinAction==="cancel"?cancelJoin():requestJoin())}/>:null}
-        {joinAction==="signIn"?<Button testID="team-about-sign-in"
+        {(joinAction==="request"||joinAction==="cancel")?<View testID="team-about-join-action">
+          <Button variant="secondary" loading={joinBusy}
+            label={joinAction==="cancel"?t("teams.phase4.cancelRequest"):t("teams.requestToJoin")}
+            onPress={()=>void (joinAction==="cancel"?cancelJoin():requestJoin())}/>
+        </View>:null}
+        {joinAction==="signIn"?<View testID="team-about-sign-in"><Button
           label={tx("aboutSignIn")} variant="secondary"
-          onPress={()=>router.push("/login")}/>:null}
-        {joinAction==="verifyEmail"?<Button testID="team-about-verify-email"
+          onPress={()=>router.push("/login")}/></View>:null}
+        {joinAction==="verifyEmail"?<View testID="team-about-verify-email"><Button
           label={tx("verifyEmail")} variant="secondary"
-          onPress={()=>router.push("/profile/email")}/>:null}
+          onPress={()=>router.push("/profile/email")}/></View>:null}
         {joinAction==="invitationOnly"?<AppText variant="caption" muted>
           {tx("invitationNote")}</AppText>:null}
       </Card>
