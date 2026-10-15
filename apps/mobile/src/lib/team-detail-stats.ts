@@ -1,5 +1,5 @@
 import type {TeamPublicHighlights} from "./api";
-import {teamMatchOutcome,type PublicTeamMatch} from "./team-detail-matches";
+import type {PublicTeamMatch} from "./team-detail-matches";
 
 export type PublicTeamPlayerStats=TeamPublicHighlights["stats"]["players"][number];
 export type TeamPlayerStatMetric="goals"|"assists"|"appearances";
@@ -19,9 +19,13 @@ export function teamRecentForm(
   matches:readonly PublicTeamMatch[],teamId:string,limit=5,
 ):RecentTeamResult[]{
   return matches.flatMap((match):RecentTeamResult[]=>{
-    const outcome=teamMatchOutcome(match,teamId);
-    if(!outcome||match.homeScore===null||match.awayScore===null)return [];
+    if(!["COMPLETED","CORRECTED"].includes(match.status)||
+      match.homeScore===null||match.awayScore===null||
+      (match.homeTeamId!==teamId&&match.awayTeamId!==teamId))return [];
     const home=match.homeTeamId===teamId;
+    const own=home?match.homeScore:match.awayScore;
+    const rival=home?match.awayScore:match.homeScore;
+    const outcome:RecentTeamResult["outcome"]=own===rival?"draw":own>rival?"win":"loss";
     return [{match,outcome,
       ourGoals:home?match.homeScore:match.awayScore,
       theirGoals:home?match.awayScore:match.homeScore,
