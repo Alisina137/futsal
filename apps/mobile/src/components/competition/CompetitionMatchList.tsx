@@ -45,10 +45,11 @@ export function CompetitionMatchList({competition,initialFilter="ALL",
   preferences,onPreferencesChange,onPrimaryFilterChange,refreshing=false,onRefresh,
   myAcceptedTeamId=null}:{
   competition:CompetitionDto;initialFilter?:MatchFilter|undefined;
-  preferences?:CompetitionMatchPreferences;
-  onPreferencesChange?:(next:CompetitionMatchPreferences)=>void;
-  onPrimaryFilterChange?:(next:MatchFilter)=>void;
-  refreshing?:boolean;onRefresh?:()=>void;myAcceptedTeamId?:string|null;
+  preferences?:CompetitionMatchPreferences|undefined;
+  onPreferencesChange?:((next:CompetitionMatchPreferences)=>void)|undefined;
+  onPrimaryFilterChange?:((next:MatchFilter)=>void)|undefined;
+  refreshing?:boolean|undefined;onRefresh?:(()=>void)|undefined;
+  myAcceptedTeamId?:string|null|undefined;
 }){
   const {t,language,isRTL}=useLocale();
   const [filter,setFilter]=useState<MatchFilter>(initialFilter);
