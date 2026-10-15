@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const sections=read("apps/mobile/src/components/competition/CompetitionProfileSections.tsx");
+const stats=read("apps/mobile/src/lib/competition-detail-statistics.ts");
 const table=read("apps/mobile/src/components/competition/LeagueStandingsTable.tsx");
 const matches=read("apps/mobile/src/components/competition/CompetitionMatchList.tsx");
 const repo=read("apps/api/src/modules/competition/competition.repository.ts");
@@ -36,10 +37,11 @@ for(const field of ["goals","assists","appearances","cleanSheets","yellowCards",
   assert.equal(locale.split('"competition.phase5.metric.'+field+'"').length-1,3,
     "Metric must be localized in all languages: "+field);
 }
-assert.ok(sections.includes("stat[metric]>0")&&sections.includes("stat.teamId===teamId")&&
-  sections.includes('competition.playerStats.filter(stat=>teams.some(')&&
+assert.ok(sections.includes("competitionPlayerLeaders(competition,metric,teamId)")&&
+  stats.includes("stat[metric]>0")&&stats.includes('teamId===stat.teamId')&&
+  stats.includes('accepted.has(stat.teamId)')&&
   sections.includes("competition.phase5.verifiedOnly")&&
-  !sections.includes("Math.random("),
+  !sections.includes("Math.random(")&&!stats.includes("Math.random("),
   "Stats must hide missing records and never synthesize leaders");
 assert.ok(repo.includes('inArray(competitionMatches.status, ["COMPLETED", "CORRECTED"])')&&
   service.includes('competition.playerStats.filter(stat=>acceptedIds.has(stat.teamId))'),
