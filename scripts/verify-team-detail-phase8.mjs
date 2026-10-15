@@ -96,7 +96,7 @@ strictAll(managerProfile,[
 // Three-language Team Detail copy must continue to contain each tab,
 // selected subtab, role action and retry. These are the user-facing routes
 // taken during E2E smoke and are required for EN, Dari and Pashto.
-const localeBody=screen.split('const words:')[1]?.split("\\n};")[0]??"";
+const localeBody=screen.split('const words:')[1]?.split("export default function TeamDetailExperience")[0]??"";
 const allUserVisibleKeys=[
   "media","squad","matches","competitions","stats","about",
   "players","leaders","upcoming","results","active","past","overview",
