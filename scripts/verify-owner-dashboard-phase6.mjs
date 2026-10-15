@@ -75,7 +75,7 @@ check("reviews",[
  'visible.ratingCounts[stars-1]','visible.hasMore',
  'owner.phase6.reviewsReadOnly','requestId',
 ].filter(x=>x!=="requestId"));
-check("api",['mediaPage: (accessToken: string)','updateMediaPage: (accessToken: string',
+check("api",['mediaPage: (accessToken:string)','updateMediaPage: (accessToken:string',
  'promotions: (accessToken: string)','closePromotion: (accessToken: string']);
 for(const suffix of [
  "owner.dashboardSubnav.publicProfile","owner.dashboardSubnav.reviews",
