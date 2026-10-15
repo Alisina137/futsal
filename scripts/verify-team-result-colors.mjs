@@ -13,7 +13,8 @@ for(const part of [
   'outcome={phase==="results"?teamMatchOutcome(m,id):null}',
   'outcomeLabel={outcomeLabel(m)}',
   'const outcome=phase==="results"?teamMatchOutcome(m,id):null;',
-  'return outcome?label(outcome):null;',
+  'return outcome?tx(({win:"statsResultWins",loss:"statsResultLosses",',
+  'draw:"statsResultDraws"} as const)[outcome]):null;',
   'label=(filter:TeamMatchFilter)',
 ]){
   assert.ok(team.includes(part),"Team Results must use actual local-team outcome: "+part);
