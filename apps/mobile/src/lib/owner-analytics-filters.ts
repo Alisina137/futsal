@@ -9,7 +9,7 @@ function dateMs(value:string):number|null{
   return parsed;
 }
 
-/** Inclusive from/to, limited to 365 calendar days ending no later than today. */
+/** Inclusive from/to, limited to 366 calendar days ending no later than today. */
 export function validateOwnerAnalyticsRange(
   from:string,to:string,today:string,
 ):OwnerAnalyticsRangeError|null{
@@ -17,6 +17,6 @@ export function validateOwnerAnalyticsRange(
   if(first===null||last===null||end===null)return "INVALID";
   if(last<first)return "INVERTED";
   if(last>end)return "FUTURE";
-  if((last-first)/86_400_000>=365)return "TOO_LONG";
+  if((last-first)/86_400_000>365)return "TOO_LONG";
   return null;
 }
