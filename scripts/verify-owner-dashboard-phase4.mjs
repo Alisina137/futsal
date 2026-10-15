@@ -37,7 +37,7 @@ check("calendar",[
   'days={displayedCalendar.days}','Summary day={selectedDay}',
   'view!=="MONTH"','const [pendingAction,setPendingAction]',
   'setPendingAction({kind:"cancel",id})','setPendingAction({kind:"unblock",id})',
-  'Modal visible={pendingAction!==null}','slotPaletteFor(event)',
+  'Modal visible={pendingAction!==null&&loadedToken===token}','slotPaletteFor(event)',
   'useFocusEffect(useCallback(()=>',
 ]);
 check("blocks",[
