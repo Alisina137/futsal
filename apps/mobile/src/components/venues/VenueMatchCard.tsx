@@ -23,9 +23,9 @@ type FixtureMatch={
   homeTeamName:string|null;awayTeamName:string|null;homeLogoUrl?:string|null;awayLogoUrl?:string|null;
   homeScore:number|null;awayScore:number|null;status:string;
 };
-function FixtureMatchCard({match,scope,timeZone,testID,statusLabel}:{
+function FixtureMatchCard({match,scope,timeZone,testID,statusLabel,missingScoreLabel}:{
   match:FixtureMatch;scope:"upcoming"|"results";timeZone:string;
-  testID:string;statusLabel?:string;
+  testID:string;statusLabel?:string;missingScoreLabel?:string;
 }){
   const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(("vd4."+key) as never);
@@ -74,6 +74,10 @@ function FixtureMatchCard({match,scope,timeZone,testID,statusLabel}:{
             <AppText weight="bold" style={styles.score} forceLtr>
               {match.homeScore}  –  {match.awayScore}
             </AppText>
+          :finished&&missingScoreLabel?
+            <AppText variant="caption" muted weight="semibold" style={styles.date}>
+              {missingScoreLabel}
+            </AppText>
           :<AppText weight="bold" style={styles.vs}>VS</AppText>}
           {date?<AppText variant="caption" muted style={styles.date}>{date.time}</AppText>:null}
         </View>
@@ -102,11 +106,13 @@ export function VenueMatchCard({match,scope,timeZone}:{
   return <FixtureMatchCard match={match} scope={scope} timeZone={timeZone}
     testID={"venue-match-"+match.id}/>;
 }
-export function TeamMatchCard({match,scope,timeZone,statusLabel}:{
-  match:FixtureMatch;scope:"upcoming"|"results";timeZone:string;statusLabel:string;
+export function TeamMatchCard({match,scope,timeZone,statusLabel,missingScoreLabel}:{
+  match:FixtureMatch;scope:"upcoming"|"results";timeZone:string;
+  statusLabel:string;missingScoreLabel:string;
 }){
   return <FixtureMatchCard match={match} scope={scope} timeZone={timeZone}
-    testID={"team-match-"+match.id} statusLabel={statusLabel}/>;
+    testID={"team-match-"+match.id} statusLabel={statusLabel}
+    missingScoreLabel={missingScoreLabel}/>;
 }
 const styles=StyleSheet.create({
   card:{gap:spacing.sm,borderColor:colors.border},
