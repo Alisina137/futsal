@@ -856,7 +856,8 @@ export default function TeamDetailExperience(){
                 <Ionicons name="trophy-outline" size={22} color={colors.primary}/>
               </View>
               <View style={{flex:1,gap:spacing.xs}}>
-                <AppText variant="bodyLarge" weight="bold" numberOfLines={3}>{comp.name}</AppText>
+                <AppText variant="bodyLarge" weight="bold" numberOfLines={3}
+                  style={styles.competitionTitle}>{comp.name}</AppText>
                 <AppText variant="caption" muted>{formatText(comp.format)}</AppText>
               </View>
               <View style={[styles.fixtureStatus,{backgroundColor:badgeBackground,maxWidth:"40%"}]}>
@@ -901,13 +902,14 @@ export default function TeamDetailExperience(){
               </View>
               <AppText variant="caption" muted>{tx("compRecentNote")}</AppText>
             </Pressable>:null}
-            <View style={[styles.horizontal,rowDirection,{flexWrap:"wrap"}]}>
-              <Button label={tx("viewCompetition")} variant="secondary"
-                style={styles.competitionButton}
+            <View testID={"team-competition-actions-"+comp.id}
+              style={[styles.competitionActions,rowDirection]}>
+              <CompetitionAction testID={"team-competition-view-"+comp.id}
+                label={tx("viewCompetition")} icon="eye-outline" primary rtl={isRTL}
                 onPress={()=>router.push({pathname:"/competitions/[competitionId]",
                   params:{competitionId:comp.id}})}/>
-              <Button label={tx("compViewMatches")} variant="secondary"
-                style={styles.competitionButton}
+              <CompetitionAction testID={"team-competition-matches-"+comp.id}
+                label={tx("compViewMatches")} icon="football-outline" rtl={isRTL}
                 onPress={()=>router.push({pathname:"/competitions/[competitionId]",
                   params:{competitionId:comp.id,tab:"MATCHES"}})}/>
             </View>
@@ -1365,6 +1367,28 @@ export default function TeamDetailExperience(){
   </Screen>;
 }
 
+/** Local compact CTAs: preserve the app-wide Button dimensions elsewhere.
+ * Two actions must remain single-line, readable and tappable in narrow RTL/LTR cards. */
+function CompetitionAction({label,icon,onPress,primary=false,rtl,testID}:{
+  label:string;icon:keyof typeof Ionicons.glyphMap;onPress:()=>void;
+  primary?:boolean;rtl:boolean;testID:string;
+}){
+  return <Pressable testID={testID} accessibilityRole="button"
+    accessibilityLabel={label} onPress={onPress}
+    style={({pressed})=>[styles.competitionAction,
+      primary?styles.competitionActionPrimary:styles.competitionActionSecondary,
+      pressed&&styles.subPressed]}>
+    <View style={[styles.competitionActionContent,{flexDirection:rtl?"row-reverse":"row"}]}>
+      <Ionicons name={icon} size={15} color={primary?colors.surface:colors.primary}/>
+      <AppText variant="body" weight="semibold" numberOfLines={1}
+        adjustsFontSizeToFit minimumFontScale={0.8}
+        style={[styles.competitionActionLabel,{color:primary?colors.surface:colors.primary}]}>
+        {label}
+      </AppText>
+    </View>
+  </Pressable>;
+}
+
 function SummaryStat({label,value}:{label:string;value:string}){
   return <View style={styles.summaryItem}>
     <AppText weight="bold" style={{textAlign:"center",color:colors.primary}}>{value}</AppText>
@@ -1449,13 +1473,21 @@ const styles=StyleSheet.create({
   fixtureHeading:{alignItems:"center",justifyContent:"space-between",gap:spacing.sm},
   fixtureStatus:{paddingHorizontal:spacing.sm,paddingVertical:5,borderRadius:radius.pill},
   fixtureDate:{alignItems:"center",gap:spacing.xs},
-  competitionCard:{padding:spacing.md,gap:spacing.md,borderWidth:1,borderColor:colors.border},
+  competitionCard:{padding:12,gap:12,borderWidth:1,borderColor:colors.border},
+  competitionTitle:{fontSize:15,lineHeight:22},
   competitionFilters:{gap:spacing.md,padding:spacing.md},
   competitionDates:{padding:spacing.sm,borderRadius:radius.md,backgroundColor:colors.surfaceMuted,
     gap:spacing.xs},
   competitionPreview:{padding:spacing.sm,borderRadius:radius.md,
     borderWidth:1,borderColor:colors.border,backgroundColor:colors.primarySoft},
-  competitionButton:{flexGrow:1,flexBasis:"43%"},
+  competitionActions:{width:"100%",alignItems:"stretch",gap:spacing.sm,
+    paddingTop:spacing.sm,borderTopWidth:1,borderTopColor:colors.border},
+  competitionAction:{flex:1,minWidth:0,minHeight:44,paddingVertical:6,paddingHorizontal:6,
+    alignItems:"center",justifyContent:"center",borderRadius:radius.md,borderWidth:1},
+  competitionActionPrimary:{backgroundColor:colors.primary,borderColor:colors.primary},
+  competitionActionSecondary:{backgroundColor:colors.primarySoft,borderColor:"#B9CEF8"},
+  competitionActionContent:{width:"100%",gap:4,alignItems:"center",justifyContent:"center"},
+  competitionActionLabel:{flexShrink:1,minWidth:0,fontSize:12,lineHeight:17,textAlign:"center"},
   performanceCard:{padding:spacing.md,gap:spacing.md},
   statisticsSection:{gap:spacing.md},
   statsFocusCard:{gap:spacing.md,padding:spacing.md},
