@@ -117,6 +117,7 @@ for(const route of [
   'href:"/owner/schedule"',
   'href:"/owner/timetable/weekly"',
   'href:"/owner/timetable/exceptions"',
+  'href:"/owner/blocks"',
 ]){
   assert(timetableNav.includes(route),`Timetable sub-navigation missing route: ${route}`);
 }
@@ -125,9 +126,13 @@ assert(!timetableNav.includes('href:"/owner/block-time"'),"Close a Time must sta
 const calendarNavPosition=timetableNav.indexOf('{key:"calendar"');
 const specialNavPosition=timetableNav.indexOf('{key:"special"');
 const weeklyNavPosition=timetableNav.indexOf('{key:"weekly"');
+const blocksNavPosition=timetableNav.indexOf('{key:"blocks"');
 assert(
-  calendarNavPosition<specialNavPosition&&specialNavPosition<weeklyNavPosition,
-  "Visible timetable sub-navigation must remain Calendar, Special Hours, then Weekly Timetable.",
+  calendarNavPosition>=0
+  &&calendarNavPosition<weeklyNavPosition
+  &&weeklyNavPosition<specialNavPosition
+  &&specialNavPosition<blocksNavPosition,
+  "Visible timetable navigation must be Calendar, Weekly Timetable, Special Schedule, Blocked Times.",
 );
 assert(!schedule.includes('t("schedule.quickActions")'),"Main timetable calendar page must not duplicate the old Quick Actions card.");
 assert(!schedule.includes('t("schedule.venueTimetable")'),"Main timetable calendar page title must remain removed.");
