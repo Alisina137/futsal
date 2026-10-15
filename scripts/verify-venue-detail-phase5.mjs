@@ -45,8 +45,13 @@ required(fake,["async browseVenueMedia","post.status===\"PUBLISHED\""],"Test dou
 required(media,[
   'media:["posts","photos","videos"]',
   "marketingApi.venueMedia(venue.id,",
-  '(["all","general","announcement","promotion","competition","result"] as const)',
-  'label={tr5("sort.newest")}', 'label={tr5("sort.oldest")}',
+  'const venuePostFilters:readonly VenuePostFilter[]=[',
+  '"all","general","announcement","promotion","competition","result"',
+  'testID="venue-posts-filter-nav"',
+  'accessibilityState={{selected:filter===key}}',
+  'postFilterNav.focus(key,true)',
+  'kind,postType,sort:"newest",page:1,limit:12',
+  'kind,postType,sort:"newest",page:page+1,limit:12',
   "const request=++requestId.current".replace("const request","const id"),
   "if(id!==requestId.current)return",
   "loadMore()","hasMore","moreError",
@@ -72,4 +77,6 @@ for(const key of ["vd5.filter.all","vd5.filter.promotion","vd5.filter.result",
   "vd5.previous","vd5.next","vd5.videoOpenError","vd5.share"]){
   assert.equal(locales.split('"'+key+'"').length-1,3,"Missing EN/Dari/Pashto "+key);
 }
-console.log("Venue Detail Phase 5 verified: server-paged audience-safe Media, album viewer, video cards, filters, sorting and social actions.");
+assert.ok(!media.includes('label={tr5("sort.newest")}')&&!media.includes('label={tr5("sort.oldest")}'),
+  "Venue media must always show newest posts first without a redundant sort selector.");
+console.log("Venue Detail Phase 5 verified: paginated published Media, persistent focused post categories, newest-only feed, photos/videos and safe social actions.");
