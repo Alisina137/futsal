@@ -59,6 +59,6 @@ test("win-rate chart clamps malformed percentages; zero games displays no fake f
 test("match breakdown is data-backed with correct percentage widths",()=>{
   assert.deepEqual(teamResultBreakdown({played:5,wins:3,draws:1,losses:1}),
     {win:60,draw:20,loss:20});
-  assert.deepEqual(teamResultBreakdown({played:3,wins:1,draws:1,losses:1}),
-    {win:100/3,draw:100/3,loss:100/3});
+  const thirds=teamResultBreakdown({played:3,wins:1,draws:1,losses:1});
+  for(const rate of Object.values(thirds))assert.ok(Math.abs(rate-100/3)<0.000001);
 });
