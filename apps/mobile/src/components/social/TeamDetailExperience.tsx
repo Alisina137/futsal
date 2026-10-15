@@ -15,6 +15,8 @@ import {finished,teamMatchOutcome,teamMatchRows,teamMatchCompetitions,
   type TeamMatchFilter} from "../../lib/team-detail-matches";
 import {teamDetailJoinAction,displayTeamFollowerCount,publicTeamTelephoneUrl} from
   "../../lib/team-detail-actions";
+import {teamAboutMembershipState,teamAboutLocation,teamAboutFoundedDate,
+  teamAboutVenueLink,mayOpenTeamMemberArea} from "../../lib/team-detail-about";
 import {AppText} from "../ui/AppText";
 import {TextField} from "../ui/TextField";
 import {teamSquadView,canDisplayTeamRoster,mayOpenPublicPlayer,squadPositionFilters,
@@ -71,6 +73,23 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     played:"Played",wins:"Wins",draws:"Draws",losses:"Losses",goalsFor:"Goals for",
     goalsAgainst:"Goals against",winRate:"Win rate",goalDifference:"Goal difference",
     winsShort:"W",drawsShort:"D",lossesShort:"L",noForm:"No completed matches yet.",
+    aboutIntro:"About this team",aboutDetails:"Team details",aboutFoundedMissing:"Founding date not provided",
+    aboutLocationMissing:"Location not published",aboutHomeVenue:"Home venue",aboutViewVenue:"View home venue",
+    aboutContactTitle:"Public team contact",aboutNoContact:"No public phone number has been provided.",
+    aboutContactInfo:"Contact details are shared publicly by the team manager.",
+    aboutManageInfo:"Manage team details",aboutMemberStatus:"Your membership status",
+    aboutMemberManager:"You manage this team.",aboutMemberCaptain:"You are an approved team captain.",
+    aboutMemberPlayer:"You are an approved team player.",aboutMemberPending:"Your join request is waiting for manager approval.",
+    aboutMemberSignIn:"Sign in to check eligibility and request to join.",
+    aboutMemberVerify:"Verify your email address before requesting membership.",
+    aboutMemberRole:"Accounts with an assigned role cannot request to join another team.",
+    aboutMemberInvite:"This manager is currently accepting members by invitation only.",
+    aboutMemberRejected:"Your previous membership request was declined. You may submit a new request if eligible.",
+    aboutMemberCancelled:"Your previous request was cancelled. You can submit a new request if eligible.",
+    aboutMemberEligible:"You can submit a request; joining still requires manager approval.",
+    aboutSignIn:"Sign in",aboutMemberLinks:"Member resources",
+    aboutPrivateLinks:"Activities and announcements require confirmed team membership.",
+    aboutManagerWorkspace:"Team management",
     teamInformation:"Team information",location:"Location",founded:"Founded",
     privacy:"Privacy",contact:"Public contact",competition:"Competition",datePending:"Date to be announced",
     joinDescription:"The manager will review your request. Membership is not automatic.",
@@ -135,6 +154,23 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     played:"بازی",wins:"برد",draws:"مساوی",losses:"باخت",goalsFor:"گل زده",
     goalsAgainst:"گل خورده",winRate:"درصد برد",goalDifference:"تفاضل گل",
     winsShort:"ب",drawsShort:"م",lossesShort:"ش",noForm:"هنوز مسابقه تکمیل نشده است.",
+    aboutIntro:"درباره این تیم",aboutDetails:"جزئیات تیم",aboutFoundedMissing:"تاریخ تأسیس درج نشده است",
+    aboutLocationMissing:"موقعیت منتشر نشده است",aboutHomeVenue:"میدان خانگی",aboutViewVenue:"نمایش میدان خانگی",
+    aboutContactTitle:"شماره تماس عمومی تیم",aboutNoContact:"شماره تماس عمومی درج نشده است.",
+    aboutContactInfo:"اطلاعات تماس توسط مدیر تیم به‌صورت عمومی نشر می‌شود.",
+    aboutManageInfo:"مدیریت اطلاعات تیم",aboutMemberStatus:"وضعیت عضویت شما",
+    aboutMemberManager:"شما مدیر این تیم هستید.",aboutMemberCaptain:"شما کپیتان تأییدشدهٔ تیم هستید.",
+    aboutMemberPlayer:"شما بازیکن تأییدشدهٔ این تیم هستید.",aboutMemberPending:"درخواست عضویت شما منتظر تأیید مدیر است.",
+    aboutMemberSignIn:"برای بررسی شرایط عضویت و درخواست، وارد حساب شوید.",
+    aboutMemberVerify:"پیش از درخواست عضویت، ایمیل خود را تأیید کنید.",
+    aboutMemberRole:"حساب‌هایی که نقش فعال دارند نمی‌توانند درخواست عضویت تیم دیگر را بفرستند.",
+    aboutMemberInvite:"این مدیر در حال حاضر تنها با دعوت عضو می‌پذیرد.",
+    aboutMemberRejected:"درخواست قبلی شما رد شد. اگر شرایط را دارید می‌توانید دوباره درخواست دهید.",
+    aboutMemberCancelled:"درخواست قبلی شما لغو شد. اگر شرایط را دارید می‌توانید دوباره درخواست دهید.",
+    aboutMemberEligible:"می‌توانید درخواست دهید؛ عضویت پس از تأیید مدیر انجام می‌شود.",
+    aboutSignIn:"ورود به حساب",aboutMemberLinks:"امکانات اعضا",
+    aboutPrivateLinks:"فعالیت‌ها و اعلانات تنها برای اعضای تأییدشده است.",
+    aboutManagerWorkspace:"مدیریت تیم",
     teamInformation:"معلومات تیم",location:"موقعیت",founded:"تأسیس",
     privacy:"حریم خصوصی",contact:"شماره تماس عمومی",competition:"رقابت",datePending:"تاریخ بعداً اعلام می‌شود",
     joinDescription:"مدیر تیم درخواست شما را بررسی می‌کند؛ عضویت خودکار نیست.",
@@ -199,6 +235,23 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     played:"لوبې",wins:"بریا",draws:"مساوي",losses:"ماتې",goalsFor:"وهلي ګولونه",
     goalsAgainst:"خوړلي ګولونه",winRate:"د بریا سلنه",goalDifference:"د ګولونو توپیر",
     winsShort:"ب",drawsShort:"م",lossesShort:"م",noForm:"تر اوسه بشپړه شوې لوبه نشته.",
+    aboutIntro:"د دې ټیم په اړه",aboutDetails:"د ټیم جزییات",aboutFoundedMissing:"د جوړېدو نېټه نه ده ورکړل شوې",
+    aboutLocationMissing:"ځای نه دی خپور شوی",aboutHomeVenue:"کورنی میدان",aboutViewVenue:"کورنی میدان وګورئ",
+    aboutContactTitle:"د ټیم عامه اړیکه",aboutNoContact:"د عامه اړیکې شمېره نه ده ورکړل شوې.",
+    aboutContactInfo:"د اړیکې معلومات د ټیم مدیر په عامه ډول خپروي.",
+    aboutManageInfo:"د ټیم معلومات سمبالول",aboutMemberStatus:"ستاسو د غړیتوب حالت",
+    aboutMemberManager:"تاسو د دې ټیم مدیر یاست.",aboutMemberCaptain:"تاسو تایید شوی لوبډلمشر یاست.",
+    aboutMemberPlayer:"تاسو د دې ټیم تایید شوی لوبغاړی یاست.",aboutMemberPending:"ستاسو د غړیتوب غوښتنه د مدیر تایید ته منتظره ده.",
+    aboutMemberSignIn:"د غړیتوب شرایطو او غوښتنې لپاره ننوزئ.",
+    aboutMemberVerify:"د غړیتوب غوښتنې مخکې خپل برېښنالیک تایید کړئ.",
+    aboutMemberRole:"هغه حسابونه چې بل رول لري بل ټیم ته د غړیتوب غوښتنه نشي لېږلی.",
+    aboutMemberInvite:"دا مدیر اوس مهال یوازې د بلنې له لارې غړي مني.",
+    aboutMemberRejected:"ستاسو پخوانۍ غوښتنه رد شوې. که وړ یاست نو بیا غوښتنه کولای شئ.",
+    aboutMemberCancelled:"ستاسو پخوانۍ غوښتنه لغوه شوې. که وړ یاست نو بیا غوښتنه کولای شئ.",
+    aboutMemberEligible:"تاسو غوښتنه کولای شئ؛ غړیتوب د مدیر له تایید وروسته کېږي.",
+    aboutSignIn:"ننوتل",aboutMemberLinks:"د غړو اسانتیاوې",
+    aboutPrivateLinks:"فعالیتونه او اعلانونه یوازې د تایید شویو غړو لپاره دي.",
+    aboutManagerWorkspace:"د ټیم اداره",
     teamInformation:"د ټیم معلومات",location:"ځای",founded:"تأسیس",
     privacy:"محرمیت",contact:"عامه اړیکه",competition:"سیالي",datePending:"نېټه به وروسته اعلان شي",
     joinDescription:"د ټیم مدیر به ستاسو غوښتنه وارزوي؛ غړیتوب اتومات نه دی.",
@@ -442,14 +495,19 @@ export default function TeamDetailExperience(){
     if(target)subNav.focus(target,true);
   }
   const role=team&&session?team.managerUserId===session.user.id?"MANAGER"
-    :team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
+    :member&&team.captainUserId===session.user.id?"CAPTAIN":member?"PLAYER":null:null;
   const joinAction=teamDetailJoinAction({
     signedIn:!!session,emailVerified:session?.user.emailVerified===true,
     hasAssignedRole:(session?.user.roles.length??0)>0,
     member,manager:role==="MANAGER",pending:joinStatus==="PENDING",
     allowJoinRequests:joinAllowed,
   });
-  const contactHref=publicTeamTelephoneUrl(profile?.contactPhone);
+  const contactHref=team?.privacy==="PUBLIC"?publicTeamTelephoneUrl(profile?.contactPhone):null;
+  const homeVenueId=teamAboutVenueLink(team?.privacy??"PRIVATE",profile?.homeVenueId);
+  const foundedLabel=teamAboutFoundedDate(profile?.foundedOn,language);
+  const aboutPlace=teamAboutLocation(team?.city??"",profile?.district,profile?.province);
+  const hasMemberAccess=mayOpenTeamMemberArea({member,isManager:role==="MANAGER"});
+  const memberPresentation=teamAboutMembershipState({role,joinStatus,action:joinAction});
   const rowDirection={flexDirection:isRTL?"row-reverse" as const:"row" as const};
   const cover=resolveMediaImageUrl(profile?.coverImageUrl);
   const teamColor=profile?.primaryColor??colors.primary;
@@ -1015,46 +1073,117 @@ export default function TeamDetailExperience(){
   }
   function aboutContent(){
     if(!team)return null;
-    return <>
-      {subs.about==="overview"?<Card style={styles.postCard}>
-        <AppText variant="bodyLarge" weight="bold">{tx("teamInformation")}</AppText>
-        {profile?.description?<AppText>{profile.description}</AppText>:
+    if(subs.about==="overview")return <View testID="team-about-overview" style={styles.aboutSection}>
+      <Card style={styles.aboutCard}>
+        <View style={[styles.horizontal,rowDirection]}>
+          <Ionicons name="information-circle-outline" size={22} color={colors.primary}/>
+          <AppText variant="bodyLarge" weight="bold">{tx("teamInformation")}</AppText>
+        </View>
+        {profile?.description?<AppText style={{lineHeight:23}}>{profile.description}</AppText>:
           <AppText muted>{tx("emptyProfile")}</AppText>}
+        <View style={styles.aboutDivider}/>
+        <AppText weight="semibold">{tx("aboutDetails")}</AppText>
         <InfoLine icon="location-outline" label={tx("location")}
-          value={[team.city,profile?.district,profile?.province].filter(Boolean).join(" · ")} rtl={isRTL}/>
-        {profile?.foundedOn?<InfoLine icon="calendar-outline" label={tx("founded")} value={profile.foundedOn} rtl={isRTL}/>:null}
+          value={aboutPlace||tx("aboutLocationMissing")} rtl={isRTL}/>
+        <InfoLine icon="calendar-outline" label={tx("founded")}
+          value={foundedLabel??tx("aboutFoundedMissing")} rtl={isRTL}/>
         <InfoLine icon="shield-checkmark-outline" label={tx("privacy")}
           value={t(`teams.privacy.${team.privacy}` as never)} rtl={isRTL}/>
-        {profile?.contactPhone?<InfoLine icon="call-outline" label={tx("contact")}
-          value={profile.contactPhone} rtl={isRTL}/>:null}
+        <InfoLine icon="people-outline" label={tx("squadSize")}
+          value={String(team.rosterCount)} rtl={isRTL}/>
+        {homeVenueId?<View testID="team-about-home-venue" style={{gap:spacing.sm}}>
+          <Button label={tx("aboutViewVenue")} variant="secondary"
+            icon={<Ionicons name="location-outline" size={17} color={colors.primary}/>}
+            onPress={()=>router.push({pathname:"/venues/[venueId]",
+              params:{venueId:homeVenueId}})}/>
+        </View>:null}
+        {role==="MANAGER"?<Button label={tx("aboutManageInfo")} variant="secondary"
+          onPress={()=>router.push({pathname:"/teams/[teamId]/manage",
+            params:{teamId:id}})}/>:null}
+      </Card>
+      <Card testID="team-about-contact" style={styles.aboutCard}>
+        <View style={[styles.horizontal,rowDirection]}>
+          <Ionicons name="call-outline" size={21} color={colors.primary}/>
+          <AppText variant="bodyLarge" weight="bold">{tx("aboutContactTitle")}</AppText>
+        </View>
+        {contactHref?<InfoLine icon="call-outline" label={tx("contact")}
+          value={profile?.contactPhone??""} rtl={isRTL}/>:
+          <AppText muted>{tx("aboutNoContact")}</AppText>}
         {contactHref?<Button label={tx("teamContact")} variant="secondary"
           icon={<Ionicons name="call-outline" size={17} color={colors.primary}/>}
           onPress={()=>void callTeam()}/>:null}
-      </Card>:<Card style={styles.postCard}>
-        <AppText variant="bodyLarge" weight="bold">{tx("members")}</AppText>
-        <AppText muted>{tx("joinDescription")}</AppText>
-        {joinStatus==="PENDING"?<AppText style={{color:colors.warning}} weight="semibold">
-          {t("teams.joinRequestPending")}</AppText>:null}
-        {(joinAction==="request"||joinAction==="cancel")?<Button
-          label={joinAction==="cancel"?t("teams.phase4.cancelRequest"):t("teams.requestToJoin")}
-          loading={joinBusy} variant="secondary"
-          onPress={()=>void (joinAction==="cancel"?cancelJoin():requestJoin())}/>:null}
-        {joinAction==="verifyEmail"?<>
-          <AppText variant="caption" muted>{tx("verifiedToJoin")}</AppText>
-          <Button variant="secondary" label={tx("verifyEmail")}
-            onPress={()=>router.push("/profile/email")}/>
-        </>:null}
+        <AppText variant="caption" muted>{tx("aboutContactInfo")}</AppText>
+      </Card>
+    </View>;
+    return <View testID="team-about-membership" style={styles.aboutSection}>
+      <Card style={styles.aboutCard}>
+        <View style={[styles.horizontal,rowDirection]}>
+          <Ionicons name={hasMemberAccess?"shield-checkmark-outline":
+            joinAction==="cancel"?"time-outline":"people-outline"}
+            size={23} color={colors.primary}/>
+          <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>
+            {tx("aboutMemberStatus")}
+          </AppText>
+        </View>
+        {role?<View style={styles.aboutMembershipBadge}>
+          <AppText weight="semibold" style={{color:colors.primary}}>
+            {t("teams.myRole")}: {t(`teams.role.${role}` as never)}
+          </AppText>
+        </View>:null}
+        <AppText testID="team-about-membership-message">
+          {tx(({
+            manager:"aboutMemberManager",captain:"aboutMemberCaptain",player:"aboutMemberPlayer",
+            pending:"aboutMemberPending",signIn:"aboutMemberSignIn",
+            "verifyEmail":"aboutMemberVerify",roleRestricted:"aboutMemberRole",
+            invitationOnly:"aboutMemberInvite",rejected:"aboutMemberRejected",
+            cancelled:"aboutMemberCancelled",eligible:"aboutMemberEligible",
+          } as const)[memberPresentation])}
+        </AppText>
+        {!hasMemberAccess?<AppText variant="caption" muted>{tx("joinDescription")}</AppText>:null}
+        {joinStatus==="PENDING"&&!hasMemberAccess?<View style={[styles.horizontal,rowDirection]}>
+          <Ionicons name="time-outline" size={18} color={colors.warning}/>
+          <AppText variant="caption" muted style={{flex:1}}>
+            {t("teams.joinRequestPending")}
+          </AppText>
+        </View>:null}
+        {(joinAction==="request"||joinAction==="cancel")?<View testID="team-about-join-action">
+          <Button variant="secondary" loading={joinBusy}
+            label={joinAction==="cancel"?t("teams.phase4.cancelRequest"):t("teams.requestToJoin")}
+            onPress={()=>void (joinAction==="cancel"?cancelJoin():requestJoin())}/>
+        </View>:null}
+        {joinAction==="signIn"?<View testID="team-about-sign-in"><Button
+          label={tx("aboutSignIn")} variant="secondary"
+          onPress={()=>router.push("/login")}/></View>:null}
+        {joinAction==="verifyEmail"?<View testID="team-about-verify-email"><Button
+          label={tx("verifyEmail")} variant="secondary"
+          onPress={()=>router.push("/profile/email")}/></View>:null}
         {joinAction==="invitationOnly"?<AppText variant="caption" muted>
           {tx("invitationNote")}</AppText>:null}
-        {role?<AppText weight="semibold" style={{color:colors.primary}}>
-          {t("teams.myRole")}: {t(`teams.role.${role}` as never)}</AppText>:null}
-        {role?<Button label={tx("viewActivity")} variant="secondary"
-          onPress={()=>router.push({pathname:"/teams/[teamId]/activities",params:{teamId:id}})}/>:null}
-        {role?<Button label={tx("announcements")} variant="secondary"
-          onPress={()=>router.push({pathname:"/teams/[teamId]/announcements",params:{teamId:id}})}/>:null}
-        {!role?<AppText variant="caption" muted>{tx("memberOnly")}</AppText>:null}
-      </Card>}
-    </>;
+      </Card>
+      <Card testID="team-about-member-resources" style={styles.aboutCard}>
+        <View style={[styles.horizontal,rowDirection]}>
+          <Ionicons name={hasMemberAccess?"folder-open-outline":"lock-closed-outline"}
+            size={21} color={colors.primary}/>
+          <AppText variant="bodyLarge" weight="bold">{tx("aboutMemberLinks")}</AppText>
+        </View>
+        {hasMemberAccess?<>
+          <Button label={tx("viewActivity")} variant="secondary"
+            onPress={()=>router.push({pathname:"/teams/[teamId]/activities",
+              params:{teamId:id}})}/>
+          <Button label={tx("announcements")} variant="secondary"
+            onPress={()=>router.push({pathname:"/teams/[teamId]/announcements",
+              params:{teamId:id}})}/>
+          {role==="MANAGER"?<Button label={tx("aboutManagerWorkspace")}
+            variant="secondary" onPress={()=>router.push({pathname:"/teams/[teamId]/manage",
+              params:{teamId:id}})}/>:null}
+        </>:<View style={[styles.horizontal,rowDirection]}>
+          <Ionicons name="lock-closed-outline" size={17} color={colors.textMuted}/>
+          <AppText variant="caption" muted style={{flex:1}}>
+            {tx("aboutPrivateLinks")}
+          </AppText>
+        </View>}
+      </Card>
+    </View>;
   }
   function content(){
     if(tab==="squad")return rosterContent();
@@ -1341,6 +1470,11 @@ const styles=StyleSheet.create({
   metric:{width:"47%",backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
     borderRadius:radius.md,alignItems:"center",justifyContent:"center",gap:spacing.xs,padding:spacing.md},
   formBadge:{height:44,width:44,borderRadius:22,alignItems:"center",justifyContent:"center"},
+  aboutSection:{gap:spacing.md},
+  aboutCard:{gap:spacing.md,padding:spacing.md},
+  aboutDivider:{height:1,backgroundColor:colors.border,marginVertical:spacing.xs},
+  aboutMembershipBadge:{alignSelf:"flex-start",borderRadius:radius.pill,
+    backgroundColor:colors.primarySoft,paddingHorizontal:spacing.md,paddingVertical:spacing.sm},
   infoLine:{gap:spacing.sm,alignItems:"flex-start",paddingVertical:spacing.xs},
   imageBackdrop:{flex:1,backgroundColor:"#071529ED",padding:spacing.lg},
   fullImage:{flex:1,width:"100%"},
