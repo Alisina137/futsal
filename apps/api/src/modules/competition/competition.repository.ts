@@ -428,39 +428,88 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
     return this.listItems(eq(competitions.published, true));
   }
 
-  /** Only published competitions involving the authenticated user's active team membership. */
+  /** Server-side filtering before pagination. Facets describe all published,
+   * physically hosted matches in the active scope, not only page 1. */
   async listPublicVenueMatches(venueId:string,query:import("@leaguekick/contracts").VenueMatchQuery,now:Date){
-    // Match venue is authoritative: a competition hosted here can hold a match elsewhere.
     const statuses=query.scope==="results"
       ?inArray(competitionMatches.status,["COMPLETED","CORRECTED"])
       :or(eq(competitionMatches.status,"IN_PROGRESS"),
         and(eq(competitionMatches.status,"SCHEDULED"),gte(competitionMatches.startsAt,now)))!;
-    const where=and(eq(competitionMatches.venueId,venueId),
+    const base=and(eq(competitionMatches.venueId,venueId),
       eq(competitions.published,true),ne(competitions.status,"DRAFT"),
       ne(competitions.status,"CANCELLED"),statuses)!;
-    const [rows,counts]=await Promise.all([
-      this.db.select({match:competitionMatches,competitionName:competitions.name,
-        homeName:sql<string|null>`(select name from teams where id=${competitionMatches.homeTeamId})`,
-        awayName:sql<string|null>`(select name from teams where id=${competitionMatches.awayTeamId})`})
-        .from(competitionMatches).innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
-        .where(where)
+    const local=sql`(${competitionMatches.startsAt} AT TIME ZONE ${venues.timezone})`;
+    const extra:SQL[]=[];
+    if(query.competitionId)extra.push(eq(competitionMatches.competitionId,query.competitionId));
+    if(query.teamId)extra.push(or(eq(competitionMatches.homeTeamId,query.teamId),
+      eq(competitionMatches.awayTeamId,query.teamId))!);
+    if(query.year!==undefined)extra.push(sql`extract(year from ${local}) = ${query.year}`);
+    if(query.month!==undefined)extra.push(sql`extract(month from ${local}) = ${query.month}`);
+    if(query.week!==undefined)extra.push(sql`extract(week from ${local}) = ${query.week}`);
+    const filtered=and(base,...extra)!;
+    const source=()=>this.db.select({match:competitionMatches,competitionName:competitions.name,
+      homeName:sql<string|null>`(select name from teams where id=${competitionMatches.homeTeamId})`,
+      awayName:sql<string|null>`(select name from teams where id=${competitionMatches.awayTeamId})`,
+      homeLogo:sql<string|null>`(select logo_url from teams where id=${competitionMatches.homeTeamId})`,
+      awayLogo:sql<string|null>`(select logo_url from teams where id=${competitionMatches.awayTeamId})`})
+      .from(competitionMatches)
+      .innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
+      .innerJoin(venues,eq(competitionMatches.venueId,venues.id));
+    const countSource=()=>this.db.select({total:sql<number>`count(*)::int`})
+      .from(competitionMatches)
+      .innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
+      .innerJoin(venues,eq(competitionMatches.venueId,venues.id));
+    const [rows,counts,facetRows]=await Promise.all([
+      source().where(filtered)
         .orderBy(query.scope==="upcoming"?asc(competitionMatches.startsAt):desc(competitionMatches.startsAt),
           asc(competitionMatches.id))
         .limit(query.limit).offset((query.page-1)*query.limit),
-      this.db.select({total:sql<number>`count(*)::int`}).from(competitionMatches)
+      countSource().where(filtered),
+      this.db.select({
+        competitionId:competitionMatches.competitionId,competitionName:competitions.name,
+        homeTeamId:competitionMatches.homeTeamId,awayTeamId:competitionMatches.awayTeamId,
+        homeName:sql<string|null>`(select name from teams where id=${competitionMatches.homeTeamId})`,
+        awayName:sql<string|null>`(select name from teams where id=${competitionMatches.awayTeamId})`,
+        year:sql<number>`extract(year from ${local})::int`,
+        month:sql<number>`extract(month from ${local})::int`,
+        week:sql<number>`extract(week from ${local})::int`,
+      }).from(competitionMatches)
         .innerJoin(competitions,eq(competitionMatches.competitionId,competitions.id))
-        .where(where),
+        .innerJoin(venues,eq(competitionMatches.venueId,venues.id))
+        .where(base),
     ]);
+    const competitionsMap=new Map<string,string>();
+    const teamsMap=new Map<string,string>();
+    const years=new Set<number>(),months=new Set<number>(),weeks=new Set<number>();
+    for(const row of facetRows){
+      competitionsMap.set(row.competitionId,row.competitionName);
+      if(row.homeTeamId&&row.homeName)teamsMap.set(row.homeTeamId,row.homeName);
+      if(row.awayTeamId&&row.awayName)teamsMap.set(row.awayTeamId,row.awayName);
+      if(row.year!==null&&Number.isFinite(row.year))years.add(row.year);
+      if(row.month!==null&&Number.isFinite(row.month))months.add(row.month);
+      if(row.week!==null&&Number.isFinite(row.week))weeks.add(row.week);
+    }
+    const byName=(a:{id:string;name:string},b:{id:string;name:string})=>
+      a.name.localeCompare(b.name)||a.id.localeCompare(b.id);
+    const facets={
+      competitions:[...competitionsMap].map(([id,name])=>({id,name})).sort(byName),
+      teams:[...teamsMap].map(([id,name])=>({id,name})).sort(byName),
+      years:[...years].sort((a,b)=>b-a),
+      months:[...months].sort((a,b)=>a-b),
+      weeks:[...weeks].sort((a,b)=>a-b),
+    };
     const total=Number(counts[0]?.total??0);
-    return {venueId,matches:rows.map(({match,competitionName,homeName,awayName})=>({
+    return {venueId,matches:rows.map(({match,competitionName,homeName,awayName,homeLogo,awayLogo})=>({
       id:match.id,competitionId:match.competitionId,competitionName,
       startsAt:match.startsAt?.toISOString()??null,endsAt:match.endsAt?.toISOString()??null,
       stage:match.stage,roundNumber:match.roundNumber,
+      homeTeamId:match.homeTeamId,awayTeamId:match.awayTeamId,
       homeTeamName:homeName??null,awayTeamName:awayName??null,
+      homeLogoUrl:homeLogo??null,awayLogoUrl:awayLogo??null,
       homeScore:["COMPLETED","CORRECTED","IN_PROGRESS"].includes(match.status)?match.homeScore:null,
       awayScore:["COMPLETED","CORRECTED","IN_PROGRESS"].includes(match.status)?match.awayScore:null,
       status:match.status,
-    })),total,page:query.page,limit:query.limit,hasMore:query.page*query.limit<total};
+    })),total,page:query.page,limit:query.limit,hasMore:query.page*query.limit<total,facets};
   }
 
   async listMyPublicCompetitions(userId:string):Promise<CompetitionListItemDto[]>{
