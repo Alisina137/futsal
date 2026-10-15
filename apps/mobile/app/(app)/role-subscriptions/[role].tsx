@@ -218,7 +218,7 @@ export default function PaidRoleSubscriptionScreen() {
       <AppText muted>{t("roles.subscriptionActiveBody")}</AppText>
       <Button
         label={t(role === "VENUE_OWNER" ? "roles.openVenueTools" : "roles.openTeamTools")}
-        onPress={() => router.replace(role === "VENUE_OWNER" ? "/owner/competitions" : "/teams")}
+        onPress={() => router.replace(role === "VENUE_OWNER" ? "/owner/overview" : "/teams")}
       />
     </Card> : null}
 
