@@ -644,51 +644,104 @@ function CompetitionAboutSection({competition,subtab}:{
   const {t,isRTL,language}=useLocale();
   const line=(label:string,value:string)=><View key={label} style={[styles.scoreRow,
     {flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",flexWrap:"wrap"}]}>
-    <AppText muted>{label}</AppText><AppText weight="semibold">{value}</AppText>
+    <AppText variant="caption" muted style={{flex:1,minWidth:105}}>{label}</AppText>
+    <AppText weight="semibold" style={{flex:1,minWidth:95,textAlign:isRTL?"left":"right"}}>{value}</AppText>
   </View>;
-  const date=(date:string|null)=>date?formatLocalDateTimeParts(date,language).date:
-    t("competition.profile.notSet");
+  const datetime=(value:string|null)=>{
+    if(!value)return t("competition.profile.notSet");
+    const time=displayTime(value,language);
+    return time?`${time.date} · ${time.time}`:t("competition.profile.notSet");
+  };
+  const accepted=competition.teams.filter(team=>team.status==="ACCEPTED").length;
   const category=subtab==="PRIZES"?"gift-outline":subtab==="VENUE"?"location-outline":
-    "information-circle-outline";
+    subtab==="RULES"?"document-text-outline":"information-circle-outline";
   return <View testID="competition-about-subtab" style={styles.stack}>
     <SectionHeading icon={category} title={t(`competition.detail.sub.${subtab}` as never)}/>
-    <Card style={styles.stack}>
-      {subtab==="INFORMATION"?<>
-        <AppText weight="bold" variant="bodyLarge">{competition.name}</AppText>
-        <AppText muted>{competition.description?.trim()||t("competition.profile.noDescription")}</AppText>
-        {line(t("competition.format"),t(`competition.format.${competition.format}` as never))}
-        {line(t("competition.startsAt"),date(competition.startsAt))}
-        {line(t("competition.endsAt"),date(competition.endsAt))}
-      </>:null}
-      {subtab==="RULES"?<>
-        {line(t("competition.winPoints"),String(competition.winPoints))}
-        {line(t("competition.drawPoints"),String(competition.drawPoints))}
-        {line(t("competition.lossPoints"),String(competition.lossPoints))}
-        {line(t("competition.profile.tieBreakOrder"),
-          competition.tieBreakOrder.map(rule=>t(`competition.profile.tieBreak.${rule}` as never)).join(" · "))}
-      </>:null}
-      {subtab==="PRIZES"?(competition.rewards.length?
-        competition.rewards.map((reward,index)=><View key={index} style={{gap:spacing.xs}}>
-          <AppText weight="bold">{reward.title}</AppText>
-          <AppText style={{color:colors.primary}}>{reward.prize}</AppText>
-          {reward.description?<AppText muted>{reward.description}</AppText>:null}
-        </View>):<Placeholder title={t("competition.rewards.empty")} icon="gift-outline"/>):null}
-      {subtab==="VENUE"?<Pressable accessibilityRole="button"
-        onPress={()=>router.push({pathname:"/venues/[venueId]",
-          params:{venueId:competition.venueId}})}
-        style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Ionicons name="location-outline" size={22} color={colors.primary}/>
-        <AppText weight="semibold" style={{flex:1}}>{competition.venueName}</AppText>
-        <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.primary}/>
-      </Pressable>:null}
-      <Pressable testID="competition-about-full" accessibilityRole="button"
-        onPress={()=>router.push({pathname:"/competitions/[competitionId]/about",
-          params:{competitionId:competition.id}})} style={styles.progressionLink}>
-        <AppText weight="semibold" style={{color:colors.primary}}>
-          {t("competition.phase4.fullAbout")}
+    {subtab==="INFORMATION"?<Card testID="competition-phase7-information" style={styles.stack}>
+      <AppText weight="bold" variant="bodyLarge">{competition.name}</AppText>
+      <AppText muted>{competition.description?.trim()||t("competition.profile.noDescription")}</AppText>
+      {line(t("competition.profile.currentStatus"),t(`competition.status.${competition.status}` as never))}
+      {line(t("competition.format"),t(`competition.format.${competition.format}` as never))}
+      {line(t("competition.profile.registeredTeams"),`${accepted} / ${competition.maxTeams}`)}
+      {line(t("competition.registrationFee"),competition.registrationFeeAfn===0?
+        t("competition.profile.free"):`${competition.registrationFeeAfn} AFN`)}
+      {line(t("competition.registrationDeadline"),datetime(competition.registrationClosesAt))}
+      {line(t("competition.startsAt"),datetime(competition.startsAt))}
+      {line(t("competition.endsAt"),datetime(competition.endsAt))}
+      <Pressable accessibilityRole="button" testID="competition-about-registration"
+        onPress={()=>router.push({pathname:"/competitions/[competitionId]",
+          params:{competitionId:competition.id,tab:"TEAMS",subtab:"REGISTRATION"}})}
+        style={styles.progressionLink}>
+        <Ionicons name="people-outline" size={18} color={colors.primary}/>
+        <AppText weight="semibold" style={{color:colors.primary,flex:1}}>
+          {t("competition.detail.registrationDetails")}
         </AppText>
       </Pressable>
-    </Card>
+    </Card>:null}
+    {subtab==="RULES"?<Card testID="competition-phase7-rules" style={styles.stack}>
+      <AppText variant="caption" muted>{t("competition.detail.phase7.rulesScope")}</AppText>
+      {line(t("competition.matchDuration"),
+        t("competition.profile.minutes",{count:competition.matchDurationMinutes}))}
+      {line(t("competition.winPoints"),String(competition.winPoints))}
+      {line(t("competition.drawPoints"),String(competition.drawPoints))}
+      {line(t("competition.lossPoints"),String(competition.lossPoints))}
+      {competition.format==="GROUP_KNOCKOUT"?<>
+        {competition.groupCount!==null?line(t("competition.groupCount"),String(competition.groupCount)):null}
+        {competition.qualifiersPerGroup!==null?line(t("competition.qualifiersPerGroup"),
+          String(competition.qualifiersPerGroup)):null}
+      </>:null}
+      {line(t("competition.profile.tieBreakOrder"),
+        competition.tieBreakOrder.length?
+          competition.tieBreakOrder.map(rule=>t(`competition.profile.tieBreak.${rule}` as never)).join(" · "):
+          t("competition.profile.notSet"))}
+      <Pressable accessibilityRole="button" testID="competition-about-view-standings"
+        onPress={()=>router.push({pathname:"/competitions/[competitionId]",
+          params:{competitionId:competition.id,tab:"STANDINGS"}})}
+        style={styles.progressionLink}>
+        <Ionicons name="podium-outline" size={18} color={colors.primary}/>
+        <AppText weight="semibold" style={{color:colors.primary,flex:1}}>
+          {t("competition.standings")}
+        </AppText>
+      </Pressable>
+    </Card>:null}
+    {subtab==="PRIZES"?<View testID="competition-phase7-prizes" style={styles.stack}>
+      {competition.rewards.length? (["TEAM","INDIVIDUAL"] as const).map(kind=>{
+        const rewards=competition.rewards.filter(reward=>reward.category===kind);
+        return rewards.length?<Card key={kind} style={styles.stack}>
+          <SectionHeading icon={kind==="TEAM"?"people-outline":"person-outline"}
+            title={t(`competition.rewards.category.${kind}` as never)} count={rewards.length}/>
+          {rewards.map((reward,index)=><View key={index} style={[styles.stack,{
+            borderTopWidth:index===0?0:1,borderTopColor:colors.border,paddingTop:index===0?0:spacing.sm,
+          }]}>
+            <AppText weight="bold">{reward.title}</AppText>
+            <AppText style={{color:colors.primary}} weight="semibold">{reward.prize}</AppText>
+            {reward.description?.trim()?<AppText muted>{reward.description}</AppText>:null}
+          </View>)}
+        </Card>:null;
+      }):<Placeholder title={t("competition.rewards.empty")} icon="gift-outline"/>}
+      <AppText variant="caption" muted>{t("competition.detail.phase7.prizesScope")}</AppText>
+    </View>:null}
+    {subtab==="VENUE"?<Card testID="competition-phase7-venue" style={styles.stack}>
+      <AppText variant="caption" muted>{t("competition.detail.phase7.venueScope")}</AppText>
+      <Pressable accessibilityRole="button" testID="competition-about-venue-link"
+        accessibilityLabel={competition.venueName}
+        onPress={()=>router.push({pathname:"/venues/[venueId]",
+          params:{venueId:competition.venueId}})}
+        style={[styles.progressionLink,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="location-outline" size={22} color={colors.primary}/>
+        <AppText weight="semibold" style={{flex:1,color:colors.primary}}>
+          {competition.venueName}
+        </AppText>
+        <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.primary}/>
+      </Pressable>
+    </Card>:null}
+    <Pressable testID="competition-about-full" accessibilityRole="button"
+      onPress={()=>router.push({pathname:"/competitions/[competitionId]/about",
+        params:{competitionId:competition.id}})} style={styles.progressionLink}>
+      <AppText weight="semibold" style={{color:colors.primary}}>
+        {t("competition.phase4.fullAbout")}
+      </AppText>
+    </Pressable>
   </View>;
 }
 
