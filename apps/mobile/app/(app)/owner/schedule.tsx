@@ -216,10 +216,15 @@ export default function OwnerScheduleScreen(){
       setLoadedSelection(requestedSelection);
       setRenderedView(requestedView);
       setRenderedAnchorDate(requestedAnchorDate);
+    }catch{
+      // Failures from a previous account or superseded court/day request
+      // must not overwrite the current owner's error state.
+      if(requestId===calendarRequestId.current&&activeToken.current===token)
+        setError(t("schedule.calendarError"));
     }finally{
       if(requestId===calendarRequestId.current)setCalendarLoading(false);
     }
-  },[anchorDate,range.from,range.to,token,view,selectedAreaId]);
+  },[anchorDate,range.from,range.to,token,view,selectedAreaId,t]);
 
   useEffect(()=>{
     setLoading(false);
@@ -240,7 +245,7 @@ export default function OwnerScheduleScreen(){
   // Refetch on every return from another tab. Online reservations arrive
   // while this screen is blurred, so mounting once is insufficient.
   useFocusEffect(useCallback(()=>{
-    void loadCalendar().catch(()=>setError(t("schedule.calendarError")));
+    void loadCalendar();
     return ()=>{calendarRequestId.current+=1;setSelectedSlot(null);setPendingAction(null);};
   },[loadCalendar,t]));
 
