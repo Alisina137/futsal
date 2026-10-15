@@ -28,7 +28,12 @@ assert(team.includes("(team.offlineVenueId && !team.claimedAt)")&&repo.includes(
 assert(marketing.includes('or(isNull(teams.offlineVenueId), isNotNull(teams.claimedAt))'),"Unclaimed teams must not support social profile/follow/post");
 assert(competition.includes("(team.offlineVenueId && !team.claimedAt)")&&publicTeams.includes('disabled={team.offline}'),"Offline teams cannot masquerade as subscribed teams or expose page links");
 assert(ownerNav.includes('href:"/owner/manual-teams"')&&ownerPage.includes("manualTeamApi.create")&&ownerPage.includes("manualTeamApi.update"),"Offline teams managed from venue-owner dashboard");
-assert(compPage.includes("manualTeamApi.register")&&admin.includes("adminApi.assignManualTeam"),"Competition enrollment and administrator handover UI");
+const competitionOwner=read("apps/mobile/app/(app)/owner/competitions/[competitionId]/manage.tsx");
+assert(competitionOwner.includes("manualTeamApi.register(")&&
+  compPage.includes('params:{competitionId,tab:"TEAMS"}')&&
+  !compPage.includes("manualTeamApi.register(")&&
+  admin.includes("adminApi.assignManualTeam"),
+  "Offline competition enrollment belongs to authorized owner dashboard; admin handover remains separate.");
 for(const key of ["manualTeams.title","manualTeams.registerDirect","manualTeams.adminTitle","manualTeams.claimRules","competition.manualTeamBadge"]){
  assert(strings.split(`"${key}"`).length-1===3,`Missing language label: ${key}`);
 }

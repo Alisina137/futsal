@@ -74,10 +74,12 @@ check(sections.includes('testID="competition-home-feed"')
   &&!sections.includes("competition.profile.nextMatches")
   &&!sections.includes("function Home({competition,posts,registration"),
   "Home must display all competition posts and only currently live matches, never dedicated Results/Matches sections or registration.");
-check(sections.includes('return <CompetitionTeams competition={competition} registration={registration}/>')
-  &&sections.includes('{registration}')
+check(sections.includes('if(activeTab==="TEAMS")return <CompetitionTeams competition={competition}')
+  &&sections.includes('view={subtab??"PARTICIPANTS"}')
+  &&sections.includes('view!=="PARTICIPANTS"')
+  &&page.includes('testID="competition-registration-experience"')
   &&directory.includes('tab:"TEAMS",focusRegistration:"1"'),
-  "Registration must render under Teams and all registration shortcuts must open that tab.");
+  "Distinct Teams subtabs must isolate private registration from public participants; old entry links must work.");
 check(page.includes("setInterval(()=>void refreshScore(),25000)")
   &&page.includes('AppState.currentState!=="active"')
   &&page.includes('"HOME","MATCHES","STANDINGS","STATS"')

@@ -320,14 +320,34 @@ function CompetitionStats({competition}:{competition:CompetitionDto}){
   </View>;
 }
 
-function CompetitionTeams({competition,registration}:{competition:CompetitionDto;registration:ReactNode}){
+function CompetitionTeams({competition,registration,view="PARTICIPANTS"}:{
+  competition:CompetitionDto;registration:ReactNode;view?:string;
+}){
   const {t,isRTL}=useLocale();
-  const teams=competition.teams.filter(team=>team.status==="ACCEPTED");
-  return <View style={styles.stack}>
-    <SectionHeading icon="people-outline" title={t("competition.teams")} count={teams.length}/>
+  const teams=competition.teams.filter(team=>team.status==="ACCEPTED")
+    .sort((a,b)=>(a.groupName??"").localeCompare(b.groupName??"")||
+      (a.seed??Number.MAX_SAFE_INTEGER)-(b.seed??Number.MAX_SAFE_INTEGER)||
+      a.teamName.localeCompare(b.teamName));
+  if(view!=="PARTICIPANTS")return <View style={styles.stack}
+    testID={view==="REGISTRATION"?"competition-registration-subtab":"competition-my-participation-subtab"}>
     {registration}
+  </View>;
+  return <View style={styles.stack} testID="competition-public-participants">
+    <Card style={styles.participantSummary}>
+      <View style={[styles.teamRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="people-outline" size={22} color={colors.primary}/>
+        <View style={{flex:1,gap:3}}>
+          <AppText weight="bold" variant="bodyLarge">{t("competition.teams")}</AppText>
+          <AppText muted variant="caption">
+            {t("competition.detail.acceptedTeamsCount",{count:teams.length,max:competition.maxTeams})}
+          </AppText>
+        </View>
+      </View>
+    </Card>
     {teams.length===0?<Placeholder icon="people-outline" title={t("competition.profile.noTeams")}/>:null}
-    {teams.map(team=><Pressable key={team.teamId} accessibilityRole={team.offline?"text":"button"}
+    {teams.map(team=><Pressable key={team.teamId}
+      testID={`competition-participant-${team.teamId}`}
+      accessibilityRole={team.offline?"text":"button"}
       disabled={team.offline} onPress={()=>!team.offline&&openTeam(team.teamId)}>
       <Card style={[styles.teamRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={styles.teamLogo}>
@@ -340,13 +360,18 @@ function CompetitionTeams({competition,registration}:{competition:CompetitionDto
           <AppText weight="bold" numberOfLines={2}>{team.teamName}</AppText>
           {team.offline?<AppText variant="caption" muted>{t("competition.manualTeamBadge")}</AppText>:null}
           {team.groupName?<AppText muted variant="caption">{t("competition.group",{name:team.groupName})}</AppText>:null}
+          <AppText variant="caption" style={{color:colors.primary}}>
+            {t("competition.registrationStatus.ACCEPTED")}
+          </AppText>
         </View>
         {team.seed?<View style={styles.seedBadge}>
           <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>#{team.seed}</AppText>
         </View>:null}
-        {!team.offline?<Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={19} color={colors.textMuted}/>:null}
+        {!team.offline?<Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={19}
+          color={colors.textMuted}/>:null}
       </Card>
     </Pressable>)}
+    {registration}
   </View>;
 }
 
@@ -729,8 +754,9 @@ export function CompetitionProfileSections({competition,posts,activeTab,subtab,r
     onTabChange={onTabChange} mode="MEDIA" view={subtab??"UPDATES"}/>;
   if(activeTab==="ABOUT")return <CompetitionAboutSection competition={competition}
     subtab={subtab??"INFORMATION"}/>;
-  if(activeTab==="TEAMS"&&subtab==="PARTICIPANTS")return <CompetitionTeams competition={competition} registration={registration}/>;
-  return <CompetitionTeams competition={competition} registration={registration}/>;
+  if(activeTab==="TEAMS")return <CompetitionTeams competition={competition}
+    registration={registration} view={subtab??"PARTICIPANTS"}/>;
+  return null;
 }
 
 const styles=StyleSheet.create({
@@ -783,6 +809,7 @@ const styles=StyleSheet.create({
   statEntry:{padding:spacing.sm},
   rank:{width:42,height:42,borderRadius:21,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
+  participantSummary:{padding:spacing.md,backgroundColor:colors.primarySoft},
   teamRow:{alignItems:"center",gap:spacing.sm},
   teamLogo:{width:54,height:54,borderRadius:27,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",overflow:"hidden"},

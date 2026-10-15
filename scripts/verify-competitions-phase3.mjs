@@ -46,12 +46,12 @@ assert.ok(directory.includes('mode==="mine"')&&
  "My Competitions must show actual application status, manager decisions and filters");
 assert.ok(detail.includes("CompetitionParticipationPanel")&&
  detail.includes("competitionApi.myParticipations(session.accessToken,competitionId)")&&
- detail.includes("const registration=session?<View"),
+ detail.includes('const registration=<View testID="competition-registration-experience"'),
  "Competition detail must show authenticated registration status outside the registration-open window.");
 assert.ok(detail.includes('await competitionApi.register(')&&
  detail.includes('await competitionApi.respondInvitation(')&&
  detail.includes('await competitionApi.withdraw(')&&
- detail.includes('participations.filter(item=>!["REJECTED","WITHDRAWN"].includes(item.status))')&&
+ detail.includes('eligibleCompetitionTeams(myTeams,competition,participations,session.user.id)')&&
  detail.includes("participationError")&&detail.includes("setIntent(")&&
  detail.includes("const full=Boolean("),
  "Competition detail must prevent duplicate team actions, confirm submission and guard full capacity");

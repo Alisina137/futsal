@@ -54,10 +54,11 @@ function after(value:string,offsetMs:number){
 }
 
 export default function ManageCompetitionScreen(){
-  const {competitionId}=useLocalSearchParams<{competitionId:string}>();
+  const {competitionId,tab}=useLocalSearchParams<{competitionId:string;tab?:string}>();
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
-  const [activeTab,setActiveTab]=useState<ControlTab>("OVERVIEW");
+  const [activeTab,setActiveTab]=useState<ControlTab>(()=>tab==="TEAMS"?"TEAMS":"OVERVIEW");
+  useEffect(()=>{if(tab==="TEAMS")setActiveTab("TEAMS");},[competitionId,tab]);
   const [competition,setCompetition]=useState<CompetitionDto|null>(null);
   const [referees,setReferees]=useState<VenueRefereeDto[]>([]);
   const [refereeReplies,setRefereeReplies]=useState<Record<string,string|null>>({});
