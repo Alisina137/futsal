@@ -9,6 +9,7 @@ import {readAvailabilityCache,writeAvailabilityCache} from "../../lib/availabili
 import {formatPostTimeAgo} from "../../lib/date-time";
 import {isCurrentVenueAvailability,isVenueBookingDay,isValidVenueDay,venueDayKey} from "../../lib/venue-detail-dates";
 import {usePostTimeNow} from "../../hooks/usePostTimeNow";
+import {useVisibleTab} from "../../hooks/useVisibleTab";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {useNetwork} from "../../providers/NetworkProvider";
@@ -91,6 +92,10 @@ function venueVideoLink(text:string){
   const match=text.match(/https:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]{7,}|youtu\.be\/[\w-]{7,}|vimeo\.com\/[0-9]{4,})[^\s]*/i);
   return match?.[0]??null;
 }
+type VenuePostFilter="all"|"general"|"announcement"|"promotion"|"competition"|"result";
+const venuePostFilters:readonly VenuePostFilter[]=[
+  "all","general","announcement","promotion","competition","result",
+];
 type VenueContentProps={venue:PublicVenueDto;sub:VenueMediaSub|"announcements";onReserve:(startsAt?:string,promotionId?:string)=>void};
 export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   const {t,isRTL,language}=useLocale(),tr=(key:string)=>t(("vd."+key) as never);
@@ -99,8 +104,8 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   const token=session?.accessToken;
   const [posts,setPosts]=useState<VenuePostDto[]>([]);
   const [loading,setLoading]=useState(true),[error,setError]=useState(false);
-  const [filter,setFilter]=useState<"all"|"general"|"announcement"|"promotion"|"competition"|"result">("all");
-  const [sort,setSort]=useState<"newest"|"oldest">("newest");
+  const [filter,setFilter]=useState<VenuePostFilter>("all");
+  const postFilterNav=useVisibleTab<VenuePostFilter>(filter);
   const [photo,setPhoto]=useState<string|null>(null);
   const [videoError,setVideoError]=useState(false);
   const [actionError,setActionError]=useState(false);
@@ -109,6 +114,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   const requestId=useRef(0);
   const isMedia=sub==="posts"||sub==="photos"||sub==="videos"||sub==="announcements";
   const kind=sub==="photos"?"photos":sub==="videos"?"videos":"posts";
+  useEffect(()=>{if(sub==="posts")setFilter("all");},[sub,venue.id]);
   const postType=sub==="announcements"?"ANNOUNCEMENT":
     sub==="posts"&&filter!=="all"?filter.toUpperCase() as VenuePostType:undefined;
   const load=useCallback(async()=>{
@@ -119,7 +125,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
     try{
       if(isMedia){
         const value=await marketingApi.venueMedia(venue.id,{
-          kind,postType,sort,page:1,limit:12,
+          kind,postType,sort:"newest",page:1,limit:12,
         },token);
         if(id!==requestId.current)return;
         setPosts(value.posts.filter(p=>p.venueId===venue.id&&p.status==="PUBLISHED"&&p.visibility!=="PRIVATE"));
@@ -131,7 +137,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
       }
     }catch{if(id===requestId.current)setError(true);}
     finally{if(id===requestId.current)setLoading(false);}
-  },[venue.id,token,isMedia,kind,postType,sort]);
+  },[venue.id,token,isMedia,kind,postType]);
   useEffect(()=>{void load();return()=>{requestId.current+=1;};},[load]);
   async function loadMore(){
     if(!isMedia||!hasMore||loading||loadingMore)return;
@@ -139,7 +145,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
     setLoadingMore(true);setMoreError(false);
     try{
       const result=await marketingApi.venueMedia(venue.id,{
-        kind,postType,sort,page:page+1,limit:12,
+        kind,postType,sort:"newest",page:page+1,limit:12,
       },token);
       if(id!==requestId.current)return;
       setPosts(current=>[...current,...result.posts.filter(p=>
@@ -211,8 +217,8 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
       </View>
     </View>
   </Modal>;
-  if(loading)return <DataLoadingState variant="list" minHeight={240}/>;
-  if(error)return <Empty icon="cloud-offline-outline" title={tr("postsError")} action={()=>void load()}/>;
+  if(loading&&sub!=="posts")return <DataLoadingState variant="list" minHeight={240}/>;
+  if(error&&sub!=="posts")return <Empty icon="cloud-offline-outline" title={tr("postsError")} action={()=>void load()}/>;
   if(sub==="photos")return <View style={{gap:spacing.md}}>
     <AppText variant="caption" muted>{tr5("photosDescription")}</AppText>
     {photos.length===0?<Empty icon="images-outline" title={tr("noPhotos")}/>:<View style={styles.photoGrid}>
@@ -246,18 +252,31 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
   if(sub==="announcements"&&filtered.length===0)
     return <Empty icon="megaphone-outline" title={tr("noAnnouncements")}/>;
   return <View style={{gap:spacing.md}} testID="venue-media-posts">
-    {sub==="posts"?<>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {(["all","general","announcement","promotion","competition","result"] as const).map(key=>
-          <Pill key={key} selected={filter===key}
-            onPress={()=>setFilter(key)} label={tr5("filter."+key)}/>)}
-      </ScrollView>
-      <View style={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Pill label={tr5("sort.newest")} selected={sort==="newest"} onPress={()=>setSort("newest")}/>
-        <Pill label={tr5("sort.oldest")} selected={sort==="oldest"} onPress={()=>setSort("oldest")}/>
-      </View>
-    </>:null}
+    {sub==="posts"?<ScrollView
+      testID="venue-posts-filter-nav"
+      ref={postFilterNav.scrollRef}
+      onLayout={postFilterNav.onViewport}
+      onContentSizeChange={postFilterNav.onContentSize}
+      horizontal showsHorizontalScrollIndicator={false}
+      style={{flexGrow:0}}
+      contentContainerStyle={[styles.postFilterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {venuePostFilters.map(key=><Pressable key={key}
+        testID={"venue-posts-filter-"+key}
+        accessibilityRole="tab"
+        accessibilityLabel={tr5("filter."+key)}
+        accessibilityState={{selected:filter===key}}
+        onLayout={event=>postFilterNav.cellLayout(key,event)}
+        onPress={()=>{setFilter(key);postFilterNav.focus(key,true);}}
+        style={[styles.pill,styles.postFilterItem,filter===key&&styles.pillActive]}>
+        <AppText weight="semibold" variant="caption"
+          style={{textAlign:"center",color:filter===key?"#FFFFFF":colors.primary}}>
+          {tr5("filter."+key)}
+        </AppText>
+      </Pressable>)}
+    </ScrollView>:null}
+    {loading?<DataLoadingState variant="list" minHeight={240}/>:
+      error?<Empty icon="cloud-offline-outline" title={tr("postsError")} action={()=>void load()}/>:
+      <>
     {filtered.length===0?<Empty icon="document-text-outline" title={tr("noPosts")}/>:null}
     {filtered.map(post=><Card key={post.id} testID={"venue-post-"+post.id} style={{gap:spacing.md}}>
       <View style={[styles.meta,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -290,6 +309,7 @@ export function VenueMediaContent({venue,sub,onReserve}:VenueContentProps){
     {actionError?<AppText style={{color:colors.danger}}>{tr5("actionError")}</AppText>:null}
     {isMedia?more:null}
     {viewer}
+    </>}
   </View>;
 }
 function ReserveStatusBanner({venue}:{venue:PublicVenueDto}){
@@ -748,6 +768,8 @@ const styles=StyleSheet.create({
     backgroundColor:colors.primarySoft,borderColor:colors.border,borderWidth:1},
   pillActive:{backgroundColor:colors.primary,borderColor:colors.primary},
   filters:{flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
+  postFilterRow:{gap:spacing.sm,paddingVertical:spacing.xs,alignItems:"center",flexWrap:"nowrap"},
+  postFilterItem:{minHeight:48,justifyContent:"center"},
   meta:{alignItems:"center",gap:spacing.sm},
   heading:{alignItems:"center",gap:spacing.sm},
   headingIcon:{width:34,height:34,borderRadius:12,backgroundColor:colors.primarySoft,
