@@ -8,6 +8,7 @@ import {useState,type ReactNode} from "react";
 import {Image,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
 import {competitionHomeSnapshot} from "../../lib/competition-detail-home";
+import {competitionTeamStatistics,competitionRecordedDiscipline} from "../../lib/competition-detail-statistics";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -694,43 +695,64 @@ function CompetitionAboutSection({competition,subtab}:{
 
 function CompetitionTeamMetrics({competition,subtab}:{competition:CompetitionDto;subtab:string}){
   const {t,isRTL}=useLocale();
-  const participating=competition.teams.filter(team=>team.status==="ACCEPTED");
-  const finished=competition.matches.filter(match=>isResult(match)&&
-    match.homeScore!==null&&match.awayScore!==null);
   if(subtab==="FAIR_PLAY"){
-    const byTeam=participating.map(team=>({
-      ...team,yellow:competition.playerStats.filter(row=>row.teamId===team.teamId)
-        .reduce((sum,row)=>sum+row.yellowCards,0),
-      red:competition.playerStats.filter(row=>row.teamId===team.teamId)
-        .reduce((sum,row)=>sum+row.redCards,0),
-    })).filter(team=>team.yellow>0||team.red>0)
-      .sort((a,b)=>a.red-b.red||a.yellow-b.yellow||a.teamName.localeCompare(b.teamName));
+    const byTeam=competitionRecordedDiscipline(competition);
     return <View testID="competition-fairplay-stats" style={styles.stack}>
       <SectionHeading title={t("competition.detail.sub.FAIR_PLAY")} icon="shield-checkmark-outline"/>
-      <AppText variant="caption" muted>{t("competition.detail.fairPlayHint")}</AppText>
-      {byTeam.length?byTeam.map(team=><Card key={team.teamId} style={styles.scoreRow}>
-        <AppText weight="semibold" style={{flex:1}}>{team.teamName}</AppText>
-        <AppText>🟨 {team.yellow}  🟥 {team.red}</AppText>
-      </Card>):<Placeholder title={t("competition.phase5.noRecordedMetric")} icon="stats-chart-outline"/>}
+      <Card style={styles.verifiedBanner}>
+        <Ionicons name="information-circle-outline" size={20} color={colors.primary}/>
+        <AppText variant="caption" muted style={{flex:1}}>
+          {t("competition.detail.phase6FairPlayScope")}
+        </AppText>
+      </Card>
+      {byTeam.length?byTeam.map((team,index)=><Card key={team.teamId} style={styles.statEntry}>
+        <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.rank}><AppText weight="bold" style={{color:colors.primary}}>#{index+1}</AppText></View>
+          <View style={{flex:1,minWidth:0}}>
+            <AppText weight="semibold" numberOfLines={2}>{team.teamName}</AppText>
+            {team.recordedPlayers===0?<AppText variant="caption" muted>
+              {t("competition.detail.phase6NoPlayerRecords")}
+            </AppText>:null}
+          </View>
+          <AppText variant="caption" forceLtr>🟨 {team.yellow}  🟥 {team.red}</AppText>
+        </View>
+      </Card>):<Placeholder title={t("competition.profile.noTeams")} icon="people-outline"/>}
     </View>;
   }
-  const rows=participating.map(team=>{
-    const matches=finished.filter(m=>m.homeTeamId===team.teamId||m.awayTeamId===team.teamId);
-    const goals=matches.reduce((sum,m)=>sum+(m.homeTeamId===team.teamId?m.homeScore!:m.awayScore!),0);
-    const conceded=matches.reduce((sum,m)=>sum+(m.homeTeamId===team.teamId?m.awayScore!:m.homeScore!),0);
-    return {...team,played:matches.length,goals,conceded};
-  }).sort((a,b)=>b.goals-a.goals||b.played-a.played||a.teamName.localeCompare(b.teamName));
+  const rows=competitionTeamStatistics(competition);
   return <View testID="competition-team-stats" style={styles.stack}>
     <SectionHeading title={t("competition.detail.sub.TEAMS")} icon="stats-chart-outline"/>
-    <AppText variant="caption" muted>{t("competition.phase5.verifiedOnly")}</AppText>
-    {rows.length?rows.map(team=><Card key={team.teamId} style={styles.stack}>
-      <AppText weight="bold">{team.teamName}</AppText>
-      <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <AppText variant="caption" muted>{t("competition.played")}: {team.played}</AppText>
-        <AppText variant="caption" muted>{t("competition.standingsGoalsFor")}: {team.goals}</AppText>
-        <AppText variant="caption" muted>{t("competition.standingsGoalsAgainst")}: {team.conceded}</AppText>
-      </View>
-    </Card>):<Placeholder title={t("competition.profile.noTeams")} icon="people-outline"/>}
+    <Card style={styles.verifiedBanner}>
+      <Ionicons name="checkmark-circle-outline" size={20} color={colors.primary}/>
+      <AppText variant="caption" muted style={{flex:1}}>
+        {t("competition.detail.phase6OfficialScope")}
+      </AppText>
+    </Card>
+    {rows.length?rows.map((team,index)=><Pressable key={team.teamId}
+      accessibilityRole={team.offline?"text":"button"}
+      disabled={team.offline}
+      onPress={()=>openTeam(team.teamId)}>
+      <Card style={styles.stack}>
+        <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <View style={styles.rank}><AppText weight="bold" style={{color:colors.primary}}>#{index+1}</AppText></View>
+          <AppText weight="bold" style={{flex:1}} numberOfLines={2}>{team.teamName}</AppText>
+          {!team.offline?<Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.primary}/>:null}
+        </View>
+        <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap"}]}>
+          <AppText variant="caption" muted>{t("competition.played")}: {team.played}</AppText>
+          <AppText variant="caption" muted>{t("competition.wins")}: {team.wins}</AppText>
+          <AppText variant="caption" muted>{t("competition.draws")}: {team.draws}</AppText>
+          <AppText variant="caption" muted>{t("competition.losses")}: {team.losses}</AppText>
+        </View>
+        <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row",flexWrap:"wrap"}]}>
+          <AppText variant="caption" muted>{t("competition.standingsGoalsFor")}: {team.goals}</AppText>
+          <AppText variant="caption" muted>{t("competition.standingsGoalsAgainst")}: {team.conceded}</AppText>
+          <AppText variant="caption" weight="semibold">
+            {t("competition.goalDifference")}: {team.goalDifference>0?"+":""}{team.goalDifference}
+          </AppText>
+        </View>
+      </Card>
+    </Pressable>):<Placeholder title={t("competition.profile.noTeams")} icon="people-outline"/>}
   </View>;
 }
 export function CompetitionProfileSections({competition,posts,activeTab,subtab,registration,onTabChange,
