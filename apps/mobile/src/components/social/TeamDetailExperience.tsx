@@ -11,7 +11,7 @@ import {teamRecentForm,teamPlayerLeaders,safeTeamWinRate,teamResultBreakdown,
   type TeamPlayerStatMetric} from "../../lib/team-detail-stats";
 import {teamCompetitionRows,teamCompetitionAvailableFormats,teamCompetitionAvailableStatuses,
   teamCompetitionFixturePreview,type TeamCompetitionFilters} from "../../lib/team-detail-competitions";
-import {teamMatchRows,type TeamMatchFilter,type TeamMatchPhase} from "../../lib/team-detail-matches";
+import {teamMatchOutcome,teamMatchRows,type TeamMatchFilter,type TeamMatchPhase} from "../../lib/team-detail-matches";
 import {teamMatchSelectFacets,teamMatchSelectRows} from "../../lib/team-detail-match-facets";
 import {emptyVenueMatchFilters,type VenueMatchFilters} from "../../lib/venue-match-filters";
 import {VenueMatchSelect} from "../venues/VenueMatchSelect";
@@ -705,6 +705,10 @@ export default function TeamDetailExperience(){
       m.status==="COMPLETED"||m.status==="CORRECTED"?tx("resultsVerified"):
         m.status==="IN_PROGRESS"?tx("live"):
         m.status==="POSTPONED"?tx("postponed"):tx("scheduled");
+    const outcomeLabel=(m:TeamPublicHighlights["matches"][number])=>{
+      const outcome=phase==="results"?teamMatchOutcome(m,id):null;
+      return outcome?label(outcome):null;
+    };
     return <View testID="team-match-list" style={{gap:spacing.md}}>
       <Card style={{gap:spacing.sm}}>
         <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
@@ -769,6 +773,8 @@ export default function TeamDetailExperience(){
         rows.map(m=><TeamMatchCard key={m.id} scope={phase}
           timeZone={AFGHANISTAN_TIME_ZONE} statusLabel={statusLabel(m)}
           missingScoreLabel={tx("matchUnknownScore")}
+          outcome={phase==="results"?teamMatchOutcome(m,id):null}
+          outcomeLabel={outcomeLabel(m)}
           match={{...m,
             homeTeamName:m.homeTeamId===id?team?.name??m.homeTeamName:m.homeTeamName,
             awayTeamName:m.awayTeamId===id?team?.name??m.awayTeamName:m.awayTeamName,
