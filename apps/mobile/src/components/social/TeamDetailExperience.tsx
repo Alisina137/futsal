@@ -7,6 +7,8 @@ import {Image,Linking,Modal,Pressable,ScrollView,Share,StyleSheet,View,useWindow
 import {marketingApi,resolveMediaImageUrl,teamApi,teamManagerApi,teamPublicApi,
   type TeamManagerProfileDetails,type TeamPublicHighlights} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
+import {verifiedTeamForm,rankedPublicPlayers,teamPerformanceDistribution,isStatsConsistent,
+  type PlayerStatMetric} from "../../lib/team-detail-stats";
 import {teamCompetitionRows,teamCompetitionAvailableFormats,teamCompetitionAvailableStatuses,
   teamCompetitionFixturePreview,type TeamCompetitionFilters} from "../../lib/team-detail-competitions";
 import {finished,teamMatchOutcome,teamMatchRows,teamMatchCompetitions,
@@ -54,6 +56,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     compStatusScheduled:"Scheduled",compStatusInProgress:"In progress",
     compStatusCompleted:"Completed",compStatusArchived:"Archived",
     compStatusCancelled:"Cancelled",
+    statsAllTime:"Across verified published competition results",statsRecentSample:"Recent form is based on the latest available published match snapshot, not the full match history.",statsPublicPlayers:"Only active players with public profiles and verified statistics are listed.",statsRankBy:"Rank players by",statsPlayedMatches:"Verified matches",statsWinDistribution:"Match outcomes",statsCheck:"Statistics are being updated.",statsFormScore:"Score",statsFormOpponent:"Opponent",statsFormMatch:"Open match",statsPlayedLabel:"Matches played",
     noGames:"No matches to show.",noCompetitions:"No competitions to show.",noRoster:"No players to show.",
     noLeaders:"No captain has been appointed.",privateRoster:"This team's player list is private.",
     error:"Unable to load team updates.",retry:"Try again",share:"Share",joined:"Member",record:"Match record",
@@ -109,6 +112,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     compStatusScheduled:"برنامه‌ریزی‌شده",compStatusInProgress:"در حال برگزاری",
     compStatusCompleted:"تکمیل‌شده",compStatusArchived:"بایگانی‌شده",
     compStatusCancelled:"لغوشده",
+    statsAllTime:"براساس نتایج تأییدشدهٔ رقابت‌های منتشرشده",statsRecentSample:"فرم اخیر تنها براساس مسابقات منتشرشدهٔ موجود است، نه تمام تاریخچهٔ مسابقات.",statsPublicPlayers:"تنها بازیکنان فعال با پروفایل عمومی و آمار تأییدشده نمایش داده می‌شوند.",statsRankBy:"رتبه‌بندی بازیکنان براساس",statsPlayedMatches:"مسابقات تأییدشده",statsWinDistribution:"نتایج مسابقات",statsCheck:"آمار در حال به‌روزرسانی است.",statsFormScore:"نتیجه",statsFormOpponent:"حریف",statsFormMatch:"دیدن مسابقه",statsPlayedLabel:"مسابقات انجام‌شده",
     noGames:"مسابقه‌ای برای نمایش نیست.",noCompetitions:"رقابتی برای نمایش نیست.",noRoster:"بازیکنی برای نمایش نیست.",
     noLeaders:"هنوز کپیتان تعیین نشده است.",privateRoster:"فهرست بازیکنان این تیم خصوصی است.",
     error:"بارگیری معلومات تیم ناموفق بود.",retry:"تلاش دوباره",share:"اشتراک‌گذاری",joined:"عضو",record:"کارنامه مسابقات",
@@ -164,6 +168,7 @@ const words:Record<"en"|"fa-AF"|"ps-AF",Record<string,string>>={
     compStatusScheduled:"ټاکل شوې",compStatusInProgress:"روانه",
     compStatusCompleted:"بشپړه شوې",compStatusArchived:"ارشیف شوې",
     compStatusCancelled:"لغوه شوې",
+    statsAllTime:"د خپرو شویو سیالیو تایید شوې پایلې",statsRecentSample:"وروستۍ بڼه یوازې د موجودو عامه لوبو پر بنسټ ده، نه د ټولو لوبو تاریخ.",statsPublicPlayers:"یوازې فعال لوبغاړي له عامه پروفایل او تایید شویو شمېرو سره ښودل کېږي.",statsRankBy:"لوبغاړي د دې له مخې وټاکئ",statsPlayedMatches:"تایید شوې لوبې",statsWinDistribution:"د لوبو پایلې",statsCheck:"شمېرې تازه کېږي.",statsFormScore:"پایله",statsFormOpponent:"سیال",statsFormMatch:"لوبه وګورئ",statsPlayedLabel:"ترسره شوې لوبې",
     noGames:"د ښودلو لوبې نشته.",noCompetitions:"د ښودلو سیالۍ نشته.",noRoster:"لوبغاړي نشته.",
     noLeaders:"تر اوسه کپتان نه دی ټاکل شوی.",privateRoster:"د دې ټیم د لوبغاړو لېست شخصي دی.",
     error:"د ټیم د معلوماتو ترلاسه کول ناکام شول.",retry:"بیا هڅه",share:"شریکول",joined:"غړی",record:"د لوبو ریکارډ",
@@ -211,6 +216,7 @@ export default function TeamDetailExperience(){
   const {height:viewportHeight,width:viewportWidth}=useWindowDimensions();
   const tx=(key:string)=>words[language][key]??words.en[key]??key;
   const [team,setTeam]=useState<TeamDto|null>(null);
+  const [playerMetric,setPlayerMetric]=useState<PlayerStatMetric>("goals");
   const [competitionFilters,setCompetitionFilters]=useState<{
     active:TeamCompetitionFilters;past:TeamCompetitionFilters;
   }>({active:{format:"all",status:"all"},past:{format:"all",status:"all"}});
@@ -258,6 +264,7 @@ export default function TeamDetailExperience(){
     loadGeneration.current++;postsGeneration.current++;
     followActionSequence.current++;joinActionSequence.current++;
     setTeam(null);setProfile(null);setMember(false);setJoinStatus(null);setJoinAllowed(false);
+    setPlayerMetric("goals");
     setMatchFilters({upcoming:"all",results:"all"});setMatchCompetitions({upcoming:"all",results:"all"});
     setCompetitionFilters({active:{format:"all",status:"all"},past:{format:"all",status:"all"}});
     setPublicPlayerIds([]);setSquadQuery("");setSquadPosition("ALL");
@@ -820,78 +827,149 @@ export default function TeamDetailExperience(){
     </View>;
   }
   function statsContent(data:TeamPublicHighlights){
+    const stats=data.stats;
     if(subs.stats==="topPlayers"){
-      if(!data.stats.players.length)return empty(tx("noPublicLeaders"),"people-outline");
-      return <View testID="team-verified-player-leaders" style={{gap:spacing.sm}}>
-        {data.stats.players.map((player,index)=><Pressable key={player.userId}
-          accessibilityRole="button" onPress={()=>router.push({
-            pathname:"/players/[playerId]",params:{playerId:player.userId}})}>
-          <Card style={[styles.fixture,{gap:spacing.sm}]}>
-            <View style={[styles.horizontal,rowDirection]}>
-              <View style={styles.jerseyBadge}>
-                <AppText weight="bold" style={{color:teamColor}}>#{index+1}</AppText>
+      const ranked=rankedPublicPlayers(stats.players,playerMetric);
+      const metricOptions:PlayerStatMetric[]=["goals","assists","appearances"];
+      return <View testID="team-verified-player-leaders" style={{gap:spacing.md}}>
+        <Card style={styles.statsContextCard}>
+          <AppText weight="semibold">{tx("statsRankBy")}</AppText>
+          <View style={[styles.horizontal,rowDirection,{flexWrap:"wrap"}]}>
+            {metricOptions.map(metric=><Pressable key={metric} accessibilityRole="button"
+              testID={"team-player-stat-"+metric}
+              accessibilityLabel={tx(metric)}
+              accessibilityState={{selected:playerMetric===metric}}
+              onPress={()=>setPlayerMetric(metric)}
+              style={[styles.squadFilter,playerMetric===metric&&styles.squadFilterActive]}>
+              <AppText variant="caption" weight="semibold"
+                style={{color:playerMetric===metric?"#FFFFFF":colors.primary}}>
+                {tx(metric)}
+              </AppText>
+            </Pressable>)}
+          </View>
+          <AppText variant="caption" muted>{tx("statsPublicPlayers")}</AppText>
+        </Card>
+        {!ranked.length?empty(tx("noPublicLeaders"),"people-outline"):ranked.map((player,index)=>
+          <Pressable key={player.userId} accessibilityRole="button"
+            testID={"team-stat-player-"+player.userId}
+            onPress={()=>router.push({pathname:"/players/[playerId]",
+              params:{playerId:player.userId}})}>
+            <Card style={[styles.fixture,{gap:spacing.sm}]}>
+              <View style={[styles.horizontal,rowDirection]}>
+                <View style={styles.jerseyBadge}>
+                  <AppText weight="bold" style={{color:teamColor}}>#{index+1}</AppText>
+                </View>
+                <AppText weight="semibold" style={{flex:1}} numberOfLines={2}>
+                  {player.displayName}</AppText>
+                <View style={styles.statRank}>
+                  <AppText weight="bold" style={{color:colors.primary}}>
+                    {player[playerMetric]}</AppText>
+                  <AppText variant="caption" muted>{tx(playerMetric)}</AppText>
+                </View>
+                <Ionicons name={isRTL?"chevron-back":"chevron-forward"}
+                  size={18} color={colors.textMuted}/>
               </View>
-              <AppText weight="semibold" style={{flex:1}} numberOfLines={1}>{player.displayName}</AppText>
-              <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.textMuted}/>
-            </View>
-            <View style={[styles.horizontal,rowDirection,{justifyContent:"space-around"}]}>
-              {([["goals",player.goals],["assists",player.assists],
-                ["appearances",player.appearances]] as const).map(([key,value])=>
-                <View key={key} style={{flex:1,alignItems:"center",gap:2}}>
-                  <AppText weight="bold" style={{color:colors.primary}}>{value}</AppText>
-                  <AppText variant="caption" muted>{tx(key)}</AppText>
-                </View>)}
-            </View>
-          </Card>
-        </Pressable>)}
+              <View style={[styles.horizontal,rowDirection,{justifyContent:"space-around"}]}>
+                {([["goals",player.goals],["assists",player.assists],
+                  ["appearances",player.appearances]] as const).map(([key,value])=>
+                  <View key={key} style={{flex:1,alignItems:"center",gap:2}}>
+                    <AppText weight="bold" style={{color:colors.primary}}>{value}</AppText>
+                    <AppText variant="caption" muted style={{textAlign:"center"}}>{tx(key)}</AppText>
+                  </View>)}
+              </View>
+            </Card>
+          </Pressable>)}
       </View>;
     }
     if(subs.stats==="form"){
-      const last=data.matches.filter(m=>["COMPLETED","CORRECTED"].includes(m.status)
-        &&m.homeScore!==null&&m.awayScore!==null)
-        .sort((a,b)=>(Date.parse(b.startsAt??"")||0)-(Date.parse(a.startsAt??"")||0)).slice(0,5);
-      if(!last.length)return empty(tx("noForm"),"stats-chart-outline");
-      return <Card style={styles.postCard}>
-        <AppText variant="bodyLarge" weight="bold">{tx("teamForm")}</AppText>
-        <View style={[styles.horizontal,{justifyContent:"center"},rowDirection]}>
-          {last.map(m=>{
-            const our=m.homeTeamId===id?m.homeScore!:m.awayScore!;
-            const theirs=m.homeTeamId===id?m.awayScore!:m.homeScore!;
-            const result=our>theirs?"winsShort":our===theirs?"drawsShort":"lossesShort";
-            return <View key={m.id} style={[styles.formBadge,{backgroundColor:
-              result==="winsShort"?"#DDF7E6":result==="drawsShort"?"#FFF1CC":"#FFE6E6"}]}>
-              <AppText weight="bold" style={{color:colors.text}}>{tx(result)}</AppText>
-            </View>;
-          })}
-        </View>
-      </Card>;
+      // Only the public last-100 match snapshot can be used for recent form.
+      const form=verifiedTeamForm(data.matches,id,5);
+      return <View style={{gap:spacing.md}}>
+        <Card style={styles.statsContextCard}>
+          <AppText variant="bodyLarge" weight="bold">{tx("teamForm")}</AppText>
+          <View style={[styles.horizontal,{justifyContent:"center"},rowDirection]}>
+            {form.map(({match,outcome})=><View key={match.id} style={[styles.formBadge,{
+              backgroundColor:outcome==="win"?"#DDF7E6":outcome==="draw"?"#FFF1CC":"#FFE6E6"}]}>
+              <AppText weight="bold" style={{color:colors.text}}>
+                {tx(outcome==="win"?"winsShort":outcome==="draw"?"drawsShort":"lossesShort")}
+              </AppText>
+            </View>)}
+          </View>
+          <AppText variant="caption" muted>{tx("statsRecentSample")}</AppText>
+        </Card>
+        {!form.length?empty(tx("noForm"),"stats-chart-outline"):form.map(({match,outcome,scored,conceded})=>
+          <Pressable key={match.id} testID={"team-form-match-"+match.id}
+            accessibilityRole="button"
+            onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
+              params:{competitionId:match.competitionId,matchId:match.id}})}>
+            <Card style={styles.fixture}>
+              <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
+                <View style={{flex:1,gap:2}}>
+                  <AppText weight="semibold" numberOfLines={2}>{match.competitionName}</AppText>
+                  <AppText variant="caption" muted>
+                    {match.startsAt?formatCompetitionDateTime(match.startsAt,language):tx("datePending")}
+                  </AppText>
+                </View>
+                <View style={[styles.fixtureStatus,{backgroundColor:
+                  outcome==="win"?"#DCFCE7":outcome==="draw"?"#F1F5F9":"#FEE2E2"}]}>
+                  <AppText weight="bold" style={{color:outcome==="win"?"#166534":
+                    outcome==="loss"?"#991B1B":colors.textMuted}}>
+                    {tx(outcome==="win"?"winsShort":outcome==="draw"?"drawsShort":"lossesShort")}
+                  </AppText>
+                </View>
+              </View>
+              <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
+                <AppText muted variant="caption">{tx("statsFormScore")}</AppText>
+                <AppText weight="bold" style={{color:colors.primary}}>{scored} : {conceded}</AppText>
+                <Ionicons name={isRTL?"chevron-back":"chevron-forward"}
+                  color={colors.primary} size={18}/>
+              </View>
+            </Card>
+          </Pressable>)}
+      </View>;
     }
-    const s=data.stats;
     const tiles:[string,number|string][]=[
-      ["played",s.played],["wins",s.wins],["draws",s.draws],["losses",s.losses],
-      ["goalsFor",s.goalsFor],["goalsAgainst",s.goalsAgainst],
-      ["goalDifference",s.goalDifference],["winRate",s.winRate+"%"],
+      ["played",stats.played],["wins",stats.wins],["draws",stats.draws],["losses",stats.losses],
+      ["goalsFor",stats.goalsFor],["goalsAgainst",stats.goalsAgainst],
+      ["goalDifference",stats.goalDifference],["winRate",stats.winRate+"%"],
     ];
-    return <>
-      <AppText variant="bodyLarge" weight="bold">{tx("matchRecord")}</AppText>
+    const performance=teamPerformanceDistribution(stats);
+    return <View style={{gap:spacing.md}}>
+      <Card style={styles.statsContextCard}>
+        <AppText variant="bodyLarge" weight="bold">{tx("matchRecord")}</AppText>
+        <AppText variant="caption" muted>{tx("statsAllTime")}</AppText>
+        {!isStatsConsistent(stats)?<AppText variant="caption"
+          style={{color:colors.warning}}>{tx("statsCheck")}</AppText>:null}
+      </Card>
       <View style={styles.metricGrid}>{tiles.map(([key,value])=>
         <View key={key} style={styles.metric}>
           <AppText variant="bodyLarge" weight="bold" style={{color:colors.primary,textAlign:"center"}}>
             {String(value)}</AppText>
           <AppText variant="caption" muted style={{textAlign:"center"}}>{tx(key)}</AppText>
         </View>)}</View>
-      {s.played>0?<Card style={styles.performanceCard}>
-        <AppText weight="semibold">{tx("winRate")}: {s.winRate}%</AppText>
-        <View style={styles.performanceTrack}>
-          <View style={[styles.performanceFill,{width:`${Math.min(100,Math.max(0,s.winRate))}%`}]}/>
-        </View>
+      {stats.played>0?<Card style={styles.performanceCard}>
+        <AppText weight="semibold">{tx("statsWinDistribution")}</AppText>
         <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between"}]}>
-          <AppText variant="caption" muted>{tx("wins")}: {s.wins}</AppText>
-          <AppText variant="caption" muted>{tx("draws")}: {s.draws}</AppText>
-          <AppText variant="caption" muted>{tx("losses")}: {s.losses}</AppText>
+          <AppText variant="caption" muted>{tx("statsPlayedMatches")}: {performance.played}</AppText>
+          <AppText weight="bold" style={{color:colors.primary}}>{tx("winRate")}: {stats.winRate}%</AppText>
+        </View>
+        <View testID="team-stats-distribution" style={[styles.statsBar,rowDirection]}>
+          {(["wins","draws","losses"] as const).map((key)=>
+            <View key={key} style={{width:`${performance[key].percent}%`,
+              backgroundColor:key==="wins"?"#16A34A":key==="draws"?"#F59E0B":"#DC2626"}}/>)}
+        </View>
+        <View style={[styles.horizontal,rowDirection,{justifyContent:"space-between",flexWrap:"wrap"}]}>
+          {(["wins","draws","losses"] as const).map(key=>
+            <View key={key} style={[styles.horizontal,rowDirection,{gap:spacing.xs}]}>
+              <View style={{width:9,height:9,borderRadius:5,backgroundColor:
+                key==="wins"?"#16A34A":key==="draws"?"#F59E0B":"#DC2626"}}/>
+              <AppText variant="caption" muted>
+                {tx(key)}: {performance[key].count} ({Math.round(performance[key].percent)}%)
+              </AppText>
+            </View>)}
         </View>
       </Card>:empty(tx("noStats"),"stats-chart-outline")}
-    </>;
+    </View>;
   }
   function aboutContent(){
     if(!team)return null;
@@ -1195,6 +1273,10 @@ const styles=StyleSheet.create({
     borderWidth:1,borderColor:colors.border,backgroundColor:colors.primarySoft},
   competitionButton:{flexGrow:1,flexBasis:"43%"},
   performanceCard:{padding:spacing.md,gap:spacing.md},
+  statsContextCard:{padding:spacing.md,gap:spacing.sm},
+  statRank:{alignItems:"center",minWidth:58,paddingHorizontal:spacing.sm,
+    paddingVertical:spacing.xs,borderRadius:radius.md,backgroundColor:colors.primarySoft},
+  statsBar:{height:14,borderRadius:radius.pill,overflow:"hidden",backgroundColor:colors.surfaceMuted},
   performanceTrack:{height:13,borderRadius:radius.pill,backgroundColor:colors.surfaceMuted,overflow:"hidden"},
   performanceFill:{height:"100%",backgroundColor:colors.success,borderRadius:radius.pill},
   scoreRow:{alignItems:"center",gap:spacing.sm},
