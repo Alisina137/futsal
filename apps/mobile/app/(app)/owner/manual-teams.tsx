@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { ManualTeamDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { ApiRequestError, manualTeamApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
@@ -17,7 +17,11 @@ import { useLocale } from "../../../src/providers/LocaleProvider";
 export default function OwnerManualTeamsScreen() {
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
+  const token=session?.accessToken;
+  const userId=session?.user.id;
   const [teams,setTeams]=useState<ManualTeamDto[]>([]);
+  const [loadedToken,setLoadedToken]=useState<string|null>(null);
+  const serial=useRef(0);
   const [name,setName]=useState("");
   const [city,setCity]=useState("");
   const [editingId,setEditingId]=useState<string|null>(null);
@@ -26,13 +30,27 @@ export default function OwnerManualTeamsScreen() {
   const [error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
   const load=useCallback(async()=>{
-    if(!session){setLoading(false);return;}
+    const request=++serial.current;
+    if(!token){setTeams([]);setLoadedToken(null);setLoading(false);return;}
     setLoading(true);
-    try {setTeams((await manualTeamApi.mine(session.accessToken)).teams);setError(null);}
-    catch {setError(t("manualTeams.loadError"));}
-    finally {setLoading(false);}
-  },[session?.accessToken,t]);
-  useFocusEffect(useCallback(()=>{void load();},[load]));
+    try {
+      const result=await manualTeamApi.mine(token);
+      if(request!==serial.current)return;
+      setTeams(result.teams);setLoadedToken(token);setError(null);
+    }catch {
+      if(request===serial.current)setError(t("manualTeams.loadError"));
+    }finally{
+      if(request===serial.current)setLoading(false);
+    }
+  },[token,t]);
+  useFocusEffect(useCallback(()=>{
+    void load();
+    return()=>{serial.current++;};
+  },[load]));
+  useEffect(()=>{
+    setEditingId(null);setName("");setCity("");setMessage(null);setError(null);
+  },[userId]);
+  const visibleTeams=loadedToken===token?teams:[];
 
   function beginEdit(team:ManualTeamDto){
     setEditingId(team.id);setName(team.name);setCity(team.city);setMessage(null);setError(null);
@@ -78,9 +96,9 @@ export default function OwnerManualTeamsScreen() {
       <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/>
     </Card>:null}
     {loading?<DataLoadingState variant="list" minHeight={280}/>:<>
-      <AppText weight="bold" variant="bodyLarge">{t("manualTeams.savedTeams")} ({teams.length})</AppText>
-      {teams.length===0?<Card><AppText muted>{t("manualTeams.empty")}</AppText></Card>:null}
-      {teams.map(team=><Card key={team.id} style={{gap:spacing.sm}}>
+      <AppText weight="bold" variant="bodyLarge">{t("manualTeams.savedTeams")} ({visibleTeams.length})</AppText>
+      {visibleTeams.length===0?<Card><AppText muted>{t("manualTeams.empty")}</AppText></Card>:null}
+      {visibleTeams.map(team=><Card key={team.id} style={{gap:spacing.sm}}>
         <View style={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.sm,alignItems:"center"}}>
           <View style={{width:44,height:44,borderRadius:radius.md,backgroundColor:colors.primarySoft,
             alignItems:"center",justifyContent:"center"}}>
