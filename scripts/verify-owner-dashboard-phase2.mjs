@@ -35,7 +35,7 @@ check(dashboard,[
   'formatCalendarTime(item.startsAt,language)',
   'onRefresh={()=>void load()}','owner.phase2.partialError',
   'owner.phase2.valueDisclaimer','router.push("/owner/analytics")',
-  'router.push("/owner/bookings")', 'router.push("/owner/subscription")',
+  'router.push("/owner/bookings")', 'router.push(item.href)',
 ],"Owner Overview");
 check(projections,[
   'confirmedBookingValueToday','bookingStatus==="CONFIRMED"',
