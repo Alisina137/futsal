@@ -248,7 +248,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
 
     return rows.map((row) => ({
       playerUserId: row.playerUserId,
-      publicDisplayName: row.publicDisplayName ?? row.fallbackName,
+      publicDisplayName: row.publicDisplayName,
       teamId: row.teamId,
       teamName: row.teamName,
       appearances: Number(row.appearances ?? 0),
@@ -1183,7 +1183,7 @@ export class DrizzleCompetitionRepository implements CompetitionRepository {
         eq(users.status,"ACTIVE")));
     return rows.map(row=>({
       playerUserId:row.playerUserId,teamId:row.teamId,teamName:row.teamName,
-      publicDisplayName:row.publicDisplayName??row.fallbackName,
+      publicDisplayName:row.publicDisplayName,
       appeared:row.appeared,goals:row.goals,assists:row.assists,
       yellowCards:row.yellowCards,redCards:row.redCards,
       cleanSheet:row.cleanSheet,playerOfMatch:row.playerOfMatch,
