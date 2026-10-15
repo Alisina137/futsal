@@ -6,8 +6,9 @@ import type {
   OwnerAnalyticsResponse,
   OwnerAnalyticsWeekdayPoint,
 } from "@leaguekick/contracts";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { AppState, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../src/lib/api";
 import { AppText } from "../../../src/components/ui/AppText";
 import { Button } from "../../../src/components/ui/Button";
@@ -17,25 +18,18 @@ import { Screen } from "../../../src/components/ui/Screen";
 import { TextField } from "../../../src/components/ui/TextField";
 import { useAuth } from "../../../src/providers/AuthProvider";
 import { useLocale } from "../../../src/providers/LocaleProvider";
+import { validateOwnerAnalyticsRange } from "../../../src/lib/owner-analytics-filters";
+import { addDays, todayKabul } from "../../../src/lib/timetable-calendar";
 
 type SectionKey="OVERVIEW"|"REVENUE"|"BOOKINGS"|"CUSTOMERS"|"MARKETING"|"COMPETITIONS";
 type RangePreset="7D"|"30D"|"90D"|"CUSTOM";
 
 const sections:SectionKey[]=["OVERVIEW","REVENUE","BOOKINGS","CUSTOMERS","MARKETING","COMPETITIONS"];
 
-function kabulDate(daysAgo = 0) {
-  const now = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kabul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-}
-
 function presetDates(preset:Exclude<RangePreset,"CUSTOM">){
   const days=preset==="7D"?7:preset==="30D"?30:90;
-  return {from:kabulDate(days-1),to:kabulDate()};
+  const today=todayKabul();
+  return {from:addDays(today,1-days),to:today};
 }
 
 function percent(value:number){return `${(value*100).toFixed(1)}%`;}
@@ -45,30 +39,57 @@ export default function OwnerAnalyticsScreen() {
   const { session } = useAuth();
   const { t, isRTL, language } = useLocale();
   const [preset,setPreset]=useState<RangePreset>("30D");
-  const [from, setFrom] = useState(kabulDate(29));
-  const [to, setTo] = useState(kabulDate());
+  const [from, setFrom] = useState(()=>presetDates("30D").from);
+  const [to, setTo] = useState(()=>presetDates("30D").to);
   const [section,setSection]=useState<SectionKey>("OVERVIEW");
-  const [data, setData] = useState<OwnerAnalyticsResponse | null>(null);
+  const token=session?.accessToken;
+  const [snapshot,setSnapshot] = useState<{token:string;value:OwnerAnalyticsResponse}|null>(null);
+  const data=snapshot?.token===token?snapshot.value:null;
+  const appliedRange=useRef(presetDates("30D"));
+  const generation=useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const number=useMemo(()=>new Intl.NumberFormat(language),[language]);
   const afn=(value:number)=>`${number.format(value)} AFN`;
 
-  const load = useCallback(async (nextFrom=from,nextTo=to) => {
-    if (!session) return;
+  const load = useCallback(async (requestedFrom?:string,requestedTo?:string) => {
+    if(!token)return;
+    const nextFrom=requestedFrom??appliedRange.current.from;
+    const nextTo=requestedTo??appliedRange.current.to;
+    const validation=validateOwnerAnalyticsRange(nextFrom,nextTo,todayKabul());
+    if(validation){
+      setError(t(`owner.phase7.analyticsRange.${validation}` as never));
+      return;
+    }
+    appliedRange.current={from:nextFrom,to:nextTo};
+    const request=++generation.current;
+    setSnapshot(null);
     setLoading(true);
     setError(null);
     try {
-      setData(await ownerApi.analytics(session.accessToken, nextFrom, nextTo));
+      const result=await ownerApi.analytics(token,nextFrom,nextTo);
+      if(request!==generation.current)return;
+      // Never display an unexpected period as the requested owner's metrics.
+      if(result.from!==nextFrom||result.to!==nextTo){
+        setError(t("owner.phase7.analyticsScopeError"));
+        return;
+      }
+      setSnapshot({token,value:result});
     } catch {
-      setError(t("phase7.analytics.loadError"));
+      if(request===generation.current)setError(t("phase7.analytics.loadError"));
     } finally {
-      setLoading(false);
+      if(request===generation.current)setLoading(false);
     }
-  }, [from, session, t, to]);
+  }, [token,t]);
 
-  useEffect(() => { void load(); }, []);
+  useFocusEffect(useCallback(()=>{
+    void load();
+    const listener=AppState.addEventListener("change",state=>{
+      if(state==="active")void load();
+    });
+    return ()=>{generation.current++;listener.remove();};
+  },[load]));
 
   function applyPreset(value:Exclude<RangePreset,"CUSTOM">){
     const next=presetDates(value);
@@ -118,13 +139,15 @@ export default function OwnerAnalyticsScreen() {
       {(["7D","30D","90D"] as const).map((value)=><Pressable
         key={value}
         onPress={()=>applyPreset(value)}
+        accessibilityRole="tab" accessibilityState={{selected:preset===value}}
         style={[styles.presetChip,preset===value&&styles.presetChipActive]}
       >
         <AppText variant="caption" weight="bold" style={preset===value?styles.presetTextActive:undefined}>
           {t(`phase7.analytics.range.${value}` as never)}
         </AppText>
       </Pressable>)}
-      <Pressable onPress={()=>setPreset("CUSTOM")} style={[styles.presetChip,preset==="CUSTOM"&&styles.presetChipActive]}>
+      <Pressable onPress={()=>setPreset("CUSTOM")} accessibilityRole="tab"
+        accessibilityState={{selected:preset==="CUSTOM"}} style={[styles.presetChip,preset==="CUSTOM"&&styles.presetChipActive]}>
         <AppText variant="caption" weight="bold" style={preset==="CUSTOM"?styles.presetTextActive:undefined}>{t("phase7.analytics.range.CUSTOM")}</AppText>
       </Pressable>
     </ScrollView>
@@ -134,12 +157,16 @@ export default function OwnerAnalyticsScreen() {
         <TextField label={t("phase7.analytics.from")} value={from} onChangeText={setFrom} forceLtr containerStyle={{ flex: 1 }} />
         <TextField label={t("phase7.analytics.to")} value={to} onChangeText={setTo} forceLtr containerStyle={{ flex: 1 }} />
       </View>
-      <Button label={t("phase7.analytics.applyRange")} onPress={() => void load()} loading={loading} />
+      <Button label={t("phase7.analytics.applyRange")} onPress={() => void load(from,to)} loading={loading} />
     </Card>:null}
+
+    <View style={styles.refreshRow}>
+      <Button label={t("owner.phase7.analyticsRefresh")} onPress={()=>void load()} variant="secondary" loading={loading}/>
+    </View>
 
     {error?<Card style={styles.errorCard}>
       <AppText style={{color:colors.danger}}>{error}</AppText>
-      <Button label={t("common.retry")} onPress={()=>void load()} variant="secondary"/>
+      <Button label={t("common.retry")} onPress={()=>void load(preset==="CUSTOM"?from:undefined,preset==="CUSTOM"?to:undefined)} variant="secondary"/>
     </Card>:null}
 
     {data?<View style={styles.periodLine}>
@@ -155,8 +182,12 @@ export default function OwnerAnalyticsScreen() {
         <MetricCard icon="receipt-outline" title={t("phase7.analytics.avgBooking")} value={afn(data.averageBookingValueAfn)}/>
       </View>
 
+      <Card style={styles.disclaimer}><Ionicons name="information-circle-outline" size={18} color={colors.primary}/><View style={{flex:1}}><AppText variant="caption" muted>{t("owner.phase7.grossValueDisclaimer")}</AppText></View></Card>
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>
-        {sections.map((value)=><Pressable key={value} onPress={()=>setSection(value)} style={[styles.sectionTab,section===value&&styles.sectionTabActive]}>
+        {sections.map((value)=><Pressable key={value} onPress={()=>setSection(value)}
+          accessibilityRole="tab" accessibilityState={{selected:section===value}}
+          style={[styles.sectionTab,section===value&&styles.sectionTabActive]}>
           <AppText variant="caption" weight="bold" style={section===value?styles.sectionTabTextActive:undefined}>
             {t(`phase7.analytics.section.${value}` as never)}
           </AppText>
@@ -336,13 +367,7 @@ function MarketingSection({data,t,number,afn}:{
       <SmallMetric label={t("phase7.analytics.promotionRevenue")} value={afn(data.promotionRevenueAfn)}/>
       <SmallMetric label={t("phase7.analytics.discountGranted")} value={afn(data.discountGrantedAfn)}/>
     </View>
-    <Card style={styles.summaryCard}>
-      <ProgressRow
-        label={t("phase7.analytics.promotionConversion")}
-        value={data.promotionCount?Math.min(1,data.promotionBookingCount/data.promotionCount):0}
-        text={data.promotionCount?`${data.promotionBookingCount}/${data.promotionCount}`:"—"}
-      />
-    </Card>
+    <Card><AppText variant="caption" muted>{t("owner.phase7.marketingAttributionNote")}</AppText></Card>
   </View>;
 }
 
@@ -502,6 +527,8 @@ const styles=StyleSheet.create({
   heroTitle:{color:"#FFFFFF"},
   heroBody:{color:"#DCE8FF"},
   presetRow:{gap:spacing.xs,paddingVertical:2},
+  refreshRow:{alignItems:"flex-start"},
+  disclaimer:{flexDirection:"row",alignItems:"flex-start",gap:spacing.sm,backgroundColor:colors.primarySoft},
   presetChip:{minHeight:40,paddingHorizontal:spacing.md,borderRadius:radius.pill,borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,alignItems:"center",justifyContent:"center"},
   presetChipActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
   presetTextActive:{color:colors.primary},
