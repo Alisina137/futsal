@@ -513,6 +513,7 @@ export function TeamManagerDashboard(){
         canWrite={canWrite} subscriptionStatus={offer?.status??null}
         subscriptionUntil={capacity?.slots.find(slot=>slot.teamId===team.id)?.activeUntil??offer?.activeUntil??null}
         onOpen={chooseTab}
+        onPlayersSection={openPlayerSection}
         onLineup={id=>{setLineupFocus(id);chooseTab("matches");}}
       />:null}
 
