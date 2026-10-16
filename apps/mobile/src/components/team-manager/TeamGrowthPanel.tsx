@@ -1,6 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type {TeamDto,TeamDirectoryItemDto} from "@leaguekick/contracts";
 import {router} from "expo-router";
 import {useEffect,useRef,useState} from "react";
@@ -9,6 +11,7 @@ import {ApiRequestError,marketingApi,resolveMediaImageUrl,teamApi,teamGrowthApi,
   type TeamGrowthData,type TeamGrowthPost} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useAuth} from "../../providers/AuthProvider";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -33,6 +36,10 @@ function Options({items,current,onChange}:{items:{id:string;name:string}[];curre
 
 export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;token:string;canWrite:boolean}){
   const {t,language,isRTL}=useLocale();
+  const {session}=useAuth();
+  const draftKey=session?.user.id?`@leaguekick:media-draft:v1:${session.user.id}:${team.id}`:null;
+  const draftKeyRef=useRef(draftKey);
+  draftKeyRef.current=draftKey;
   const tr=(key:string)=>t(`tm3.${key}` as never);
   const date=(x:string)=>formatCompetitionDateTime(x,language);
   const [data,setData]=useState<TeamGrowthData|null>(null);
@@ -44,6 +51,13 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   const [postBody,setPostBody]=useState("");
   const [imageUrl,setImageUrl]=useState<string|null>(null);
   const [postEditing,setPostEditing]=useState<string|null>(null);
+  const [composerOpen,setComposerOpen]=useState(false);
+  const [draftAvailable,setDraftAvailable]=useState(false);
+  const [draftBusy,setDraftBusy]=useState(false);
+  const [postFilter,setPostFilter]=useState<"ALL"|"PHOTOS"|"TEXT">("ALL");
+  const [postQuery,setPostQuery]=useState("");
+  const [announcementOpen,setAnnouncementOpen]=useState(false);
+  const [announcementToDelete,setAnnouncementToDelete]=useState<string|null>(null);
   const [announcementTitle,setAnnouncementTitle]=useState("");
   const [announcementBody,setAnnouncementBody]=useState("");
   const [challengeTarget,setChallengeTarget]=useState("");
@@ -63,11 +77,20 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   // Never retain an editable post or uploaded photo when switching licensed teams.
   useEffect(()=>{
     setPostBody("");setImageUrl(null);setPostEditing(null);setDeleteCandidate(null);
+    setComposerOpen(false);setDraftAvailable(false);setDraftBusy(false);
+    setPostFilter("ALL");setPostQuery("");setAnnouncementOpen(false);setAnnouncementToDelete(null);
     setAnnouncementTitle("");setAnnouncementBody("");setUploading(false);setMediaSection("POSTS");
     setChallengeTarget("");setChallengeSearch("");setChallengeTime("");setChallengeVenue("");
     setChallengeMessage("");setShowChallengeForm(false);setChallengeFilter("PENDING");
     setCancelChallengeId(null);setTeams([]);
-  },[team.id]);
+  },[team.id,draftKey]);
+  useEffect(()=>{
+    let active=true;setDraftAvailable(false);
+    if(draftKey)void AsyncStorage.getItem(draftKey).then(value=>{
+      if(active)setDraftAvailable(!!value);
+    }).catch(()=>{});
+    return()=>{active=false;};
+  },[draftKey]);
   useEffect(()=>{
     let current=true;
     setLoading(true);setError(null);
