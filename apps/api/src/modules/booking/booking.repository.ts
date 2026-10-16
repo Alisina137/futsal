@@ -15,7 +15,7 @@ import {
   venueSubscriptions,
   venues,
 } from "@leaguekick/database";
-import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
 import { errors } from "../../lib/errors.js";
 import type {
   BookingRepository,
