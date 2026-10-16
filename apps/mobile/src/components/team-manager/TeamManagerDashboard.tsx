@@ -853,36 +853,44 @@ export function TeamManagerDashboard(){
       {(tab==="media"||tab==="statistics"||tab==="matches"&&matchSection==="FRIENDLIES")&&token?
         <TeamGrowthPanel tab={tab} team={team} token={token} canWrite={canWrite}/>:null}
 
-      {tab==="settings"?<>
-        <Card>
-          <AppText variant="bodyLarge" weight="bold">{t("tmBilling.subscriptionPerTeam")}</AppText>
-          <AppText variant="caption" muted>{t("tmBilling.policy")}</AppText>
-          <AppText variant="caption" muted>{t("tmBilling.ownedTeams")}: {capacity?.ownedTeams??visibleTeams.length}</AppText>
-          <AppText variant="caption" muted>{t("tmBilling.price")}: {capacity?.monthlyPriceAfn??300} AFN/{t("roles.month")}</AppText>
-          {(capacity?.slots??[]).filter(slot=>slot.teamId).map(slot=><View key={slot.id} style={styles.divider}>
-            <AppText weight="semibold">{slot.teamName??t("tmBilling.additionalTitle")}</AppText>
-            <AppText variant="caption" muted>{t("tmBilling.status")}: {slot.status}</AppText>
-            <AppText variant="caption" muted>{t("tm1.expires")}: {date(slot.activeUntil)}</AppText>
-            {slot.status==="EXPIRED"||slot.status==="CANCELLED"?<Button
-              label={t("tmBilling.renew")} disabled={slotBusy} loading={slotBusy}
-              onPress={()=>void requestSlot(slot.id)}/>:null}
-          </View>)}
-          {(capacity?.slots??[]).filter(slot=>!slot.teamId).map(slot=><View key={slot.id} style={styles.divider}>
-            <AppText variant="caption" muted>{t("tmBilling.status")}: {slot.status}</AppText>
-            <AppText variant="caption" muted>{t("tm1.expires")}: {date(slot.activeUntil)}</AppText>
-          </View>)}
-          <TextField label={t("roles.paymentReference")} value={paymentRef} onChangeText={setPaymentRef}/>
-          <Button label={t("tmBilling.requestExtra")} variant="secondary"
-            disabled={!capacity?.baseActive||slotBusy} loading={slotBusy}
-            onPress={()=>void requestSlot()}/>
-          <Button label={t("tm1.newTeam")} onPress={()=>router.push("/teams/create")}/>
-          <AppText variant="caption" muted>{t("tmBilling.approvalHint")}</AppText>
-        </Card>
-
+      {tab==="settings"?<View testID="tm8-settings" style={styles.settingsRoot}>
+        <AppText variant="caption" muted>{t("tm8.settingsHint")}</AppText>
+        <SettingsHeader id="PROFILE" icon="shield-outline"
+          expanded={settingsSection==="PROFILE"} label={t("tm8.section.PROFILE")}
+          summary={t("tm8.sectionHint.PROFILE")} onPress={()=>toggleSettings("PROFILE")} dirty={teamDirty||profileDirty}/>
+        {settingsSection==="PROFILE"?<View testID="tm8-content-PROFILE" style={styles.settingsContent}>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.teamIdentity")}</AppText>
           <TextField label={t("teams.name")} value={name} onChangeText={setName}/>
           <TextField label={t("teams.city")} value={city} onChangeText={setCity}/>
-          <TextField label={t("teams.logoUrl")} value={logoUrl} onChangeText={setLogoUrl} autoCapitalize="none" forceLtr/>
+          <AppText variant="caption" muted>{t("tm8.logoHint")}</AppText>
+          {logoUrl?<View testID="tm8-logo-preview" style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Image source={{uri:resolveMediaImageUrl(logoUrl)??logoUrl}}
+              style={styles.settingsLogo} resizeMode="cover"/>
+            <AppText variant="caption" muted style={{flex:1}}>{t("tm8.logoCurrent")}</AppText>
+          </View>:null}
+          <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button testID="tm8-logo-gallery" label={t("tm8.chooseGallery")}
+              variant="secondary" disabled={!canWrite||busy||logoBusy} loading={logoBusy}
+              onPress={()=>void chooseLogo("GALLERY")}/>
+            <Button testID="tm8-logo-files" label={t("tm8.chooseFiles")}
+              variant="secondary" disabled={!canWrite||busy||logoBusy} loading={logoBusy}
+              onPress={()=>void chooseLogo("FILES")}/>
+            {logoUrl?<Button label={t("tm8.removeLogo")} variant="ghost"
+              disabled={!canWrite||busy||logoBusy} onPress={()=>setRemoveLogoConfirm(true)}/>:null}
+          </View>
+          {removeLogoConfirm?<View testID="tm8-logo-remove-confirm" style={styles.settingsDanger}>
+            <AppText style={{color:colors.danger}}>{t("tm8.removeLogoConfirm")}</AppText>
+            <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Button label={t("tm8.removeLogo")} variant="danger" disabled={!canWrite||logoBusy||busy}
+                loading={logoBusy} onPress={()=>void persistLogo(null)}/>
+              <Button label={t("common.cancel")} variant="secondary" onPress={()=>setRemoveLogoConfirm(false)}/>
+            </View>
+          </View>:null}
+          <TextField label={t("teams.logoUrl")} value={logoUrl} onChangeText={setLogoUrl}
+            autoCapitalize="none" forceLtr placeholder="https://..."/>
+          {!logoUrlOk?<AppText variant="caption" style={{color:colors.danger}}>
+            {t("tm8.logoUrlInvalid")}
+          </AppText>:null}
           <View testID="team-cover-settings" style={styles.coverSettings}>
             <AppText weight="semibold">{t("teams.phase3.coverTitle")}</AppText>
             <View style={styles.coverPreview}>
@@ -915,14 +923,18 @@ export function TeamManagerDashboard(){
             onChangeText={v=>updateProfile("primaryColor",v||null)} placeholder="#155EEF" forceLtr/>
           <TextField label={t("tm1.secondaryColor")} value={profile.secondaryColor??""}
             onChangeText={v=>updateProfile("secondaryColor",v||null)} placeholder="#FFFFFF" forceLtr/>
-          <TextField label={t("tm1.contactPhone")} value={profile.contactPhone??""} keyboardType="phone-pad"
-            onChangeText={v=>updateProfile("contactPhone",v||null)} forceLtr/>
           <AppText weight="semibold">{t("teams.privacy")}</AppText>
           <Options selected={privacy} onSelect={v=>setPrivacy(v as TeamPrivacy)}
             items={["PUBLIC","PRIVATE"].map(id=>({id,label:t(`teams.privacy.${id}` as never)}))}/>
-          <Button label={t("common.save")} loading={busy}
-            disabled={!canWrite||coverBusy||name.trim().length<2||city.trim().length<2||!foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)||!whatsappOk}
-            onPress={()=>void saveTeam()}/>
+          <AppText variant="caption" muted>{t("tm8.saveHint")}</AppText>
+          <Button testID="tm8-save-team-details" label={t("tm8.saveTeam")}
+            loading={busy} disabled={!canWrite||busy||logoBusy||name.trim().length<2||
+              city.trim().length<2||!logoUrlOk||!teamDirty}
+            onPress={()=>void saveTeamDetails()}/>
+          <Button testID="tm8-save-profile" label={t("tm8.saveProfile")} variant="secondary"
+            loading={busy} disabled={!canWrite||busy||coverBusy||logoBusy||!profileDirty||
+              !foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)||!whatsappOk}
+            onPress={()=>void saveProfileSettings()}/>
           <AppText variant="caption" muted>{t("tm1.publicHint")}</AppText>
         </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.publicProfile")}</AppText>
@@ -931,17 +943,33 @@ export function TeamManagerDashboard(){
           })}/>
         </Card>
 
+        </View>:null}
+
+        <SettingsHeader id="MEMBERSHIP" icon="people-outline"
+          expanded={settingsSection==="MEMBERSHIP"} label={t("tm8.section.MEMBERSHIP")}
+          summary={t("tm8.sectionHint.MEMBERSHIP")} onPress={()=>toggleSettings("MEMBERSHIP")} dirty={profileDirty}/>
+        {settingsSection==="MEMBERSHIP"?<View testID="tm8-content-MEMBERSHIP" style={styles.settingsContent}>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.membershipSettings")}</AppText>
           <AppText variant="caption" muted>{t("tm1.allowRequestsHint")}</AppText>
           <Options selected={profile.allowJoinRequests?"YES":"NO"}
             onSelect={v=>updateProfile("allowJoinRequests",v==="YES")}
             items={[{id:"YES",label:t("tm1.allowRequests")},{id:"NO",label:t("tm1.invitationOnly")}]}/>
-          <Button label={t("common.save")} loading={busy} disabled={!canWrite}
-            onPress={()=>void perform(()=>teamManagerApi.updateProfile(token!,team.id,profile))}/>
+          <Button label={t("tm8.saveProfile")} loading={busy}
+            disabled={!canWrite||busy||coverBusy||logoBusy||!profileDirty||
+              !foundedOk||!colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)||!whatsappOk}
+            onPress={()=>void saveProfileSettings()}/>
         </Card>
+        </View>:null}
+
+        <SettingsHeader id="CONTACT" icon="call-outline"
+          expanded={settingsSection==="CONTACT"} label={t("tm8.section.CONTACT")}
+          summary={t("tm8.sectionHint.CONTACT")} onPress={()=>toggleSettings("CONTACT")} dirty={profileDirty}/>
+        {settingsSection==="CONTACT"?<View testID="tm8-content-CONTACT" style={styles.settingsContent}>
         <Card>
           <AppText variant="bodyLarge" weight="bold">{t("teamWhatsApp.title")}</AppText>
           <AppText variant="caption" muted>{t("teamWhatsApp.managerHint")}</AppText>
+          <TextField label={t("tm1.contactPhone")} value={profile.contactPhone??""} keyboardType="phone-pad"
+            onChangeText={v=>updateProfile("contactPhone",v||null)} forceLtr/>
           <TextField label={t("teamWhatsApp.groupInviteUrl")}
             placeholder="https://chat.whatsapp.com/..."
             value={profile.whatsappGroupUrl??""}
@@ -950,9 +978,10 @@ export function TeamManagerDashboard(){
           {!whatsappOk?<AppText variant="caption" style={{color:colors.danger}}>
             {t("teamWhatsApp.invalid")}</AppText>:null}
           <AppText variant="caption" muted>{t("teamWhatsApp.privacyHint")}</AppText>
-          <Button label={t("common.save")} disabled={!canWrite||!whatsappOk||busy}
-            loading={busy} onPress={()=>void perform(()=>
-              teamManagerApi.updateProfile(token!,team.id,profile))}/>
+          <Button label={t("tm8.saveProfile")} disabled={!canWrite||!whatsappOk||busy||
+              logoBusy||coverBusy||!profileDirty||!foundedOk||
+              !colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)}
+            loading={busy} onPress={()=>void saveProfileSettings()}/>
           {overview.profile.whatsappGroupUrl?<WhatsAppGroupButton url={overview.profile.whatsappGroupUrl}/>:null}
         </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.homeVenue")}</AppText>
@@ -968,14 +997,55 @@ export function TeamManagerDashboard(){
               <AppText variant="caption" muted>{venue.city} · {venue.province}</AppText>
             </Pressable>)}
           </View>:null}
-          <Button label={t("common.save")} disabled={!canWrite} loading={busy}
-            onPress={()=>void perform(()=>teamManagerApi.updateProfile(token!,team.id,profile))}/>
+          <Button label={t("tm8.saveProfile")} disabled={!canWrite||busy||logoBusy||coverBusy||
+              !profileDirty||!foundedOk||!colorOk(profile.primaryColor)||
+              !colorOk(profile.secondaryColor)||!whatsappOk} loading={busy}
+            onPress={()=>void saveProfileSettings()}/>
         </Card>
+        </View>:null}
+
+        <SettingsHeader id="SUBSCRIPTION" icon="card-outline"
+          expanded={settingsSection==="SUBSCRIPTION"} label={t("tm8.section.SUBSCRIPTION")}
+          summary={t("tm8.sectionHint.SUBSCRIPTION")} onPress={()=>toggleSettings("SUBSCRIPTION")}/>
+        {settingsSection==="SUBSCRIPTION"?<View testID="tm8-content-SUBSCRIPTION" style={styles.settingsContent}>
+        <Card>
+          <AppText variant="bodyLarge" weight="bold">{t("tmBilling.subscriptionPerTeam")}</AppText>
+          <AppText variant="caption" muted>{t("tmBilling.policy")}</AppText>
+          <AppText weight="semibold">{t("tm8.selectedTeamStatus")}: {selectedLicense?.status??t("tm8.noLicense")}</AppText>
+          <AppText variant="caption" muted>{t("tm8.selectedTeamExpiry")}: {date(selectedLicense?.activeUntil??null)}</AppText>
+          <AppText variant="caption" muted>{t("tmBilling.ownedTeams")}: {capacity?.ownedTeams??visibleTeams.length}</AppText>
+          <AppText variant="caption" muted>{t("tmBilling.price")}: {capacity?.monthlyPriceAfn??300} AFN/{t("roles.month")}</AppText>
+          {(capacity?.slots??[]).filter(slot=>slot.teamId).map(slot=><View key={slot.id} style={styles.divider}>
+            <AppText weight="semibold">{slot.teamName??t("tmBilling.additionalTitle")}</AppText>
+            <AppText variant="caption" muted>{t("tmBilling.status")}: {slot.status}</AppText>
+            <AppText variant="caption" muted>{t("tm1.expires")}: {date(slot.activeUntil)}</AppText>
+            {slot.status==="EXPIRED"||slot.status==="CANCELLED"?<Button
+              label={t("tmBilling.renew")} disabled={slotBusy} loading={slotBusy}
+              onPress={()=>void requestSlot(slot.id)}/>:null}
+          </View>)}
+          {(capacity?.slots??[]).filter(slot=>!slot.teamId).map(slot=><View key={slot.id} style={styles.divider}>
+            <AppText variant="caption" muted>{t("tmBilling.status")}: {slot.status}</AppText>
+            <AppText variant="caption" muted>{t("tm1.expires")}: {date(slot.activeUntil)}</AppText>
+          </View>)}
+          <TextField label={t("roles.paymentReference")} value={paymentRef} onChangeText={setPaymentRef}/>
+          <Button label={t("tmBilling.requestExtra")} variant="secondary"
+            disabled={!capacity?.baseActive||slotBusy} loading={slotBusy}
+            onPress={()=>void requestSlot()}/>
+          <Button label={t("tm1.newTeam")} onPress={()=>router.push("/teams/create")}/>
+          <AppText variant="caption" muted>{t("tmBilling.approvalHint")}</AppText>
+        </Card>
+
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.subscription")}</AppText>
           <AppText>{t("tm1.status")}: {offer?.status??"—"}</AppText>
           <AppText variant="caption" muted>{t("tm1.expires")}: {date(offer?.activeUntil??null)}</AppText>
           <Button label={t("tm1.manageSubscription")} onPress={()=>router.push("/role-subscriptions/team-owner")}/>
         </Card>
+        </View>:null}
+
+        <SettingsHeader id="PERMISSIONS" icon="lock-closed-outline"
+          expanded={settingsSection==="PERMISSIONS"} label={t("tm8.section.PERMISSIONS")}
+          summary={t("tm8.sectionHint.PERMISSIONS")} onPress={()=>toggleSettings("PERMISSIONS")}/>
+        {settingsSection==="PERMISSIONS"?<View testID="tm8-content-PERMISSIONS" style={styles.settingsContent}>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.permissions")}</AppText>
           <AppText variant="caption" muted>{t("tm1.permissionsHint")}</AppText>
           <Button label={t("tm1.manageMembers")} variant="secondary" onPress={()=>router.push({
@@ -983,11 +1053,25 @@ export function TeamManagerDashboard(){
           })}/>
           <Button label={t("tm1.notifications")} variant="secondary" onPress={()=>router.push("/settings")}/>
         </Card>
-      </>:null}
+        </View>:null}
+
+      </View>:null}
+
     </>:null}
   </Screen>;
 }
 const styles=StyleSheet.create({
+  settingsRoot:{gap:spacing.sm},
+  settingsHeader:{minHeight:66,gap:spacing.md,paddingHorizontal:spacing.md,
+    paddingVertical:spacing.md,alignItems:"center",borderWidth:1,
+    borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.surface},
+  settingsHeaderActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
+  settingsIcon:{width:38,height:38,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center",borderRadius:radius.md},
+  settingsContent:{gap:spacing.md,paddingBottom:spacing.sm},
+  settingsLogo:{width:66,height:66,borderRadius:radius.md,backgroundColor:colors.primarySoft},
+  settingsDanger:{gap:spacing.sm,padding:spacing.md,borderWidth:1,
+    borderColor:colors.danger,borderRadius:radius.md},
   playersWorkspace:{gap:spacing.md},
   playersTabs:{gap:spacing.sm,paddingVertical:spacing.xs,paddingHorizontal:spacing.xs,alignItems:"center"},
   playersTab:{flexDirection:"row",alignItems:"center",gap:spacing.xs,minHeight:46,
