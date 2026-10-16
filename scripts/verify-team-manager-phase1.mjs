@@ -13,6 +13,10 @@ for(const section of ["overview","players","settings"]){
   check(dash.includes('id:"'+section+'"'),"Missing Phase 1 tab "+section);
   check(language.split('"tm1.'+section+'"').length-1===3,"Missing Phase 1 translations "+section);
 }
+check(language.split('"tm1.partialData"').length-1===3,
+  "Partial data warnings must be translated in English, Dari and Pashto");
+check(dash.includes('t("tm1.partialData")'),
+  "Partial team data failure must preserve workspace with a specific warning.");
 // Phase 1 dashboard resilience: a failed optional lookup cannot blank the team.
 for(const guard of [
   'void teamApi.mine(token).then(mine=>',
