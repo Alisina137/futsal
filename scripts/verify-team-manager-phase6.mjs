@@ -14,7 +14,7 @@ required(panel,[
   'testID="tm6-save-draft"','testID="tm6-restore-draft"',
   'testID="tm6-published-posts"','testID="tm6-post-search"',
   'testID="tm6-announcement-composer"','testID="tm6-announcement-delete-confirm"',
-  'Drafts','AsyncStorage.setItem','AsyncStorage.getItem','AsyncStorage.removeItem',
+  '@leaguekick:media-draft:v1','AsyncStorage.setItem','AsyncStorage.getItem','AsyncStorage.removeItem',
   'session.user.id','draftKeyRef.current===draftKey',
   'marketingApi.uploadUserPostImage','ImagePicker.launchImageLibraryAsync',
   'DocumentPicker.getDocumentAsync','teamGrowthApi.createPost',
