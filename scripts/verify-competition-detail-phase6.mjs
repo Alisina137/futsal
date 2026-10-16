@@ -11,9 +11,12 @@ const locale=read("packages/localization/src/index.ts");
 const nav=read("apps/mobile/src/lib/competition-detail-navigation.ts");
 
 for(const marker of [
- "function competitionTeamStatistics(","match.status!==\"COMPLETED\"&&match.status!==\"CORRECTED\"",
- "match.homeScore===null||match.awayScore===null","const home=results.get(match.homeTeamId)",
- "if(!home||!away)continue;","home.wins++;away.losses++;",
+ "function competitionTeamStatistics(","function officialScoredMatches(",
+ "(match.status===\"COMPLETED\"||match.status===\"CORRECTED\")",
+ "accepted.has(match.homeTeamId)&&accepted.has(match.awayTeamId)",
+ "match.homeScore!==null&&match.awayScore!==null",
+ "const home=results.get(match.homeTeamId)",
+ "home.wins++;away.losses++;",
  "else{home.draws++;away.draws++;}","goalDifference:row.goalsFor-row.goalsAgainst",
  "competitionFairPlayStatistics(","if(!competition.teamDisciplineStats)return null;",
  "competitionPlayerLeaders(","accepted.has(stat.teamId)",
@@ -22,7 +25,11 @@ for(const marker of [
 for(const marker of [
  'testID="competition-team-stats"', 'testID="competition-fairplay-stats"',
  'competitionTeamStatistics(competition)', 'competitionFairPlayStatistics(competition)',
- 'competitionPlayerLeaders(competition,metric,teamId)',
+ 'competitionPlayerLeaders(competition,metric,activeTeamId)',
+ 'competitionTeamFinishedMatches(competition,team.teamId)',
+ 'testID={`competition-team-more-${team.teamId}`}',
+ 'testID={`competition-team-finished-${team.teamId}`}',
+ 'testID={`competition-team-finished-match-${match.id}`}',
  'competition.detail.phase6.teamResultsHint','competition.detail.phase6.noFinalResults',
  'competition.detail.phase6.fairPlayDisclaimer','competition.detail.phase6.noCardReports',
  'competition.detail.phase6.fairPlayUnavailable',
@@ -55,7 +62,8 @@ for(const marker of ['competitionTeamDisciplineDtoSchema','yellowCards:z.number(
  assert.ok(contract.includes(marker),"Competition Phase 6 response schema missing: "+marker);
 for(const key of ["teamResultsHint","noFinalResults","fairPlayDisclaimer","noCardReports",
  "fairPlayUnavailable","yellowCards","redCards","played","wins","draws","losses",
- "goalsFor","goalsAgainst","goalDifference"]){
+ "goalsFor","goalsAgainst","goalDifference",
+ "moreDetails","hideDetails","finishedMatchResults","noTeamResults","against"]){
  const value='"competition.detail.phase6.'+key+'"';
  assert.equal(locale.split(value).length-1,3,"Missing EN/Dari/Pashto label "+key);
 }
