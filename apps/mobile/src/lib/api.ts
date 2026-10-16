@@ -842,8 +842,9 @@ export type TeamManagerProfileDetails={
 export type TeamGuestPlayer={id:string;teamId:string;name:string;position:string;shirtNumber:number|null;createdAt:string};
 export type TeamManagerOverview={
   canWrite:boolean;profile:TeamManagerProfileDetails;guests:TeamGuestPlayer[];
-  stats:{competitions:number;played:number;wins:number};
-  nextMatch:null|{id:string;competitionId:string;competitionName:string;opponentName:string;startsAt:string};
+  stats:{competitions:number;played:number;wins:number;draws:number;losses:number;upcoming:number;winRate:number};
+  nextMatch:null|{id:string;competitionId:string;competitionName:string;
+    opponentName:string;opponentLogoUrl:string|null;venueName:string;startsAt:string};
 };
 export const teamManagerApi={
   overview:(token:string,teamId:string)=>
