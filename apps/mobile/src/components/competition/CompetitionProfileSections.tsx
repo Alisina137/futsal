@@ -18,6 +18,7 @@ import {CompetitionKnockoutBracket} from "./CompetitionKnockoutBracket";
 import {competitionStandingGroups,provisionalQualificationZone} from "../../lib/competition-detail-standings";
 import {CompetitionMatchList,type MatchFilter} from "./CompetitionMatchList";
 import {CompetitionMediaPanel} from "./CompetitionMediaPanel";
+import {DirectoryFilterSelect} from "../social/DirectoryFilterSelect";
 import type {CompetitionMatchPreferences} from "../../lib/competition-detail-match-filters";
 import {Card} from "../ui/Card";
 
@@ -267,18 +268,13 @@ function CompetitionStandings({competition,initialStage,onStageChange,onRefresh,
   </View>;
 }
 
-const STAT_ICONS:Record<StatMetric,keyof typeof Ionicons.glyphMap>={
-  goals:"football-outline",assists:"ribbon-outline",appearances:"walk-outline",
-  cleanSheets:"shield-checkmark-outline",yellowCards:"alert-circle-outline",
-  redCards:"close-circle-outline",playerOfMatchAwards:"medal-outline",
-};
-
 function CompetitionStats({competition}:{competition:CompetitionDto}){
   const {t,isRTL}=useLocale();
   const [metric,setMetric]=useState<StatMetric>("goals");
   const [teamId,setTeamId]=useState("ALL");
   const teams=competition.teams.filter(team=>team.status==="ACCEPTED");
-  const sorted=competitionPlayerLeaders(competition,metric,teamId);
+  const activeTeamId=teamId==="ALL"||teams.some(team=>team.teamId===teamId)?teamId:"ALL";
+  const sorted=competitionPlayerLeaders(competition,metric,activeTeamId);
   return <View style={styles.stack} testID="competition-phase5-leaderboards">
     <SectionHeading title={t("competition.stats")} icon="stats-chart-outline"/>
     <Card style={styles.verifiedBanner}>
@@ -287,36 +283,29 @@ function CompetitionStats({competition}:{competition:CompetitionDto}){
         {t("competition.phase5.verifiedOnly")}
       </AppText>
     </Card>
-    <ScrollView horizontal testID="competition-stat-metrics" showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[styles.statChips,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      {STAT_METRICS.map(value=><Pressable key={value} testID={`competition-stats-${value}`}
-        accessibilityRole="tab" accessibilityState={{selected:metric===value}}
-        onPress={()=>setMetric(value)}
-        style={[styles.roundChip,metric===value&&styles.roundChipActive]}>
-        <Ionicons name={STAT_ICONS[value]} size={17}
-          color={metric===value?"#FFFFFF":colors.primary}/>
-        <AppText variant="caption" weight="semibold"
-          style={{color:metric===value?"#FFFFFF":colors.primary}}>
-          {t(`competition.phase5.metric.${value}` as never)}
-        </AppText>
-      </Pressable>)}
-    </ScrollView>
-    {teams.length>1?<ScrollView horizontal testID="competition-stat-team-filter"
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[styles.statChips,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <Pressable accessibilityRole="tab" accessibilityState={{selected:teamId==="ALL"}}
-        onPress={()=>setTeamId("ALL")} style={[styles.teamFilterChip,teamId==="ALL"&&styles.teamFilterActive]}>
-        <AppText variant="caption" weight="semibold" style={{color:teamId==="ALL"?"#FFFFFF":colors.primary}}>
-          {t("competition.phase5.allTeams")}
-        </AppText>
-      </Pressable>
-      {teams.map(team=><Pressable key={team.teamId} accessibilityRole="tab"
-        accessibilityState={{selected:teamId===team.teamId}} onPress={()=>setTeamId(team.teamId)}
-        style={[styles.teamFilterChip,teamId===team.teamId&&styles.teamFilterActive]}>
-        <AppText variant="caption" weight="semibold" numberOfLines={1}
-          style={{color:teamId===team.teamId?"#FFFFFF":colors.primary}}>{team.teamName}</AppText>
-      </Pressable>)}
-    </ScrollView>:null}
+    {/* Compact selectors replace the two horizontally scrolling chip navigations. */}
+    <View testID="competition-stat-filter-selects"
+      style={[styles.statSelectRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View style={styles.statSelectCell}>
+        <DirectoryFilterSelect compact includeAll={false}
+          testID="competition-stat-metrics" label={t("competition.detail.sub.PLAYERS")}
+          value={metric} allLabel={t("competition.phase5.metric.goals")}
+          options={STAT_METRICS.map(value=>({
+            value,label:t(`competition.phase5.metric.${value}` as never),
+          }))}
+          onSelect={value=>{
+            if(STAT_METRICS.includes(value as StatMetric))setMetric(value as StatMetric);
+          }}/>
+      </View>
+      {teams.length>1?<View style={styles.statSelectCell}>
+        <DirectoryFilterSelect compact
+          testID="competition-stat-team-filter" label={t("competition.teams")}
+          value={activeTeamId==="ALL"?"":activeTeamId}
+          allLabel={t("competition.phase5.allTeams")}
+          options={teams.map(team=>({value:team.teamId,label:team.teamName}))}
+          onSelect={value=>setTeamId(value||"ALL")}/>
+      </View>:null}
+    </View>
     {sorted.length===0?<Placeholder title={t("competition.phase5.noRecordedMetric")} icon="stats-chart-outline"/>:null}
     {sorted.map((stat,index)=><Pressable key={`${stat.playerUserId}:${stat.teamId}`} accessibilityRole="button"
       onPress={()=>router.push({pathname:"/players/[playerId]",params:{playerId:stat.playerUserId}})}>
@@ -891,10 +880,8 @@ const styles=StyleSheet.create({
   roundChipActive:{backgroundColor:colors.primary,borderColor:colors.primary},
   verifiedBanner:{minHeight:56,flexDirection:"row",alignItems:"center",gap:spacing.sm,
     padding:spacing.sm,backgroundColor:colors.primarySoft},
-  statChips:{gap:spacing.sm,paddingVertical:4,alignItems:"center"},
-  teamFilterChip:{maxWidth:178,minHeight:40,borderRadius:radius.md,paddingHorizontal:spacing.md,
-    borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,justifyContent:"center"},
-  teamFilterActive:{backgroundColor:colors.primary,borderColor:colors.primary},
+  statSelectRow:{gap:spacing.sm,alignItems:"stretch"},
+  statSelectCell:{flex:1,minWidth:0},
   statusBadge:{backgroundColor:colors.primarySoft,paddingHorizontal:spacing.sm,
     paddingVertical:4,borderRadius:radius.pill},
   scoreRow:{alignItems:"center",gap:spacing.sm},
