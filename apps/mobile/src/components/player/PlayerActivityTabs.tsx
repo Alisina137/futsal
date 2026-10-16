@@ -163,14 +163,17 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
     if(busy)return;
     setBusy(key);setActivityError(null);setBookingError(null);setSuccess(null);
     try{await fn();after?.();setSuccess(t("pd2.updated"));setReload(v=>v+1);}
-    catch(e){setActivityError(e instanceof ApiRequestError?e.message:t("pd2.actionFailed"));}
+    catch(e){(tab==="bookings"?setBookingError:setActivityError)(
+      e instanceof ApiRequestError?e.message:t("pd2.actionFailed"));}
     finally{setBusy(null);}
   }
   const rsvp=(activity:PlayerTeamEvent,availability:TeamAvailability)=>
     action(activity.id,()=>teamOperationsApi.rsvp(token,activity.teamId,activity.id,availability));
   const teamOptions=[{id:"ALL",label:tr("allTeams")},...teams.map(x=>({id:x.id,label:x.name}))];
   const pageError=tab==="bookings"?bookingError:activityError;
-  const pageLoading=tab==="bookings"?bookingLoading:loading;
+  const pageLoading=tab==="bookings"
+    ?bookingLoading||bookingActor!==token&&!bookingError
+    :loading||activityActor!==token&&!activityError;
   return <View style={{gap:spacing.md}}>
     {pageError?<Card><AppText style={{color:colors.danger}}>{pageError}</AppText>
       <Button label={t("common.retry")} variant="secondary" onPress={()=>setReload(x=>x+1)}/></Card>:null}
