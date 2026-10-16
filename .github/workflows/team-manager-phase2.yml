@@ -7,12 +7,14 @@ on:
       - 'apps/mobile/src/components/team-manager/**'
       - 'apps/mobile/src/lib/api.ts'
       - 'apps/api/src/modules/team/team-manager-phase1.routes.ts'
+      - 'apps/api/src/modules/team/team-manager-phase3.routes.ts'
       - 'apps/api/test/team-manager-overview-phase2.test.ts'
       - 'packages/localization/src/index.ts'
       - 'scripts/verify-team-manager-overview-phase2.mjs'
       - 'scripts/verify-team-manager-players-phase3.mjs'
       - 'scripts/verify-team-manager-competitions-phase4.mjs'
       - 'scripts/verify-team-manager-phase5.mjs'
+      - 'scripts/verify-team-manager-phase6.mjs'
       - 'scripts/test-team-manager-schedule-phase5.mjs'
       - 'apps/mobile/src/lib/team-manager-schedule.ts'
       - 'scripts/verify-team-manager-navigation.mjs'
@@ -44,6 +46,7 @@ jobs:
       - run: pnpm verify:team-manager-players-phase3
       - run: pnpm verify:team-manager-competitions-phase4
       - run: pnpm verify:team-manager-phase5
+      - run: pnpm verify:team-manager-phase6
       - run: pnpm --filter @leaguekick/api typecheck
       - run: pnpm --filter @leaguekick/mobile typecheck
       - run: pnpm --filter @leaguekick/api exec vitest run test/team-manager-overview-phase2.test.ts
