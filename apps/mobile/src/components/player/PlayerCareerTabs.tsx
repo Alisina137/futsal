@@ -12,7 +12,7 @@ import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
 import {DataLoadingState} from "../ui/DataLoadingState";
 
-type Tab="statistics"|"achievements";
+type Tab="statistics"|"achievements"|"history";
 type Metric="matches"|"goals"|"assists";
 const emptyTotals:PlayerCareerTotals={
   matches:0,goals:0,assists:0,yellowCards:0,redCards:0,cleanSheets:0,
@@ -178,7 +178,9 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
             </View>)}
           </View>:null}
         </Card>
-        <Card>
+      </>:null}
+      {tab==="history"?<>
+        <Card testID="player-career-history">
           <AppText variant="bodyLarge" weight="bold">{tr("matchHistory")}</AppText>
           {!visible.length?<AppText muted>{tr("noRecordedStats")}</AppText>:null}
           {visible.slice(0,40).map(row=><View key={row.matchId} style={styles.history}>
@@ -192,7 +194,9 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
           </View>)}
           {visible.length>40?<AppText variant="caption" muted>{tr("recentForty")}</AppText>:null}
         </Card>
-      </>:<>
+
+      </>:null}
+      {tab==="achievements"?<>
         <Card>
           <AppText variant="bodyLarge" weight="bold">{tr("trophyCabinet")}</AppText>
           <AppText variant="caption" muted>{tr("achievementHint")}</AppText>
@@ -228,7 +232,7 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
             </View>
           </View>)}
         </Card>
-      </>}
+      </>:null}
     </>:null}
   </View>;
 }
