@@ -84,6 +84,7 @@ export function TeamManagerDashboard(){
   const [overviewOpsErrorKey,setOverviewOpsErrorKey]=useState<string|null>(null);
   const [overviewOpsReload,setOverviewOpsReload]=useState(0);
   const [lineupFocus,setLineupFocus]=useState<string|null>(null);
+  const [matchSection,setMatchSection]=useState<"OFFICIAL"|"FRIENDLIES"|"LINEUPS">("OFFICIAL");
   const [competitionFocus,setCompetitionFocus]=useState<"MINE"|"INVITATIONS"|null>(null);
   // Loaded data is scoped to the current account and selected team.
   const [teamsActor,setTeamsActor]=useState<string|null>(null);
@@ -221,7 +222,7 @@ export function TeamManagerDashboard(){
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
     setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
-    setLineupFocus(null);setCompetitionFocus(null);
+    setLineupFocus(null);setMatchSection("OFFICIAL");setCompetitionFocus(null);
     setPlayerSection("ROSTER");setPlayerSearch("");setPlayerPosition("ALL");
     setRequestHistory(false);setInviteHistory(false);setGuestToRemove(null);
   },[userId]);
@@ -230,7 +231,7 @@ export function TeamManagerDashboard(){
   useEffect(()=>{
     setTeam(null);setOverview(null);setLoadedTeamKey(null);
     setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
-    setLineupFocus(null);setCompetitionFocus(null);
+    setLineupFocus(null);setMatchSection("OFFICIAL");setCompetitionFocus(null);
     setRequests([]);setInvitations([]);setUnread(0);
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setAttentionError(false);setAttentionKey(null);setDetailsError(null);
@@ -520,7 +521,7 @@ export function TeamManagerDashboard(){
         onOpen={chooseTab}
         onPlayersSection={openPlayerSection}
         onCompetitionSection={openCompetitionSection}
-        onLineup={id=>{setLineupFocus(id);chooseTab("matches");}}
+        onLineup={id=>{setLineupFocus(id);setMatchSection("LINEUPS");chooseTab("matches");}}
       />:null}
 
       {tab==="players"?<View testID="tm-players-workspace" style={styles.playersWorkspace}>
@@ -705,10 +706,11 @@ export function TeamManagerDashboard(){
 
       {(tab==="competitions"||tab==="matches"||tab==="schedule")&&token?<TeamCompetitionOps
         tab={tab} team={team} token={token} canWrite={canWrite} onSelectTab={chooseTab}
+        matchSection={matchSection} onMatchSectionChange={setMatchSection}
         focusMatchId={lineupFocus} onConsumedFocus={()=>setLineupFocus(null)}
         focusCompetitionSection={competitionFocus} onConsumedCompetitionFocus={()=>setCompetitionFocus(null)}/>:null}
 
-      {(tab==="media"||tab==="statistics"||tab==="matches")&&token?
+      {(tab==="media"||tab==="statistics"||tab==="matches"&&matchSection==="FRIENDLIES")&&token?
         <TeamGrowthPanel tab={tab} team={team} token={token} canWrite={canWrite}/>:null}
 
       {tab==="settings"?<>
