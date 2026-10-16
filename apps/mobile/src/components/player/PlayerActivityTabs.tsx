@@ -62,10 +62,17 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
   const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(`pd2.${key}` as never);
   const date=(value:string|null)=>value?formatCompetitionDateTime(value,language):tr("notScheduled");
-  const [data,setData]=useState<PlayerActivities|null>(null);
-  const [bookings,setBookings]=useState<BookingDto[]>([]);
-  const [loading,setLoading]=useState(true),[busy,setBusy]=useState<string|null>(null);
-  const [error,setError]=useState<string|null>(null),[success,setSuccess]=useState<string|null>(null);
+  const [storedData,setData]=useState<PlayerActivities|null>(null);
+  const [storedBookings,setBookings]=useState<BookingDto[]>([]);
+  const [activityActor,setActivityActor]=useState<string|null>(null);
+  const [bookingActor,setBookingActor]=useState<string|null>(null);
+  const data=activityActor===token?storedData:null;
+  const bookings=bookingActor===token?storedBookings:[];
+  const [loading,setLoading]=useState(true),[bookingLoading,setBookingLoading]=useState(true);
+  const [busy,setBusy]=useState<string|null>(null);
+  const [activityError,setActivityError]=useState<string|null>(null);
+  const [bookingError,setBookingError]=useState<string|null>(null);
+  const [success,setSuccess]=useState<string|null>(null);
   const [reload,setReload]=useState(0);
   const [teamFilter,setTeamFilter]=useState("ALL");
   const [competitionFilter,setCompetitionFilter]=useState("ALL");
@@ -77,11 +84,22 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
 
   useFocusEffect(useCallback(()=>{
     let active=true;
-    setLoading(true);setError(null);
-    void Promise.all([playerActivityApi.list(token),bookingApi.mine(token)])
-      .then(([items,result])=>{if(active){setData(items);setBookings(result.bookings);}})
-      .catch(e=>{if(active){setError(e instanceof ApiRequestError?e.message:t("pd2.loadError"));setData(null);}})
-      .finally(()=>{if(active)setLoading(false);});
+    setLoading(true);setBookingLoading(true);
+    setActivityError(null);setBookingError(null);
+    // Independent requests: venue booking failures must not erase official
+    // fixtures or team activities; activity failures must not hide bookings.
+    void playerActivityApi.list(token).then(items=>{
+      if(active){setData(items);setActivityActor(token);}
+    }).catch(e=>{
+      if(active){setData(null);setActivityActor(null);
+        setActivityError(e instanceof ApiRequestError?e.message:t("pd2.loadError"));}
+    }).finally(()=>{if(active)setLoading(false);});
+    void bookingApi.mine(token).then(result=>{
+      if(active){setBookings(result.bookings);setBookingActor(token);}
+    }).catch(e=>{
+      if(active){setBookings([]);setBookingActor(null);
+        setBookingError(e instanceof ApiRequestError?e.message:t("pd2.loadError"));}
+    }).finally(()=>{if(active)setBookingLoading(false);});
     return()=>{active=false;};
   },[token,reload,t]));
 
@@ -143,19 +161,26 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
   };
   async function action(key:string,fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
-    setBusy(key);setError(null);setSuccess(null);
+    setBusy(key);setActivityError(null);setBookingError(null);setSuccess(null);
     try{await fn();after?.();setSuccess(t("pd2.updated"));setReload(v=>v+1);}
-    catch(e){setError(e instanceof ApiRequestError?e.message:t("pd2.actionFailed"));}
+    catch(e){setActivityError(e instanceof ApiRequestError?e.message:t("pd2.actionFailed"));}
     finally{setBusy(null);}
   }
   const rsvp=(activity:PlayerTeamEvent,availability:TeamAvailability)=>
     action(activity.id,()=>teamOperationsApi.rsvp(token,activity.teamId,activity.id,availability));
   const teamOptions=[{id:"ALL",label:tr("allTeams")},...teams.map(x=>({id:x.id,label:x.name}))];
+  const pageError=tab==="bookings"?bookingError:activityError;
+  const pageLoading=tab==="bookings"?bookingLoading:loading;
   return <View style={{gap:spacing.md}}>
-    {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
+    {pageError?<Card><AppText style={{color:colors.danger}}>{pageError}</AppText>
       <Button label={t("common.retry")} variant="secondary" onPress={()=>setReload(x=>x+1)}/></Card>:null}
+    {tab==="schedule"&&bookingError&&!loading?<Card>
+      <AppText variant="caption" muted>{t("pd1.bookingPartialWarning")}</AppText>
+      <Button label={t("common.retry")} variant="secondary" onPress={()=>setReload(x=>x+1)}/>
+    </Card>:null}
     {success?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{success}</AppText></Card>:null}
-    {loading?<DataLoadingState variant="list" minHeight={340}/>:data?<>
+    {pageLoading?<DataLoadingState variant="list" minHeight={340}/>:
+      (tab==="bookings"?bookingActor===token:!!data)?<>
       {tab!=="bookings"?<Options values={teamOptions} selected={teamFilter} onChange={setTeamFilter}/>:null}
 
       {tab==="competitions"?<>
