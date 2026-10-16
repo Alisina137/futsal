@@ -4,7 +4,7 @@ import type {BookingDto,OwnerBookingListResponse,BookingSource,BookingStatus} fr
 import {router,useFocusEffect} from "expo-router";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {AppState,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
-import {OwnerPendingBookings} from "../../../src/components/owner/OwnerPendingBookings";
+import {OwnerBookingDatePicker} from "../../../src/components/owner/OwnerBookingDatePicker";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
 import {Card} from "../../../src/components/ui/Card";
@@ -13,16 +13,15 @@ import {Screen} from "../../../src/components/ui/Screen";
 import {TextField} from "../../../src/components/ui/TextField";
 import {ownerApi} from "../../../src/lib/api";
 import {formatLocalDateTimeParts} from "../../../src/lib/date-time";
-import {ownerBookingTabs,ownerBookingScope,ownerBookingDateFilter,type OwnerBookingTab}
+import {ownerBookingStatusOptions,ownerBookingStatusScope,ownerBookingDateFilter,
+  ownerBookingStatusThemes,ownerBookingDisplayStatus,type OwnerBookingStatusFilter}
   from "../../../src/lib/owner-bookings";
-import {useVisibleTab} from "../../../src/hooks/useVisibleTab";
 import {useAuth} from "../../../src/providers/AuthProvider";
 import {useLocale} from "../../../src/providers/LocaleProvider";
 
 type SourceFilter="ALL"|BookingSource;
-type StatusFilter="ALL"|BookingStatus;
+type OwnerDecision={booking:BookingDto;kind:"approve"|"reject"|"cancel"};
 const sourceOptions:SourceFilter[]=["ALL","ONLINE","MANUAL"];
-const statusOptions:StatusFilter[]=["ALL","PENDING","CONFIRMED","CANCELLED"];
 const PAGE_SIZE=15;
 
 export default function OwnerBookingsScreen(){
@@ -30,12 +29,10 @@ export default function OwnerBookingsScreen(){
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
   const userId=session?.user.id;
-  const [tab,setTab]=useState<OwnerBookingTab>("PENDING");
-  const nav=useVisibleTab<OwnerBookingTab>(tab);
   const [searchText,setSearchText]=useState("");
   const [query,setQuery]=useState("");
   const [source,setSource]=useState<SourceFilter>("ALL");
-  const [status,setStatus]=useState<StatusFilter>("ALL");
+  const [status,setStatus]=useState<OwnerBookingStatusFilter>("ALL");
   const [from,setFrom]=useState("");
   const [to,setTo]=useState("");
   const [page,setPage]=useState(1);
@@ -43,33 +40,36 @@ export default function OwnerBookingsScreen(){
   const [loadedToken,setLoadedToken]=useState<string|null>(null);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState<string|null>(null);
-  const [cancelTarget,setCancelTarget]=useState<BookingDto|null>(null);
-  const [cancelBusy,setCancelBusy]=useState(false);
-  const [cancelError,setCancelError]=useState<string|null>(null);
+  const [decision,setDecision]=useState<OwnerDecision|null>(null);
+  const [decisionBusy,setDecisionBusy]=useState(false);
+  const [actionError,setActionError]=useState<string|null>(null);
   const generation=useRef(0);
-  const cancelLock=useRef(false);
+  const actionLock=useRef(false);
   const criteria=ownerBookingDateFilter(from,to);
-  const scope=ownerBookingScope(tab);
+  const scope=ownerBookingStatusScope(status);
   const safeData=loadedToken===token?data:null;
   const formatter=useMemo(()=>new Intl.NumberFormat(language),[language]);
+  const nowMs=Date.now();
 
   useEffect(()=>{
-    // The owner shell may remain mounted while authentication changes.
+    // A role or signed-in account switch must never retain another owner's data.
     generation.current++;
-    setTab("PENDING");setData(null);setLoadedToken(null);
+    setData(null);setLoadedToken(null);
     setSearchText("");setQuery("");setSource("ALL");setStatus("ALL");
-    setFrom("");setTo("");setPage(1);setError(null);
-    setCancelTarget(null);setCancelError(null);
-  },[userId]);
+    setFrom("");setTo("");setPage(1);setError(null);setActionError(null);
+    setDecision(null);
+  },[userId,token]);
 
   useEffect(()=>{
-    const timer=setTimeout(()=>{setQuery(searchText.trim());setPage(1);},350);
+    const timer=setTimeout(()=>{
+      setQuery(searchText.trim());setPage(1);
+    },350);
     return()=>clearTimeout(timer);
   },[searchText]);
 
   const load=useCallback(async()=>{
     const request=++generation.current;
-    if(!token||scope===null||!criteria.valid){
+    if(!token||!criteria.valid){
       setData(null);setLoadedToken(null);setLoading(false);return;
     }
     setLoading(true);setError(null);
@@ -77,18 +77,20 @@ export default function OwnerBookingsScreen(){
       const result=await ownerApi.listBookings(token,{
         scope,page,pageSize:PAGE_SIZE,q:query,
         ...(source!=="ALL"?{source}:{}),
-        ...(tab!=="UPCOMING"&&status!=="ALL"?{status}:{}),
+        ...(status!=="ALL"&&status!=="HISTORY"?{status}:{}),
         ...(criteria.from?{from:criteria.from}:{}),
         ...(criteria.to?{to:criteria.to}:{}),
       });
       if(request!==generation.current)return;
       setData(result);setLoadedToken(token);
     }catch{
-      if(request===generation.current)setError(t("owner.phase3.loadError"));
+      if(request===generation.current){
+        setError(t("owner.phase3.loadError"));setData(null);
+      }
     }finally{
       if(request===generation.current)setLoading(false);
     }
-  },[token,scope,criteria.valid,criteria.from,criteria.to,page,query,source,tab,status,t]);
+  },[token,scope,criteria.valid,criteria.from,criteria.to,page,query,source,status,t]);
 
   useFocusEffect(useCallback(()=>{
     void load();
@@ -98,106 +100,98 @@ export default function OwnerBookingsScreen(){
     return()=>{generation.current++;clearInterval(timer);};
   },[load]));
 
-  function changeTab(next:OwnerBookingTab){
-    if(tab===next)return;
-    generation.current++;
-    setTab(next);setPage(1);setError(null);setData(null);
-    nav.focus(next,true);
-  }
+  const resetResults=()=>{generation.current++;setData(null);setPage(1);setError(null);};
   function clearFilters(){
+    resetResults();
     setSearchText("");setQuery("");setSource("ALL");setStatus("ALL");
-    setFrom("");setTo("");setPage(1);
+    setFrom("");setTo("");
   }
-  async function cancelBooking(){
-    if(!token||!cancelTarget||cancelLock.current)return;
-    // Existing API enforces owner-venue ownership and idempotent cancellation.
-    cancelLock.current=true;setCancelBusy(true);setCancelError(null);
-    const target=cancelTarget;
+  async function applyDecision(){
+    if(!token||!decision||actionLock.current)return;
+    actionLock.current=true;setDecisionBusy(true);setActionError(null);
+    const target=decision;
     const request=++generation.current;
     try{
-      await ownerApi.cancelBooking(token,target.id,t("owner.phase3.cancelReason"));
+      if(target.kind==="approve"){
+        await ownerApi.confirmBooking(token,target.booking.id);
+      }else{
+        await ownerApi.cancelBooking(token,target.booking.id,
+          t(target.kind==="reject"?"schedule.requestsRejectedReason":"owner.phase3.cancelReason"));
+      }
       if(request===generation.current){
-        setCancelTarget(null);setData(null);await load();
+        setDecision(null);setData(null);setPage(1);
+        // Reload with current criteria; focus/interval refresh are also safe.
+        await load();
       }
     }catch{
       if(request===generation.current){
-        setCancelTarget(null);
-        setCancelError(t("owner.phase3.cancelError"));
-        await load();
+        setDecision(null);setActionError(t(target.kind==="approve"||target.kind==="reject"
+          ?"schedule.requestsActionError":"owner.phase3.cancelError"));
+        setData(null);await load();
       }
-    }finally{setCancelBusy(false);cancelLock.current=false;}
+    }finally{setDecisionBusy(false);actionLock.current=false;}
   }
+  const currentDecision=decision?.kind;
+  const confirmTitle=currentDecision==="approve"?t("schedule.requestsApproveTitle"):
+    currentDecision==="reject"?t("schedule.requestsRejectTitle"):t("owner.phase3.cancelTitle");
+  const confirmDescription=currentDecision==="approve"?t("schedule.requestsApproveConfirm"):
+    currentDecision==="reject"?t("schedule.requestsRejectConfirm"):t("owner.phase3.cancelConfirm");
+  const actionLabel=currentDecision==="approve"?t("schedule.approveBooking"):
+    currentDecision==="reject"?t("schedule.requestsReject"):t("owner.phase3.cancelBooking");
 
   return <Screen embedded>
     <View testID="owner-phase1-bookings" style={styles.stack}>
       <View style={[styles.heading,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <View style={styles.headingIcon}><Ionicons name="receipt-outline" size={24} color={colors.primary}/></View>
+        <View style={styles.headingIcon}>
+          <Ionicons name="receipt-outline" size={24} color={colors.primary}/>
+        </View>
         <View style={{flex:1}}>
           <AppText variant="title" weight="bold">{t("owner.dashboardNav.bookings")}</AppText>
           <AppText variant="caption" muted>{t("owner.phase3.subtitle")}</AppText>
         </View>
       </View>
-      <ScrollView
-        testID="owner-phase3-subnavigation"
-        horizontal showsHorizontalScrollIndicator={false}
-        ref={nav.scrollRef} onLayout={nav.onViewport}
-        onContentSizeChange={nav.onContentSize}
-        contentContainerStyle={[styles.tabs,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {ownerBookingTabs.map(id=><Pressable key={id}
-          testID={`owner-phase3-tab-${id}`}
-          accessibilityRole="tab" accessibilityState={{selected:tab===id}}
-          accessibilityLabel={t(`owner.phase3.tab.${id}` as never)}
-          onLayout={event=>nav.cellLayout(id,event)}
-          onPress={()=>changeTab(id)} style={[styles.tab,tab===id&&styles.selected]}>
-          <AppText weight="semibold" variant="caption"
-            style={tab===id?styles.selectedText:undefined}>
-            {t(`owner.phase3.tab.${id}` as never)}
-          </AppText>
-        </Pressable>)}
-      </ScrollView>
-    </View>
-
-    {tab==="PENDING"?<>
-      <OwnerPendingBookings token={session?.accessToken}/>
-      <Button label={t("owner.phase1.openCalendar")} variant="secondary"
-        onPress={()=>router.push("/owner/schedule")}/>
-    </>:<>
-      <Card style={styles.filters}>
+      {/* The former four-tab navigation has been replaced by a single,
+          searchable booking directory and a clear status filter. */}
+      <Card testID="owner-booking-search-filters" style={styles.filters}>
         <TextField label={t("owner.phase3.search")} value={searchText}
           placeholder={t("owner.phase3.searchHint")}
-          maxLength={100} onChangeText={setSearchText}/>
+          maxLength={100} onChangeText={value=>{setSearchText(value);resetResults();}}/>
+        <AppText variant="caption" weight="semibold">{t("owner.phase3.status")}</AppText>
+        <View testID="owner-booking-status-filters"
+          style={[styles.filterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          {ownerBookingStatusOptions.map(value=><Chip key={value}
+            testID={`owner-booking-status-${value}`}
+            active={status===value}
+            colorsForStatus={ownerBookingStatusThemes[value]}
+            text={t(`owner.phase3.status.${value}` as never)}
+            onPress={()=>{resetResults();setStatus(value);}}/>)}
+        </View>
         <AppText variant="caption" weight="semibold">{t("owner.phase3.source")}</AppText>
         <View style={[styles.filterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          {sourceOptions.map(value=><Chip key={value} active={source===value}
+          {sourceOptions.map(value=><Chip key={value}
             text={t(`owner.phase3.source.${value}` as never)}
-            onPress={()=>{setSource(value);setPage(1);}}/>)}
+            active={source===value} onPress={()=>{resetResults();setSource(value);}}/>)}
         </View>
-        {tab!=="UPCOMING"?<>
-          <AppText variant="caption" weight="semibold">{t("owner.phase3.status")}</AppText>
-          <View style={[styles.filterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-            {statusOptions.map(value=><Chip key={value} active={status===value}
-              text={t(`owner.phase3.status.${value}` as never)}
-              onPress={()=>{setStatus(value);setPage(1);}}/>)}
-          </View>
-        </>:null}
-        <View style={[styles.dateRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <View style={{flex:1}}>
-            <TextField label={t("owner.phase3.from")} value={from}
-              placeholder="YYYY-MM-DD" maxLength={10}
-              onChangeText={value=>{setFrom(value);setPage(1);}}/>
-          </View>
-          <View style={{flex:1}}>
-            <TextField label={t("owner.phase3.to")} value={to}
-              placeholder="YYYY-MM-DD" maxLength={10}
-              onChangeText={value=>{setTo(value);setPage(1);}}/>
-          </View>
+        <View testID="owner-booking-date-filters"
+          style={[styles.dateRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <OwnerBookingDatePicker label={t("owner.phase3.from")} value={from}
+            testID="owner-booking-from-date-picker"
+            onChange={value=>{resetResults();setFrom(value);}}/>
+          <OwnerBookingDatePicker label={t("owner.phase3.to")} value={to}
+            testID="owner-booking-to-date-picker"
+            onChange={value=>{resetResults();setTo(value);}}/>
         </View>
         {!criteria.valid?<AppText style={{color:colors.danger}}>
           {t("owner.phase3.invalidDates")}
         </AppText>:null}
-        <Button variant="ghost" label={t("owner.phase3.clearFilters")} onPress={clearFilters}/>
+        <View style={[styles.actionRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Button variant="ghost" label={t("owner.phase3.clearFilters")}
+            onPress={clearFilters} style={{flex:1}}/>
+          <Button label={t("owner.phase1.openCalendar")} variant="secondary"
+            style={{flex:1}} onPress={()=>router.push("/owner/schedule")}/>
+        </View>
       </Card>
-      {cancelError?<Card><AppText style={{color:colors.danger}}>{cancelError}</AppText></Card>:null}
+      {actionError?<Card><AppText style={{color:colors.danger}}>{actionError}</AppText></Card>:null}
       {error?<Card style={styles.stack}>
         <AppText style={{color:colors.danger}}>{error}</AppText>
         <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/>
@@ -205,7 +199,7 @@ export default function OwnerBookingsScreen(){
       {criteria.valid?<>
         <View style={[styles.heading,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <AppText weight="bold" variant="bodyLarge" style={{flex:1}}>
-            {t(`owner.phase3.tab.${tab}` as never)}
+            {t("owner.phase3.results")}
           </AppText>
           <AppText variant="caption" muted>
             {safeData?`${formatter.format(safeData.total)} ${t("owner.phase3.records")}`:"—"}
@@ -216,40 +210,47 @@ export default function OwnerBookingsScreen(){
           <AppText muted>{t("owner.phase3.empty")}</AppText>
         </Card>:null}
         {safeData?.bookings.map(booking=><BookingCard key={booking.id}
-          booking={booking} nowMs={Date.now()}
-          onCancel={()=>{setCancelError(null);setCancelTarget(booking);}}/>)}
+          booking={booking} nowMs={nowMs}
+          onApprove={()=>setDecision({booking,kind:"approve"})}
+          onReject={()=>setDecision({booking,kind:"reject"})}
+          onCancel={()=>setDecision({booking,kind:"cancel"})}/>)}
         {safeData&&safeData.total>0?<View style={styles.pager}>
           <AppText variant="caption" muted style={{textAlign:"center"}}>
-            {t("owner.phase3.page",{page:safeData.page,total:Math.max(1,Math.ceil(safeData.total/safeData.pageSize))})}
+            {t("owner.phase3.page",{page:safeData.page,
+              total:Math.max(1,Math.ceil(safeData.total/safeData.pageSize))})}
           </AppText>
           <View style={[styles.dateRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <Button label={t("owner.phase3.previous")} variant="secondary"
               disabled={page<=1||loading} style={{flex:1}}
-              onPress={()=>setPage(current=>Math.max(1,current-1))}/>
+              onPress={()=>{setData(null);setPage(current=>Math.max(1,current-1));}}/>
             <Button label={t("owner.phase3.next")} variant="secondary"
               disabled={!safeData.hasMore||loading} style={{flex:1}}
-              onPress={()=>setPage(current=>current+1)}/>
+              onPress={()=>{setData(null);setPage(current=>current+1);}}/>
           </View>
         </View>:null}
       </>:null}
-    </>}
-
-    <Modal transparent visible={cancelTarget!==null} animationType="fade"
-      onRequestClose={()=>{if(!cancelBusy)setCancelTarget(null);}}>
-      <View style={styles.overlay}>
-        <Card style={styles.dialog}>
-          <AppText variant="bodyLarge" weight="bold">{t("owner.phase3.cancelTitle")}</AppText>
-          <AppText>{t("owner.phase3.cancelConfirm")}</AppText>
-          {cancelTarget?<AppText variant="caption" muted>
-            {cancelTarget.areaName} · {formatLocalDateTimeParts(cancelTarget.startsAt,language).date}
-          </AppText>:null}
-          <Button label={t("owner.phase3.cancelBooking")} variant="danger"
-            loading={cancelBusy} onPress={()=>void cancelBooking()}/>
-          <Button label={t("common.cancel")} variant="secondary" disabled={cancelBusy}
-            onPress={()=>setCancelTarget(null)}/>
-        </Card>
-      </View>
-    </Modal>
+      <Modal transparent visible={decision!==null} animationType="fade"
+        onRequestClose={()=>{if(!decisionBusy)setDecision(null);}}>
+        <View style={styles.overlay}>
+          <Card style={styles.dialog}>
+            <AppText variant="bodyLarge" weight="bold">{confirmTitle}</AppText>
+            <AppText>{confirmDescription}</AppText>
+            {decision?<AppText variant="caption" muted>
+              {decision.booking.customerName||t("schedule.onlinePlayer")} ·
+              {" "}{formatLocalDateTimeParts(decision.booking.startsAt,language).date}
+              {" · "}{formatLocalDateTimeParts(decision.booking.startsAt,language).time}
+            </AppText>:null}
+            <View style={[styles.actionRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Button label={t("common.cancel")} variant="secondary" disabled={decisionBusy}
+                onPress={()=>setDecision(null)} style={{flex:1}}/>
+              <Button label={actionLabel} loading={decisionBusy}
+                variant={currentDecision==="approve"?"primary":"danger"}
+                onPress={()=>void applyDecision()} style={{flex:1}}/>
+            </View>
+          </Card>
+        </View>
+      </Modal>
+    </View>
   </Screen>;
 }
 
