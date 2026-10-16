@@ -201,7 +201,7 @@ export default function OwnerPostsScreen(){
     }
   }
 
-  if(loading&&postsToken!==token&&pageToken!==token)return <Screen embedded><DataLoadingState variant="dashboard" minHeight={650}/></Screen>;
+  const isInitialLoading=loading&&postsToken!==token&&pageToken!==token;
 
   const profileImage=resolveMediaImageUrl(page?.pageProfileImageUrl);
   const coverImage=resolveMediaImageUrl(page?.pageCoverImageUrl);
@@ -222,6 +222,8 @@ export default function OwnerPostsScreen(){
         onPress={()=>router.push("/owner/posts/create")}
         icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF"/>}/>
     </Card>
+
+    {isInitialLoading?<DataLoadingState variant="dashboard" minHeight={280}/>:null}
 
     {page?<View style={styles.pageCard}>
       <View style={styles.cover}>
