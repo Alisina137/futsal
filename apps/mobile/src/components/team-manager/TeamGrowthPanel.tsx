@@ -269,7 +269,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
               onPress={()=>void saveDraft()}/>:null}
             <Button variant="ghost" label={t("common.cancel")}
               onPress={()=>{resetPost();setComposerOpen(false);}}/>
-          </Card>:null>
+          </Card>:null}
           <Card testID="tm6-published-posts" style={styles.mediaList}>
             <AppText variant="bodyLarge" weight="bold">{tr("publishedPosts")} ({data.posts.length})</AppText>
             <TextField testID="tm6-post-search" label={t("tm6.searchPosts")}
