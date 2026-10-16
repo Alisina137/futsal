@@ -325,26 +325,47 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
                 </Pressable>)}</View>}
           </Card>
         </>:<>
-          <Card><AppText variant="bodyLarge" weight="bold">{tr("newAnnouncement")}</AppText>
+          <Card testID="tm6-announcement-composer">
+            <AppText variant="bodyLarge" weight="bold">{tr("privateAnnouncements")}</AppText>
             <AppText variant="caption" muted>{tr("announcementHelp")}</AppText>
-            <TextField label={tr("announcementTitle")} value={announcementTitle} onChangeText={setAnnouncementTitle}/>
-            <TextField label={tr("announcementBody")} value={announcementBody} multiline onChangeText={setAnnouncementBody}/>
+            <Button label={tr("newAnnouncement")} disabled={!canWrite}
+              onPress={()=>setAnnouncementOpen(value=>!value)} variant="secondary"/>
+            {announcementOpen?<View style={styles.announcementForm}>
+              <AppText variant="caption" weight="semibold">{t("tm6.membersOnly")}</AppText>
+            <TextField label={tr("announcementTitle")} value={announcementTitle} maxLength={120} onChangeText={setAnnouncementTitle}/>
+            <TextField label={tr("announcementBody")} value={announcementBody} maxLength={2000} multiline onChangeText={setAnnouncementBody}/>
             <Button label={tr("sendAnnouncement")} disabled={!canWrite||busy||announcementTitle.trim().length<2||announcementBody.trim().length<2}
               loading={busy} onPress={()=>void execute(()=>teamGrowthApi.createAnnouncement(token,team.id,{
                 title:announcementTitle.trim(),body:announcementBody.trim(),
-              }),()=>{setAnnouncementTitle("");setAnnouncementBody("");})}/>
+              }),()=>{setAnnouncementTitle("");setAnnouncementBody("");setAnnouncementOpen(false);})}/>
+              <Button label={t("common.cancel")} variant="ghost"
+                onPress={()=>setAnnouncementOpen(false)}/>
+            </View>:null}
           </Card>
           <Card><AppText variant="bodyLarge" weight="bold">{tr("privateAnnouncements")}</AppText>
             <Button label={tr("memberView")} variant="secondary" onPress={()=>router.push({
               pathname:"/teams/[teamId]/announcements",params:{teamId:team.id},
             })}/>
+            <AppText variant="caption" muted>{t("tm6.sentAnnouncements",{count:data.announcements.length})}</AppText>
             {!data.announcements.length?<AppText muted>{tr("noAnnouncements")}</AppText>:null}
             {data.announcements.map(a=><View key={a.id} style={styles.item}>
               <AppText weight="bold">{a.title}</AppText>
               <AppText variant="caption" muted>{date(a.createdAt)}</AppText>
               <AppText>{a.body}</AppText>
               <Button label={tr("delete")} variant="ghost" disabled={!canWrite||busy}
-                onPress={()=>void execute(()=>teamGrowthApi.deleteAnnouncement(token,team.id,a.id))}/>
+                onPress={()=>setAnnouncementToDelete(a.id)}/>
+              {announcementToDelete===a.id?<View testID="tm6-announcement-delete-confirm"
+                style={styles.confirmBox}>
+                <AppText style={{color:colors.danger}}>{t("tm6.confirmAnnouncementDelete")}</AppText>
+                <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  <Button label={tr("delete")} variant="danger" disabled={!canWrite||busy}
+                    loading={busy} onPress={()=>void execute(
+                      ()=>teamGrowthApi.deleteAnnouncement(token,team.id,a.id),
+                      ()=>setAnnouncementToDelete(null))}/>
+                  <Button label={t("common.cancel")} variant="secondary"
+                    onPress={()=>setAnnouncementToDelete(null)}/>
+                </View>
+              </View>:null>
             </View>)}
           </Card>
         </>}
