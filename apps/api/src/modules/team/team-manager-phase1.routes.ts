@@ -44,6 +44,10 @@ const profileInput=z.object({
   allowJoinRequests:z.boolean(),
   whatsappGroupUrl:whatsappGroupUrlSchema,
 });
+// Team logos use only images uploaded by this manager. Arbitrary remote URLs
+// remain supported by the separate, existing team profile update endpoint.
+const teamLogoInput=z.object({imageUrl:z.string()
+  .regex(/^\/api\/v1\/social\/post-images\/[0-9a-f-]{36}\/[A-Za-z0-9_-]{32,64}$/).nullable()});
 const guestInput=z.object({
   name:z.string().trim().min(2).max(100),
   position:z.enum(["UNSPECIFIED","GOALKEEPER","FIXO","ALA","PIVO","UNIVERSAL"]),
@@ -169,6 +173,21 @@ export class TeamManagerPhase1Service {
       .onConflictDoUpdate({target:teamManagerProfiles.teamId,set:data});
     return {profile:await this.details(teamId)};
   }
+  async updateLogo(userId:string,teamId:string,input:z.infer<typeof teamLogoInput>){
+    await this.team(userId,teamId,true);
+    if(input.imageUrl){
+      const [,imageId,publicToken]=/^\/api\/v1\/social\/post-images\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{32,64})$/
+        .exec(input.imageUrl)??[];
+      if(!imageId||!publicToken)throw errors.badRequest("TEAM_LOGO_INVALID","Choose an image uploaded through the app.");
+      const [asset]=await this.db.select({id:socialUserPostImages.id}).from(socialUserPostImages)
+        .where(and(eq(socialUserPostImages.id,imageId),eq(socialUserPostImages.publicToken,publicToken),
+          eq(socialUserPostImages.ownerUserId,userId))).limit(1);
+      if(!asset)throw errors.forbidden("TEAM_LOGO_NOT_OWNED","This photo belongs to another account.");
+    }
+    await this.db.update(teams).set({logoUrl:input.imageUrl,updatedAt:this.now()})
+      .where(eq(teams.id,teamId));
+    return {logoUrl:input.imageUrl};
+  }
   async addGuest(userId:string,teamId:string,input:z.infer<typeof guestInput>){
     await this.team(userId,teamId,true);
     await this.guestShirtAvailable(teamId,input.shirtNumber);
@@ -204,6 +223,8 @@ export function createTeamManagerPhase1Router(service:TeamManagerPhase1Service,t
   router.get("/teams/:teamId/manager/overview",auth,handle((u,t)=>service.overview(u,t)));
   router.put("/teams/:teamId/manager/profile",auth,limiter,
     handle((u,t,req)=>service.updateProfile(u,t,profileInput.parse(req.body))));
+  router.put("/teams/:teamId/manager/logo",auth,limiter,
+    handle((u,t,req)=>service.updateLogo(u,t,teamLogoInput.parse(req.body))));
   router.post("/teams/:teamId/manager/guests",auth,limiter,
     handle((u,t,req)=>service.addGuest(u,t,guestInput.parse(req.body)),201));
   router.put("/teams/:teamId/manager/guests/:guestId",auth,limiter,
