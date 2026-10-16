@@ -58,7 +58,9 @@ function Stat({value,label}:{value:number;label:string}){
     <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText></View>;
 }
 function Options({items,selected,onSelect}:{items:{id:string;label:string}[];selected:string;onSelect:(id:string)=>void}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:spacing.sm}}>
+  const {isRTL}=useLocale();
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
+    contentContainerStyle={{gap:spacing.sm,flexDirection:isRTL?"row-reverse":"row",alignItems:"center"}}>
     {items.map(item=><Pressable key={item.id} accessibilityRole="button"
       accessibilityState={{selected:item.id===selected}}
       onPress={()=>onSelect(item.id)} style={[styles.option,item.id===selected&&styles.optionActive]}>
@@ -80,6 +82,16 @@ export function TeamManagerDashboard(){
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const [team,setTeam]=useState<TeamDto|null>(null);
   const [overview,setOverview]=useState<TeamManagerOverview|null>(null);
+  // Loaded data is scoped to the current account and selected team.
+  const [teamsActor,setTeamsActor]=useState<string|null>(null);
+  const [loadedTeamKey,setLoadedTeamKey]=useState<string|null>(null);
+  const [listError,setListError]=useState<string|null>(null);
+  const [detailsError,setDetailsError]=useState<{key:string;message:string}|null>(null);
+  const [metadataError,setMetadataError]=useState(false);
+  const [attentionError,setAttentionError]=useState(false);
+  const [attentionLoaded,setAttentionLoaded]=useState({
+    requests:false,invitations:false,notifications:false,
+  });
   const [offer,setOffer]=useState<RoleSubscriptionOfferDto|null>(null);
   const [capacity,setCapacity]=useState<TeamCapacity|null>(null);
   const [paymentRef,setPaymentRef]=useState("");
@@ -149,55 +161,112 @@ export function TeamManagerDashboard(){
     if(isAboutTeamSection(section))focusSubTab(section,true);
   };
   const chooseMainTab=(section:MainSection)=>{
-    chooseTab(section==="aboutTeam"?aboutTeamTabs[0].id:section);
+    chooseTab(section==="aboutTeam"?lastAboutTeamTab:section);
   };
   const date=(value:string|null)=>value?formatCompetitionDateTime(value,language):t("tm1.notScheduled");
 
   useFocusEffect(useCallback(()=>{
     let active=true;
-    if(!token||!userId){setLoadingTeams(false);return()=>{active=false;};}
-    setLoadingTeams(true);
-    void Promise.all([teamApi.mine(token),authApi.roleSubscriptions(token),teamApi.capacity(token)]).then(([mine,offers,quota])=>{
+    if(!token||!userId){
+      setTeams([]);setTeamsActor(null);setLoadingTeams(false);
+      return()=>{active=false;};
+    }
+    setLoadingTeams(true);setListError(null);
+    // Essential team discovery runs independently of optional billing details.
+    void teamApi.mine(token).then(mine=>{
       if(!active)return;
       const owned=mine.teams.filter(item=>item.managerUserId===userId);
-      setTeams(owned);
+      setTeams(owned);setTeamsActor(token);
       setSelectedId(previous=>owned.some(item=>item.id===previous)?previous:owned[0]?.id??null);
-      setOffer(offers.offers.find(item=>item.role==="TEAM_MANAGER")??null);
-      setCapacity(quota);
-      setError(null);
-    }).catch(e=>{if(active)setError(e instanceof ApiRequestError?e.message:t("teams.loadError"));})
-      .finally(()=>{if(active)setLoadingTeams(false);});
+    }).catch(e=>{
+      if(active)setListError(e instanceof ApiRequestError?e.message:t("teams.loadError"));
+    }).finally(()=>{if(active)setLoadingTeams(false);});
+    setMetadataError(false);
+    void Promise.allSettled([
+      authApi.roleSubscriptions(token),
+      teamApi.capacity(token),
+    ]).then(([offers,quota])=>{
+      if(!active)return;
+      setOffer(offers.status==="fulfilled"
+        ?offers.value.offers.find(item=>item.role==="TEAM_MANAGER")??null:null);
+      setCapacity(quota.status==="fulfilled"?quota.value:null);
+      setMetadataError(offers.status==="rejected"||quota.status==="rejected");
+    });
     return()=>{active=false;};
   },[token,userId,teamListRefresh,t]));
 
-  // A multi-team owner must not see or edit the previous team's roster,
-  // approvals, media preview or unsaved settings during a team switch.
+  // Prevent previous-account identity, private data and form drafts from leaking.
   useEffect(()=>{
-    setTeam(null);setOverview(null);setRequests([]);setInvitations([]);
+    setTeams([]);setTeamsActor(null);setSelectedId(null);
+    setTeam(null);setOverview(null);setLoadedTeamKey(null);
+    setRequests([]);setInvitations([]);setUnread(0);
+    setOffer(null);setCapacity(null);
+    setListError(null);setDetailsError(null);
+    setMetadataError(false);setAttentionError(false);
+    setAttentionLoaded({requests:false,invitations:false,notifications:false});
+    setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
+  },[token,userId]);
+
+  // Reset per-team drafts while preserving the chosen dashboard destination.
+  useEffect(()=>{
+    setTeam(null);setOverview(null);setLoadedTeamKey(null);
+    setRequests([]);setInvitations([]);setUnread(0);
+    setAttentionLoaded({requests:false,invitations:false,notifications:false});
+    setAttentionError(false);setDetailsError(null);
     setJoinAction(null);setJoinActionError(null);
     setInviteIdentifier("");setInviteRole("PLAYER");
-    setCoverPreview(null);setShowVenues(false);setVenueSearch("");
+    setCoverPreview(null);setShowVenues(false);setVenueSearch("");setVenues([]);
+    setName("");setCity("");setLogoUrl("");setPrivacy("PUBLIC");setProfile(initialProfile);
     setError(null);setMessage(null);resetGuest();
   },[selectedId]);
 
   useEffect(()=>{
     let active=true;
-    if(!token||!selectedId){setTeam(null);setOverview(null);return()=>{active=false;};}
-    setLoading(true);
-    void Promise.all([
+    if(!token||!selectedId){
+      setTeam(null);setOverview(null);setLoadedTeamKey(null);setLoading(false);
+      return()=>{active=false;};
+    }
+    const key=token+":"+selectedId;
+    setLoading(true);setDetailsError(null);
+    // Rosters and overview are necessary for the team dashboard. Failure is
+    // explicitly recoverable, rather than leaving a permanent loading skeleton.
+    void Promise.allSettled([
       teamApi.roster(token,selectedId),
       teamManagerApi.overview(token,selectedId),
+    ]).then(([roster,summary])=>{
+      if(!active)return;
+      if(roster.status!=="fulfilled"||summary.status!=="fulfilled"){
+        const cause=roster.status==="rejected"?roster.reason:
+          summary.status==="rejected"?summary.reason:null;
+        setTeam(null);setOverview(null);setLoadedTeamKey(null);
+        setDetailsError({key,message:cause instanceof ApiRequestError?cause.message:t("tm1.loadError")});
+        return;
+      }
+      setTeam(roster.value.team);setOverview(summary.value);setProfile(summary.value.profile);
+      setName(roster.value.team.name);setCity(roster.value.team.city);
+      setLogoUrl(roster.value.team.logoUrl??"");setPrivacy(roster.value.team.privacy);
+      setLoadedTeamKey(key);
+    }).finally(()=>{if(active)setLoading(false);});
+
+    // Notifications, requests and invitations do not gate team management.
+    setAttentionLoaded({requests:false,invitations:false,notifications:false});
+    setAttentionError(false);
+    void Promise.allSettled([
       teamApi.joinRequests(token,selectedId),
       teamApi.teamInvitations(token,selectedId),
       notificationApi.list(token,{limit:5}),
-    ]).then(([roster,summary,joined,invited,notifications])=>{
+    ]).then(([joined,invited,notifications])=>{
       if(!active)return;
-      setTeam(roster.team);setOverview(summary);setProfile(summary.profile);
-      setName(roster.team.name);setCity(roster.team.city);setLogoUrl(roster.team.logoUrl??"");
-      setPrivacy(roster.team.privacy);setRequests(joined.requests);setInvitations(invited.invitations);
-      setUnread(notifications.unreadCount);setError(null);
-    }).catch(e=>{if(active){setOverview(null);setError(e instanceof ApiRequestError?e.message:t("tm1.loadError"));}})
-      .finally(()=>{if(active)setLoading(false);});
+      setRequests(joined.status==="fulfilled"?joined.value.requests:[]);
+      setInvitations(invited.status==="fulfilled"?invited.value.invitations:[]);
+      setUnread(notifications.status==="fulfilled"?notifications.value.unreadCount:0);
+      setAttentionLoaded({
+        requests:joined.status==="fulfilled",
+        invitations:invited.status==="fulfilled",
+        notifications:notifications.status==="fulfilled",
+      });
+      setAttentionError([joined,invited,notifications].some(item=>item.status==="rejected"));
+    });
     return()=>{active=false;};
   },[token,selectedId,refresh,t]);
 
@@ -255,7 +324,10 @@ export function TeamManagerDashboard(){
     }catch(e){setError(e instanceof ApiRequestError?e.message:t("tmBilling.requestError"));}
     finally{setSlotBusy(false);}
   }
-  const canWrite=overview?.canWrite===true&&offer?.status==="ACTIVE";
+  // The team-scoped server license is authoritative, even if billing read fails.
+  const teamKey=token&&selectedId?token+":"+selectedId:null;
+  const canWrite=loadedTeamKey===teamKey&&overview?.canWrite===true;
+  const visibleTeams=teamsActor===token?teams:[];
   const pending=requests.filter(item=>item.status==="PENDING");
   const outstanding=invitations.filter(item=>item.status==="PENDING");
   const updateProfile=(key:keyof TeamManagerProfileDetails,value:string|boolean|null)=>
@@ -307,7 +379,7 @@ export function TeamManagerDashboard(){
     else await teamManagerApi.addGuest(token!,selectedId!,input);
   },resetGuest);
 
-  if(loadingTeams)return <Screen showHeader><DataLoadingState variant="dashboard" minHeight={500}/></Screen>;
+  if(loadingTeams&&teamsActor!==token)return <Screen showHeader><DataLoadingState variant="dashboard" minHeight={500}/></Screen>;
   return <Screen showHeader>
     <ScrollView ref={navRef} horizontal style={styles.nav} showsHorizontalScrollIndicator={false}
       accessibilityLabel={t("tmnav.mainNavigation")}
@@ -341,7 +413,7 @@ export function TeamManagerDashboard(){
       <Button variant="secondary" label={t("common.retry")} onPress={()=>{setTeamListRefresh(x=>x+1);setRefresh(x=>x+1);}}/></Card>:null}
     {message?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{message}</AppText></Card>:null}
 
-    {teams.length===0&&!error?<Card style={{paddingVertical:spacing.xxl,alignItems:"center",gap:spacing.md}}>
+    {visibleTeams.length===0&&!error?<Card style={{paddingVertical:spacing.xxl,alignItems:"center",gap:spacing.md}}>
       <Ionicons name="shield-checkmark-outline" size={54} color={colors.primary}/>
       <AppText variant="title" weight="bold" style={{textAlign:"center"}}>{t("tm1.welcome")}</AppText>
       <AppText muted style={{textAlign:"center"}}>{t("tm1.noTeam")}</AppText>
@@ -349,10 +421,10 @@ export function TeamManagerDashboard(){
       <Button variant="secondary" label={t("teams.invitationsTitle")} onPress={()=>router.push("/teams/invitations")}/>
       <Button variant="ghost" label={t("teams.title")} onPress={()=>router.push("/teams")}/>
     </Card>:null}
-    {teams.length>0?<View style={{gap:spacing.sm}}>
+    {visibleTeams.length>0?<View style={{gap:spacing.sm}}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={{gap:spacing.sm,alignItems:"center",flexDirection:isRTL?"row-reverse":"row"}}>
-        {teams.map(item=><Pressable key={item.id} accessibilityRole="button"
+        {visibleTeams.map(item=><Pressable key={item.id} accessibilityRole="button"
           onPress={()=>{if(item.id!==selectedId)setSelectedId(item.id);}}
           disabled={busy||slotBusy||coverBusy}
           accessibilityState={{selected:item.id===selectedId,disabled:busy||slotBusy||coverBusy}}
@@ -368,7 +440,7 @@ export function TeamManagerDashboard(){
       </Card>:null}
     </View>:null}
 
-    {(loading||team?.id!==selectedId||!overview)&&teams.length>0?
+    {(loading||team?.id!==selectedId||!overview)&&visibleTeams.length>0?
       <DataLoadingState variant="dashboard" minHeight={400}/>:team&&overview?<>
       {tab==="overview"?<>
         <Card><View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -494,7 +566,7 @@ export function TeamManagerDashboard(){
         <Card>
           <AppText variant="bodyLarge" weight="bold">{t("tmBilling.subscriptionPerTeam")}</AppText>
           <AppText variant="caption" muted>{t("tmBilling.policy")}</AppText>
-          <AppText variant="caption" muted>{t("tmBilling.ownedTeams")}: {capacity?.ownedTeams??teams.length}</AppText>
+          <AppText variant="caption" muted>{t("tmBilling.ownedTeams")}: {capacity?.ownedTeams??visibleTeams.length}</AppText>
           <AppText variant="caption" muted>{t("tmBilling.price")}: {capacity?.monthlyPriceAfn??300} AFN/{t("roles.month")}</AppText>
           {(capacity?.slots??[]).filter(slot=>slot.teamId).map(slot=><View key={slot.id} style={styles.divider}>
             <AppText weight="semibold">{slot.teamName??t("tmBilling.additionalTitle")}</AppText>
