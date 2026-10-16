@@ -60,7 +60,8 @@ for(const key of ["teamResultsHint","noFinalResults","fairPlayDisclaimer","noCar
  assert.equal(locale.split(value).length-1,3,"Missing EN/Dari/Pashto label "+key);
 }
 assert.ok(nav.includes('STATS:["TEAMS","PLAYERS","FAIR_PLAY"]')&&
- screen.includes('activeTab==="STANDINGS"||activeTab==="STATS"')&&
+ screen.includes('activeTab==="STATS"?')&&
+ screen.includes('onMatchRefresh={()=>void refreshCompetitionPublic()}')&&
  screen.includes('refreshCompetitionPublic()'),
  "Keep Stats as a seven-tab subtab with safe refreshing.");
 console.log("Competition Detail Phase 6: verified team WDL, privacy-safe card aggregates, player metric filtering and EN/Dari/Pashto.");
