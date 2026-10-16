@@ -5,20 +5,17 @@ const dash=read("apps/mobile/src/components/player/PlayerDashboard.tsx");
 const lang=read("packages/localization/src/index.ts");
 const main=dash.slice(dash.indexOf("const sections:"),dash.indexOf("const emptyPreferences:"));
 const ids=[...main.matchAll(/\{id:"([a-z]+)",icon:/g)].map(x=>x[1]);
-assert.deepEqual(ids,["overview","teams","competitions","matches","bookings","more","settings"]);
-assert.ok(dash.includes('const moreTabs:MoreTab[]=["schedule","statistics","achievements"]'));
-assert.ok(dash.includes('if(id==="more"&&tab!=="more")setMoreTab(moreTabs[0]!)'));
-assert.ok(dash.includes('tab==="more"?<MoreNavigation selected={moreTab} onSelect={setMoreTab}/>'));
-assert.ok(dash.includes('testID="player-more-subnavigation"')&&
-  dash.includes('useVisibleTab<MoreTab>(selected)')&&
-  dash.includes('moreNavRow:{flexGrow:1')&&
-  dash.includes('moreNavItem:{flex:1,minWidth:110,minHeight:48')&&
-  dash.includes('onPress={()=>{onSelect(id);nav.focus(id,true);}}'));
-assert.ok(dash.includes('tab==="more"&&moreTab==="schedule"'));
-assert.ok(dash.includes('<PlayerActivityTabs tab={tab==="more"?"schedule"'));
-assert.ok(dash.includes('<PlayerCareerTabs tab={moreTab}'));
-assert.ok(dash.includes('moreTab==="statistics"||moreTab==="achievements"'));
-for(const label of ["more","schedule","statistics","achievements"]){
+assert.deepEqual(ids,["overview","teams","activity","career","settings"]);
+assert.ok(dash.includes('const activityTabs:')&&dash.includes('const careerTabs:'));
+assert.ok(dash.includes('tab==="activity"?<SectionNavigation kind="activity"'));
+assert.ok(dash.includes('tab==="career"?<SectionNavigation kind="career"'));
+assert.ok(dash.includes('testID={"player-"+kind+"-subnavigation"}')&&
+  dash.includes('useVisibleTab<T>(selected)')&&
+  dash.includes('onPress={()=>{onSelect(item.id);nav.focus(item.id,true);}}'));
+assert.ok(dash.includes('<PlayerActivityTabs tab={activityTab}'));
+assert.ok(dash.includes('<PlayerCareerTabs tab={careerTab}'));
+for(const label of ["activity","career","schedule","statistics","achievements","history",
+  "competitions","matches","bookings"]){
   assert.equal(lang.split('"pd1.tab.'+label+'"').length-1,3);
 }
 assert.ok(dash.includes('testID="player-overview-content"'));
@@ -33,4 +30,4 @@ assert.ok(dash.includes('data.activities.slice(0,3)')&&dash.includes('matches.ma
 assert.ok(dash.includes('data.whatsappGroups?.[selected.id]'));
 const choose=dash.slice(dash.indexOf("const choose=(id:Section)"),dash.indexOf("useFocusEffect(useCallback",dash.indexOf("const choose=(id:Section)")));
 assert.ok(!choose.includes("scrollTo({y")&&!choose.includes("router.push("));
-console.log("Player Overview and More navigation verified: data-backed cards, localized and focused More subtabs, and intact feature routes.");
+console.log("Player Overview and five-tab nested Activity/Career navigation verified: data-backed cards, RTL-focused subtabs and intact routes.");
