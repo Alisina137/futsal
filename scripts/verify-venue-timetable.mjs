@@ -157,6 +157,34 @@ assert(schedule.includes("setLoading(false)")&&schedule.includes("setCalendarLoa
 assert(schedule.includes("statusFilters"),"Venue timetable must offer status filters.");
 assert(schedule.includes("Summary"),"Venue timetable must show operational summary.");
 assert(weeklyPage.includes("schedule.currentTimetable")&&weeklyPage.includes("schedule.draftTimetables")&&weeklyPage.includes("schedule.futureTimetables")&&weeklyPage.includes("schedule.archivedTimetables"),"Weekly Timetable page must manage current/draft/future/archive versions.");
+
+assert(weeklyPage.includes('testID="owner-weekly-header"')&&
+  weeklyPage.includes('t("schedule.weeklyIntro")')&&
+  weeklyPage.includes('style={styles.headerButton}')&&
+  weeklyPage.includes('headerButton:{width:"100%",alignSelf:"stretch"}'),
+  "Weekly Timetable header must put the create action below readable heading and description.");
+assert(weeklyPage.includes('ownerApi.deleteArchivedTimetable(token,item.id)')&&
+  weeklyPage.includes('t("schedule.deleteArchivedTitle")')&&
+  weeklyPage.includes('t("schedule.deleteArchivedBody")')&&
+  weeklyPage.includes('style:"destructive"')&&
+  weeklyPage.includes('danger:true'),
+  "Archive history must offer an explicitly confirmed destructive deletion action.");
+assert(routes.includes('router.delete("/timetables/:timetableId/history"')&&
+  routes.includes('timetable.deleteHistoricalTimetable(')&&
+  routes.includes('router.use(requireAuth(tokens), requireRole("VENUE_OWNER"))'),
+  "Archived history deletion must be owner-authenticated.");
+assert(service.includes('async deleteHistoricalTimetable(ownerUserId: string, timetableId: string)')&&
+  service.includes('this.repository.deleteHistoricalTimetable(timetableId,venue.id,today)')&&
+  service.includes("TIMETABLE_HISTORY_DELETE_DENIED"),
+  "Archived history deletion must enforce ownership and reject unsafe status.");
+assert(repository.includes('async deleteHistoricalTimetable(timetableId: string, venueId: string, today: string)')&&
+  repository.includes('eq(venueTimetables.status, "ARCHIVED")')&&
+  repository.includes('and(eq(venueTimetables.status, "PUBLISHED"),lt(venueTimetables.effectiveUntil,today))')&&
+  repository.includes('eq(venueTimetables.venueId, venueId)'),
+  "Archive deletion must be atomically scoped and block current/future published versions.");
+assert(mobileApi.includes("deleteArchivedTimetable:"),
+  "Weekly archived deletion must use the dedicated API route.");
+
 assert(exceptionsPage.includes("schedule.specialUpcoming")&&exceptionsPage.includes("schedule.specialPast"),"Special Schedule must separate upcoming and past date overrides.");
 assert(schedule.includes("/owner/manual-booking"),"Available slots must support manual booking.");
 assert(schedule.includes("onNavigate={navigateFromSlot}")&&schedule.includes("setTimeout(navigate,0)"),"Slot actions must close the native management modal before navigating.");
@@ -263,6 +291,12 @@ assert(exception.includes("calendarInputToGregorian"),"Special-hours dates must 
 
 for(const key of [
   "schedule.venueTimetable",
+  "schedule.weeklyIntro",
+  "schedule.deleteArchived",
+  "schedule.deleteArchivedTitle",
+  "schedule.deleteArchivedBody",
+  "schedule.deleteArchivedError",
+
   "schedule.calendar.month",
   "schedule.calendar.week",
   "schedule.calendar.day",
