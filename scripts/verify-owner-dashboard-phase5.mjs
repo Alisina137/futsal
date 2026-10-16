@@ -12,15 +12,23 @@ const locale=read("packages/localization/src/index.ts");
 const check=(s,items,label)=>{
  for(const marker of items)assert.ok(s.includes(marker),label+" missing "+marker);
 };
-check(list,['testID="owner-phase5-competition-controls"','ownerCompetitionGroups.map',
-  'ownerCompetitionOrders.map','selectOwnerCompetitions(safeItems',
+check(list,['testID="owner-phase5-competition-controls"',
+  'selectOwnerCompetitions(safeItems','group:"ALL",status:filter,format,query,order:"NEXT"',
   'competitionApi.ownerList(token)','const safeItems=loadedToken===token?items:[]',
   'useFocusEffect(useCallback(()=>','serial.current++','AppState.currentState==="active"',
   '<OwnerCompetitionOperations','router.push("/owner/manual-teams")',
   'router.push("/owner/competitions/create")',
-  'testID={`owner-phase5-group-${value}`}',
-  'accessibilityState={{selected:group===value}}',
+  'filters.map((value)','accessibilityState={{selected:filter===value}}',
+  'onPress={()=>{setFilter(value);setSelectedId(null);}}',
   't("owner.phase5.showOperations")'], "Venue Owner competition list");
+for(const removed of ["ownerCompetitionGroups.map","ownerCompetitionOrders.map",
+  "owner-phase5-group-",'t("owner.phase5.sortBy")',"setGroup(","setOrder("]){
+  assert.ok(!list.includes(removed),"removed duplicate group/sort control: "+removed);
+}
+for(const status of ["ALL","IN_PROGRESS","REGISTRATION_OPEN","REGISTRATION_CLOSED",
+  "COMPLETED","DRAFT","SCHEDULED","ARCHIVED","CANCELLED"]){
+  assert.ok(list.includes('"'+status+'"'),"status filter option missing: "+status);
+}
 check(insights,['competitionApi.ownerGet(token,competitionId)',
   'const visible=loadedKey===key?detail:null','if(request!==requestId.current)return',
   'ownerCompetitionOperations(visible,Date.now())',
@@ -54,4 +62,4 @@ for(const key of ["title","search","searchHint","group.ALL","group.REGISTRATION"
 const pkg=JSON.parse(read("package.json"));
 assert.ok(pkg.scripts["verify:owner-dashboard-phase5"]?.includes("venue-owner-dashboard-phase5.test.mjs"));
 assert.ok(pkg.scripts.verify.includes("pnpm verify:owner-dashboard-phase5"));
-console.log("Venue Owner Dashboard Phase 5 verified: live private organizers, focused lifecycle filters, application/fixture workflow, safe roster ownership and 3 locales.");
+console.log("Venue Owner Dashboard Phase 5 verified: live private organizers, single status navigation, application/fixture workflow, safe roster ownership and 3 locales.");
