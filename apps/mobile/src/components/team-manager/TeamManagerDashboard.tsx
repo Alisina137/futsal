@@ -417,7 +417,7 @@ export function TeamManagerDashboard(){
       <Button variant="secondary" label={t("common.retry")} onPress={()=>setTeamListRefresh(x=>x+1)}/>
     </Card>:null}
     {(metadataError||attentionError)&&!listError?<Card style={styles.noticeCard}>
-      <AppText variant="caption" muted>{t("tm1.loadError")}</AppText>
+      <AppText variant="caption" muted>{t("tm1.partialData")}</AppText>
       <Button variant="secondary" label={t("common.retry")}
         onPress={()=>{setTeamListRefresh(x=>x+1);setRefresh(x=>x+1);}}/>
     </Card>:null}
