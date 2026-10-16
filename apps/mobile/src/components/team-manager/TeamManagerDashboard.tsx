@@ -505,7 +505,7 @@ export function TeamManagerDashboard(){
       setError(e instanceof ApiRequestError?e.message:t("tm1.actionFailed"));}
     finally{if(selectedTeamRef.current===target)setBusy(false);}
   }
-  async function persistLogo(imageUrl:string|null,uri?:string){
+  async function persistLogo(imageUrl:string|null){
     if(!token||!selectedId||!canWrite||logoBusy||busy)return;
     const target=selectedId;
     setLogoBusy(true);setError(null);setMessage(null);
@@ -536,15 +536,17 @@ export function TeamManagerDashboard(){
           mediaTypes:["images"],allowsEditing:true,aspect:[1,1],quality:.8,selectionLimit:1,
         });
         if(!picked.canceled&&picked.assets[0])
-          asset={uri:picked.assets[0].uri,mimeType:picked.assets[0].mimeType,
-            size:picked.assets[0].fileSize};
+          asset={uri:picked.assets[0].uri,
+            ...(picked.assets[0].mimeType?{mimeType:picked.assets[0].mimeType}:{}),
+            ...(picked.assets[0].fileSize!==undefined?{size:picked.assets[0].fileSize}:{})};
       }else{
         const picked=await DocumentPicker.getDocumentAsync({
           type:"image/*",multiple:false,copyToCacheDirectory:true,
         });
         if(!picked.canceled&&picked.assets[0])
-          asset={uri:picked.assets[0].uri,mimeType:picked.assets[0].mimeType,
-            size:picked.assets[0].size};
+          asset={uri:picked.assets[0].uri,
+            ...(picked.assets[0].mimeType?{mimeType:picked.assets[0].mimeType}:{}),
+            ...(picked.assets[0].size!==undefined?{size:picked.assets[0].size}:{})};
       }
       if(!asset||selectedTeamRef.current!==target)return;
       setLogoBusy(true);setError(null);
