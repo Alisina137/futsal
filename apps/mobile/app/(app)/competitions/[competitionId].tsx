@@ -655,10 +655,11 @@ export default function CompetitionDetailScreen(){
       </ScrollView>
     </View>
 
-    {/* Matches has its own six-state rail. A single League Table/Knockout
-        subtab adds no navigation value; keep the two real stage choices for
-        Group + Knockout competitions only. */}
-    {activeTab!=="MATCHES"&&(activeTab!=="STANDINGS"||availableSubtabs.length>1)?
+    {/* Matches owns its filters; About shows all sections on one page.
+        A single League Table/Knockout subtab adds no navigation value; only
+        Group + Knockout competitions need a standings stage switch. */}
+    {activeTab!=="MATCHES"&&activeTab!=="ABOUT"&&
+      (activeTab!=="STANDINGS"||availableSubtabs.length>1)?
       <View testID="competition-profile-subtabs">
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         style={{flexGrow:0}} contentContainerStyle={[styles.tabList,
