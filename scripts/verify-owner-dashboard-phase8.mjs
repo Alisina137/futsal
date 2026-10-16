@@ -42,9 +42,12 @@ check("overview",['Promise.allSettled([','ownerApi.pendingBookings(token)',
  'ownerApi.getStatus(token)','if(request!==generation.current)return;']);
 check("pending",['ownerApi.pendingBookings(token)','ownerApi.confirmBooking(token,booking.id)',
  'ownerApi.cancelBooking(token,booking.id','sequence.current++','loadedToken===token']);
-check("bookings",['ownerBookingTabs.map(id=>','ownerApi.listBookings(token',
- 'ownerApi.cancelBooking(token,target.id','const safeData=loadedToken===token?data:null',
- 'generation.current++','Modal transparent visible={cancelTarget!==null}']);
+check("bookings",['ownerBookingStatusOptions.map','ownerApi.listBookings(token',
+ 'ownerApi.confirmBooking(token,target.booking.id)',
+ 'ownerApi.cancelBooking(token,target.booking.id',
+ 'testID="owner-booking-date-filters"',
+ 'const safeData=loadedToken===token?data:null',
+ 'generation.current++','Modal transparent visible={decision!==null}']);
 check("schedule",['ownerCalendarSelectionMatches(loadedSelection,requestedSelection)',
  'setLoadedSelection(requestedSelection)','if(next.from!==range.from||next.to!==range.to)',
  'setSelectedSlot(null);setPendingAction(null);setBusy(null);',
