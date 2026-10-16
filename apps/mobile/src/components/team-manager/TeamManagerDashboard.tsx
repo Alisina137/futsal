@@ -6,7 +6,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { ApiRequestError, authApi, notificationApi, marketingApi, resolveMediaImageUrl, teamApi, teamManagerApi, venueApi,
-  type TeamGuestPlayer, type TeamManagerOverview, type TeamManagerProfileDetails, type TeamCapacity } from "../../lib/api";
+  teamOperationsApi,type TeamOperations,type TeamGuestPlayer, type TeamManagerOverview, type TeamManagerProfileDetails, type TeamCapacity } from "../../lib/api";
 import { formatCompetitionDateTime } from "../../lib/date-time";
 import { useAuth } from "../../providers/AuthProvider";
 import { useLocale } from "../../providers/LocaleProvider";
@@ -18,6 +18,7 @@ import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
 import { TeamCompetitionOps } from "./TeamCompetitionOps";
 import { TeamGrowthPanel } from "./TeamGrowthPanel";
+import {TeamManagerOverviewPanel} from "./TeamManagerOverviewPanel";
 import {WhatsAppGroupButton,isWhatsAppGroupInviteLink} from "../ui/WhatsAppGroupButton";
 
 // Keep the existing Section IDs: this is a navigation-only regrouping, not a data/workflow change.
@@ -53,10 +54,6 @@ const initialProfile:TeamManagerProfileDetails={
   whatsappGroupUrl:null,
 };
 
-function Stat({value,label}:{value:number;label:string}){
-  return <View style={styles.stat}><AppText variant="title" weight="bold" style={{color:colors.primary}}>{value}</AppText>
-    <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText></View>;
-}
 function Options({items,selected,onSelect}:{items:{id:string;label:string}[];selected:string;onSelect:(id:string)=>void}){
   const {isRTL}=useLocale();
   return <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -82,6 +79,11 @@ export function TeamManagerDashboard(){
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const [team,setTeam]=useState<TeamDto|null>(null);
   const [overview,setOverview]=useState<TeamManagerOverview|null>(null);
+  const [overviewOps,setOverviewOps]=useState<TeamOperations|null>(null);
+  const [overviewOpsKey,setOverviewOpsKey]=useState<string|null>(null);
+  const [overviewOpsErrorKey,setOverviewOpsErrorKey]=useState<string|null>(null);
+  const [overviewOpsReload,setOverviewOpsReload]=useState(0);
+  const [lineupFocus,setLineupFocus]=useState<string|null>(null);
   // Loaded data is scoped to the current account and selected team.
   const [teamsActor,setTeamsActor]=useState<string|null>(null);
   const [loadedTeamKey,setLoadedTeamKey]=useState<string|null>(null);
@@ -156,6 +158,7 @@ export function TeamManagerDashboard(){
     return()=>cancelAnimationFrame(raf);
   },[tab,activeMain,focusTab,focusSubTab]);
   const chooseTab=(section:Section)=>{
+    if(section!=="matches")setLineupFocus(null);
     if(isAboutTeamSection(section))setLastAboutTeamTab(section);
     setTab(section);
     focusTab(mainSectionFor(section),true);
@@ -206,11 +209,15 @@ export function TeamManagerDashboard(){
     setMetadataError(false);setAttentionError(false);setAttentionKey(null);
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
+    setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
+    setLineupFocus(null);
   },[userId]);
 
   // Reset per-team drafts while preserving the chosen dashboard destination.
   useEffect(()=>{
     setTeam(null);setOverview(null);setLoadedTeamKey(null);
+    setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
+    setLineupFocus(null);
     setRequests([]);setInvitations([]);setUnread(0);
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setAttentionError(false);setAttentionKey(null);setDetailsError(null);
@@ -271,6 +278,22 @@ export function TeamManagerDashboard(){
     });
     return()=>{active=false;};
   },[token,selectedId,refresh,t]);
+
+  // Overview operations support the action center; failure must not block
+  // identity, official record, next-match metadata or roster management.
+  useEffect(()=>{
+    let active=true;
+    if(!token||!selectedId||tab!=="overview")return()=>{active=false;};
+    const key=token+":"+selectedId;
+    setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
+    void teamOperationsApi.list(token,selectedId).then(value=>{
+      if(!active)return;
+      setOverviewOps(value);setOverviewOpsKey(key);
+    }).catch(()=>{
+      if(active)setOverviewOpsErrorKey(key);
+    });
+    return()=>{active=false;};
+  },[token,selectedId,tab,refresh,overviewOpsReload]);
 
   useEffect(()=>{
     if(!showVenues)return;
@@ -457,46 +480,20 @@ export function TeamManagerDashboard(){
       <Button variant="secondary" label={t("common.retry")} onPress={()=>setRefresh(x=>x+1)}/>
     </Card>:(loading||team?.id!==selectedId||loadedTeamKey!==teamKey||!overview)&&visibleTeams.length>0?
       <DataLoadingState variant="dashboard" minHeight={400}/>:team&&overview?<>
-      {tab==="overview"?<>
-        <Card><View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          {team.logoUrl?<Image source={{uri:resolveMediaImageUrl(team.logoUrl)??team.logoUrl}} style={styles.teamLogo}/>:
-            <View style={styles.teamLogo}><Ionicons name="shield-checkmark-outline" size={29} color={colors.primary}/></View>}
-          <View style={{flex:1,gap:spacing.xs}}>
-            <AppText variant="title" weight="bold">{team.name}</AppText>
-            <AppText variant="caption" muted>{team.city} · {team.status}</AppText>
-            <AppText variant="caption" style={{color:colors.primary}}>{t("tm1.subscription")}: {offer?.status??"—"}</AppText>
-          </View>
-        </View></Card>
-        <View style={styles.stats}>
-          <Stat label={t("tm1.registeredPlayers")} value={team.rosterCount}/>
-          <Stat label={t("tm1.competitions")} value={overview.stats.competitions}/>
-          <Stat label={t("tm1.matchesPlayed")} value={overview.stats.played}/>
-          <Stat label={t("tm1.wins")} value={overview.stats.wins}/>
-        </View>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.upcomingMatch")}</AppText>
-          {overview.nextMatch?<><AppText weight="semibold">{team.name} · {overview.nextMatch.opponentName||t("tm1.unknownOpponent")}</AppText>
-            <AppText muted variant="caption">{overview.nextMatch.competitionName} · {date(overview.nextMatch.startsAt)}</AppText>
-            <Button variant="secondary" label={t("tm1.viewCompetition")} onPress={()=>router.push({
-              pathname:"/competitions/[competitionId]",params:{competitionId:overview.nextMatch!.competitionId,tab:"MATCHES"},
-            })}/></>:<AppText muted>{t("tm1.noUpcoming")}</AppText>}
-        </Card>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.quickActions")}</AppText>
-          {overview.profile.whatsappGroupUrl?
-            <WhatsAppGroupButton url={overview.profile.whatsappGroupUrl}/>:
-            <Button label={t("teamWhatsApp.setup")} variant="secondary" onPress={()=>chooseTab("settings")}/>}
-          <View style={styles.actions}>
-            <Button label={t("tm1.invitePlayer")} variant="secondary" style={styles.action} onPress={()=>chooseTab("players")}/>
-            <Button label={t("tm1.editTeam")} variant="secondary" style={styles.action} onPress={()=>chooseTab("settings")}/>
-            <Button label={t("tm1.findCompetition")} variant="secondary" style={styles.action} onPress={()=>router.push("/competitions")}/>
-            <Button label={t("tm1.bookVenue")} variant="secondary" style={styles.action} onPress={()=>router.push("/venues")}/>
-          </View>
-        </Card>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.attention")}</AppText>
-          <AppText muted>{t("tm1.pendingRequests")}: {attentionReady&&attentionLoaded.requests?pending.length:"—"} · {t("tm1.pendingInvites")}: {attentionReady&&attentionLoaded.invitations?outstanding.length:"—"}</AppText>
-          <AppText muted>{t("tm1.notifications")}: {attentionReady&&attentionLoaded.notifications?unread:"—"}</AppText>
-          <Button variant="ghost" label={t("tm1.notifications")} onPress={()=>router.push("/notifications")}/>
-        </Card>
-      </>:null}
+      {tab==="overview"?<TeamManagerOverviewPanel
+        team={team} overview={overview}
+        operations={overviewOpsKey===teamKey?overviewOps:null}
+        operationsReady={overviewOpsKey===teamKey&&overviewOps!==null}
+        operationsFailed={overviewOpsErrorKey===teamKey}
+        onRetryOperations={()=>setOverviewOpsReload(value=>value+1)}
+        pendingRequests={attentionReady&&attentionLoaded.requests?pending.length:null}
+        pendingInvites={attentionReady&&attentionLoaded.invitations?outstanding.length:null}
+        unreadNotifications={attentionReady&&attentionLoaded.notifications?unread:null}
+        canWrite={canWrite} subscriptionStatus={offer?.status??null}
+        subscriptionUntil={capacity?.slots.find(slot=>slot.teamId===team.id)?.activeUntil??offer?.activeUntil??null}
+        onOpen={chooseTab}
+        onLineup={id=>{setLineupFocus(id);chooseTab("matches");}}
+      />:null}
 
       {tab==="players"?<>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.registeredPlayers")} ({team.rosterCount})</AppText>
@@ -572,7 +569,9 @@ export function TeamManagerDashboard(){
         </Card>
       </>:null}
 
-      {(tab==="competitions"||tab==="matches"||tab==="schedule")&&token?<TeamCompetitionOps tab={tab} team={team} token={token} canWrite={canWrite} onSelectTab={chooseTab}/>:null}
+      {(tab==="competitions"||tab==="matches"||tab==="schedule")&&token?<TeamCompetitionOps
+        tab={tab} team={team} token={token} canWrite={canWrite} onSelectTab={chooseTab}
+        focusMatchId={lineupFocus} onConsumedFocus={()=>setLineupFocus(null)}/>:null}
 
       {(tab==="media"||tab==="statistics"||tab==="matches")&&token?
         <TeamGrowthPanel tab={tab} team={team} token={token} canWrite={canWrite}/>:null}
@@ -743,10 +742,6 @@ const styles=StyleSheet.create({
   avatar:{width:44,height:44,borderRadius:22,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
   row:{flexDirection:"row",gap:spacing.md,alignItems:"center"},
-  stats:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
-  stat:{flexGrow:1,flexBasis:"21%",minWidth:70,alignItems:"center",
-    gap:spacing.xs,padding:spacing.md,backgroundColor:colors.surface,
-    borderWidth:1,borderColor:colors.border,borderRadius:radius.lg},
   divider:{paddingTop:spacing.md,marginTop:spacing.sm,borderTopWidth:1,borderColor:colors.border,gap:spacing.xs},
   actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   action:{flexGrow:1,flexBasis:"40%"},
