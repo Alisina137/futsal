@@ -69,6 +69,28 @@ export default function WeeklyTimetableScreen(){
     ]);
   }
 
+  function deleteHistory(item:VenueTimetableDto){
+    if(!token||busy)return;
+    Alert.alert(
+      t("schedule.deleteArchivedTitle"),
+      `${item.name}\n\n${t("schedule.deleteArchivedBody")}`,
+      [
+        {text:t("common.cancel"),style:"cancel"},
+        {text:t("schedule.deleteArchived"),style:"destructive",onPress:()=>void(async()=>{
+          setBusy(`delete-history-${item.id}`);setError(null);
+          try{
+            await ownerApi.deleteArchivedTimetable(token,item.id);
+            setData(previous=>previous?{
+              ...previous,archived:previous.archived.filter(version=>version.id!==item.id),
+            }:null);
+            await load();
+          }catch{setError(t("schedule.deleteArchivedError"));}
+          finally{setBusy(null);}
+        })()},
+      ],
+    );
+  }
+
   async function archive(item:VenueTimetableDto){
     if(!token)return;
     setBusy(`archive-${item.id}`);
@@ -80,13 +102,24 @@ export default function WeeklyTimetableScreen(){
   if(loading)return <Screen embedded><DataLoadingState variant="list" minHeight={460}/></Screen>;
 
   return <Screen embedded>
-    <View style={styles.pageHeader}>
-      <View style={{flex:1,gap:2}}>
-        <AppText variant="title" weight="bold">{t("schedule.subnav.weekly")}</AppText>
-        <AppText muted>{t("schedule.noTimetable")}</AppText>
+    <Card style={styles.pageHeader} testID="owner-weekly-header">
+      <View style={styles.headerCopy}>
+        <View style={styles.titleRow}>
+          <View style={styles.headingIcon}>
+            <Ionicons name="calendar-outline" size={23} color={colors.primary}/>
+          </View>
+          <AppText variant="title" weight="bold" style={styles.headerTitle}>
+            {t("schedule.subnav.weekly")}
+          </AppText>
+        </View>
+        <AppText muted style={styles.headerDescription}>
+          {t("schedule.weeklyIntro")}
+        </AppText>
       </View>
-      <Button label={t("schedule.createWeekly")} onPress={()=>router.push("/owner/timetable/edit")} style={styles.headerButton}/>
-    </View>
+      <Button label={t("schedule.createWeekly")}
+        onPress={()=>router.push("/owner/timetable/edit")}
+        style={styles.headerButton}/>
+    </Card>
 
     {error?<Card style={styles.errorCard}>
       <AppText style={{color:colors.danger}}>{error}</AppText>
@@ -153,6 +186,8 @@ export default function WeeklyTimetableScreen(){
         t={t}
         actions={[
           {label:t("schedule.newVersion"),onPress:()=>void duplicate(item),loading:busy===`duplicate-${item.id}`},
+          {label:t("schedule.deleteArchived"),onPress:()=>deleteHistory(item),danger:true,
+            loading:busy===`delete-history-${item.id}`},
         ]}
       />)}
     </Section>:null}
@@ -209,8 +244,14 @@ function VersionCard({
 }
 
 const styles=StyleSheet.create({
-  pageHeader:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
-  headerButton:{minWidth:170},
+  pageHeader:{gap:spacing.md,padding:spacing.md,alignItems:"stretch",
+    backgroundColor:colors.primarySoft},
+  headerCopy:{gap:spacing.sm,width:"100%"},
+  headingIcon:{width:42,height:42,borderRadius:radius.md,backgroundColor:colors.surface,
+    alignItems:"center",justifyContent:"center",flexShrink:0},
+  headerTitle:{flex:1,minWidth:0,flexShrink:1},
+  headerDescription:{lineHeight:23},
+  headerButton:{width:"100%",alignSelf:"stretch"},
   errorCard:{borderColor:colors.danger},
   conflictCard:{borderColor:colors.warning},
   titleRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
