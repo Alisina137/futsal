@@ -11,8 +11,12 @@ for(const id of ["players","competitions","matches","schedule"])
   expect(sub.includes('id:"'+id+'"'),"Missing About Team subtab "+id);
 expect(main.includes('key:"tmnav.analytics"')&&sub.includes('key:"tmnav.program"'),
   "Analytics must reuse Statistics and Program must reuse Schedule.");
-expect(dash.includes('section==="aboutTeam"?aboutTeamTabs[0].id:section'),
-  "The About Team tab must select its first subtab by default.");
+expect(dash.includes('useState<AboutTeamSection>("players")')&&
+  dash.includes('setLastAboutTeamTab(section)')&&
+  dash.includes('section==="aboutTeam"?lastAboutTeamTab:section'),
+  "About Team must open Players initially and restore the last selected subtab when returning.");
+expect(dash.includes('setTab("overview");setLastAboutTeamTab("players")'),
+  "Returning to a different account must reset private navigation state.");
 expect(dash.includes('{activeMain==="aboutTeam"?<ScrollView'),
   "The submenu should only be visible when About Team is selected.");
 expect(dash.includes('focusTab(activeMain)')&&dash.includes('focusSubTab(tab)'),
@@ -36,4 +40,4 @@ for(const key of ['tab==="overview"','tab==="players"',
 expect(!sub.includes('id:"team"'),"Team creation/editing must be removed from About Team navigation.");
 expect(dash.includes('tab==="settings"')&&dash.includes('t("tm1.teamIdentity")'),
   "All team base information must be editable inside Settings.");
-console.log("Team Manager navigation verified: four About Team subtabs; team identity inside Settings.");
+console.log("Team Manager navigation verified: four About Team subtabs, last-subtab restoration, scoped account navigation and team identity inside Settings.");
