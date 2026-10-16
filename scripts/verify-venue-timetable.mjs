@@ -158,6 +158,25 @@ assert(schedule.includes("statusFilters"),"Venue timetable must offer status fil
 assert(schedule.includes("Summary"),"Venue timetable must show operational summary.");
 assert(weeklyPage.includes("schedule.currentTimetable")&&weeklyPage.includes("schedule.draftTimetables")&&weeklyPage.includes("schedule.futureTimetables")&&weeklyPage.includes("schedule.archivedTimetables"),"Weekly Timetable page must manage current/draft/future/archive versions.");
 
+assert(weeklyPage.includes('label:t("schedule.updateTimetable")')&&
+  weeklyPage.includes('params:{sourceTimetableId:item.id}')&&
+  weeklyPage.includes('onPress:()=>openUnsavedVersion(data.current!)')&&
+  !weeklyPage.includes('ownerApi.duplicateTimetable('),
+  "Update Timetable and Create New Version must open a read-only seed, not write a draft on navigation.");
+assert(editor.includes('sourceTimetableId?:string')&&
+  editor.includes('const requestedId=initialId??sourceId;')&&
+  editor.includes('setTimetableId(initialId?item.id:null);')&&
+  editor.includes('await ownerApi.createTimetable(token,draft)')&&
+  editor.includes('onPress={()=>void save()}'),
+  "Unsaved timetable copies must create drafts only when the user saves (or publishes).");
+assert(weeklyPage.includes('useFocusEffect(useCallback('),
+  "Returning to weekly timetable after saving must refresh the version list.");
+assert(editor.includes('item.effectiveFrom>today?item.effectiveFrom:today'),
+  "Updating a published timetable must start today or later, not silently override earlier dates.");
+assert(localization.split('"schedule.updateTimetable"').length-1===3,
+  "Update Timetable must be available in all three languages.");
+
+
 assert(weeklyPage.includes('testID="owner-weekly-header"')&&
   weeklyPage.includes('t("schedule.weeklyIntro")')&&
   weeklyPage.includes('style={styles.headerButton}')&&
