@@ -243,6 +243,26 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
       </>:null}
 
       {tab==="matches"?<>
+        {requestedMatch?<Card>
+          <AppText variant="bodyLarge" weight="bold">{tr("lineup")}</AppText>
+          <AppText weight="semibold">{requestedMatch.opponentName??tr("unknownOpponent")}</AppText>
+          <AppText variant="caption" muted>{tr("lineupHint")}</AppText>
+          {!matchCompetition?.rosterUserIds.length?<AppText style={{color:colors.danger}}>{tr("rosterFirst")}</AppText>:null}
+          {lineupEligible.map(p=><View key={p.userId} style={styles.item}>
+            <AppText weight="semibold">{p.publicDisplayName}</AppText>
+            <Options current={starters.includes(p.userId)?"START":substitutes.includes(p.userId)?"SUB":"NONE"}
+              set={role=>setLineupMember(p.userId,role as "START"|"SUB"|"NONE")}
+              options={["START","SUB","NONE"].map(id=>({id,label:tr("lineup."+id)}))}/>
+          </View>)}
+          <AppText variant="caption" muted>{tr("selected")}: {starters.length}/5 · {tr("substitutes")}: {substitutes.length}</AppText>
+          <AppText weight="semibold">{tr("captain")}</AppText>
+          <Options current={captainId??"NONE"} set={id=>setCaptainId(id==="NONE"?null:id)}
+            options={[{id:"NONE",label:tr("lineup.NONE")},...team.members.filter(x=>lineupSelected.includes(x.userId)).map(x=>({id:x.userId,label:x.publicDisplayName}))]}/>
+          <Button label={t("common.save")} loading={busy} disabled={!canWrite||busy||!matchCompetition?.rosterUserIds.length}
+            onPress={()=>void execute(()=>teamOperationsApi.lineup(token,team.id,requestedMatch.id,{starters,substitutes,captainUserId:captainId}),()=>setFocusedMatch(null))}/>
+          <Button label={t("common.cancel")} variant="ghost" onPress={()=>setFocusedMatch(null)}/>
+          <Button label={tr("goToRoster")} variant="secondary" onPress={()=>onSelectTab("competitions")}/>
+        </Card>:null}
         <Card><AppText variant="bodyLarge" weight="bold">{tr("officialMatches")}</AppText>
           <Options current={matchFilter} set={setMatchFilter}
             options={["UPCOMING","TODAY","COMPLETED","CANCELLED","ALL"].map(id=>({id,label:tr("filter."+id)}))}/>
@@ -264,26 +284,7 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
             </View>;
           })}
         </Card>
-        {requestedMatch?<Card>
-          <AppText variant="bodyLarge" weight="bold">{tr("lineup")}</AppText>
-          <AppText weight="semibold">{requestedMatch.opponentName??tr("unknownOpponent")}</AppText>
-          <AppText variant="caption" muted>{tr("lineupHint")}</AppText>
-          {!matchCompetition?.rosterUserIds.length?<AppText style={{color:colors.danger}}>{tr("rosterFirst")}</AppText>:null}
-          {lineupEligible.map(p=><View key={p.userId} style={styles.item}>
-            <AppText weight="semibold">{p.publicDisplayName}</AppText>
-            <Options current={starters.includes(p.userId)?"START":substitutes.includes(p.userId)?"SUB":"NONE"}
-              set={role=>setLineupMember(p.userId,role as "START"|"SUB"|"NONE")}
-              options={["START","SUB","NONE"].map(id=>({id,label:tr("lineup."+id)}))}/>
-          </View>)}
-          <AppText variant="caption" muted>{tr("selected")}: {starters.length}/5 · {tr("substitutes")}: {substitutes.length}</AppText>
-          <AppText weight="semibold">{tr("captain")}</AppText>
-          <Options current={captainId??"NONE"} set={id=>setCaptainId(id==="NONE"?null:id)}
-            options={[{id:"NONE",label:tr("lineup.NONE")},...team.members.filter(x=>lineupSelected.includes(x.userId)).map(x=>({id:x.userId,label:x.publicDisplayName}))]}/>
-          <Button label={t("common.save")} loading={busy} disabled={!canWrite||busy||!matchCompetition?.rosterUserIds.length}
-            onPress={()=>void execute(()=>teamOperationsApi.lineup(token,team.id,requestedMatch.id,{starters,substitutes,captainUserId:captainId}),()=>setFocusedMatch(null))}/>
-          <Button label={t("common.cancel")} variant="ghost" onPress={()=>setFocusedMatch(null)}/>
-          <Button label={tr("goToRoster")} variant="secondary" onPress={()=>onSelectTab("competitions")}/>
-        </Card>:null}
+
       </>:null}
 
       {tab==="schedule"?<>
