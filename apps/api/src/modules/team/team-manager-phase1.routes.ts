@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { Database } from "@leaguekick/database";
 import { and, asc, eq, gte, inArray, or } from "drizzle-orm";
 import { competitionMatches, competitionTeams, competitions, roleSubscriptions,
-  teamGuestPlayers, teamManagerProfiles, teamMemberships, teams, socialUserPostImages } from "@leaguekick/database";
+  teamGuestPlayers, teamManagerProfiles, teamMemberships, teams, venues, socialUserPostImages } from "@leaguekick/database";
 import { errors } from "../../lib/errors.js";
 import {teamLicenseActive,requireTeamLicense} from "./team-slots.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -108,23 +108,36 @@ export class TeamManagerPhase1Service {
         startsAt:competitionMatches.startsAt,status:competitionMatches.status})
         .from(competitionMatches).where(or(eq(competitionMatches.homeTeamId,teamId),eq(competitionMatches.awayTeamId,teamId))),
     ]);
-    const finalized=matches.filter(m=>(m.status==="COMPLETED"||m.status==="CORRECTED")&&m.homeScore!==null&&m.awayScore!==null);
+    const finalized=matches.filter(m=>["COMPLETED","CORRECTED"].includes(m.status)
+      &&m.homeScore!==null&&m.awayScore!==null);
     const wins=finalized.filter(m=>m.homeTeamId===teamId?m.homeScore!>m.awayScore!:m.awayScore!>m.homeScore!).length;
-    const future=matches.filter(m=>!!m.startsAt&&m.startsAt>=this.now()&&["SCHEDULED","IN_PROGRESS"].includes(m.status))
+    const draws=finalized.filter(m=>m.homeScore===m.awayScore).length;
+    const losses=finalized.length-wins-draws;
+    // Only future scheduled matches count as upcoming. Postponed, cancelled,
+    // and already-running matches are not promises of a future fixture.
+    const future=matches.filter(m=>!!m.startsAt&&m.startsAt>=this.now()&&m.status==="SCHEDULED")
       .sort((a,b)=>a.startsAt!.getTime()-b.startsAt!.getTime());
     const next=future[0]??null;
-    let nextMatch:null|{id:string;competitionId:string;competitionName:string;opponentName:string;startsAt:string}=null;
+    let nextMatch:null|{id:string;competitionId:string;competitionName:string;
+      opponentName:string;opponentLogoUrl:string|null;venueName:string;startsAt:string}=null;
     if(next){
       const opponentId=next.homeTeamId===teamId?next.awayTeamId:next.homeTeamId;
       const [[c],[opponent]]=await Promise.all([
-        this.db.select({name:competitions.name}).from(competitions).where(eq(competitions.id,next.competitionId)).limit(1),
-        opponentId?this.db.select({name:teams.name}).from(teams).where(eq(teams.id,opponentId)).limit(1):Promise.resolve([]),
+        this.db.select({name:competitions.name,venueId:competitions.venueId})
+          .from(competitions).where(eq(competitions.id,next.competitionId)).limit(1),
+        opponentId?this.db.select({name:teams.name,logoUrl:teams.logoUrl})
+          .from(teams).where(eq(teams.id,opponentId)).limit(1):Promise.resolve([]),
       ]);
-      nextMatch={id:next.id,competitionId:next.competitionId,competitionName:c?.name??"",
-        opponentName:opponent?.name??"",startsAt:next.startsAt!.toISOString()};
+      const [venue]=c?await this.db.select({name:venues.name}).from(venues)
+        .where(eq(venues.id,c.venueId)).limit(1):[];
+      nextMatch={id:next.id,competitionId:next.competitionId,
+        competitionName:c?.name??"",opponentName:opponent?.name??"",
+        opponentLogoUrl:opponent?.logoUrl??null,venueName:venue?.name??"",
+        startsAt:next.startsAt!.toISOString()};
     }
     return {canWrite:access.canWrite,profile,guests:guests.map(g=>({...g,createdAt:g.createdAt.toISOString()})),
-      stats:{competitions:registrations.length,played:finalized.length,wins},nextMatch};
+      stats:{competitions:registrations.length,played:finalized.length,wins,draws,losses,
+        upcoming:future.length,winRate:finalized.length?Math.round(wins*100/finalized.length):0},nextMatch};
   }
   async updateProfile(userId:string,teamId:string,input:z.infer<typeof profileInput>){
     await this.team(userId,teamId,true);
