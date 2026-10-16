@@ -20,7 +20,7 @@ for(const marker of [
 for(const marker of [
   'isFinal(m)','m.homeTeamId===teamId||m.awayTeamId===teamId',
   'kabulDay(m.startsAt).slice(0,4)','ids.has(row.matchId)',
-  '["COMPLETED","CORRECTED"]','match.startsAt&&Number.isFinite(Date.parse(match.startsAt))',
+  'm.status==="COMPLETED"||m.status==="CORRECTED"','match.startsAt&&Number.isFinite(Date.parse(match.startsAt))',
   'trend.slice(0,10)','goalDifference:goalsFor-goalsAgainst',
   'winRate:matches.length?Math.round(wins*100/matches.length):0',
 ])assert.ok(helper.includes(marker),"Phase 7 verified analytics logic missing: "+marker);
