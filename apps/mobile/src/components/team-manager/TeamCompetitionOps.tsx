@@ -48,9 +48,11 @@ function SmallStatus({status}:{status:string}){
   return <View style={styles.status}><AppText variant="caption" weight="semibold" style={{color:colors.primary}}>{status.replaceAll("_"," ")}</AppText></View>;
 }
 
-export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMatchId,onConsumedFocus}:{
+export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMatchId,onConsumedFocus,
+  focusCompetitionSection,onConsumedCompetitionFocus}:{
   tab:Tab;team:TeamDto;token:string;canWrite:boolean;onSelectTab:(tab:Tab)=>void;
   focusMatchId?:string|null;onConsumedFocus?:()=>void;
+  focusCompetitionSection?:"MINE"|"INVITATIONS"|null;onConsumedCompetitionFocus?:()=>void;
 }){
   const {t,language,isRTL}=useLocale();
   const [data,setData]=useState<TeamOperations|null>(null);
@@ -147,6 +149,12 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
     setAppliedSearch("");setProvince("ALL");setDiscoveryPage(1);
     setAvailable([]);setWithdrawId(null);setFocusedCompetition(null);
   },[team.id]);
+  useEffect(()=>{
+    if(tab!=="competitions"||!focusCompetitionSection)return;
+    setCompetitionSection(focusCompetitionSection);
+    setFocusedCompetition(null);setWithdrawId(null);
+    onConsumedCompetitionFocus?.();
+  },[tab,focusCompetitionSection,onConsumedCompetitionFocus]);
 
   async function execute(fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
