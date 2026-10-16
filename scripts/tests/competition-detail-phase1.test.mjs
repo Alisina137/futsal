@@ -7,8 +7,11 @@ import {competitionProfileMainTabs,competitionProfileSubtabs,
 
 test("exactly seven public profile tabs and appropriate subtab groups",()=>{
   assert.deepEqual(competitionProfileMainTabs,["HOME","MATCHES","STANDINGS","STATS","TEAMS","MEDIA","ABOUT"]);
-  for(const tab of competitionProfileMainTabs)
-    assert.ok(competitionProfileSubtabs[tab].length>1,"Missing subtabs: "+tab);
+  for(const tab of competitionProfileMainTabs){
+    if(tab==="ABOUT"){
+      assert.deepEqual(competitionProfileSubtabs.ABOUT,["OVERVIEW"]);
+    }else assert.ok(competitionProfileSubtabs[tab].length>1,"Missing subtabs: "+tab);
+  }
 });
 test("old Results URLs deep-link into completed match results",()=>{
   const nav=requestedCompetitionNavigation("RESULTS");
@@ -51,4 +54,14 @@ test("changing tournament format resolves hidden stale subtab safely",()=>{
   const prev=requestedCompetitionNavigation("STANDINGS","KNOCKOUT","GROUP_KNOCKOUT");
   assert.equal(resolvedCompetitionSubtab(prev,"STANDINGS",
     allowedCompetitionSubtabs("STANDINGS","LEAGUE")),"LEAGUE");
+});
+
+test("About is a single overview and legacy subsection deep links remain usable",()=>{
+  for(const previous of ["INFORMATION","RULES","PRIZES","VENUE"]){
+    const nav=requestedCompetitionNavigation("ABOUT",previous);
+    assert.equal(nav.main,"ABOUT");
+    assert.equal(nav.sub.ABOUT,"OVERVIEW");
+    assert.equal(resolvedCompetitionSubtab(nav,"ABOUT",allowedCompetitionSubtabs("ABOUT","LEAGUE")),"OVERVIEW");
+  }
+  assert.deepEqual(allowedCompetitionSubtabs("ABOUT","GROUP_KNOCKOUT"),["OVERVIEW"]);
 });
