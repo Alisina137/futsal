@@ -10,6 +10,10 @@ import {Image,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {ApiRequestError,marketingApi,resolveMediaImageUrl,teamApi,teamGrowthApi,
   type TeamGrowthData,type TeamGrowthPost} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
+import {kabulDay} from "../../lib/team-manager-schedule";
+import {analyticsSeasons,rankTeamPlayers,scopedTeamAnalytics,
+  type AnalyticsFilters,type AnalyticsRange} from "../../lib/team-manager-analytics";
+import {DirectoryFilterSelect} from "../social/DirectoryFilterSelect";
 import {useLocale} from "../../providers/LocaleProvider";
 import {useAuth} from "../../providers/AuthProvider";
 import {AppText} from "../ui/AppText";
@@ -74,7 +78,12 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   const [deleteCandidate,setDeleteCandidate]=useState<string|null>(null);
   const currentTeam=useRef(team.id);
   currentTeam.current=team.id;
-  const [statSection,setStatSection]=useState<"PERFORMANCE"|"PLAYERS"|"HISTORY">("PERFORMANCE");
+  const [statSection,setStatSection]=useState<"PERFORMANCE"|"PLAYERS"|"TRENDS"|"HISTORY">("PERFORMANCE");
+  const [statCompetition,setStatCompetition]=useState("ALL");
+  const [statSeason,setStatSeason]=useState("ALL");
+  const [statRange,setStatRange]=useState<AnalyticsRange>("ALL");
+  const [statMetric,setStatMetric]=useState<"GOALS"|"ASSISTS"|"APPEARANCES">("GOALS");
+  const [statSearch,setStatSearch]=useState("");
 
   // Never retain an editable post or uploaded photo when switching licensed teams.
   useEffect(()=>{
@@ -86,6 +95,9 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
     setChallengeMessage("");setShowChallengeForm(false);setChallengeFilter("PENDING");
     setCancelChallengeId(null);setTeams([]);setBusy(false);
     setData(null);setLoadedDataKey(null);
+    setStatSection("PERFORMANCE");setStatCompetition("ALL");
+    setStatSeason("ALL");setStatRange("ALL");setStatMetric("GOALS");
+    setStatSearch("");
   },[team.id,draftKey]);
   useEffect(()=>{
     let active=true;setDraftAvailable(false);
@@ -209,6 +221,18 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   const shownPosts=(data?.posts??[]).filter(post=>
     (postFilter==="ALL"||postFilter==="PHOTOS"&&!!post.imageUrl||postFilter==="TEXT"&&!post.imageUrl)&&
     post.body.toLowerCase().includes(postQuery.trim().toLowerCase()));
+  const analytics=data?.stats.analytics;
+  const analyticsFilters:AnalyticsFilters={competitionId:statCompetition,season:statSeason,range:statRange};
+  const scoped=analytics?scopedTeamAnalytics(analytics,team.id,analyticsFilters):null;
+  // All-time is still shown on servers that predate detailed analytics.
+  const statistics=scoped?.stats??data?.stats;
+  const seasons=analytics?analyticsSeasons(analytics.matches):[];
+  const filteredPlayers=rankTeamPlayers(scoped?.players??data?.stats.players??[],statMetric)
+    .filter(player=>player.displayName.toLowerCase().includes(statSearch.trim().toLowerCase()));
+  const statHistory=(data?.stats.competitionHistory??[]).filter(c=>
+    (statCompetition==="ALL"||c.id===statCompetition)&&
+    (statSeason==="ALL"&&statRange==="ALL"||
+      !!scoped?.matchingCompetitionIds.has(c.id)));
   const filteredChallenges=data?.challenges.filter(c=>challengeFilter==="ALL"||
     challengeFilter==="HISTORY"&&["DECLINED","CANCELLED"].includes(c.status)||
     c.status===challengeFilter)??[];
@@ -379,35 +403,129 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
         </>}
       </>:null}
 
-      {tab==="statistics"?<>
+      {tab==="statistics"?<View testID="tm7-analytics" style={styles.analyticsWorkspace}>
+        <Card testID="tm7-filters" style={styles.analyticsFilters}>
+          <View style={[styles.mediaHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="analytics-outline" size={23} color={colors.primary}/>
+            <View style={{flex:1,gap:spacing.xs}}>
+              <AppText variant="bodyLarge" weight="bold">{t("tm7.title")}</AppText>
+              <AppText variant="caption" muted>{t("tm7.verifiedOnly")}</AppText>
+            </View>
+          </View>
+          {analytics?<View style={styles.analyticsFilters}>
+            <DirectoryFilterSelect testID="tm7-competition-select" compact
+              label={t("tm7.competition")} allLabel={t("tm7.allCompetitions")}
+              value={statCompetition==="ALL"?"":statCompetition}
+              options={data.stats.competitionHistory.map(c=>({value:c.id,label:c.name}))}
+              onSelect={value=>setStatCompetition(value||"ALL")}/>
+            <View style={[styles.analyticsFilterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <View style={styles.analyticsFilterHalf}>
+                <DirectoryFilterSelect testID="tm7-season-select" compact
+                  label={t("tm7.season")} allLabel={t("tm7.allSeasons")}
+                  value={statSeason==="ALL"?"":statSeason}
+                  options={seasons.map(value=>({value,label:value}))}
+                  onSelect={value=>setStatSeason(value||"ALL")}/>
+              </View>
+              <View style={styles.analyticsFilterHalf}>
+                <DirectoryFilterSelect testID="tm7-range-select" compact
+                  label={t("tm7.dateRange")} allLabel={t("tm7.allDates")}
+                  value={statRange==="ALL"?"":statRange}
+                  options={(["D30","D90","D365"] as const).map(value=>({
+                    value,label:t(`tm7.range.${value}` as never),
+                  }))}
+                  onSelect={value=>setStatRange((value||"ALL") as AnalyticsRange)}/>
+              </View>
+            </View>
+            {statCompetition!=="ALL"||statSeason!=="ALL"||statRange!=="ALL"?
+              <Button label={t("tm7.clearFilters")} variant="secondary"
+                onPress={()=>{setStatCompetition("ALL");setStatSeason("ALL");setStatRange("ALL");}}/>:null}
+          </View>:<AppText variant="caption" muted>{t("tm7.updateRequired")}</AppText>}
+        </Card>
         <Options current={statSection} onChange={id=>setStatSection(id as typeof statSection)}
-          items={["PERFORMANCE","PLAYERS","HISTORY"].map(id=>({id,name:tr("stats."+id)}))}/>
-        {statSection==="PERFORMANCE"?<>
-          <View style={styles.stats}><Counter label={tr("played")} value={data.stats.played}/>
-            <Counter label={tr("wins")} value={data.stats.wins}/>
-            <Counter label={tr("draws")} value={data.stats.draws}/>
-            <Counter label={tr("losses")} value={data.stats.losses}/>
-            <Counter label={tr("goalsFor")} value={data.stats.goalsFor}/>
-            <Counter label={tr("goalsAgainst")} value={data.stats.goalsAgainst}/>
-            <Counter label={tr("goalDifference")} value={data.stats.goalDifference}/>
-            <Counter label={tr("winRate")} value={data.stats.winRate+"%"}/></View>
-          <Card><AppText weight="bold">{tr("titles")}: {data.stats.championships}</AppText>
-            <AppText muted variant="caption">{tr("officialStatsHint")}</AppText>
+          items={["PERFORMANCE","PLAYERS","TRENDS","HISTORY"].map(id=>({
+            id,name:id==="TRENDS"?t("tm7.trends"):tr("stats."+id),
+          }))}/>
+
+        {statSection==="PERFORMANCE"&&statistics?<View testID="tm7-performance" style={styles.analyticsWorkspace}>
+          <View style={styles.stats}>
+            <Counter label={tr("played")} value={statistics.played}/>
+            <Counter label={tr("wins")} value={statistics.wins}/>
+            <Counter label={tr("draws")} value={statistics.draws}/>
+            <Counter label={tr("losses")} value={statistics.losses}/>
+            <Counter label={tr("goalsFor")} value={statistics.goalsFor}/>
+            <Counter label={tr("goalsAgainst")} value={statistics.goalsAgainst}/>
+            <Counter label={tr("goalDifference")} value={statistics.goalDifference}/>
+            <Counter label={tr("winRate")} value={statistics.winRate+"%"}/>
+          </View>
+          <Card style={styles.analyticsFilters}>
+            <AppText weight="bold">{t("tm7.resultDistribution")}</AppText>
+            {statistics.played>0?<View testID="tm7-distribution" style={styles.distribution}>
+              {statistics.wins>0?<View style={[styles.distributionWin,{flex:statistics.wins}]}/>:null}
+              {statistics.draws>0?<View style={[styles.distributionDraw,{flex:statistics.draws}]}/>:null}
+              {statistics.losses>0?<View style={[styles.distributionLoss,{flex:statistics.losses}]}/>:null}
+            </View>:<AppText muted>{t("tm7.noVerifiedMatches")}</AppText>}
+            <AppText variant="caption" muted>{tr("officialStatsHint")}</AppText>
+            <AppText weight="bold">{tr("titles")}: {statCompetition==="ALL"&&statSeason==="ALL"&&statRange==="ALL"?
+              data.stats.championships:t("tm7.titlesAllTime")}</AppText>
           </Card>
-        </>:null}
-        {statSection==="PLAYERS"?<Card>
+        </View>:null}
+
+        {statSection==="PLAYERS"?<Card testID="tm7-players" style={styles.analyticsFilters}>
           <AppText variant="bodyLarge" weight="bold">{tr("playerLeaders")}</AppText>
-          {!data.stats.players.length?<AppText muted>{tr("noPlayerStats")}</AppText>:null}
-          {data.stats.players.map(p=><View key={p.userId} style={styles.item}>
-            <AppText weight="semibold">{p.displayName}</AppText>
+          <TextField testID="tm7-player-search" label={t("tm7.searchPlayer")}
+            value={statSearch} onChangeText={setStatSearch} maxLength={100}/>
+          <AppText variant="caption" muted>{t("tm7.rankBy")}</AppText>
+          <Options current={statMetric} onChange={id=>setStatMetric(id as typeof statMetric)}
+            items={["GOALS","ASSISTS","APPEARANCES"].map(id=>({
+              id,name:t(`tm7.metric.${id}` as never),
+            }))}/>
+          <AppText variant="caption" muted>{t("tm7.playersFound",{count:filteredPlayers.length})}</AppText>
+          {!filteredPlayers.length?<AppText muted>{tr("noPlayerStats")}</AppText>:null}
+          {filteredPlayers.map((p,index)=><View key={p.userId} style={styles.item}>
+            <View style={[styles.mediaHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <View style={styles.rankBadge}><AppText weight="bold" style={{color:colors.primary}}>
+                {index+1}</AppText></View>
+              <AppText weight="semibold" style={{flex:1}}>{p.displayName}</AppText>
+            </View>
             <AppText variant="caption" muted>{tr("played")}: {p.matches} · {tr("goals")}: {p.goals} · {tr("assists")}: {p.assists}</AppText>
             <AppText variant="caption" muted>{tr("yellow")}: {p.yellowCards} · {tr("red")}: {p.redCards} · {tr("cleanSheets")}: {p.cleanSheets} · {tr("bestPlayer")}: {p.playerOfMatch}</AppText>
           </View>)}
+          <AppText variant="caption" muted>{t("tm7.playerScopeHint")}</AppText>
         </Card>:null}
-        {statSection==="HISTORY"?<Card>
+
+        {statSection==="TRENDS"?<Card testID="tm7-trends" style={styles.analyticsFilters}>
+          <AppText variant="bodyLarge" weight="bold">{t("tm7.recentForm")}</AppText>
+          {!analytics?<AppText muted>{t("tm7.updateRequired")}</AppText>:
+            !scoped?.trend.length?<AppText muted>{t("tm7.noDatedMatches")}</AppText>:<>
+              <View style={[styles.trendChips,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                {[...scoped.trend].reverse().map(match=><View key={match.id}
+                  accessibilityLabel={t(`tm7.result.${match.result}` as never)}
+                  style={[styles.trendChip,{backgroundColor:match.result==="WIN"?colors.primarySoft:
+                    match.result==="DRAW"?colors.surfaceMuted:colors.background}]}>
+                  <AppText weight="bold" style={{color:match.result==="WIN"?colors.primary:
+                    match.result==="DRAW"?colors.textMuted:colors.danger}}>
+                    {t(`tm7.short.${match.result}` as never)}
+                  </AppText>
+                </View>)}
+              </View>
+              {scoped.trend.map(match=><View style={styles.item} key={match.id}>
+                <View style={[styles.mediaHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  <AppText weight="semibold" style={{flex:1}}>{data.stats.competitionHistory
+                    .find(c=>c.id===match.competitionId)?.name??t("tm7.unknownCompetition")}</AppText>
+                  <AppText weight="bold">{match.goalsFor} : {match.goalsAgainst}</AppText>
+                </View>
+                <AppText variant="caption" muted>{date(match.startsAt)} · {t(`tm7.result.${match.result}` as never)}</AppText>
+              </View>)}
+            </>}
+          <AppText variant="caption" muted>{t("tm7.trendsHint")}</AppText>
+        </Card>:null}
+
+        {statSection==="HISTORY"?<Card testID="tm7-history" style={styles.analyticsFilters}>
           <AppText variant="bodyLarge" weight="bold">{tr("historyAndAwards")}</AppText>
-          {!data.stats.competitionHistory.length?<AppText muted>{tr("noHistory")}</AppText>:null}
-          {data.stats.competitionHistory.map(c=><View key={c.id} style={styles.item}>
+          {!statHistory.length?<AppText muted>{tr("noHistory")}</AppText>:null}
+          {(statSeason!=="ALL"||statRange!=="ALL")?
+            <AppText variant="caption" muted>{t("tm7.historyPeriodHint")}</AppText>:null}
+          {statHistory.map(c=><View key={c.id} style={styles.item}>
             <AppText weight="bold">{c.name} {c.champion?"🏆":""}</AppText>
             <AppText variant="caption" muted>{c.format.replaceAll("_"," ")} · {c.status.replaceAll("_"," ")} · {c.registrationStatus.replaceAll("_"," ")}</AppText>
             {c.champion?<AppText weight="semibold" style={{color:colors.primary}}>{tr("confirmedTitle")}</AppText>:null}
@@ -420,7 +538,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
           </View>)}
           <AppText variant="caption" muted>{tr("rewardCaution")}</AppText>
         </Card>:null}
-      </>:null}
+      </View>:null}
 
       {tab==="matches"?<>
         <Card><AppText variant="bodyLarge" weight="bold">{tr("friendlyChallenges")}</AppText>
@@ -484,6 +602,20 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   </View>;
 }
 const styles=StyleSheet.create({
+  analyticsWorkspace:{gap:spacing.md},
+  analyticsFilters:{gap:spacing.md},
+  analyticsFilterRow:{gap:spacing.sm,alignItems:"flex-start"},
+  analyticsFilterHalf:{flex:1,minWidth:0},
+  distribution:{height:16,flexDirection:"row",overflow:"hidden",
+    borderRadius:radius.pill,backgroundColor:colors.surfaceMuted},
+  distributionWin:{backgroundColor:colors.primary},
+  distributionDraw:{backgroundColor:colors.textMuted},
+  distributionLoss:{backgroundColor:colors.danger},
+  rankBadge:{height:30,minWidth:30,paddingHorizontal:spacing.xs,
+    borderRadius:radius.pill,backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
+  trendChips:{gap:spacing.xs,flexWrap:"wrap"},
+  trendChip:{width:31,height:31,alignItems:"center",justifyContent:"center",
+    borderRadius:radius.md,borderWidth:1,borderColor:colors.border},
   mediaHeader:{gap:spacing.md,borderWidth:1,borderColor:colors.border},
   mediaHeading:{alignItems:"center",gap:spacing.sm},
   mediaList:{gap:spacing.sm},
