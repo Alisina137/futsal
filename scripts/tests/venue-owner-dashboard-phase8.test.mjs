@@ -6,7 +6,7 @@ import {
  ownerSecondaryRoute,ownerSubsectionRoute,
 } from "../../apps/mobile/src/lib/owner-dashboard-navigation.ts";
 import {ownerCalendarSelectionMatches} from "../../apps/mobile/src/lib/owner-schedule-management.ts";
-import {ownerBookingDateFilter,ownerBookingTabs} from "../../apps/mobile/src/lib/owner-bookings.ts";
+import {ownerBookingDateFilter,ownerBookingStatusOptions} from "../../apps/mobile/src/lib/owner-bookings.ts";
 import {validateOwnerAnalyticsRange} from "../../apps/mobile/src/lib/owner-analytics-filters.ts";
 
 test("all seven owner sections and canonical destinations stay stable",()=>{
@@ -17,7 +17,7 @@ test("all seven owner sections and canonical destinations stay stable",()=>{
   assert.equal(ownerSectionRoot(section.key),section.href);
   assert.equal(ownerRememberableSectionRoute(section.href),section.href);
  }
- assert.deepEqual(ownerBookingTabs,["PENDING","UPCOMING","ALL","HISTORY"]);
+ assert.deepEqual(ownerBookingStatusOptions,["ALL","PENDING","CONFIRMED","HISTORY","CANCELLED"]);
 });
 test("cross-section operational deep links activate the owning dashboard tab",()=>{
  const groups={
