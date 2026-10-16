@@ -37,7 +37,7 @@ assert.ok(repo.includes('eq(socialPosts.status,"PUBLISHED")')&&
  repo.includes("inArray(socialPosts.entityId,rows.map(row=>row.competition.id))"),
  "Directory media must be fetched only for current page from published posts");
 for(const marker of ['testID="competition-province-select"',
- 'testID="competition-city-select"','testID="competition-format-select"',
+ 'testID="competition-status-select"','testID="competition-format-select"',
  'testID="competition-fee-select"','testID="competition-status-select"',
  'testID="competition-start-from"','testID="competition-start-to"',
  'testID="competition-min-fee"','testID="competition-max-fee"',
@@ -48,11 +48,13 @@ assert.ok(mobile.includes("setTimeout(()=>{timer.current=null;submit(value);},20
  mobile.includes("},300)")&&mobile.includes("++requestId.current")&&
  mobile.includes("if(requestId.current!==id)return"),
  "Two-second search, 300ms suggestion debounce, and stale response guard required");
-assert.ok(mobile.includes("setProvince(value);setCity(")&&
- mobile.includes("apply({...applied.current,city:value")&&
+assert.ok(mobile.includes("setProvince(value);")&&
+ mobile.includes('province:value,city:""')&&
+ !mobile.includes('testID="competition-city-select"')&&
+ !mobile.includes("function pickCity(")&&
  mobile.includes("load(applied.current,currentPage+1,true)")&&
  mobile.includes("setHasMore(result.hasMore)"),
- "Dependent city clearing, immediate filters and server Show More required");
+ "Province-only location selector, immediate filters and server Show More required");
 assert.ok(api.includes('path.startsWith("/api/v1/competitions/discover")'),
  "Live competition discovery must bypass offline GET cache");
 assert.ok(mobile.includes("followed.slice(0,10)")&&
