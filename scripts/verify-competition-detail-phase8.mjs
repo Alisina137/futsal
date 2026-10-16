@@ -78,7 +78,7 @@ required(home,[
 required(stats,[
   'competition.teams.filter(team=>team.status==="ACCEPTED")',
   'Number.isSafeInteger(match.homeScore)',
-  'if(!home||!away)continue;',
+  'accepted.has(match.homeTeamId)&&accepted.has(match.awayTeamId)',
   'if(!competition.teamDisciplineStats)return null;',
 ],"stats and privacy");
 required(teams,[
