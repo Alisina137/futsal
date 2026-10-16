@@ -8,7 +8,7 @@ import {useState,type ReactNode} from "react";
 import {Image,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {resolveMediaImageUrl} from "../../lib/api";
 import {competitionHomeSnapshot} from "../../lib/competition-detail-home";
-import {competitionTeamStatistics,competitionFairPlayStatistics,competitionPlayerLeaders}
+import {competitionTeamStatistics,competitionTeamFinishedMatches,competitionFairPlayStatistics,competitionPlayerLeaders}
   from "../../lib/competition-detail-statistics";
 import {formatLocalDateTimeParts,formatPostTimeAgo} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -802,7 +802,8 @@ function CompetitionAboutSection({competition}:{competition:CompetitionDto}){
 }
 
 function CompetitionTeamMetrics({competition,subtab}:{competition:CompetitionDto;subtab:string}){
-  const {t,isRTL}=useLocale();
+  const {t,isRTL,language}=useLocale();
+  const [expandedTeamId,setExpandedTeamId]=useState<string|null>(null);
   if(subtab==="FAIR_PLAY"){
     const fair=competitionFairPlayStatistics(competition);
     return <View testID="competition-fairplay-stats" style={styles.stack}>
@@ -851,27 +852,90 @@ function CompetitionTeamMetrics({competition,subtab}:{competition:CompetitionDto
     </Card>
     {!scoredMatches&&teams.length>0?
       <AppText variant="caption" muted>{t("competition.detail.phase6.noFinalResults")}</AppText>:null}
-    {teams.length?teams.map(team=><Card key={team.teamId} style={styles.stack}>
-      <Pressable testID={`competition-phase6-team-${team.teamId}`}
-        accessibilityRole={team.offline?"text":"button"} disabled={team.offline}
-        onPress={()=>openTeam(team.teamId)}
-        style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row",minHeight:44}]}>
-        <Ionicons name="shield-outline" size={20} color={colors.primary}/>
-        <AppText weight="bold" style={{flex:1}} numberOfLines={2}>{team.teamName}</AppText>
-        {!team.offline?<Ionicons name={isRTL?"chevron-back":"chevron-forward"}
-          size={18} color={colors.primary}/>:null}
-      </Pressable>
-      <View style={[styles.phase6MetricGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {metrics.map(key=><View key={key} style={styles.phase6Metric}>
-          <AppText weight="bold" variant="bodyLarge" style={{color:colors.primary}}>
-            {key==="goalDifference"&&team[key]>0?"+":""}{team[key]}
+    {teams.length?teams.map(team=>{
+      const expanded=expandedTeamId===team.teamId;
+      const finished=expanded?competitionTeamFinishedMatches(competition,team.teamId):[];
+      return <Card key={team.teamId} style={styles.stack}>
+        <Pressable testID={`competition-phase6-team-${team.teamId}`}
+          accessibilityRole={team.offline?"text":"button"} disabled={team.offline}
+          onPress={()=>openTeam(team.teamId)}
+          style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row",minHeight:44}]}>
+          <Ionicons name="shield-outline" size={20} color={colors.primary}/>
+          <AppText weight="bold" style={{flex:1}} numberOfLines={2}>{team.teamName}</AppText>
+          {!team.offline?<Ionicons name={isRTL?"chevron-back":"chevron-forward"}
+            size={18} color={colors.primary}/>:null}
+        </Pressable>
+        <View style={[styles.phase6MetricGrid,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          {metrics.map(key=><View key={key} style={styles.phase6Metric}>
+            <AppText weight="bold" variant="bodyLarge" style={{color:colors.primary}}>
+              {key==="goalDifference"&&team[key]>0?"+":""}{team[key]}
+            </AppText>
+            <AppText variant="caption" muted style={{textAlign:"center"}}>
+              {t(`competition.detail.phase6.${key}` as never)}
+            </AppText>
+          </View>)}
+        </View>
+        <Pressable testID={`competition-team-more-${team.teamId}`}
+          accessibilityRole="button" accessibilityState={{expanded}}
+          onPress={()=>setExpandedTeamId(current=>current===team.teamId?null:team.teamId)}
+          style={[styles.teamMoreButton,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Ionicons name="list-outline" size={19} color={colors.primary}/>
+          <AppText weight="semibold" style={{flex:1,color:colors.primary}}>
+            {t(expanded?"competition.detail.phase6.hideDetails":"competition.detail.phase6.moreDetails")}
           </AppText>
-          <AppText variant="caption" muted style={{textAlign:"center"}}>
-            {t(`competition.detail.phase6.${key}` as never)}
-          </AppText>
-        </View>)}
-      </View>
-    </Card>):
+          <Ionicons name={expanded?"chevron-up":"chevron-down"} size={18} color={colors.primary}/>
+        </Pressable>
+        {expanded?<View testID={`competition-team-finished-${team.teamId}`}
+          style={styles.teamFinishedList}>
+          <View style={[styles.teamFinishedHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="checkmark-done-outline" size={18} color={colors.primary}/>
+            <AppText weight="semibold" style={{flex:1}}>
+              {t("competition.detail.phase6.finishedMatchResults",{count:finished.length})}
+            </AppText>
+          </View>
+          {finished.length===0?<AppText variant="caption" muted style={styles.teamNoResults}>
+            {t("competition.detail.phase6.noTeamResults")}
+          </AppText>:finished.map(match=>{
+            const home=match.homeTeamId===team.teamId;
+            const score=home?match.homeScore:match.awayScore;
+            const otherScore=home?match.awayScore:match.homeScore;
+            const result=score>otherScore?"W":score<otherScore?"L":"D";
+            const outcomeColor=result==="W"?colors.success:result==="L"?colors.danger:colors.textMuted;
+            const opponentId=home?match.awayTeamId:match.homeTeamId;
+            const opponent=competition.teams.find(entry=>entry.teamId===opponentId)?.teamName||
+              (home?match.awayTeamName:match.homeTeamName)||t("competition.tbd");
+            const date=match.startsAt?displayTime(match.startsAt,language):null;
+            return <Pressable key={match.id} testID={`competition-team-finished-match-${match.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${t("competition.detail.phase6.against",{team:opponent})} · ${score}-${otherScore}`}
+              onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
+                params:{competitionId:competition.id,matchId:match.id}})}
+              style={({pressed})=>[styles.teamFinishedMatch,{flexDirection:isRTL?"row-reverse":"row"},
+                pressed&&styles.teamFinishedPressed]}>
+              <View style={[styles.teamResultBadge,{borderColor:outcomeColor}]}>
+                <AppText variant="caption" weight="bold" style={{color:outcomeColor}}>
+                  {t(`competition.standingsForm.${result}` as never)}
+                </AppText>
+              </View>
+              <View style={styles.teamFinishedOpponent}>
+                <AppText weight="semibold" numberOfLines={2}>
+                  {t("competition.detail.phase6.against",{team:opponent})}
+                </AppText>
+                <AppText variant="caption" muted numberOfLines={2}>
+                  {t(`competition.phase5.stage.${match.stage}` as never)}
+                  {date?` · ${date.date} · ${date.time}`:""}
+                </AppText>
+              </View>
+              <AppText forceLtr weight="bold" style={styles.teamFinishedScore}>
+                {score} - {otherScore}
+              </AppText>
+              <Ionicons name={isRTL?"chevron-back":"chevron-forward"}
+                color={colors.textMuted} size={16}/>
+            </Pressable>;
+          })}
+        </View>:null}
+      </Card>;
+    }):
     <Placeholder title={t("competition.profile.noTeams")} icon="people-outline"/>}
   </View>;
 }
@@ -950,6 +1014,20 @@ const styles=StyleSheet.create({
   stageButton:{flex:1,minHeight:44,borderRadius:radius.sm,alignItems:"center",
     justifyContent:"center",gap:5,flexDirection:"row",paddingHorizontal:4},
   stageActive:{backgroundColor:colors.primary},
+  teamMoreButton:{minHeight:48,alignItems:"center",gap:spacing.sm,
+    borderRadius:radius.md,backgroundColor:colors.primarySoft,paddingHorizontal:spacing.md},
+  teamFinishedList:{gap:spacing.sm,paddingTop:spacing.xs},
+  teamFinishedHeading:{alignItems:"center",gap:spacing.sm,
+    borderBottomWidth:1,borderBottomColor:colors.border,paddingBottom:spacing.sm},
+  teamNoResults:{paddingVertical:spacing.sm},
+  teamFinishedMatch:{alignItems:"center",gap:spacing.sm,minHeight:62,
+    padding:spacing.sm,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surface,borderRadius:radius.md},
+  teamFinishedPressed:{backgroundColor:colors.primarySoft},
+  teamFinishedOpponent:{flex:1,minWidth:0,gap:3},
+  teamResultBadge:{minWidth:50,paddingHorizontal:4,paddingVertical:6,
+    borderRadius:radius.sm,borderWidth:1,alignItems:"center",justifyContent:"center"},
+  teamFinishedScore:{minWidth:48,textAlign:"center",fontVariant:["tabular-nums"]},
   phase6MetricGrid:{flexWrap:"wrap",gap:spacing.sm},
   phase6Metric:{minWidth:72,flexGrow:1,flexBasis:"20%",paddingVertical:spacing.sm,
     paddingHorizontal:4,borderRadius:radius.sm,backgroundColor:colors.primarySoft,
