@@ -1,0 +1,41 @@
+name: Team Manager Phase 2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/src/components/team-manager/**'
+      - 'apps/mobile/src/lib/api.ts'
+      - 'apps/api/src/modules/team/team-manager-phase1.routes.ts'
+      - 'apps/api/test/team-manager-overview-phase2.test.ts'
+      - 'packages/localization/src/index.ts'
+      - 'scripts/verify-team-manager-overview-phase2.mjs'
+      - 'scripts/verify-team-manager-navigation.mjs'
+      - 'scripts/verify-team-manager-phase1.mjs'
+      - '.github/workflows/team-manager-phase2.yml'
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.5.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify:team-manager-navigation
+      - run: pnpm verify:team-manager-phase1
+      - run: pnpm verify:team-manager-phase2
+      - run: pnpm verify:team-manager-phase3
+      - run: pnpm verify:team-manager-overview-phase2
+      - run: pnpm --filter @leaguekick/api typecheck
+      - run: pnpm --filter @leaguekick/mobile typecheck
+      - run: pnpm --filter @leaguekick/api exec vitest run test/team-manager-overview-phase2.test.ts
