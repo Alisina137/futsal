@@ -27,7 +27,7 @@ for(const marker of [
  'testID="competition-match-refresh"',
  'testID="competition-my-team-fixtures"',
  'testID="competition-match-date-filters"',
- 'competition-match-date-${preset}',
+ 'testID="competition-match-select-date"',
  'testID="competition-match-empty-reset"',
  'testID="competition-match-clear-filters"',
  'matchFitsPreferences(match,currentPreferences)',
