@@ -1,11 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, radius } from "@leaguekick/design-tokens";
-import type { CompetitionListItemDto, PublicVenueDto, TeamDto } from "@leaguekick/contracts";
+import type { CompetitionDiscoveryItem, CompetitionParticipationDto, TeamDto } from "@leaguekick/contracts";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import {
-  ApiRequestError, competitionApi, teamOperationsApi, venueApi,
+  ApiRequestError, competitionApi, teamOperationsApi,
   type TeamActivityInput,type TeamOpsActivity,type TeamOpsCompetition,type TeamOpsMatch,
   type TeamOperations,type TeamAvailability,
 } from "../../lib/api";
@@ -15,6 +15,7 @@ import { AppText } from "../ui/AppText";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { DateTimePickerField } from "../ui/DateTimePickerField";
+import { DirectoryFilterSelect } from "../social/DirectoryFilterSelect";
 import { DataLoadingState } from "../ui/DataLoadingState";
 import { TextField } from "../ui/TextField";
 
@@ -53,8 +54,18 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
 }){
   const {t,language,isRTL}=useLocale();
   const [data,setData]=useState<TeamOperations|null>(null);
-  const [available,setAvailable]=useState<CompetitionListItemDto[]>([]);
-  const [venues,setVenues]=useState<PublicVenueDto[]>([]);
+  const [available,setAvailable]=useState<CompetitionDiscoveryItem[]>([]);
+  const [discoveryProvinces,setDiscoveryProvinces]=useState<string[]>([]);
+  const [discoveryPage,setDiscoveryPage]=useState(1);
+  const [discoveryHasMore,setDiscoveryHasMore]=useState(false);
+  const [discoveryTotal,setDiscoveryTotal]=useState(0);
+  const [discoveryLoading,setDiscoveryLoading]=useState(false);
+  const [discoveryError,setDiscoveryError]=useState(false);
+  const [appliedSearch,setAppliedSearch]=useState("");
+  const [participations,setParticipations]=useState<CompetitionParticipationDto[]>([]);
+  const [participationReady,setParticipationReady]=useState(false);
+  const [withdrawId,setWithdrawId]=useState<string|null>(null);
+  const [competitionSection,setCompetitionSection]=useState<"MINE"|"INVITATIONS"|"DISCOVER">("MINE");
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
@@ -87,14 +98,52 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
     return()=>{active=false;};
   },[token,team.id,reload,t]);
 
+  // Search the server instead of downloading every competition/venue into the
+  // manager dashboard. Results are paginated and scoped to open registration.
+  useEffect(()=>{
+    const timer=setTimeout(()=>{setAppliedSearch(search.trim());setDiscoveryPage(1);},350);
+    return()=>clearTimeout(timer);
+  },[search]);
+  useEffect(()=>{
+    if(tab!=="competitions"||competitionSection!=="DISCOVER")return;
+    let active=true;
+    setDiscoveryLoading(true);setDiscoveryError(false);
+    void competitionApi.discover({
+      q:appliedSearch,province:province==="ALL"?"":province,city:"",
+      fee:"any",sort:"starting",scope:"registration",phase:"all",
+      page:discoveryPage,limit:12,
+    }).then(result=>{
+      if(!active)return;
+      setAvailable(previous=>discoveryPage===1?result.competitions:[
+        ...previous.filter(item=>!result.competitions.some(next=>next.id===item.id)),
+        ...result.competitions,
+      ]);
+      setDiscoveryProvinces(result.facets.provinces);
+      setDiscoveryTotal(result.total);setDiscoveryHasMore(result.hasMore);
+    }).catch(()=>{
+      if(active)setDiscoveryError(true);
+    }).finally(()=>{if(active)setDiscoveryLoading(false);});
+    return()=>{active=false;};
+  },[tab,competitionSection,appliedSearch,province,discoveryPage,reload]);
+
+  // Withdraw controls must only be shown when the server grants permission;
+  // if participation data is unavailable, no speculative withdrawal is shown.
   useEffect(()=>{
     if(tab!=="competitions")return;
     let active=true;
-    void Promise.all([competitionApi.list(),venueApi.list()])
-      .then(([competitions,results])=>{if(active){setAvailable(competitions.competitions);setVenues(results.venues);}})
-      .catch(()=>{if(active)setError(t("tm2.discoveryFailed"));});
+    setParticipations([]);setParticipationReady(false);
+    void competitionApi.myParticipations(token).then(result=>{
+      if(!active)return;
+      setParticipations(result.participations.filter(item=>item.teamId===team.id));
+      setParticipationReady(true);
+    }).catch(()=>{if(active)setParticipationReady(false);});
     return()=>{active=false;};
-  },[tab,t]);
+  },[tab,token,team.id,reload]);
+  useEffect(()=>{
+    setCompetitionSection("MINE");setFilter("ALL");setSearch("");
+    setAppliedSearch("");setProvince("ALL");setDiscoveryPage(1);
+    setAvailable([]);setWithdrawId(null);setFocusedCompetition(null);
+  },[team.id]);
 
   async function execute(fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
@@ -110,17 +159,25 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   const requestedMatch=matches.find(x=>x.id===focusedMatch);
   const matchCompetition=registrations.find(x=>x.id===requestedMatch?.competitionId);
   const today=relativeKabulDay(new Date().toISOString());
-  const venueById=useMemo(()=>new Map(venues.map(v=>[v.id,v])),[venues]);
-  const provinces=[...new Set(venues.map(v=>v.province).filter(Boolean))].sort();
   const discovery=available.filter(c=>c.published&&c.status==="REGISTRATION_OPEN"&&
-    !registrations.some(r=>r.id===c.id)&&(!search||[c.name,c.venueName,c.format].some(v=>v.toLowerCase().includes(search.toLowerCase())))&&
-    (province==="ALL"||venueById.get(c.venueId)?.province===province));
-  const registrationsShown=registrations.filter(c=>filter==="ALL"||
+    !registrations.some(r=>r.id===c.id));
+  const registrationsShown=registrations.filter(c=>c.registrationStatus!=="INVITED").filter(c=>filter==="ALL"||
     filter==="INVITED"&&c.registrationStatus==="INVITED"||
     filter==="PENDING"&&["APPLIED","PENDING"].includes(c.registrationStatus)||
     filter==="UPCOMING"&&c.registrationStatus==="ACCEPTED"&&["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED"].includes(c.status)||
     filter==="IN_PROGRESS"&&c.status==="IN_PROGRESS"||
     filter==="COMPLETED"&&["COMPLETED","ARCHIVED"].includes(c.status));
+  const invitations=registrations.filter(c=>c.registrationStatus==="INVITED");
+  const pendingRegistrations=registrations.filter(c=>["APPLIED","PENDING"].includes(c.registrationStatus));
+  const openRosters=registrations.filter(c=>c.registrationStatus==="ACCEPTED"&&!c.rosterLocked&&c.rosterUserIds.length===0);
+  const closingSoon=(value:string|null)=>{
+    if(!value)return false;
+    const remaining=Date.parse(value)-Date.now();
+    return remaining>0&&remaining<=3*24*60*60*1000;
+  };
+  const registrationStatus=(status:string)=>t(`tm4.registrationStatus.${status}` as never);
+  const competitionStatus=(status:string)=>t(`competition.status.${status}` as never);
+  const canWithdraw=(id:string)=>participationReady&&participations.some(item=>item.competitionId===id&&item.canWithdraw);
   const visibleMatches=matches.filter(m=>matchFilter==="ALL"||
     matchFilter==="UPCOMING"&&upcoming(m)||
     matchFilter==="TODAY"&&!!m.startsAt&&relativeKabulDay(m.startsAt)===today||
@@ -184,62 +241,182 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
     {note?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{note}</AppText></Card>:null}
     {loading?<DataLoadingState variant="list" minHeight={350}/>:data?<>
       {tab==="competitions"?<>
-        <Card>
-          <AppText variant="bodyLarge" weight="bold">{tr("joinedTitle")}</AppText>
-          <Options current={filter} set={setFilter}
-            options={["ALL","INVITED","PENDING","UPCOMING","IN_PROGRESS","COMPLETED"].map(id=>({id,label:tr("filter."+id)}))}/>
-          {!registrationsShown.length?<AppText muted>{tr("noRegistrations")}</AppText>:null}
-          {registrationsShown.map(c=><View key={c.id} style={styles.item}>
-            <AppText weight="bold">{c.name}</AppText>
-            <AppText variant="caption" muted>{c.venueName} · {date(c.startsAt)}</AppText>
-            <View style={styles.flexRow}><SmallStatus status={c.status}/><SmallStatus status={c.registrationStatus}/></View>
-            <View style={styles.controls}>
-              <CompetitionLink id={c.id} label={tr("details")}/>
-              {c.registrationStatus==="INVITED"?<>
+        <View testID="tm4-competition-tabs" style={styles.compSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.compTabs,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            {([
+              {id:"MINE",icon:"shield-checkmark-outline",title:t("tm4.myCompetitions"),
+                count:registrationsShown.length},
+              {id:"INVITATIONS",icon:"mail-unread-outline",title:t("tm4.invitations"),
+                count:invitations.length},
+              {id:"DISCOVER",icon:"search-outline",title:t("tm4.discover"),count:null},
+            ] as const).map(item=><Pressable key={item.id}
+              testID={`tm4-tab-${item.id}`} accessibilityRole="tab"
+              accessibilityState={{selected:competitionSection===item.id}}
+              onPress={()=>{setCompetitionSection(item.id);setFocusedCompetition(null);setWithdrawId(null);}}
+              style={[styles.compTab,competitionSection===item.id&&styles.compTabSelected]}>
+              <Ionicons name={item.icon} size={19}
+                color={competitionSection===item.id?colors.primary:colors.textMuted}/>
+              <AppText weight="semibold" variant="caption"
+                style={competitionSection===item.id?{color:colors.primary}:undefined}>{item.title}</AppText>
+              {item.count!==null?<View style={styles.compCount}>
+                <AppText variant="caption" weight="bold" style={{color:colors.primary}}>{item.count}</AppText>
+              </View>:null}
+            </Pressable>)}
+          </ScrollView>
+
+          {competitionSection==="MINE"?<Card testID="tm4-my-competitions" style={styles.compCard}>
+            <AppText variant="bodyLarge" weight="bold">{tr("joinedTitle")}</AppText>
+            <View style={[styles.compSummary,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <View style={styles.compSummaryCell}>
+                <AppText variant="title" weight="bold" style={{color:colors.primary}}>{registrations.length}</AppText>
+                <AppText variant="caption" muted>{t("tm4.total")}</AppText>
+              </View>
+              <View style={styles.compSummaryCell}>
+                <AppText variant="title" weight="bold" style={{color:colors.primary}}>{pendingRegistrations.length}</AppText>
+                <AppText variant="caption" muted>{t("tm4.pending")}</AppText>
+              </View>
+              <View style={styles.compSummaryCell}>
+                <AppText variant="title" weight="bold" style={{color:colors.primary}}>{openRosters.length}</AppText>
+                <AppText variant="caption" muted>{t("tm4.incompleteRosters")}</AppText>
+              </View>
+            </View>
+            <Options current={filter} set={setFilter}
+              options={["ALL","PENDING","UPCOMING","IN_PROGRESS","COMPLETED"].map(id=>({id,label:tr("filter."+id)}))}/>
+            {!registrationsShown.length?<View style={styles.compEmpty}>
+              <Ionicons name="trophy-outline" size={28} color={colors.textMuted}/>
+              <AppText muted>{tr("noRegistrations")}</AppText>
+              <Button label={t("tm4.discover")} variant="secondary" onPress={()=>setCompetitionSection("DISCOVER")}/>
+            </View>:null}
+            {registrationsShown.map(c=>{
+              const deadline=c.registrationClosesAt??c.startsAt;
+              const incomplete=c.registrationStatus==="ACCEPTED"&&c.rosterUserIds.length===0;
+              return <View key={c.id} style={styles.compItem}>
+                <AppText weight="bold" variant="bodyLarge">{c.name}</AppText>
+                <AppText variant="caption" muted>{c.venueName} · {date(c.startsAt)}</AppText>
+                <View style={[styles.flexRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  <SmallStatus status={competitionStatus(c.status)}/>
+                  <SmallStatus status={registrationStatus(c.registrationStatus)}/>
+                </View>
+                <AppText variant="caption" muted>{t("tm4.feeStatus")}: {t(`tm4.fee.${c.feeStatus}` as never)}</AppText>
+                <AppText variant="caption" muted>{tr("deadline")}: {date(deadline)}</AppText>
+                {incomplete?<AppText variant="caption" style={{color:colors.warning}}>
+                  {t("tm4.rosterRequired")}
+                </AppText>:null}
+                {incomplete&&closingSoon(deadline)?<AppText variant="caption" style={{color:colors.danger}}>
+                  {t("tm4.deadlineSoon")}
+                </AppText>:null}
+                {c.rosterLocked?<AppText variant="caption" muted>{tr("rosterLocked")}</AppText>:null}
+                <View style={[styles.controls,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  <CompetitionLink id={c.id} label={tr("details")}/>
+                  {c.registrationStatus==="ACCEPTED"?<Button
+                    label={c.rosterLocked?t("tm4.viewRoster"):incomplete?t("tm4.completeRoster"):tr("competitionRoster")}
+                    variant="secondary" onPress={()=>openRoster(c)}/>:null}
+                  {canWithdraw(c.id)?<Button variant="secondary" label={t("tm4.withdraw")}
+                    disabled={!canWrite||busy} onPress={()=>setWithdrawId(c.id)}/>:null}
+                </View>
+                {withdrawId===c.id?<View testID="tm4-withdraw-confirm" style={styles.compDanger}>
+                  <AppText weight="semibold">{t("tm4.withdrawConfirm")}</AppText>
+                  <View style={[styles.controls,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                    <Button label={t("tm4.withdraw")} variant="danger" disabled={!canWrite||busy}
+                      loading={busy} onPress={()=>void execute(
+                        ()=>competitionApi.withdraw(token,c.id,team.id),()=>setWithdrawId(null))}/>
+                    <Button label={t("common.cancel")} variant="secondary"
+                      onPress={()=>setWithdrawId(null)}/>
+                  </View>
+                </View>:null}
+              </View>;
+            })}
+          </Card>:null}
+
+          {competitionSection==="INVITATIONS"?<Card testID="tm4-invitations" style={styles.compCard}>
+            <AppText variant="bodyLarge" weight="bold">{t("tm4.invitations")} ({invitations.length})</AppText>
+            <AppText variant="caption" muted>{t("tm4.invitationsHint")}</AppText>
+            {!invitations.length?<View style={styles.compEmpty}>
+              <Ionicons name="mail-outline" size={29} color={colors.textMuted}/>
+              <AppText muted>{t("tm4.noInvitations")}</AppText>
+            </View>:null}
+            {invitations.map(c=><View key={c.id} style={styles.compItem}>
+              <AppText weight="bold" variant="bodyLarge">{c.name}</AppText>
+              <AppText variant="caption" muted>{c.venueName} · {date(c.startsAt)}</AppText>
+              <SmallStatus status={registrationStatus(c.registrationStatus)}/>
+              <AppText variant="caption" muted>{tr("deadline")}: {date(c.registrationClosesAt??c.startsAt)}</AppText>
+              <View style={[styles.controls,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <CompetitionLink id={c.id} label={tr("details")}/>
                 <Button label={tr("accept")} disabled={!canWrite||busy} loading={busy}
                   onPress={()=>void execute(()=>competitionApi.respondInvitation(token,c.id,team.id,{status:"ACCEPTED"}))}/>
                 <Button label={tr("decline")} variant="secondary" disabled={!canWrite||busy}
                   onPress={()=>void execute(()=>competitionApi.respondInvitation(token,c.id,team.id,{status:"REJECTED"}))}/>
-              </>:null}
-              {c.registrationStatus==="ACCEPTED"?<Button label={tr("competitionRoster")} variant="secondary"
-                onPress={()=>openRoster(c)}/>:null}
-            </View>
-          </View>)}
-        </Card>
-        {requestedCompetition?<Card><AppText variant="bodyLarge" weight="bold">{tr("competitionRoster")}</AppText>
-          <AppText weight="semibold">{requestedCompetition.name}</AppText>
-          <AppText variant="caption" muted>{tr("rosterHint")}</AppText>
-          <AppText variant="caption" muted>{tr("deadline")}: {date(requestedCompetition.registrationClosesAt??requestedCompetition.startsAt)}</AppText>
-          {team.members.map(player=><Pressable key={player.userId} style={styles.rowCell}
-            disabled={!canWrite||requestedCompetition.rosterLocked}
-            accessibilityRole="checkbox" accessibilityState={{checked:rosterIds.includes(player.userId)}}
-            onPress={()=>setRosterIds(prev=>prev.includes(player.userId)?prev.filter(id=>id!==player.userId):prev.length>=40?prev:[...prev,player.userId])}>
-            <Ionicons name={rosterIds.includes(player.userId)?"checkbox":"square-outline"} size={22} color={colors.primary}/>
-            <AppText style={{flex:1}}>{player.publicDisplayName} {player.shirtNumber?`#${player.shirtNumber}`:""}</AppText>
-          </Pressable>)}
-          <AppText muted variant="caption">{tr("selected")}: {rosterIds.length}</AppText>
-          <Button label={t("common.save")} disabled={!canWrite||busy||requestedCompetition.rosterLocked} loading={busy}
-            onPress={()=>void execute(()=>teamOperationsApi.roster(token,team.id,requestedCompetition.id,rosterIds),()=>setFocusedCompetition(null))}/>
-          <Button label={t("common.cancel")} variant="ghost" onPress={()=>setFocusedCompetition(null)}/>
-          {requestedCompetition.rosterLocked?<AppText muted>{tr("rosterLocked")}</AppText>:null}
-        </Card>:null}
-        <Card><AppText variant="bodyLarge" weight="bold">{tr("findTitle")}</AppText>
-          <TextField label={tr("search")} value={search} onChangeText={setSearch}/>
-          <AppText weight="semibold">{tr("province")}</AppText>
-          <Options current={province} set={setProvince}
-            options={[{id:"ALL",label:tr("filter.ALL")},...provinces.map(x=>({id:x,label:x}))]}/>
-          {!discovery.length?<AppText muted>{tr("noAvailable")}</AppText>:null}
-          {discovery.slice(0,30).map(c=><View key={c.id} style={styles.item}>
-            <AppText weight="semibold">{c.name}</AppText>
-            <AppText variant="caption" muted>{c.venueName} · {c.format} · {date(c.startsAt)}</AppText>
-            <View style={styles.controls}>
-              <CompetitionLink id={c.id} label={tr("details")}/>
-              <Button label={tr("register")} disabled={!canWrite||busy} loading={busy}
-                onPress={()=>void execute(()=>competitionApi.register(token,c.id,team.id))}/>
-            </View>
-          </View>)}
-          <Button label={tr("exploreAll")} variant="ghost" onPress={()=>router.push("/competitions")}/>
-        </Card>
+              </View>
+            </View>)}
+          </Card>:null}
+
+          {requestedCompetition&&competitionSection==="MINE"?<Card testID="tm4-roster-editor" style={styles.compCard}>
+            <AppText variant="bodyLarge" weight="bold">{tr("competitionRoster")}</AppText>
+            <AppText weight="semibold">{requestedCompetition.name}</AppText>
+            <AppText variant="caption" muted>{tr("rosterHint")}</AppText>
+            <AppText variant="caption" muted>{tr("deadline")}: {date(requestedCompetition.registrationClosesAt??requestedCompetition.startsAt)}</AppText>
+            <AppText variant="caption" muted>{t("tm4.currentRoster",{count:rosterIds.length})}</AppText>
+            {team.members.map(player=><Pressable key={player.userId} style={[styles.rowCell,{flexDirection:isRTL?"row-reverse":"row"}]}
+              disabled={!canWrite||requestedCompetition.rosterLocked}
+              accessibilityRole="checkbox" accessibilityState={{checked:rosterIds.includes(player.userId)}}
+              onPress={()=>setRosterIds(prev=>prev.includes(player.userId)?prev.filter(id=>id!==player.userId):prev.length>=40?prev:[...prev,player.userId])}>
+              <Ionicons name={rosterIds.includes(player.userId)?"checkbox":"square-outline"} size={22} color={colors.primary}/>
+              <AppText style={{flex:1}}>{player.publicDisplayName} {player.shirtNumber!==null?`#${player.shirtNumber}`:""}</AppText>
+            </Pressable>)}
+            <AppText muted variant="caption">{tr("selected")}: {rosterIds.length}/40</AppText>
+            {!requestedCompetition.rosterLocked?<Button label={t("common.save")}
+              disabled={!canWrite||busy} loading={busy}
+              onPress={()=>void execute(()=>teamOperationsApi.roster(token,team.id,requestedCompetition.id,rosterIds),
+                ()=>setFocusedCompetition(null))}/>:null}
+            <Button label={t("common.cancel")} variant="secondary" onPress={()=>setFocusedCompetition(null)}/>
+            {requestedCompetition.rosterLocked?<AppText muted>{tr("rosterLocked")}</AppText>:null}
+          </Card>:null}
+
+          {competitionSection==="DISCOVER"?<Card testID="tm4-discover" style={styles.compCard}>
+            <AppText variant="bodyLarge" weight="bold">{tr("findTitle")}</AppText>
+            <TextField testID="tm4-search" label={tr("search")} value={search}
+              onChangeText={setSearch} maxLength={120}/>
+            <DirectoryFilterSelect compact testID="tm4-province-select"
+              label={tr("province")} allLabel={tr("filter.ALL")}
+              value={province==="ALL"?"":province}
+              options={discoveryProvinces.map(value=>({value,label:value}))}
+              onSelect={value=>{setProvince(value||"ALL");setDiscoveryPage(1);}}/>
+            {discoveryError?<View style={styles.compDanger}>
+              <AppText style={{color:colors.danger}}>{tr("discoveryFailed")}</AppText>
+              <Button label={t("common.retry")} variant="secondary" onPress={reloadData}/>
+            </View>:null}
+            <AppText variant="caption" muted>{t("tm4.results",{count:discoveryTotal})}</AppText>
+            {discoveryLoading&&discoveryPage===1?<DataLoadingState variant="list" minHeight={180}/>:null}
+            {!discoveryLoading&&!discoveryError&&!discovery.length?<View style={styles.compEmpty}>
+              <Ionicons name="search-outline" size={27} color={colors.textMuted}/>
+              <AppText muted>{tr("noAvailable")}</AppText>
+            </View>:null}
+            {discovery.map(c=>{
+              const cutoff=c.registrationClosesAt??c.startsAt;
+              const expired=!!cutoff&&Date.parse(cutoff)<=Date.now();
+              const full=c.acceptedTeams>=c.maxTeams;
+              return <View key={c.id} style={styles.compItem}>
+                <AppText weight="semibold" variant="bodyLarge">{c.name}</AppText>
+                <AppText variant="caption" muted>{c.venueName} · {c.province}</AppText>
+                <AppText variant="caption" muted>{t(`competition.format.${c.format}` as never)} · {date(c.startsAt)}</AppText>
+                <AppText variant="caption" muted>{tr("deadline")}: {date(cutoff)}</AppText>
+                <AppText variant="caption" muted>{t("tm4.fee")}: {c.registrationFeeAfn} AFN</AppText>
+                <AppText variant="caption" muted>{t("tm4.capacity",{accepted:c.acceptedTeams,max:c.maxTeams})}</AppText>
+                <View style={[styles.controls,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  <CompetitionLink id={c.id} label={tr("details")}/>
+                  <Button label={full?t("tm4.full"):expired?t("tm4.closed"):tr("register")}
+                    disabled={!canWrite||busy||expired||full} loading={busy}
+                    onPress={()=>void execute(()=>competitionApi.register(token,c.id,team.id))}/>
+                </View>
+              </View>;
+            })}
+            {discoveryHasMore?<Button testID="tm4-show-more" label={t("tm4.showMore")}
+              variant="secondary" loading={discoveryLoading} disabled={discoveryLoading}
+              onPress={()=>setDiscoveryPage(v=>v+1)}/>:null}
+            <Button label={tr("exploreAll")} variant="ghost" onPress={()=>router.push("/competitions")}/>
+          </Card>:null}
+        </View>
       </>:null}
 
       {tab==="matches"?<>
@@ -351,6 +528,24 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   </View>;
 }
 const styles=StyleSheet.create({
+  compSection:{gap:spacing.md},
+  compTabs:{gap:spacing.sm,paddingHorizontal:spacing.xs,paddingVertical:spacing.xs},
+  compTab:{minHeight:49,flexDirection:"row",alignItems:"center",gap:spacing.xs,
+    paddingHorizontal:spacing.md,paddingVertical:spacing.xs,borderWidth:1,
+    borderColor:colors.border,borderRadius:radius.md,backgroundColor:colors.surface},
+  compTabSelected:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
+  compCount:{minWidth:24,alignItems:"center",paddingHorizontal:spacing.xs,
+    paddingVertical:spacing.xs,borderRadius:radius.pill,backgroundColor:colors.primarySoft},
+  compCard:{gap:spacing.md},
+  compSummary:{gap:spacing.sm},
+  compSummaryCell:{flex:1,minWidth:0,alignItems:"center",gap:spacing.xs,
+    padding:spacing.sm,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surfaceMuted,borderRadius:radius.md},
+  compItem:{gap:spacing.sm,paddingVertical:spacing.md,
+    borderTopWidth:1,borderColor:colors.border},
+  compEmpty:{gap:spacing.sm,alignItems:"center",paddingVertical:spacing.lg},
+  compDanger:{gap:spacing.sm,padding:spacing.md,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.danger},
   item:{borderTopWidth:1,borderColor:colors.border,paddingVertical:spacing.md,gap:spacing.sm},
   flexRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,flexWrap:"wrap"},
   controls:{flexDirection:"row",flexWrap:"wrap",alignItems:"center",gap:spacing.sm},
