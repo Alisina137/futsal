@@ -138,9 +138,46 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
     }finally{if(currentTeam.current===selectedTeam)setUploading(false);}
   }
   function editPost(post:TeamGrowthPost){
-    setPostEditing(post.id);setPostBody(post.body);setImageUrl(post.imageUrl);setMediaSection("POSTS");
+    setPostEditing(post.id);setPostBody(post.body);setImageUrl(post.imageUrl);
+    setComposerOpen(true);setMediaSection("POSTS");
   }
   function resetPost(){setPostBody("");setImageUrl(null);setPostEditing(null);}
+  async function saveDraft(){
+    if(!draftKey||draftBusy||(!postBody.trim()&&!imageUrl)||postEditing)return;
+    setDraftBusy(true);setError(null);
+    try{
+      await AsyncStorage.setItem(draftKey,JSON.stringify({body:postBody.trim(),imageUrl}));
+      if(draftKeyRef.current===draftKey){setDraftAvailable(true);setMessage(t("tm6.draftSaved"));}
+    }catch{if(draftKeyRef.current===draftKey)setError(t("tm6.draftError"));}
+    finally{if(draftKeyRef.current===draftKey)setDraftBusy(false);}
+  }
+  async function restoreDraft(){
+    if(!draftKey||draftBusy)return;
+    setDraftBusy(true);
+    try{
+      const stored=await AsyncStorage.getItem(draftKey);
+      if(draftKeyRef.current!==draftKey)return;
+      if(!stored){setDraftAvailable(false);return;}
+      const content=JSON.parse(stored) as {body?:unknown;imageUrl?:unknown};
+      setPostBody(typeof content.body==="string"?content.body.slice(0,2000):"");
+      setImageUrl(typeof content.imageUrl==="string"?content.imageUrl:null);
+      setPostEditing(null);setMediaSection("POSTS");setComposerOpen(true);
+    }catch{if(draftKeyRef.current===draftKey)setError(t("tm6.draftError"));}
+    finally{if(draftKeyRef.current===draftKey)setDraftBusy(false);}
+  }
+  async function discardDraft(){
+    if(!draftKey||draftBusy)return;
+    setDraftBusy(true);
+    try{
+      await AsyncStorage.removeItem(draftKey);
+      if(draftKeyRef.current===draftKey){setDraftAvailable(false);setMessage(t("tm6.draftDiscarded"));}
+    }catch{if(draftKeyRef.current===draftKey)setError(t("tm6.draftError"));}
+    finally{if(draftKeyRef.current===draftKey)setDraftBusy(false);}
+  }
+  function newPost(){resetPost();setComposerOpen(true);setMediaSection("POSTS");}
+  const shownPosts=(data?.posts??[]).filter(post=>
+    (postFilter==="ALL"||postFilter==="PHOTOS"&&!!post.imageUrl||postFilter==="TEXT"&&!post.imageUrl)&&
+    post.body.toLowerCase().includes(postQuery.trim().toLowerCase()));
   const filteredChallenges=data?.challenges.filter(c=>challengeFilter==="ALL"||
     challengeFilter==="HISTORY"&&["DECLINED","CANCELLED"].includes(c.status)||
     c.status===challengeFilter)??[];
