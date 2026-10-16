@@ -21,7 +21,9 @@ export function searchOfflineTeams(
   return teams.filter(team=>(!c||normalizeOfflineText(team.city)===c)
     &&(!q||normalizeOfflineText(team.name).includes(q)
       ||normalizeOfflineText(team.city).includes(q)))
-    .sort((a,b)=>a.name.localeCompare(b.name)||a.city.localeCompare(b.city)||a.id.localeCompare(b.id));
+    .sort((a,b)=>normalizeOfflineText(a.name).localeCompare(normalizeOfflineText(b.name))
+      ||normalizeOfflineText(a.city).localeCompare(normalizeOfflineText(b.city))
+      ||a.id.localeCompare(b.id));
 }
 
 /** The backend is authoritative; these are preliminary organizer options only.
