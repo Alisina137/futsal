@@ -37,7 +37,7 @@ for(const field of ["goals","assists","appearances","cleanSheets","yellowCards",
   assert.equal(locale.split('"competition.phase5.metric.'+field+'"').length-1,3,
     "Metric must be localized in all languages: "+field);
 }
-assert.ok(sections.includes("competitionPlayerLeaders(competition,metric,teamId)")&&
+assert.ok(sections.includes("competitionPlayerLeaders(competition,metric,activeTeamId)")&&
   stats.includes("stat[metric]>0")&&stats.includes('teamId===stat.teamId')&&
   stats.includes('accepted.has(stat.teamId)')&&
   sections.includes("competition.phase5.verifiedOnly")&&
