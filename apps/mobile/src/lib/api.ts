@@ -469,6 +469,9 @@ export const ownerApi = {
     request<{ timetable: import("@leaguekick/contracts").VenueTimetableDto }>(`/api/v1/owner/timetables/${timetableId}/duplicate`, { method: "POST" }, accessToken),
   deleteTimetable: (accessToken: string, timetableId: string) =>
     request<{ deleted: boolean }>(`/api/v1/owner/timetables/${timetableId}`, { method: "DELETE" }, accessToken),
+  deleteArchivedTimetable: (accessToken: string, timetableId: string) =>
+    request<{ deleted: boolean }>(`/api/v1/owner/timetables/${timetableId}/history`,
+      { method: "DELETE" }, accessToken),
   publishTimetable: (accessToken: string, timetableId: string) =>
     request<VenueTimetablePublishResponse>(`/api/v1/owner/timetables/${timetableId}/publish`, { method: "POST" }, accessToken),
   archiveTimetable: (accessToken: string, timetableId: string) =>
