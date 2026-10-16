@@ -44,13 +44,6 @@ const action=(item:CompetitionDiscoveryItem,t:(key:any)=>string,canRegister:bool
     label:t("competition.phase1.fixtures"),to:()=>router.push({pathname:"/competitions/[competitionId]",params:{competitionId:item.id,tab:"MATCHES"}})};
   return {label:t("competition.viewCompetition"),to:()=>open(item.id)};
 };
-const isoDay=/^\d{4}-\d{2}-\d{2}$/;
-function validDay(value:string){
-  if(!isoDay.test(value))return false;
-  const d=new Date(value+"T12:00:00Z");
-  return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;
-}
-
 export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   const {session}=useAuth();
   const {t,isRTL}=useLocale();
@@ -88,13 +81,6 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   const [status,setStatus]=useState<CompetitionDiscoveryQuery["status"]| "">("");
   const [format,setFormat]=useState<CompetitionDiscoveryQuery["format"]| "">("");
   const [fee,setFee]=useState<CompetitionDiscoveryQuery["fee"]>("any");
-  const [sort,setSort]=useState<CompetitionDiscoveryQuery["sort"]>("recommended");
-  const [minFee,setMinFee]=useState("");
-  const [maxFee,setMaxFee]=useState("");
-  const [from,setFrom]=useState("");
-  const [to,setTo]=useState("");
-  const [advanced,setAdvanced]=useState(false);
-  const [filterError,setFilterError]=useState<string|null>(null);
   const applied=useRef<CompetitionDiscoveryQuery>({...defaults});
   const requestId=useRef(0);
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -209,7 +195,6 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   function apply(next:CompetitionDiscoveryQuery){
     clearTimer();setSuggestionsOpen(false);setSuggestions([]);
     applied.current={...next,scope:"all",page:1};
-    setFilterError(null);
     void load(applied.current,1);
   }
   function submit(value=query){apply({...applied.current,q:value.trim()});}
@@ -236,30 +221,12 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
     const next=value as CompetitionDiscoveryQuery["fee"];setFee(next);
     apply({...applied.current,fee:next,q:query.trim()});
   }
-  function pickSort(value:CompetitionDiscoveryQuery["sort"]){
-    setSort(value);apply({...applied.current,sort:value,q:query.trim()});
-  }
-  function applyAdvanced(){
-    const min=minFee.trim(),max=maxFee.trim(),start=from.trim(),end=to.trim();
-    const numeric=(value:string)=>/^\d+$/.test(value)&&Number(value)<=10_000_000;
-    if((min&&!numeric(min))||(max&&!numeric(max))||
-      (min&&max&&Number(min)>Number(max))||
-      (start&&!validDay(start))||(end&&!validDay(end))||(start&&end&&start>end)){
-      setFilterError(t("competition.phase2.invalidFilters"));return;
-    }
-    apply({...applied.current,q:query.trim(),
-      minFee:min?Number(min):undefined,maxFee:max?Number(max):undefined,
-      from:start||undefined,to:end||undefined});
-  }
   function clearFilters(){
     setQuery("");setProvince("");setStatus("");setFormat("");setFee("any");
-    setSort("recommended");setMinFee("");setMaxFee("");setFrom("");setTo("");
-    setFilterError(null);apply({...defaults});
+    apply({...defaults});
   }
   const filtersActive=Boolean(applied.current.q||applied.current.province||
-    applied.current.status||applied.current.format||applied.current.fee!=="any"||
-    applied.current.from||applied.current.to||applied.current.minFee!==undefined||
-    applied.current.maxFee!==undefined||applied.current.sort!=="recommended");
+    applied.current.status||applied.current.format||applied.current.fee!=="any");
 
   const title=mode==="popular"?t("competition.mostFollowed")
     :mode==="ongoing"?t("competition.ongoingFollowedVenues")
@@ -416,39 +383,11 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
             </View>
           </View>
         </View>
-        <Pressable accessibilityRole="button" testID="competitions-advanced-filters"
-          onPress={()=>setAdvanced(x=>!x)}
-          style={[styles.advancedToggle,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          <Ionicons name="options-outline" size={19} color={colors.primary}/>
-          <AppText weight="semibold" style={styles.accent}>{t("competition.phase2.advanced")}</AppText>
-          <Ionicons name={advanced?"chevron-up":"chevron-down"} size={17} color={colors.primary}/>
-        </Pressable>
-        {advanced?<View style={styles.advanced}>
-          <TextField testID="competition-min-fee" label={t("competition.phase2.minimumFee")}
-            placeholder="0" keyboardType="numeric" value={minFee} onChangeText={setMinFee}/>
-          <TextField testID="competition-max-fee" label={t("competition.phase2.maximumFee")}
-            placeholder="10000" keyboardType="numeric" value={maxFee} onChangeText={setMaxFee}/>
-          <TextField testID="competition-start-from" label={t("competition.phase2.startsFrom")}
-            placeholder="YYYY-MM-DD" value={from} onChangeText={setFrom} maxLength={10}/>
-          <TextField testID="competition-start-to" label={t("competition.phase2.startsTo")}
-            placeholder="YYYY-MM-DD" value={to} onChangeText={setTo} maxLength={10}/>
-          {filterError?<AppText style={{color:colors.danger}}>{filterError}</AppText>:null}
-          <Button label={t("competition.phase2.applyAdvanced")} onPress={applyAdvanced}/>
-        </View>:null}
-        <Button label={t("competition.search")} onPress={()=>submit()} loading={loading}/>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.sortRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-          {(["recommended","starting","popular","newest","closing","feeLow"] as const).map(option=>
-            <Pressable key={option} testID={`competition-sort-${option}`}
-              accessibilityRole="tab" accessibilityState={{selected:sort===option}}
-              onPress={()=>pickSort(option)}
-              style={[styles.sortChip,sort===option&&styles.sortActive]}>
-              <AppText variant="caption" weight="semibold"
-                style={{color:sort===option?"#FFFFFF":colors.primary}}>
-                {t(`competition.phase2.sort.${option}` as never)}
-              </AppText>
-            </Pressable>)}
-        </ScrollView>
+        <View style={[styles.filterActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Button label={t("competition.search")} onPress={()=>submit()} loading={loading} style={{flex:1}}/>
+          {filtersActive?<Button label={t("competition.phase1.clearFilters")}
+            variant="secondary" onPress={clearFilters} disabled={loading}/>:null}
+        </View>
       </View>
     </>:null}
     {mode==="mine"?<View testID="competitions-my-filters" style={styles.filters}>
@@ -548,6 +487,7 @@ const styles=StyleSheet.create({
   filterGrid:{gap:spacing.sm,width:"100%"},
   filterRow:{gap:spacing.sm,width:"100%",alignItems:"stretch"},
   filterCell:{flex:1,minWidth:0},
+  filterActions:{gap:spacing.sm,alignItems:"stretch"},
   suggestions:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   suggestion:{minHeight:48,justifyContent:"center",paddingHorizontal:spacing.md,
     borderBottomWidth:1,borderBottomColor:colors.border},
@@ -556,7 +496,6 @@ const styles=StyleSheet.create({
     paddingHorizontal:spacing.md,minHeight:42,alignItems:"center",justifyContent:"center",
     backgroundColor:colors.surface},
   sortActive:{backgroundColor:colors.primary},
-  advancedToggle:{alignItems:"center",gap:spacing.sm,minHeight:44,paddingHorizontal:spacing.sm},
   advanced:{gap:spacing.sm},
   resultsSection:{gap:spacing.md},
   grid:{flexWrap:"wrap",alignItems:"stretch",gap:spacing.sm},
