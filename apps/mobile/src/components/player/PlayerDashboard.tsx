@@ -20,16 +20,21 @@ import {PlayerCareerTabs} from "./PlayerCareerTabs";
 import {WhatsAppGroupButton} from "../ui/WhatsAppGroupButton";
 import {useVisibleTab} from "../../hooks/useVisibleTab";
 
-type Section="overview"|"teams"|"competitions"|"matches"|"bookings"|"more"|"settings";
-type MoreTab="schedule"|"statistics"|"achievements";
-const moreTabs:MoreTab[]=["schedule","statistics","achievements"];
+type Section="overview"|"teams"|"activity"|"career"|"settings";
+type ActivityTab="competitions"|"matches"|"schedule"|"bookings";
+type CareerTab="statistics"|"achievements"|"history";
+type NestedTab=ActivityTab|CareerTab;
+const activityTabs:{id:ActivityTab;icon:keyof typeof Ionicons.glyphMap}[]=[
+  {id:"competitions",icon:"trophy-outline"},{id:"matches",icon:"football-outline"},
+  {id:"schedule",icon:"calendar-outline"},{id:"bookings",icon:"location-outline"},
+];
+const careerTabs:{id:CareerTab;icon:keyof typeof Ionicons.glyphMap}[]=[
+  {id:"statistics",icon:"stats-chart-outline"},{id:"achievements",icon:"ribbon-outline"},
+  {id:"history",icon:"time-outline"},
+];
 const sections:{id:Section;icon:keyof typeof Ionicons.glyphMap}[]=[
-  {id:"overview",icon:"grid-outline"},
-  {id:"teams",icon:"shield-outline"},
-  {id:"competitions",icon:"trophy-outline"},
-  {id:"matches",icon:"football-outline"},
-  {id:"bookings",icon:"location-outline"},
-  {id:"more",icon:"ellipsis-horizontal-circle-outline"},
+  {id:"overview",icon:"grid-outline"},{id:"teams",icon:"shield-outline"},
+  {id:"activity",icon:"calendar-outline"},{id:"career",icon:"bar-chart-outline"},
   {id:"settings",icon:"settings-outline"},
 ];
 const emptyPreferences:PlayerDashboardPreferences={
@@ -60,24 +65,29 @@ function Choice({items,selected,onSelect}:{items:{id:string;label:string}[];sele
     </ScrollView>
   </View>;
 }
-function MoreNavigation({selected,onSelect}:{selected:MoreTab;onSelect:(id:MoreTab)=>void}){
+function SectionNavigation<T extends NestedTab>({kind,items,selected,onSelect}:{
+  kind:"activity"|"career";items:{id:T;icon:keyof typeof Ionicons.glyphMap}[];
+  selected:T;onSelect:(id:T)=>void;
+}){
   const {t,isRTL}=useLocale();
-  const nav=useVisibleTab<MoreTab>(selected);
-  return <View testID="player-more-subnavigation" style={styles.moreNavFrame}>
+  const nav=useVisibleTab<T>(selected);
+  return <View testID={"player-"+kind+"-subnavigation"} style={styles.moreNavFrame}>
     <ScrollView ref={nav.scrollRef} onLayout={nav.onViewport}
-      onContentSizeChange={nav.onContentSize} horizontal
+      onContentSizeChange={nav.onContentSize} horizontal nestedScrollEnabled
       showsHorizontalScrollIndicator={false} style={styles.moreNavScroll}
       contentContainerStyle={[styles.moreNavRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      {moreTabs.map(id=><Pressable key={id} testID={"player-more-subtab-"+id}
-        accessibilityRole="tab" accessibilityLabel={t(`pd1.tab.${id}` as never)}
-        accessibilityState={{selected:selected===id}}
-        onLayout={event=>nav.cellLayout(id,event)}
-        onPress={()=>{onSelect(id);nav.focus(id,true);}}
-        style={({pressed})=>[styles.moreNavItem,selected===id&&styles.moreNavActive,
+      {items.map(item=><Pressable key={item.id}
+        testID={"player-"+kind+"-subtab-"+item.id} accessibilityRole="tab"
+        accessibilityLabel={t(`pd1.tab.${item.id}` as never)}
+        accessibilityState={{selected:selected===item.id}}
+        onLayout={event=>nav.cellLayout(item.id,event)}
+        onPress={()=>{onSelect(item.id);nav.focus(item.id,true);}}
+        style={({pressed})=>[styles.moreNavItem,selected===item.id&&styles.moreNavActive,
           pressed&&styles.optionPressed]}>
-        <AppText variant="body" weight="semibold" numberOfLines={2}
-          style={{color:selected===id?colors.surface:colors.text,textAlign:"center"}}>
-          {t(`pd1.tab.${id}` as never)}
+        <Ionicons name={item.icon} color={selected===item.id?colors.primary:colors.textMuted} size={18}/>
+        <AppText variant="caption" weight="semibold" numberOfLines={2}
+          style={{color:selected===item.id?colors.primary:colors.text,textAlign:"center"}}>
+          {t(`pd1.tab.${item.id}` as never)}
         </AppText>
       </Pressable>)}
     </ScrollView>
@@ -104,8 +114,11 @@ export function PlayerDashboard(){
   const tr=(key:string)=>t(`pd1.${key}` as never);
   const date=(s:string)=>formatCompetitionDateTime(s,language);
   const [tab,setTab]=useState<Section>("overview");
-  const [moreTab,setMoreTab]=useState<MoreTab>("schedule");
-  const [data,setData]=useState<PlayerDashboardOverview|null>(null);
+  const [activityTab,setActivityTab]=useState<ActivityTab>("competitions");
+  const [careerTab,setCareerTab]=useState<CareerTab>("statistics");
+  const [storedData,setData]=useState<PlayerDashboardOverview|null>(null);
+  const [loadedActor,setLoadedActor]=useState<string|null>(null);
+  const data=loadedActor===session?.user.id?storedData:null;
   const [preferences,setPreferences]=useState<PlayerDashboardPreferences>(emptyPreferences);
   const [directory,setDirectory]=useState<TeamDirectoryItemDto[]>([]);
   const [teamQuery,setTeamQuery]=useState("");
@@ -125,22 +138,28 @@ export function PlayerDashboard(){
   },[]);
   useEffect(()=>{const id=requestAnimationFrame(()=>focusTab(tab));return()=>cancelAnimationFrame(id);},[tab,focusTab]);
   const choose=(id:Section)=>{
-    // The first More subtab is selected whenever More is newly entered.
-    if(id==="more"&&tab!=="more")setMoreTab(moreTabs[0]!);
     if(id!==tab)setTab(id);
     focusTab(id,true);setConfirmLeave(null);
   };
+  // Restore the previous nested section when returning from another tab.
+  useEffect(()=>{
+    setLoadedActor(null);setData(null);setDirectory([]);
+    setPreferences(emptyPreferences);setTeamPanel("MINE");
+    setTeamQuery("");setProvinceFilter("");setConfirmLeave(null);
+    setActivityTab("competitions");setCareerTab("statistics");
+    setError(null);setMessage(null);
+  },[session?.user.id]);
 
   useFocusEffect(useCallback(()=>{
     let mounted=true;
     if(!token){setLoading(false);return()=>{mounted=false;};}
     setLoading(true);setError(null);
     void playerDashboardApi.overview(token).then(v=>{
-      if(mounted){setData(v);setPreferences(v.preferences);}
+      if(mounted){setData(v);setLoadedActor(session?.user.id??null);setPreferences(v.preferences);}
     }).catch(e=>{if(mounted){setData(null);setError(e instanceof ApiRequestError?e.message:t("pd1.loadError"));}})
       .finally(()=>{if(mounted)setLoading(false);});
     return()=>{mounted=false;};
-  },[token,refresh,t]));
+  },[token,session?.user.id,refresh,t]));
 
   useEffect(()=>{
     if(tab!=="teams"||teamPanel!=="FIND"||!token)return;
@@ -204,7 +223,10 @@ export function PlayerDashboard(){
         </AppText>
       </Pressable>)}
     </ScrollView>
-    {tab==="more"?<MoreNavigation selected={moreTab} onSelect={setMoreTab}/>:null}
+    {tab==="activity"?<SectionNavigation kind="activity" items={activityTabs}
+      selected={activityTab} onSelect={setActivityTab}/>:null}
+    {tab==="career"?<SectionNavigation kind="career" items={careerTabs}
+      selected={careerTab} onSelect={setCareerTab}/>:null}
 
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={t("common.retry")} variant="secondary" onPress={()=>setRefresh(x=>x+1)}/></Card>:null}
@@ -555,13 +577,8 @@ export function PlayerDashboard(){
           onPress={()=>router.push(hasManager?"/dashboard":"/owner/competitions")}/>:null}
       </>:null}
 
-      {(["competitions","matches","bookings"] as Section[]).includes(tab)||
-        tab==="more"&&moreTab==="schedule"?
-        <PlayerActivityTabs tab={tab==="more"?"schedule":tab as "competitions"|"matches"|"bookings"}
-          token={token!} teams={teams}/>:null}
-
-      {tab==="more"&&(moreTab==="statistics"||moreTab==="achievements")?
-        <PlayerCareerTabs tab={moreTab} token={token!}/>:null}
+      {tab==="activity"?<PlayerActivityTabs tab={activityTab} token={token!} teams={teams}/>:null}
+      {tab==="career"?<PlayerCareerTabs tab={careerTab} token={token!}/>:null}
     </>:null}
     </View>
   </Screen>;
@@ -574,8 +591,9 @@ const styles=StyleSheet.create({
   alertButton:{width:44,height:44,alignItems:"center",justifyContent:"center"},
   badge:{position:"absolute",top:5,right:6,width:8,height:8,borderRadius:4,backgroundColor:colors.danger},
   nav:{borderTopWidth:1,borderBottomWidth:1,borderColor:colors.border,flexGrow:0},
-  navTab:{alignItems:"center",gap:3,paddingVertical:spacing.sm,paddingHorizontal:spacing.sm,
-    borderBottomWidth:3,borderBottomColor:"transparent",minWidth:73},
+  navTab:{alignItems:"center",gap:spacing.xs,paddingVertical:spacing.sm,paddingHorizontal:spacing.md,
+    borderBottomWidth:3,borderBottomColor:"transparent",minWidth:83,minHeight:55,
+    borderTopLeftRadius:radius.sm,borderTopRightRadius:radius.sm},
   navActive:{backgroundColor:colors.primarySoft,borderBottomColor:colors.primary,borderRadius:radius.sm},
   // The selector stays 56px tall; Pressables never inherit screen height.
   choiceFrame:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
@@ -626,11 +644,11 @@ const styles=StyleSheet.create({
   moreNavFrame:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
     borderRadius:radius.md,overflow:"hidden"},
   moreNavScroll:{flexGrow:0,minHeight:56},
-  moreNavRow:{flexGrow:1,alignItems:"stretch",gap:spacing.xs,padding:spacing.xs},
-  moreNavItem:{flex:1,minWidth:110,minHeight:48,alignItems:"center",justifyContent:"center",
-    borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,
-    backgroundColor:colors.surfaceMuted,paddingHorizontal:spacing.sm,paddingVertical:spacing.xs},
-  moreNavActive:{backgroundColor:colors.primary,borderColor:colors.primary},
+  moreNavRow:{alignItems:"center",gap:spacing.xs,padding:spacing.xs},
+  moreNavItem:{flexShrink:0,minWidth:105,minHeight:48,alignItems:"center",justifyContent:"center",
+    gap:3,borderRadius:radius.sm,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surface,paddingHorizontal:spacing.md,paddingVertical:spacing.xs},
+  moreNavActive:{backgroundColor:colors.primarySoft,borderColor:colors.primary},
   overview:{gap:spacing.md},
   overviewHero:{gap:spacing.md,padding:spacing.md,
     backgroundColor:"#EDF4FF",borderWidth:1,borderColor:"#C8D9F8",
