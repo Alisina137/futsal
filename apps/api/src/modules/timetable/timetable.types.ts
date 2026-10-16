@@ -85,6 +85,8 @@ export interface TimetableRepository {
     ownerUserId: string;
   }): Promise<TimetableRecord>;
   deleteDraft(timetableId: string, venueId: string): Promise<boolean>;
+  deleteHistoricalTimetable(timetableId: string, venueId: string, today: string): Promise<boolean>;
+
   publishTimetable(input: {
     timetableId: string;
     venueId: string;
