@@ -206,7 +206,7 @@ export function TeamManagerDashboard(){
     setMetadataError(false);setAttentionError(false);setAttentionKey(null);
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
-  },[token,userId]);
+  },[userId]);
 
   // Reset per-team drafts while preserving the chosen dashboard destination.
   useEffect(()=>{
