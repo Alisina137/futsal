@@ -365,7 +365,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
                   <Button label={t("common.cancel")} variant="secondary"
                     onPress={()=>setAnnouncementToDelete(null)}/>
                 </View>
-              </View>:null>
+              </View>:null}
             </View>)}
           </Card>
         </>}
