@@ -22,7 +22,7 @@ type Mode="directory"|"following"|"popular"|"ongoing"|"registration"|"live"|"min
 type Scope=CompetitionDiscoveryQuery["scope"];
 const MAX_FOLLOWED=10;
 const defaults:CompetitionDiscoveryQuery={
-  q:"",province:"",fee:"any",sort:"recommended",scope:"all",phase:"all",page:1,limit:12,
+  q:"",province:"",city:"",fee:"any",sort:"recommended",scope:"all",phase:"all",page:1,limit:12,
 };
 const scopes:Record<Mode,Scope>={
   directory:"all",following:"following",popular:"popular",
@@ -222,7 +222,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   }
   function pickProvince(value:string){
     setProvince(value);
-    apply({...applied.current,province:value,q:query.trim()});
+    apply({...applied.current,province:value,city:"",q:query.trim()});
   }
   function pickStatus(value:string){
     setStatus(value as typeof status);
