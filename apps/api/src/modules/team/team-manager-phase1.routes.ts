@@ -50,6 +50,26 @@ const guestInput=z.object({
   shirtNumber:z.number().int().min(1).max(99).nullable(),
 });
 
+type OverviewMatch={
+  id:string;competitionId:string;homeTeamId:string|null;awayTeamId:string|null;
+  homeScore:number|null;awayScore:number|null;startsAt:Date|null;status:string;
+};
+
+/** No friendlies or incomplete games contaminate the manager's official W-D-L.
+ * Postponed and live fixtures must not be counted as scheduled upcoming matches. */
+export function summarizeOfficialTeamMatches(rows:readonly OverviewMatch[],teamId:string,now:Date){
+  const finalized=rows.filter(m=>["COMPLETED","CORRECTED"].includes(m.status)&&
+    m.homeScore!==null&&m.awayScore!==null);
+  const wins=finalized.filter(m=>m.homeTeamId===teamId?
+    m.homeScore!>m.awayScore!:m.awayScore!>m.homeScore!).length;
+  const draws=finalized.filter(m=>m.homeScore===m.awayScore).length;
+  const losses=finalized.length-wins-draws;
+  const future=rows.filter(m=>m.status==="SCHEDULED"&&m.startsAt!==null&&m.startsAt>now)
+    .sort((a,b)=>a.startsAt!.getTime()-b.startsAt!.getTime());
+  return {played:finalized.length,wins,draws,losses,upcoming:future.length,
+    winRate:finalized.length?Math.round(wins*100/finalized.length):0,next:future[0]??null};
+}
+
 export class TeamManagerPhase1Service {
   constructor(private readonly db:Database,private readonly now:()=>Date=()=>new Date()){}
   private async team(userId:string,teamId:string,write=false){
@@ -108,16 +128,8 @@ export class TeamManagerPhase1Service {
         startsAt:competitionMatches.startsAt,status:competitionMatches.status})
         .from(competitionMatches).where(or(eq(competitionMatches.homeTeamId,teamId),eq(competitionMatches.awayTeamId,teamId))),
     ]);
-    const finalized=matches.filter(m=>["COMPLETED","CORRECTED"].includes(m.status)
-      &&m.homeScore!==null&&m.awayScore!==null);
-    const wins=finalized.filter(m=>m.homeTeamId===teamId?m.homeScore!>m.awayScore!:m.awayScore!>m.homeScore!).length;
-    const draws=finalized.filter(m=>m.homeScore===m.awayScore).length;
-    const losses=finalized.length-wins-draws;
-    // Only future scheduled matches count as upcoming. Postponed, cancelled,
-    // and already-running matches are not promises of a future fixture.
-    const future=matches.filter(m=>!!m.startsAt&&m.startsAt>=this.now()&&m.status==="SCHEDULED")
-      .sort((a,b)=>a.startsAt!.getTime()-b.startsAt!.getTime());
-    const next=future[0]??null;
+    const record=summarizeOfficialTeamMatches(matches,teamId,this.now());
+    const {next}=record;
     let nextMatch:null|{id:string;competitionId:string;competitionName:string;
       opponentName:string;opponentLogoUrl:string|null;venueName:string;startsAt:string}=null;
     if(next){
@@ -136,8 +148,8 @@ export class TeamManagerPhase1Service {
         startsAt:next.startsAt!.toISOString()};
     }
     return {canWrite:access.canWrite,profile,guests:guests.map(g=>({...g,createdAt:g.createdAt.toISOString()})),
-      stats:{competitions:registrations.length,played:finalized.length,wins,draws,losses,
-        upcoming:future.length,winRate:finalized.length?Math.round(wins*100/finalized.length):0},nextMatch};
+      stats:{competitions:registrations.length,played:record.played,wins:record.wins,
+        draws:record.draws,losses:record.losses,upcoming:record.upcoming,winRate:record.winRate},nextMatch};
   }
   async updateProfile(userId:string,teamId:string,input:z.infer<typeof profileInput>){
     await this.team(userId,teamId,true);
