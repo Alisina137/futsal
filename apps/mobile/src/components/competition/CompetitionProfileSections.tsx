@@ -338,45 +338,95 @@ function CompetitionTeams({competition,registration,view="PARTICIPANTS"}:{
     testID={view==="REGISTRATION"?"competition-registration-subtab":"competition-my-participation-subtab"}>
     {registration}
   </View>;
+  const capacity=Math.max(0,competition.maxTeams);
+  const unfilled=Math.max(0,capacity-teams.length);
+  const fill=capacity?Math.min(100,Math.round(100*teams.length/capacity)):0;
+
   return <View style={styles.stack} testID="competition-public-participants">
     <Card style={styles.participantSummary}>
-      <View style={[styles.teamRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <Ionicons name="people-outline" size={22} color={colors.primary}/>
-        <View style={{flex:1,gap:3}}>
-          <AppText weight="bold" variant="bodyLarge">{t("competition.teams")}</AppText>
-          <AppText muted variant="caption">
-            {t("competition.detail.acceptedTeamsCount",{count:teams.length,max:competition.maxTeams})}
+      <View style={[styles.participantSummaryTop,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.participantSummaryIcon}>
+          <Ionicons name="people-outline" size={24} color={colors.primary}/>
+        </View>
+        <View style={{flex:1,minWidth:0,gap:4}}>
+          <AppText variant="bodyLarge" weight="bold">
+            {t("competition.detail.participantList")}
+          </AppText>
+          <AppText variant="caption" muted>
+            {t("competition.detail.acceptedTeamsCount",{count:teams.length,max:capacity})}
+          </AppText>
+        </View>
+        <AppText weight="bold" variant="bodyLarge" style={styles.participantCount} forceLtr>
+          {teams.length}/{capacity}
+        </AppText>
+      </View>
+      <View testID="competition-participant-capacity" style={styles.participantProgress}>
+        <View style={[styles.participantProgressFill,{width:`${fill}%` as `${number}%`}]}/>
+      </View>
+      <View style={[styles.participantCapacityMeta,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <AppText variant="caption" muted style={{flex:1}}>
+          {t("competition.detail.participantsExplainer")}
+        </AppText>
+        <View style={styles.participantPlacesPill}>
+          <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
+            {t("competition.detail.unfilledPlaces")}: {unfilled}
           </AppText>
         </View>
       </View>
     </Card>
     {teams.length===0?<Placeholder icon="people-outline" title={t("competition.profile.noTeams")}/>:null}
-    {teams.map(team=><Pressable key={team.teamId}
-      testID={`competition-participant-${team.teamId}`}
-      accessibilityRole={team.offline?"text":"button"}
-      disabled={team.offline} onPress={()=>!team.offline&&openTeam(team.teamId)}>
-      <Card style={[styles.teamRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        <View style={styles.teamLogo}>
-          {resolveMediaImageUrl(team.logoUrl)
-            ?<Image source={{uri:resolveMediaImageUrl(team.logoUrl)!}}
-              style={styles.logoImage} resizeMode="cover"/>
-            :<Ionicons name="shield-outline" size={24} color={colors.primary}/>}
-        </View>
-        <View style={{flex:1,minWidth:0,gap:4}}>
-          <AppText weight="bold" numberOfLines={2}>{team.teamName}</AppText>
-          {team.offline?<AppText variant="caption" muted>{t("competition.manualTeamBadge")}</AppText>:null}
-          {team.groupName?<AppText muted variant="caption">{t("competition.group",{name:team.groupName})}</AppText>:null}
-          <AppText variant="caption" style={{color:colors.primary}}>
-            {t("competition.registrationStatus.ACCEPTED")}
-          </AppText>
-        </View>
-        {team.seed?<View style={styles.seedBadge}>
-          <AppText weight="semibold" variant="caption" style={{color:colors.primary}}>#{team.seed}</AppText>
-        </View>:null}
-        {!team.offline?<Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={19}
-          color={colors.textMuted}/>:null}
-      </Card>
-    </Pressable>)}
+    {teams.map(team=>{
+      const logo=resolveMediaImageUrl(team.logoUrl);
+      return <Pressable key={team.teamId}
+        testID={`competition-participant-${team.teamId}`}
+        accessibilityRole={team.offline?"text":"button"}
+        accessibilityLabel={team.teamName}
+        disabled={Boolean(team.offline)} onPress={()=>!team.offline&&openTeam(team.teamId)}
+        style={({pressed})=>pressed&&!team.offline?styles.participantPressed:undefined}>
+        <Card style={styles.participantCard}>
+          <View style={[styles.participantInfo,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={styles.participantLogo}>
+              {logo?<Image source={{uri:logo}} style={styles.logoImage} resizeMode="cover"/>:
+                <Ionicons name="shield-outline" size={24} color={colors.primary}/>}
+            </View>
+            <View style={{flex:1,minWidth:0,gap:3}}>
+              <AppText variant="bodyLarge" weight="bold" numberOfLines={2}>
+                {team.teamName}
+              </AppText>
+              {team.offline?<AppText variant="caption" muted numberOfLines={2}>
+                {t("competition.manualTeamBadge")}
+              </AppText>:null}
+            </View>
+          </View>
+          <View style={[styles.participantMeta,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={[styles.participantChip,styles.participantAccepted,
+              {flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name="checkmark-circle" size={15} color={colors.success}/>
+              <AppText variant="caption" weight="semibold" style={{color:colors.success}}>
+                {t("competition.registrationStatus.ACCEPTED")}
+              </AppText>
+            </View>
+            {team.groupName?<View style={styles.participantChip}>
+              <AppText variant="caption" weight="medium">
+                {t("competition.group",{name:team.groupName})}
+              </AppText>
+            </View>:null}
+            {team.seed!=null?<View style={styles.participantChip}>
+              <AppText variant="caption" weight="medium">
+                {t("competition.detail.seedLabel",{number:team.seed})}
+              </AppText>
+            </View>:null}
+          </View>
+          {!team.offline?<View style={[styles.participantFooter,
+            {flexDirection:isRTL?"row-reverse":"row"}]}>
+            <AppText variant="caption" weight="semibold" style={{color:colors.primary,flex:1}}>
+              {t("competition.detail.viewTeamProfile")}
+            </AppText>
+            <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={17} color={colors.primary}/>
+          </View>:null}
+        </Card>
+      </Pressable>;
+    })}
     {registration}
   </View>;
 }
@@ -908,13 +958,31 @@ const styles=StyleSheet.create({
   statEntry:{padding:spacing.sm},
   rank:{width:42,height:42,borderRadius:21,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
-  participantSummary:{padding:spacing.md,backgroundColor:colors.primarySoft},
+  participantSummary:{padding:spacing.md,backgroundColor:colors.primarySoft,gap:spacing.md},
+  participantSummaryTop:{alignItems:"center",gap:spacing.sm},
+  participantSummaryIcon:{width:46,height:46,borderRadius:14,backgroundColor:colors.surface,
+    alignItems:"center",justifyContent:"center"},
+  participantCount:{color:colors.primary},
+  participantProgress:{height:9,borderRadius:radius.pill,backgroundColor:"#D0DEF7",overflow:"hidden"},
+  participantProgressFill:{height:"100%",backgroundColor:colors.primary,borderRadius:radius.pill},
+  participantCapacityMeta:{alignItems:"flex-start",gap:spacing.sm},
+  participantPlacesPill:{paddingHorizontal:spacing.sm,paddingVertical:5,
+    backgroundColor:colors.surface,borderRadius:radius.pill},
+  participantPressed:{opacity:.75},
+  participantCard:{gap:spacing.sm,padding:spacing.md},
+  participantInfo:{alignItems:"center",gap:spacing.sm},
+  participantLogo:{width:48,height:48,borderRadius:14,backgroundColor:colors.primarySoft,
+    alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  participantMeta:{gap:spacing.xs,flexWrap:"wrap",alignItems:"center"},
+  participantChip:{paddingHorizontal:spacing.sm,paddingVertical:5,
+    borderRadius:radius.pill,backgroundColor:colors.surfaceMuted},
+  participantAccepted:{backgroundColor:"#E5F5E9",gap:4,alignItems:"center"},
+  participantFooter:{borderTopWidth:1,borderTopColor:colors.border,
+    paddingTop:spacing.sm,alignItems:"center",gap:spacing.sm},
   teamRow:{alignItems:"center",gap:spacing.sm},
   teamLogo:{width:54,height:54,borderRadius:27,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",overflow:"hidden"},
   logoImage:{width:"100%",height:"100%"},
-  seedBadge:{paddingVertical:5,paddingHorizontal:8,borderRadius:radius.pill,
-    backgroundColor:colors.primarySoft},
   championCard:{backgroundColor:"#FFF7E3",borderWidth:1,borderColor:"#F3E1B0",
     padding:spacing.md,gap:spacing.sm},
   championHeading:{alignItems:"center",gap:spacing.md},
