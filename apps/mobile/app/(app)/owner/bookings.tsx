@@ -260,12 +260,15 @@ function Chip({text,active,onPress,testID,colorsForStatus}:{
 }){
   return <Pressable testID={testID} onPress={onPress} accessibilityRole="button"
     accessibilityState={{selected:active}}
-    style={[styles.chip,active&&styles.selected,
-      colorsForStatus&&{backgroundColor:colorsForStatus.background,
-        borderColor:colorsForStatus.border},
+    style={[styles.chip,active&&!colorsForStatus&&styles.selected,
+      colorsForStatus&&{
+        borderColor:colorsForStatus.border,
+        backgroundColor:active?colorsForStatus.background:colors.surface,
+      },
       active&&colorsForStatus&&{borderWidth:2}]}>
     <AppText variant="caption" weight="semibold"
-      style={colorsForStatus?{color:colorsForStatus.text}:active?styles.selectedText:undefined}>
+      style={colorsForStatus&&active?{color:colorsForStatus.text}:
+        active?styles.selectedText:undefined}>
       {text}
     </AppText>
     {active?<Ionicons name="checkmark" size={13}
