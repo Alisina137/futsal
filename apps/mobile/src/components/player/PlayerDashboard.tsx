@@ -157,6 +157,7 @@ export function PlayerDashboard(){
   };
   // Restore the previous nested section when returning from another tab.
   useEffect(()=>{
+    setBusy(null);
     setLoadedActor(null);setData(null);setDirectory([]);
     preferencesDirtyRef.current=false;
     setPreferences(emptyPreferences);setSavedPreferences(emptyPreferences);
@@ -244,8 +245,11 @@ export function PlayerDashboard(){
       setSettingsMessage(t("pd1.saved"));
       setRefresh(value=>value+1);
     }catch(e){
-      if(actorIdRef.current===actorId)
-        setSettingsError(e instanceof ApiRequestError?e.message:t("pd1.actionFailed"));
+      if(actorIdRef.current===actorId){
+        const message=e instanceof ApiRequestError?e.message:t("pd1.actionFailed");
+        setSettingsError(message);
+        setError(message);
+      }
     }finally{if(actorIdRef.current===actorId)setBusy(null);}
   }
   const teams=data?.teams??[];
