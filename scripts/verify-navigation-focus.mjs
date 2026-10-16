@@ -92,8 +92,10 @@ assert.ok(player.includes('tab==="more"?<MoreNavigation selected={moreTab} onSel
   "Player More subtabs must be visible, evenly spaced and focused horizontally.");
 const manager=read("apps/mobile/src/components/team-manager/TeamManagerDashboard.tsx");
 assert.ok(manager.includes('useState<Section>("overview")'));
-assert.ok(manager.includes('section==="aboutTeam"?aboutTeamTabs[0].id:section'),
-  "Entering About Team must select the first subtab.");
+assert.ok(manager.includes('useState<AboutTeamSection>("players")')&&
+  manager.includes('section==="aboutTeam"?lastAboutTeamTab:section')&&
+  manager.includes('setLastAboutTeamTab(section)'),
+  "About Team must default to Players and restore the previously selected subtab.");
 const admin=read("apps/mobile/app/(app)/admin/index.tsx");
 assert.ok(admin.includes('useState<SectionKey>("dashboard")'));
 assert.ok(!admin.includes('sessionStorage?.getItem("futsal.admin.section")'),
