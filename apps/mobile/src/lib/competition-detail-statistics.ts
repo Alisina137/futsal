@@ -1,4 +1,34 @@
-import type {CompetitionDto,PlayerCompetitionStatDto} from "@leaguekick/contracts";
+import type {CompetitionDto,CompetitionMatchDto,PlayerCompetitionStatDto} from "@leaguekick/contracts";
+
+type OfficialScoredMatch=CompetitionMatchDto &{
+  homeTeamId:string;awayTeamId:string;homeScore:number;awayScore:number;
+};
+
+/** Shared source for team totals and the per-team finished-match drill-down.
+ * Both participants must still be accepted; only verified final scores count. */
+function officialScoredMatches(competition:Pick<CompetitionDto,"teams"|"matches">):OfficialScoredMatch[]{
+  const accepted=new Set(competition.teams.filter(team=>team.status==="ACCEPTED")
+    .map(team=>team.teamId));
+  return competition.matches.filter((match):match is OfficialScoredMatch=>
+    (match.status==="COMPLETED"||match.status==="CORRECTED")&&
+    match.homeTeamId!==null&&match.awayTeamId!==null&&
+    match.homeTeamId!==match.awayTeamId&&
+    accepted.has(match.homeTeamId)&&accepted.has(match.awayTeamId)&&
+    match.homeScore!==null&&match.awayScore!==null&&
+    Number.isSafeInteger(match.homeScore)&&Number.isSafeInteger(match.awayScore)&&
+    match.homeScore>=0&&match.awayScore>=0);
+}
+
+/** Official match records only, newest scheduled date first. Null dates remain
+ * visible last. No live, unscored, cancelled, or removed-team data can appear. */
+export function competitionTeamFinishedMatches(
+  competition:Pick<CompetitionDto,"teams"|"matches">,teamId:string,
+):OfficialScoredMatch[]{
+  return officialScoredMatches(competition)
+    .filter(match=>match.homeTeamId===teamId||match.awayTeamId===teamId)
+    .sort((a,b)=>(b.startsAt??"").localeCompare(a.startsAt??"")||
+      a.roundNumber-b.roundNumber||a.slotNumber-b.slotNumber||a.id.localeCompare(b.id));
+}
 
 /**
  * Public team totals are derived from official, scored, finalized fixtures.
@@ -14,17 +44,8 @@ export function competitionTeamStatistics(
     played:0,wins:0,draws:0,losses:0,goalsFor:0,goalsAgainst:0,goalDifference:0,
   }]));
   let scoredMatches=0;
-  for(const match of competition.matches){
-    if((match.status!=="COMPLETED"&&match.status!=="CORRECTED")||
-      !match.homeTeamId||!match.awayTeamId||
-      match.homeTeamId===match.awayTeamId||
-      match.homeScore===null||match.awayScore===null||
-      !Number.isSafeInteger(match.homeScore)||!Number.isSafeInteger(match.awayScore)||
-      match.homeScore<0||match.awayScore<0)continue;
-    const home=results.get(match.homeTeamId),away=results.get(match.awayTeamId);
-    // A fixture involving a removed/non-accepted participant is not public
-    // competition-wide participation; never silently award a partial result.
-    if(!home||!away)continue;
+  for(const match of officialScoredMatches(competition)){
+    const home=results.get(match.homeTeamId)!,away=results.get(match.awayTeamId)!;
     scoredMatches++;
     home.played++;away.played++;
     home.goalsFor+=match.homeScore;home.goalsAgainst+=match.awayScore;
