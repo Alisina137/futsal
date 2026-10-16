@@ -11,7 +11,7 @@ import {
   venueTimetablePeriods,
   venueTimetables,
 } from "@leaguekick/database";
-import { and, eq, gte, inArray, lte, lt, gt } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, lt, gt, or } from "drizzle-orm";
 import type {
   TimetableExceptionRecord,
   TimetableOccupancyRecord,
@@ -199,6 +199,21 @@ export class DrizzleTimetableRepository implements TimetableRepository {
       eq(venueTimetables.id, timetableId),
       eq(venueTimetables.venueId, venueId),
       eq(venueTimetables.status, "DRAFT"),
+    )).returning({ id: venueTimetables.id });
+    return rows.length > 0;
+  }
+
+  /** Historical rows may be removed only after archiving or after their
+   * effective period has ended. The venue/status/date checks live inside the
+   * DELETE itself so a concurrent publish cannot remove an active timetable. */
+  async deleteHistoricalTimetable(timetableId: string, venueId: string, today: string) {
+    const rows = await this.db.delete(venueTimetables).where(and(
+      eq(venueTimetables.id, timetableId),
+      eq(venueTimetables.venueId, venueId),
+      or(
+        eq(venueTimetables.status, "ARCHIVED"),
+        and(eq(venueTimetables.status, "PUBLISHED"),lt(venueTimetables.effectiveUntil,today)),
+      ),
     )).returning({ id: venueTimetables.id });
     return rows.length > 0;
   }
