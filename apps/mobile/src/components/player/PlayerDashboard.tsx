@@ -19,6 +19,8 @@ import {PlayerActivityTabs} from "./PlayerActivityTabs";
 import {PlayerCareerTabs} from "./PlayerCareerTabs";
 import {WhatsAppGroupButton} from "../ui/WhatsAppGroupButton";
 import {useVisibleTab} from "../../hooks/useVisibleTab";
+import {normalizePlayerPreferences,playerPreferencesChanged,playerPreferencesValid}
+  from "../../lib/player-preferences";
 
 type Section="overview"|"teams"|"activity"|"career"|"settings";
 type ActivityTab="competitions"|"matches"|"schedule"|"bookings";
@@ -120,6 +122,12 @@ export function PlayerDashboard(){
   const [loadedActor,setLoadedActor]=useState<string|null>(null);
   const data=loadedActor===session?.user.id?storedData:null;
   const [preferences,setPreferences]=useState<PlayerDashboardPreferences>(emptyPreferences);
+  const [savedPreferences,setSavedPreferences]=useState<PlayerDashboardPreferences>(emptyPreferences);
+  const preferencesDirtyRef=useRef(false);
+  const actorIdRef=useRef(session?.user.id);
+  actorIdRef.current=session?.user.id;
+  const [settingsError,setSettingsError]=useState<string|null>(null);
+  const [settingsMessage,setSettingsMessage]=useState<string|null>(null);
   const [directory,setDirectory]=useState<TeamDirectoryItemDto[]>([]);
   const [teamQuery,setTeamQuery]=useState("");
   const [memberQuery,setMemberQuery]=useState("");
@@ -150,7 +158,9 @@ export function PlayerDashboard(){
   // Restore the previous nested section when returning from another tab.
   useEffect(()=>{
     setLoadedActor(null);setData(null);setDirectory([]);
-    setPreferences(emptyPreferences);setTeamPanel("MINE");
+    preferencesDirtyRef.current=false;
+    setPreferences(emptyPreferences);setSavedPreferences(emptyPreferences);
+    setSettingsError(null);setSettingsMessage(null);setTeamPanel("MINE");
     setTeamQuery("");setMemberQuery("");setRequestFilter("ALL");
     setProvinceFilter("");setConfirmLeave(null);setConfirmDecline(null);
     setConfirmCancelRequest(null);setDirectoryError(null);setDirectoryLoading(false);
@@ -163,7 +173,11 @@ export function PlayerDashboard(){
     if(!token){setLoading(false);return()=>{mounted=false;};}
     setLoading(true);setError(null);
     void playerDashboardApi.overview(token).then(v=>{
-      if(mounted){setData(v);setLoadedActor(session?.user.id??null);setPreferences(v.preferences);}
+      if(mounted){
+        setData(v);setLoadedActor(session?.user.id??null);
+        setSavedPreferences(v.preferences);
+        if(!preferencesDirtyRef.current)setPreferences(v.preferences);
+      }
     }).catch(e=>{if(mounted){setData(null);setError(e instanceof ApiRequestError?e.message:t("pd1.loadError"));}})
       .finally(()=>{if(mounted)setLoading(false);});
     return()=>{mounted=false;};
@@ -185,6 +199,54 @@ export function PlayerDashboard(){
     try{await operation();after?.();setMessage(t("pd1.saved"));setRefresh(v=>v+1);}
     catch(e){setError(e instanceof ApiRequestError?e.message:t("pd1.actionFailed"));}
     finally{setBusy(null);}
+  }
+  const settingsDirty=playerPreferencesChanged(preferences,savedPreferences);
+  const editPreferences=(patch:Partial<PlayerDashboardPreferences>)=>{
+    preferencesDirtyRef.current=true;
+    setPreferences(current=>({...current,...patch}));
+    setSettingsError(null);setSettingsMessage(null);
+  };
+  const discardPreferences=()=>{
+    preferencesDirtyRef.current=false;
+    setPreferences(savedPreferences);
+    setSettingsError(null);setSettingsMessage(null);
+  };
+  async function savePreferences(){
+    if(busy||!token||!settingsDirty)return;
+    if(!playerPreferencesValid(preferences)){
+      setSettingsError(t("pd1.preferencesInvalid"));return;
+    }
+    const actorId=session?.user.id;
+    const next=normalizePlayerPreferences(preferences);
+    setBusy("preferences");setSettingsError(null);setSettingsMessage(null);
+    try{
+      const result=await playerDashboardApi.updatePreferences(token,next);
+      if(actorIdRef.current!==actorId)return;
+      preferencesDirtyRef.current=false;
+      setSavedPreferences(result.preferences);
+      setPreferences(result.preferences);
+      setSettingsMessage(t("pd1.saved"));
+      setRefresh(value=>value+1);
+    }catch(e){
+      if(actorIdRef.current===actorId)
+        setSettingsError(e instanceof ApiRequestError?e.message:t("pd1.actionFailed"));
+    }finally{if(actorIdRef.current===actorId)setBusy(null);}
+  }
+  async function saveDefaultTeam(id:string){
+    if(busy||!token||preferences.defaultTeamId=== (id||null))return;
+    const actorId=session?.user.id;
+    setBusy("default:"+id);setSettingsError(null);setSettingsMessage(null);
+    try{
+      const result=await playerDashboardApi.updatePreferences(token!,{defaultTeamId:id||null});
+      if(actorIdRef.current!==actorId)return;
+      setSavedPreferences(result.preferences);
+      setPreferences(draft=>({...draft,defaultTeamId:result.preferences.defaultTeamId}));
+      setSettingsMessage(t("pd1.saved"));
+      setRefresh(value=>value+1);
+    }catch(e){
+      if(actorIdRef.current===actorId)
+        setSettingsError(e instanceof ApiRequestError?e.message:t("pd1.actionFailed"));
+    }finally{if(actorIdRef.current===actorId)setBusy(null);}
   }
   const teams=data?.teams??[];
   const selected=teams.find(x=>x.id===data?.selectedTeamId)??teams[0]??null;
@@ -220,10 +282,17 @@ export function PlayerDashboard(){
         <AppText weight="bold" numberOfLines={1}>{profile?.publicDisplayName??session?.user.displayName??tr("playerDashboard")}</AppText>
         <AppText variant="caption" muted>{selected?.name??tr("noCurrentTeam")}</AppText>
       </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={t("pd1.refreshDashboard")}
+        accessibilityState={{disabled:loading||busy!==null}}
+        testID="player-refresh-dashboard" disabled={loading||busy!==null}
+        onPress={()=>{setError(null);setMessage(null);setRefresh(value=>value+1);}}
+        style={styles.alertButton}>
+        <Ionicons name="refresh-outline" size={23}
+          color={loading||busy!==null?colors.textMuted:colors.primary}/>
+      </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={t("notifications.title")}
         onPress={()=>router.push("/notifications")} style={styles.alertButton}>
         <Ionicons name="notifications-outline" size={24} color={colors.primary}/>
-        {pendingInvites.length>0?<View style={styles.badge}/>:null}
       </Pressable>
     </View>
 
@@ -304,6 +373,17 @@ export function PlayerDashboard(){
           <Stat label={tr("assists")} value={data.stats.assists} icon="git-merge-outline"/>
           <Stat label={tr("awards")} value={data.stats.awards} icon="trophy-outline"/>
         </View>
+        <Card testID="player-dashboard-quick-actions" style={styles.overviewSection}>
+          <OverviewTitle icon="flash-outline" label={tr("quickActions")}/>
+          <View style={[styles.overviewActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button label={tr("openProgram")} variant="secondary" style={styles.overviewAction}
+              onPress={()=>{setActivityTab("schedule");choose("activity");}}/>
+            <Button label={tr("openCareer")} variant="secondary" style={styles.overviewAction}
+              onPress={()=>{setCareerTab("statistics");choose("career");}}/>
+            <Button label={tr("openNotifications")} variant="secondary"
+              style={styles.overviewAction} onPress={()=>router.push("/notifications")}/>
+          </View>
+        </Card>
         <Card style={styles.overviewSection}>
           <OverviewTitle icon="calendar-outline" label={tr("nextMatch")}/>
           {data.nextMatch?<View style={styles.sectionBody}>
@@ -479,9 +559,7 @@ export function PlayerDashboard(){
                 style={styles.teamFullButton} icon={<Ionicons name="star-outline" size={18}
                   color={colors.primary}/>} disabled={busy!==null}
                 loading={busy==="default:"+team.id}
-                onPress={()=>void perform("default:"+team.id,()=>playerDashboardApi.updatePreferences(token!,{
-                  defaultTeamId:team.id,
-                }))}/>:null}
+                onPress={()=>void saveDefaultTeam(team.id)}/>:null}
               {data.whatsappGroups?.[team.id]?<View style={[styles.teamWhatsAppRow,{alignItems:isRTL?"flex-end":"flex-start"}]}>
                 <WhatsAppGroupButton url={data.whatsappGroups[team.id]!}/>
               </View>:null}
@@ -639,43 +717,97 @@ export function PlayerDashboard(){
         </>:null}
       </>:null}
 
-      {tab==="settings"?<>
-        <Card>
-          <AppText variant="bodyLarge" weight="bold">{tr("playerProfile")}</AppText>
+      {tab==="settings"?<View testID="player-settings-panel" style={styles.settingsPanel}>
+        <Card style={styles.settingsCard}>
+          <OverviewTitle icon="person-circle-outline" label={tr("playerProfile")}/>
           <AppText variant="caption" muted>{tr("profileHint")}</AppText>
-          <Button label={tr("editProfile")} onPress={()=>router.push("/profile/player")}/>
+          <Button label={tr("editProfile")} variant="secondary"
+            onPress={()=>router.push("/profile/player")}/>
+          <View style={[styles.settingsRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name={profile?.visibility==="PRIVATE"?"lock-closed-outline":"eye-outline"}
+              size={18} color={colors.primary}/>
+            <AppText variant="caption" style={{flex:1}}>
+              {tr("privacyStatus")}: {t(`teams.profileVisibility.${profile?.visibility??"PUBLIC"}` as never)}
+            </AppText>
+          </View>
+          <AppText variant="caption" muted>{tr("publicProfilePrivacyHint")}</AppText>
         </Card>
-        <Card>
-          <AppText variant="bodyLarge" weight="bold">{tr("careerPreferences")}</AppText>
+        <Card testID="player-preference-editor" style={styles.settingsCard}>
+          <OverviewTitle icon="options-outline" label={tr("careerPreferences")}/>
+          <View style={[styles.settingsRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name={settingsDirty?"create-outline":"checkmark-circle-outline"}
+              size={18} color={settingsDirty?colors.warning:colors.success}/>
+            <AppText variant="caption" weight="semibold" style={{flex:1}}>
+              {settingsDirty?tr("unsavedPreferences"):tr("preferencesCurrent")}
+            </AppText>
+          </View>
           <TextField label={tr("biography")} multiline value={preferences.biography??""}
-            onChangeText={v=>setPreferences(p=>({...p,biography:v}))} maxLength={500}/>
+            onChangeText={v=>editPreferences({biography:v})} maxLength={500}/>
           <TextField label={tr("province")} value={preferences.province??""} maxLength={80}
-            onChangeText={v=>setPreferences(p=>({...p,province:v}))}/>
+            onChangeText={v=>editPreferences({province:v})}/>
           <TextField label={tr("district")} value={preferences.district??""} maxLength={80}
-            onChangeText={v=>setPreferences(p=>({...p,district:v}))}/>
+            onChangeText={v=>editPreferences({district:v})}/>
           <AppText weight="semibold">{tr("secondaryPosition")}</AppText>
           <Choice selected={preferences.secondaryPosition??""} onSelect={value=>
-            setPreferences(p=>({...p,secondaryPosition:value?value as PlayerPosition:null}))}
+            editPreferences({secondaryPosition:value?value as PlayerPosition:null})}
             items={[{id:"",label:tr("none")},
               ...positions.map(id=>({id,label:t(`teams.position.${id}` as never)}))]}/>
           <AppText weight="semibold">{tr("preferredFoot")}</AppText>
           <Choice selected={preferences.preferredFoot??""} onSelect={value=>
-            setPreferences(p=>({...p,preferredFoot:value?value as "LEFT"|"RIGHT"|"BOTH":null}))}
+            editPreferences({preferredFoot:value?value as "LEFT"|"RIGHT"|"BOTH":null})}
             items={["","LEFT","RIGHT","BOTH"].map(id=>({id,label:tr(id?"foot."+id:"none")}))}/>
           <AppText variant="caption" muted>{tr("privacyHint")}</AppText>
-          <Button label={tr("savePreferences")} loading={busy==="preferences"} disabled={busy!==null}
-            onPress={()=>void perform("preferences",()=>playerDashboardApi.updatePreferences(token!,preferences))}/>
+          <View style={[styles.settingsActions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button label={tr("savePreferences")} style={styles.settingsAction}
+              loading={busy==="preferences"} disabled={busy!==null||!settingsDirty}
+              onPress={()=>void savePreferences()}/>
+            <Button label={tr("discardPreferences")} style={styles.settingsAction}
+              variant="secondary" disabled={!settingsDirty||busy!==null}
+              onPress={discardPreferences}/>
+          </View>
         </Card>
-        <Card>
-          <AppText weight="semibold">{tr("defaultTeam")}</AppText>
-          <Choice selected={data.selectedTeamId??""} onSelect={id=>void perform("default:"+id,
-            ()=>playerDashboardApi.updatePreferences(token!,{defaultTeamId:id||null}))}
+        <Card style={styles.settingsCard}>
+          <OverviewTitle icon="shield-outline" label={tr("defaultTeam")}/>
+          <AppText variant="caption" muted>{tr("defaultTeamHelp")}</AppText>
+          <Choice selected={preferences.defaultTeamId??""}
+            onSelect={id=>void saveDefaultTeam(id)}
             items={[{id:"",label:tr("automatic")},...teams.map(x=>({id:x.id,label:x.name}))]}/>
         </Card>
-        <Button label={tr("notificationSettings")} variant="secondary" onPress={()=>router.push("/settings")}/>
+        {settingsError?<Card testID="player-settings-error">
+          <AppText accessibilityRole="alert" style={{color:colors.danger}}>{settingsError}</AppText>
+          <Button variant="secondary" label={t("common.retry")}
+            onPress={()=>setSettingsError(null)}/>
+        </Card>:null}
+        {settingsMessage?<Card style={{backgroundColor:colors.primarySoft}}>
+          <AppText accessibilityLiveRegion="polite" style={{color:colors.primary}}>
+            {settingsMessage}</AppText>
+        </Card>:null}
+        <Card style={styles.settingsCard}>
+          <OverviewTitle icon="lock-closed-outline" label={tr("accountSecurity")}/>
+          <View style={[styles.settingsRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name={session?.user.emailVerified?"shield-checkmark-outline":"warning-outline"}
+              size={20} color={session?.user.emailVerified?colors.success:colors.warning}/>
+            <AppText variant="caption" style={{flex:1}}>
+              {session?.user.emailVerified?t("security.emailVerified"):t("security.emailUnverified")}
+            </AppText>
+          </View>
+          <Button label={session?.user.emailVerified?t("security.emailChange"):t("security.emailAdd")}
+            variant="secondary" onPress={()=>router.push("/profile/email")}/>
+          <Button label={t("security.credentials")} variant="secondary"
+            onPress={()=>router.push("/profile/credentials")}/>
+          <Button label={tr("accountPreferences")} variant="secondary"
+            onPress={()=>router.push("/profile/account")}/>
+        </Card>
+        <Card style={styles.settingsCard}>
+          <OverviewTitle icon="notifications-outline" label={tr("notificationSettings")}/>
+          <Button label={tr("openNotificationPreferences")} variant="secondary"
+            onPress={()=>router.push("/notifications/preferences")}/>
+          <Button label={tr("openNotifications")} variant="secondary"
+            onPress={()=>router.push("/notifications")}/>
+        </Card>
         {(hasManager||hasOwner)?<Button label={tr("otherRoleDashboard")} variant="secondary"
           onPress={()=>router.push(hasManager?"/dashboard":"/owner/competitions")}/>:null}
-      </>:null}
+      </View>:null}
 
       {tab==="activity"?<PlayerActivityTabs tab={activityTab} token={token!} teams={teams}/>:null}
       {tab==="career"?<PlayerCareerTabs tab={careerTab} token={token!}/>:null}
@@ -684,6 +816,11 @@ export function PlayerDashboard(){
   </Screen>;
 }
 const styles=StyleSheet.create({
+  settingsPanel:{gap:spacing.md},
+  settingsCard:{gap:spacing.md},
+  settingsRow:{alignItems:"center",gap:spacing.sm},
+  settingsActions:{gap:spacing.sm,flexWrap:"wrap"},
+  settingsAction:{flexGrow:1,flexBasis:150,minWidth:125},
   identityRow:{alignItems:"center",gap:spacing.md},
   identityAvatar:{height:44,width:44,borderRadius:22,alignItems:"center",
     justifyContent:"center",backgroundColor:colors.primarySoft,overflow:"hidden"},
