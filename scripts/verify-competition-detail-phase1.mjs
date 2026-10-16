@@ -21,7 +21,7 @@ for(const token of [
  'allowedCompetitionSubtabs(activeTab,competition.format,',
  'initialMatchFilter={extraMatchStatus??(tab==="RESULTS"||selectedSubtab==="RESULTS"?"FINISHED":"ALL")}',
  ])assert.ok(page.includes(token),"Profile race/navigation guard missing: "+token);
-for(const token of ['"MEDIA","ABOUT"','CompetitionMediaPanel competition={competition}','competition-about-subtab',
+for(const token of ['"MEDIA","ABOUT"','CompetitionMediaPanel competition={competition}','competition-about-overview',
  'competition-team-stats','competition-fairplay-stats','subtab==="KNOCKOUT"',
  'subtab==="UPCOMING"','subtab==="LIVE"','subtab==="RESULTS"',
 ])assert.ok(parts.includes(token),"Public tabs must have functioning content: "+token);
@@ -48,4 +48,5 @@ assert.ok(nav.includes('incoming==="RESULTS"?"MATCHES"')&&
  nav.includes('format==="KNOCKOUT"?["KNOCKOUT"]')&&
  nav.includes('hasParticipation?["MY_PARTICIPATION"]'),
  "Legacy routes and format-specific navigation invariants missing.");
-console.log("Competition Detail Phase 1: player privacy, stale request safety and seven contextual tabs verified.");
+assert.ok(nav.includes('ABOUT:["OVERVIEW"]'),"About should expose one unified page.");
+console.log("Competition Detail Phase 1: player privacy, stale request safety and a unified About page verified.");
