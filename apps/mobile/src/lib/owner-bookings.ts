@@ -9,6 +9,15 @@ export function ownerBookingStatusScope(status:OwnerBookingStatusFilter):"ALL"|"
   if(status==="HISTORY")return "HISTORY";
   return "ALL";
 }
+/** A completed confirmed reservation is displayed as History; the persisted
+ * booking status remains CONFIRMED and must never be rewritten client-side. */
+export function ownerBookingDisplayStatus(
+  booking:{status:"PENDING"|"CONFIRMED"|"CANCELLED";endsAt:string},
+  nowMs:number,
+):OwnerBookingStatusFilter{
+  return booking.status==="CONFIRMED"&&Date.parse(booking.endsAt)<=nowMs
+    ?"HISTORY":booking.status;
+}
 export const ownerBookingStatusThemes={
   ALL:{background:"#EAF1FF",border:"#BDD2FF",text:"#1D4ED8"},
   PENDING:{background:"#FFFBEB",border:"#FCD34D",text:"#92400E"},
