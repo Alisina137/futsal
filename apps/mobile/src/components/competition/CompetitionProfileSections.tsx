@@ -694,14 +694,14 @@ function Home({competition,posts,onTabChange,mode="HOME",view="OVERVIEW"}:
 }
 
 
-function CompetitionAboutSection({competition,subtab}:{
-  competition:CompetitionDto;subtab:string;
-}){
+/** A single scrollable About page: all four former panels remain visible together. */
+function CompetitionAboutSection({competition}:{competition:CompetitionDto}){
   const {t,isRTL,language}=useLocale();
-  const line=(label:string,value:string)=><View key={label} style={[styles.scoreRow,
-    {flexDirection:isRTL?"row-reverse":"row",justifyContent:"space-between",flexWrap:"wrap"}]}>
+  const line=(label:string,value:string)=><View key={label} style={[styles.aboutInfoRow,
+    {flexDirection:isRTL?"row-reverse":"row"}]}>
     <AppText variant="caption" muted style={{flex:1,minWidth:105}}>{label}</AppText>
-    <AppText weight="semibold" style={{flex:1,minWidth:95,textAlign:isRTL?"left":"right"}}>{value}</AppText>
+    <AppText weight="semibold" style={{flex:1,minWidth:95,
+      textAlign:isRTL?"left":"right"}}>{value}</AppText>
   </View>;
   const datetime=(value:string|null)=>{
     if(!value)return t("competition.profile.notSet");
@@ -709,11 +709,9 @@ function CompetitionAboutSection({competition,subtab}:{
     return time?`${time.date} · ${time.time}`:t("competition.profile.notSet");
   };
   const accepted=competition.teams.filter(team=>team.status==="ACCEPTED").length;
-  const category=subtab==="PRIZES"?"gift-outline":subtab==="VENUE"?"location-outline":
-    subtab==="RULES"?"document-text-outline":"information-circle-outline";
-  return <View testID="competition-about-subtab" style={styles.stack}>
-    <SectionHeading icon={category} title={t(`competition.detail.sub.${subtab}` as never)}/>
-    {subtab==="INFORMATION"?<Card testID="competition-phase7-information" style={styles.stack}>
+  return <View testID="competition-about-overview" style={styles.stack}>
+    <Card testID="competition-phase7-information" style={styles.stack}>
+      <SectionHeading icon="information-circle-outline" title={t("competition.detail.sub.INFORMATION")}/>
       <AppText weight="bold" variant="bodyLarge">{competition.name}</AppText>
       <AppText muted>{competition.description?.trim()||t("competition.profile.noDescription")}</AppText>
       {line(t("competition.profile.currentStatus"),t(`competition.status.${competition.status}` as never))}
@@ -724,17 +722,21 @@ function CompetitionAboutSection({competition,subtab}:{
       {line(t("competition.registrationDeadline"),datetime(competition.registrationClosesAt))}
       {line(t("competition.startsAt"),datetime(competition.startsAt))}
       {line(t("competition.endsAt"),datetime(competition.endsAt))}
-      {competition.status==="REGISTRATION_OPEN"?<Pressable accessibilityRole="button" testID="competition-about-registration"
+      {competition.status==="REGISTRATION_OPEN"?<Pressable accessibilityRole="button"
+        testID="competition-about-registration"
         onPress={()=>router.push({pathname:"/competitions/[competitionId]",
           params:{competitionId:competition.id,tab:"TEAMS",subtab:"REGISTRATION"}})}
-        style={styles.progressionLink}>
+        style={[styles.progressionLink,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Ionicons name="people-outline" size={18} color={colors.primary}/>
         <AppText weight="semibold" style={{color:colors.primary,flex:1}}>
           {t("competition.detail.registrationDetails")}
         </AppText>
+        <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={17} color={colors.primary}/>
       </Pressable>:null}
-    </Card>:null}
-    {subtab==="RULES"?<Card testID="competition-phase7-rules" style={styles.stack}>
+    </Card>
+
+    <Card testID="competition-phase7-rules" style={styles.stack}>
+      <SectionHeading icon="document-text-outline" title={t("competition.detail.sub.RULES")}/>
       <AppText variant="caption" muted>{t("competition.detail.phase7.rulesScope")}</AppText>
       {line(t("competition.matchDuration"),
         t("competition.profile.minutes",{count:competition.matchDurationMinutes}))}
@@ -753,14 +755,17 @@ function CompetitionAboutSection({competition,subtab}:{
       <Pressable accessibilityRole="button" testID="competition-about-view-standings"
         onPress={()=>router.push({pathname:"/competitions/[competitionId]",
           params:{competitionId:competition.id,tab:"STANDINGS"}})}
-        style={styles.progressionLink}>
+        style={[styles.progressionLink,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <Ionicons name="podium-outline" size={18} color={colors.primary}/>
         <AppText weight="semibold" style={{color:colors.primary,flex:1}}>
           {t("competition.standings")}
         </AppText>
+        <Ionicons name={isRTL?"arrow-back":"arrow-forward"} size={17} color={colors.primary}/>
       </Pressable>
-    </Card>:null}
-    {subtab==="PRIZES"?<View testID="competition-phase7-prizes" style={styles.stack}>
+    </Card>
+
+    <View testID="competition-phase7-prizes" style={styles.stack}>
+      <SectionHeading icon="gift-outline" title={t("competition.detail.sub.PRIZES")}/>
       {competition.rewards.length? (["TEAM","INDIVIDUAL"] as const).map(kind=>{
         const rewards=competition.rewards.filter(reward=>reward.category===kind);
         return rewards.length?<Card key={kind} style={styles.stack}>
@@ -776,8 +781,10 @@ function CompetitionAboutSection({competition,subtab}:{
         </Card>:null;
       }):<Placeholder title={t("competition.rewards.empty")} icon="gift-outline"/>}
       <AppText variant="caption" muted>{t("competition.detail.phase7.prizesScope")}</AppText>
-    </View>:null}
-    {subtab==="VENUE"?<Card testID="competition-phase7-venue" style={styles.stack}>
+    </View>
+
+    <Card testID="competition-phase7-venue" style={styles.stack}>
+      <SectionHeading icon="location-outline" title={t("competition.detail.sub.VENUE")}/>
       <AppText variant="caption" muted>{t("competition.detail.phase7.venueScope")}</AppText>
       <Pressable accessibilityRole="button" testID="competition-about-venue-link"
         accessibilityLabel={competition.venueName}
@@ -790,14 +797,7 @@ function CompetitionAboutSection({competition,subtab}:{
         </AppText>
         <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={18} color={colors.primary}/>
       </Pressable>
-    </Card>:null}
-    <Pressable testID="competition-about-full" accessibilityRole="button"
-      onPress={()=>router.push({pathname:"/competitions/[competitionId]/about",
-        params:{competitionId:competition.id}})} style={styles.progressionLink}>
-      <AppText weight="semibold" style={{color:colors.primary}}>
-        {t("competition.phase4.fullAbout")}
-      </AppText>
-    </Pressable>
+    </Card>
   </View>;
 }
 
@@ -895,8 +895,7 @@ export function CompetitionProfileSections({competition,posts,activeTab,subtab,r
     <CompetitionStats competition={competition}/>;
   if(activeTab==="MEDIA")return <CompetitionMediaPanel competition={competition}
     view={subtab??"UPDATES"}/>;
-  if(activeTab==="ABOUT")return <CompetitionAboutSection competition={competition}
-    subtab={subtab??"INFORMATION"}/>;
+  if(activeTab==="ABOUT")return <CompetitionAboutSection competition={competition}/>;
   if(activeTab==="TEAMS")return <CompetitionTeams competition={competition}
     registration={registration} view={subtab??"PARTICIPANTS"}/>;
   return null;
@@ -905,6 +904,7 @@ export function CompetitionProfileSections({competition,posts,activeTab,subtab,r
 const styles=StyleSheet.create({
   stack:{gap:spacing.md},
   sectionHeading:{alignItems:"center",gap:spacing.sm,minHeight:44},
+  aboutInfoRow:{gap:spacing.sm,minHeight:38,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"},
   standingsRefresh:{minHeight:44,alignItems:"center",justifyContent:"center",
     borderRadius:radius.md,paddingHorizontal:spacing.sm,gap:spacing.xs,
     backgroundColor:colors.primarySoft,flexShrink:0},
