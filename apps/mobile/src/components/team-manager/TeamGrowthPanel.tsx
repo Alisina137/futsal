@@ -43,6 +43,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   const tr=(key:string)=>t(`tm3.${key}` as never);
   const date=(x:string)=>formatCompetitionDateTime(x,language);
   const [data,setData]=useState<TeamGrowthData|null>(null);
+  const [loadedDataKey,setLoadedDataKey]=useState<string|null>(null);
   const [teams,setTeams]=useState<TeamDirectoryItemDto[]>([]);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false),[uploading,setUploading]=useState(false);
@@ -82,7 +83,8 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
     setAnnouncementTitle("");setAnnouncementBody("");setUploading(false);setMediaSection("POSTS");
     setChallengeTarget("");setChallengeSearch("");setChallengeTime("");setChallengeVenue("");
     setChallengeMessage("");setShowChallengeForm(false);setChallengeFilter("PENDING");
-    setCancelChallengeId(null);setTeams([]);
+    setCancelChallengeId(null);setTeams([]);setBusy(false);
+    setData(null);setLoadedDataKey(null);
   },[team.id,draftKey]);
   useEffect(()=>{
     let active=true;setDraftAvailable(false);
@@ -93,13 +95,13 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   },[draftKey]);
   useEffect(()=>{
     let current=true;
-    setLoading(true);setError(null);
+    setLoading(true);setError(null);setData(null);setLoadedDataKey(null);
     void teamGrowthApi.list(token,team.id)
-      .then(value=>{if(current)setData(value);})
+      .then(value=>{if(current){setData(value);setLoadedDataKey(draftKey);}})
       .catch(err=>{if(current){setData(null);setError(err instanceof ApiRequestError?err.message:t("tm3.loadError"));}})
       .finally(()=>{if(current)setLoading(false);});
     return()=>{current=false;};
-  },[token,team.id,refresh,t]);
+  },[token,team.id,draftKey,refresh,t]);
   useEffect(()=>{
     if(tab!=="matches")return;
     let current=true;
@@ -109,10 +111,15 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
 
   async function execute(fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
+    const teamAtStart=team.id,keyAtStart=draftKeyRef.current;
+    const current=()=>currentTeam.current===teamAtStart&&draftKeyRef.current===keyAtStart;
     setBusy(true);setError(null);setMessage(null);
-    try{await fn();after?.();setMessage(t("tm3.saved"));setRefresh(v=>v+1);}
-    catch(e){setError(e instanceof ApiRequestError?e.message:t("tm3.actionFailed"));}
-    finally{setBusy(false);}
+    try{
+      await fn();
+      if(!current())return;
+      after?.();setMessage(t("tm3.saved"));setRefresh(v=>v+1);
+    }catch(e){if(current())setError(e instanceof ApiRequestError?e.message:t("tm3.actionFailed"));}
+    finally{if(current())setBusy(false);}
   }
   async function selectPhoto(){
     if(!canWrite||uploading)return;
@@ -212,7 +219,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={t("common.retry")} variant="secondary" onPress={()=>setRefresh(x=>x+1)}/></Card>:null}
     {message?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{message}</AppText></Card>:null}
-    {loading?<DataLoadingState variant="list" minHeight={300}/>:data?<>
+    {loading||loadedDataKey!==draftKey?<DataLoadingState variant="list" minHeight={300}/>:data?<>
       {tab==="media"?<>
         <Card testID="tm6-media-header" style={styles.mediaHeader}>
           <View style={[styles.mediaHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
