@@ -18,8 +18,8 @@ requireParts(page,[
   'setMatchPreferences(emptyCompetitionMatchPreferences)',
   'setExtraMatchStatus(null)',
 ], "single competition Matches navigation and deep links");
-assert.ok(!page.includes('<View testID="competition-profile-subtabs">\n      <ScrollView'),
-  "Duplicate four-state Matches sub-navigation must be hidden.");
+assert.ok(page.includes('{activeTab!=="MATCHES"?<View testID="competition-profile-subtabs">'),
+  "The first competition-subtab rail must be hidden whenever Matches is active.");
 requireParts(matches,[
   'testID="match-filter-rail"',
   '["ALL","UPCOMING","LIVE","FINISHED","POSTPONED","CANCELLED"]',
