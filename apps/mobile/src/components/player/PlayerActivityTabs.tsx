@@ -27,12 +27,25 @@ function shiftDay(day:string,days:number){
   const current=new Date(day+"T12:00:00Z");current.setUTCDate(current.getUTCDate()+days);
   return current.toISOString().slice(0,10);
 }
-export function inCalendarPeriod(day:string,cursor:string,view:ViewMode){
+export function inCalendarPeriod(day:string,cursor:string,view:ViewMode,
+  weekStartsOnSaturday=false){
   if(view==="DAY")return day===cursor;
   if(view==="MONTH")return day.slice(0,7)===cursor.slice(0,7);
   const week=new Date(cursor+"T12:00:00Z").getUTCDay();
-  const monday=shiftDay(cursor,-((week+6)%7));
-  return day>=monday&&day<=shiftDay(monday,6);
+  // English starts Monday, while Dari and Pashto start Saturday.
+  const offset=weekStartsOnSaturday?(week+1)%7:(week+6)%7;
+  const firstDay=shiftDay(cursor,-offset);
+  return day>=firstDay&&day<=shiftDay(firstDay,6);
+}
+export function moveCalendarCursor(cursor:string,view:ViewMode,direction:number){
+  if(view!=="MONTH")return shiftDay(cursor,(view==="DAY"?1:7)*direction);
+  // Moving from the 29th–31st must not accidentally skip short months.
+  const target=new Date(cursor.slice(0,7)+"-01T12:00:00Z");
+  target.setUTCMonth(target.getUTCMonth()+direction);
+  const lastDay=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth()+1,0))
+    .getUTCDate();
+  target.setUTCDate(Math.min(Number(cursor.slice(8,10)),lastDay));
+  return target.toISOString().slice(0,10);
 }
 export function actualScheduleConflicts(events:ScheduleItem[]){
   const sorted=events.filter(x=>x.endsAt&&Date.parse(x.endsAt)>Date.parse(x.startsAt))
@@ -41,16 +54,27 @@ export function actualScheduleConflicts(events:ScheduleItem[]){
   for(let i=0;i<sorted.length;i++){
     for(let j=i+1;j<sorted.length;j++){
       if(Date.parse(sorted[j]!.startsAt)>=Date.parse(sorted[i]!.endsAt!))break;
+      // A player can belong to both sides of the same fixture; it is still
+      // one physical match and must never appear to conflict with itself.
+      const sameMatch=Boolean(sorted[i]!.matchId&&
+        sorted[i]!.matchId===sorted[j]!.matchId);
+      const sameFriendly=sorted[i]!.kind==="FRIENDLY"&&sorted[j]!.kind==="FRIENDLY"&&
+        sorted[i]!.key.split(":")[1]===sorted[j]!.key.split(":")[1];
+      if(sameMatch||sameFriendly)continue;
       conflictIds.add(sorted[i]!.key);conflictIds.add(sorted[j]!.key);
     }
   }
   return conflictIds;
 }
 function Options({values,selected,onChange}:{values:{id:string;label:string}[];selected:string;onChange:(id:string)=>void}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
-    contentContainerStyle={{flexDirection:"row",gap:spacing.sm,paddingVertical:spacing.xs}}>
+  const {isRTL}=useLocale();
+  return <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}
+    style={styles.filterStrip}
+    contentContainerStyle={{flexDirection:isRTL?"row-reverse":"row",
+      gap:spacing.sm,paddingVertical:spacing.xs}}>
     {values.map(item=><Pressable key={item.id} onPress={()=>onChange(item.id)}
-      accessibilityRole="button" accessibilityState={{selected:item.id===selected}}
+      accessibilityRole="tab" accessibilityLabel={item.label}
+      accessibilityState={{selected:item.id===selected}}
       style={[styles.filter,selected===item.id&&styles.filterActive]}>
       <AppText variant="caption" weight="semibold"
         style={selected===item.id?{color:colors.primary}:undefined}>{item.label}</AppText>
@@ -76,7 +100,9 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
   const [reload,setReload]=useState(0);
   const [teamFilter,setTeamFilter]=useState("ALL");
   const [competitionFilter,setCompetitionFilter]=useState("ALL");
+  const [rosterFilter,setRosterFilter]=useState("ALL");
   const [matchFilter,setMatchFilter]=useState("UPCOMING");
+  const [scheduleFilter,setScheduleFilter]=useState("ALL");
   const [bookingFilter,setBookingFilter]=useState("UPCOMING");
   const [view,setView]=useState<ViewMode>("WEEK");
   const [cursor,setCursor]=useState(()=>kabulDay(new Date().toISOString()));
@@ -109,7 +135,9 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
       (competitionFilter==="UPCOMING"&&["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED"].includes(c.status))||
       (competitionFilter==="IN_PROGRESS"&&c.status==="IN_PROGRESS")||
       (competitionFilter==="COMPLETED"&&c.status==="COMPLETED")||
-      (competitionFilter==="HISTORY"&&["COMPLETED","ARCHIVED"].includes(c.status))));
+      (competitionFilter==="HISTORY"&&["COMPLETED","ARCHIVED"].includes(c.status)))&&
+    (rosterFilter==="ALL"||(rosterFilter==="ON_ROSTER"&&c.inRoster)||
+      (rosterFilter==="NOT_SELECTED"&&c.registrationStatus==="ACCEPTED"&&!c.inRoster)));
   const allMatches=useMemo(()=>(data?.matches??[]).filter(m=>filtered(m.teamId))
     .sort((a,b)=>(Date.parse(a.startsAt??"")||0)-(Date.parse(b.startsAt??"")||0)),
     [data,teamFilter]);
@@ -117,14 +145,22 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
   const now=Date.now();
   const shownMatches=allMatches.filter(m=>
     matchFilter==="ALL"||
-    (matchFilter==="UPCOMING"&&m.startsAt&&Date.parse(m.startsAt)>=now&&
-      !isFinished(m.status)&&m.status!=="CANCELLED")||
+    (matchFilter==="UPCOMING"&&m.status==="SCHEDULED"&&m.startsAt&&
+      Date.parse(m.startsAt)>=now)||
     (matchFilter==="LIVE"&&m.status==="IN_PROGRESS")||
-    (matchFilter==="COMPLETED"&&isFinished(m.status)));
+    (matchFilter==="COMPLETED"&&isFinished(m.status))||
+    (matchFilter==="POSTPONED"&&m.status==="POSTPONED"))
+    .sort((a,b)=>matchFilter==="UPCOMING"
+      ?(Date.parse(a.startsAt??"")||Number.MAX_SAFE_INTEGER)-
+        (Date.parse(b.startsAt??"")||Number.MAX_SAFE_INTEGER)
+      :(Date.parse(b.startsAt??"")||0)-(Date.parse(a.startsAt??"")||0));
   const shownBookings=bookings.filter(b=>bookingFilter==="ALL"||
     (bookingFilter==="UPCOMING"&&b.status!=="CANCELLED"&&Date.parse(b.endsAt)>now)||
     (bookingFilter==="COMPLETED"&&b.status!=="CANCELLED"&&Date.parse(b.endsAt)<=now)||
-    (bookingFilter==="CANCELLED"&&b.status==="CANCELLED"));
+    (bookingFilter==="CANCELLED"&&b.status==="CANCELLED"))
+    .sort((a,b)=>bookingFilter==="UPCOMING"
+      ?Date.parse(a.startsAt)-Date.parse(b.startsAt)
+      :Date.parse(b.startsAt)-Date.parse(a.startsAt));
   const events:ScheduleItem[]=useMemo(()=>[
     ...(data?.matches??[]).filter(m=>m.startsAt&&m.status!=="CANCELLED"&&filtered(m.teamId))
       .map(m=>({key:"match:"+m.id+":"+m.teamId,kind:"MATCH" as const,
@@ -149,16 +185,20 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
     })),
   ],[data,bookings,teamFilter,language]);
   const conflicts=useMemo(()=>actualScheduleConflicts(events),[events]);
-  const visibleEvents=events.filter(a=>inCalendarPeriod(kabulDay(a.startsAt),cursor,view))
-    .sort((a,b)=>Date.parse(a.startsAt)-Date.parse(b.startsAt));
   const activityById=new Map((data?.activities??[]).map(x=>[x.id,x]));
-  const moved=(direction:number)=>{
-    const change=view==="DAY"?1:view==="WEEK"?7:30;
-    if(view==="MONTH"){
-      const d=new Date(cursor+"T12:00:00Z");d.setUTCMonth(d.getUTCMonth()+direction);
-      setCursor(d.toISOString().slice(0,10));
-    }else setCursor(shiftDay(cursor,change*direction));
-  };
+  const needsResponse=(event:ScheduleItem)=>Boolean(event.activityId&&
+    Date.parse(event.startsAt)>now&&!activityById.get(event.activityId)?.myAvailability);
+  const pendingResponseCount=events.filter(needsResponse).length;
+  const upcomingConflictCount=events.filter(a=>conflicts.has(a.key)&&
+    Date.parse(a.startsAt)>=now).length;
+  const visibleEvents=events
+    .filter(a=>inCalendarPeriod(kabulDay(a.startsAt),cursor,view,isRTL))
+    .filter(a=>scheduleFilter==="ALL"||
+      (scheduleFilter==="RESPONSE"&&needsResponse(a))||
+      (scheduleFilter==="CONFLICTS"&&conflicts.has(a.key)))
+    .sort((a,b)=>Date.parse(a.startsAt)-Date.parse(b.startsAt));
+  const moved=(direction:number)=>
+    setCursor(previous=>moveCalendarCursor(previous,view,direction));
   async function action(key:string,fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
     setBusy(key);setActivityError(null);setBookingError(null);setSuccess(null);
@@ -189,6 +229,10 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
       {tab==="competitions"?<>
         <Options selected={competitionFilter} onChange={setCompetitionFilter}
           values={["ALL","UPCOMING","IN_PROGRESS","COMPLETED","HISTORY"].map(id=>({id,label:tr("competition."+id)}))}/>
+        <Options selected={rosterFilter} onChange={setRosterFilter}
+          values={["ALL","ON_ROSTER","NOT_SELECTED"].map(id=>({
+            id,label:tr("rosterFilter."+id),
+          }))}/>
         <Card><AppText variant="bodyLarge" weight="bold">{tr("myCompetitions")}</AppText>
           {!registrations.length?<AppText muted>{tr("noCompetitions")}</AppText>:null}
           {registrations.map(c=><View style={styles.item} key={c.id+":"+c.teamId}>
@@ -210,7 +254,9 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
 
       {tab==="matches"?<>
         <Options selected={matchFilter} onChange={setMatchFilter}
-          values={["UPCOMING","LIVE","COMPLETED","FRIENDLIES","ALL"].map(id=>({id,label:tr("match."+id)}))}/>
+          values={["UPCOMING","LIVE","COMPLETED","POSTPONED","FRIENDLIES","ALL"].map(id=>({
+            id,label:tr("match."+id),
+          }))}/>
         {matchFilter==="FRIENDLIES"?<Card>
           <AppText variant="bodyLarge" weight="bold">{tr("friendlyAgreements")}</AppText>
           <AppText variant="caption" muted>{tr("friendlyDisclaimer")}</AppText>
@@ -248,6 +294,22 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
         <AppText variant="bodyLarge" weight="bold">{tr("myCalendar")}</AppText>
         <Options selected={view} onChange={x=>setView(x as ViewMode)}
           values={["DAY","WEEK","MONTH"].map(id=>({id,label:tr("calendar."+id)}))}/>
+        <View testID="player-schedule-summary" style={styles.scheduleSummary}>
+          <View style={styles.summaryPill}>
+            <Ionicons name="mail-unread-outline" size={17} color={colors.primary}/>
+            <AppText variant="caption" weight="semibold">
+              {tr("pendingResponses")}: {pendingResponseCount}</AppText>
+          </View>
+          <View style={styles.summaryPill}>
+            <Ionicons name="alert-circle-outline" size={17} color={colors.danger}/>
+            <AppText variant="caption" weight="semibold">
+              {tr("upcomingConflicts")}: {upcomingConflictCount}</AppText>
+          </View>
+        </View>
+        <Options selected={scheduleFilter} onChange={setScheduleFilter}
+          values={["ALL","RESPONSE","CONFLICTS"].map(id=>({
+            id,label:tr("scheduleFilter."+id),
+          }))}/>
         <View style={[styles.rowHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Button label="‹" variant="secondary" onPress={()=>moved(-1)}/>
           <AppText weight="semibold">{date(cursor+"T12:00:00Z")}</AppText>
@@ -297,9 +359,9 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
           values={["UPCOMING","COMPLETED","CANCELLED","ALL"].map(id=>({id,label:tr("booking."+id)}))}/>
         <Card>
           <AppText variant="bodyLarge" weight="bold">{tr("myBookings")}</AppText>
+          <AppText variant="caption" muted>{tr("personalBookingHint")}</AppText>
           {!shownBookings.length?<AppText muted>{tr("noBookings")}</AppText>:null}
-          {shownBookings.sort((a,b)=>Date.parse(b.startsAt)-Date.parse(a.startsAt))
-            .map(b=><View style={styles.item} key={b.id}>
+          {shownBookings.map(b=><View style={styles.item} key={b.id}>
               <AppText weight="semibold">{b.venueName}</AppText>
               <AppText variant="caption" muted>{b.areaName} · {date(b.startsAt)}</AppText>
               <AppText variant="caption" muted>{tr("until")}: {date(b.endsAt)}</AppText>
@@ -331,7 +393,12 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
   </View>;
 }
 const styles=StyleSheet.create({
-  filter:{borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,
+  filterStrip:{flexGrow:0,flexShrink:0},
+  scheduleSummary:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  summaryPill:{flexDirection:"row",alignItems:"center",gap:spacing.xs,
+    backgroundColor:colors.surfaceMuted,borderRadius:radius.sm,
+    paddingHorizontal:spacing.sm,paddingVertical:spacing.sm},
+  filter:{minHeight:44,justifyContent:"center",borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface,
     paddingHorizontal:spacing.md,paddingVertical:spacing.sm,borderRadius:radius.pill},
   filterActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
   item:{borderTopWidth:1,borderColor:colors.border,marginTop:spacing.md,paddingTop:spacing.md,gap:spacing.sm},
