@@ -1,6 +1,6 @@
 /** Verified competition analytics. Filter actual finalized match records; never
  * derive individual player metrics from the team's all-time leaderboard. */
-import {kabulDay} from "./team-manager-schedule";
+import {kabulDay} from "./team-manager-schedule.ts";
 
 export type AnalyticsFixture={
   id:string;competitionId:string;startsAt:string|null;status:string;
