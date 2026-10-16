@@ -10,6 +10,8 @@ import {
   type TeamOperations,type TeamAvailability,
 } from "../../lib/api";
 import { formatCompetitionDateTime } from "../../lib/date-time";
+import {advanceCalendarDate,calendarMonthKey,calendarWeekStart,findScheduleConflicts,
+  isInCalendarPeriod,kabulDay,matchFilterAllows,unansweredPlayerCount} from "../../lib/team-manager-schedule";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
 import { Button } from "../ui/Button";
@@ -21,14 +23,8 @@ import { TextField } from "../ui/TextField";
 
 type Tab="competitions"|"matches"|"schedule";
 const done=(status:string)=>status==="COMPLETED"||status==="CORRECTED";
-const upcoming=(match:TeamOpsMatch)=>!done(match.status)&&!["CANCELLED","IN_PROGRESS"].includes(match.status);
+const upcoming=(match:TeamOpsMatch)=>match.status==="SCHEDULED"&&!!match.startsAt&&Date.parse(match.startsAt)>Date.now();
 const emptyActivity:TeamActivityInput={kind:"TRAINING",title:"",notes:null,location:null,startsAt:"",endsAt:""};
-function relativeKabulDay(value:string){
-  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit",day:"2-digit"})
-    .formatToParts(new Date(value));
-  const part=(kind:string)=>parts.find(p=>p.type===kind)?.value??"00";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
 function Options({options,current,set}:{options:{id:string;label:string}[];current:string;set:(id:string)=>void}){
   return <ScrollView horizontal showsHorizontalScrollIndicator={false}
     contentContainerStyle={{gap:spacing.sm,alignItems:"center",paddingVertical:spacing.xs}}>
@@ -49,10 +45,12 @@ function SmallStatus({status}:{status:string}){
 }
 
 export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMatchId,onConsumedFocus,
-  focusCompetitionSection,onConsumedCompetitionFocus}:{
+  focusCompetitionSection,onConsumedCompetitionFocus,matchSection,onMatchSectionChange}:{
   tab:Tab;team:TeamDto;token:string;canWrite:boolean;onSelectTab:(tab:Tab)=>void;
   focusMatchId?:string|null;onConsumedFocus?:()=>void;
   focusCompetitionSection?:"MINE"|"INVITATIONS"|null;onConsumedCompetitionFocus?:()=>void;
+  matchSection:"OFFICIAL"|"FRIENDLIES"|"LINEUPS";
+  onMatchSectionChange:(section:"OFFICIAL"|"FRIENDLIES"|"LINEUPS")=>void;
 }){
   const {t,language,isRTL}=useLocale();
   const [data,setData]=useState<TeamOperations|null>(null);
@@ -80,6 +78,8 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   searchRef.current=search.trim();
   const [province,setProvince]=useState("ALL");
   const [matchFilter,setMatchFilter]=useState("UPCOMING");
+  const [programSection,setProgramSection]=useState<"CALENDAR"|"ACTIVITIES"|"AVAILABILITY">("CALENDAR");
+  const [deleteActivityId,setDeleteActivityId]=useState<string|null>(null);
   const [focusedCompetition,setFocusedCompetition]=useState<string|null>(null);
   const [rosterIds,setRosterIds]=useState<string[]>([]);
   const [focusedMatch,setFocusedMatch]=useState<string|null>(null);
@@ -173,7 +173,7 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   const requestedCompetition=registrations.find(x=>x.id===focusedCompetition);
   const requestedMatch=matches.find(x=>x.id===focusedMatch);
   const matchCompetition=registrations.find(x=>x.id===requestedMatch?.competitionId);
-  const today=relativeKabulDay(new Date().toISOString());
+  const today=kabulDay(new Date().toISOString());
   const discovery=available.filter(c=>c.published&&c.status==="REGISTRATION_OPEN"&&
     !registrations.some(r=>r.id===c.id));
   const registrationsShown=registrations.filter(c=>c.registrationStatus!=="INVITED").filter(c=>filter==="ALL"||
@@ -194,10 +194,7 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   const competitionStatus=(status:string)=>t(`competition.status.${status}` as never);
   const canWithdraw=(id:string)=>participationReady&&participations.some(item=>item.competitionId===id&&item.canWithdraw);
   const visibleMatches=matches.filter(m=>matchFilter==="ALL"||
-    matchFilter==="UPCOMING"&&upcoming(m)||
-    matchFilter==="TODAY"&&!!m.startsAt&&relativeKabulDay(m.startsAt)===today||
-    matchFilter==="COMPLETED"&&done(m.status)||
-    matchFilter==="CANCELLED"&&m.status==="CANCELLED");
+    matchFilterAllows(m.status,matchFilter,m.startsAt,today));
   const sortedMatches=[...visibleMatches].sort((a,b)=>(a.startsAt??"9999").localeCompare(b.startsAt??"9999"));
   function openRoster(c:TeamOpsCompetition){setFocusedCompetition(c.id);setRosterIds(c.rosterUserIds);}
   function openLineup(m:TeamOpsMatch){setFocusedMatch(m.id);setStarters(m.lineup?.starters??[]);
@@ -220,33 +217,37 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   }
   const lineupEligible=team.members.filter(x=>matchCompetition?.rosterUserIds.includes(x.userId));
   const lineupSelected=[...starters,...substitutes];
-  const dateKey=relativeKabulDay(cursor.toISOString());
+  const dateKey=kabulDay(cursor.toISOString());
   function moveCursor(delta:number){
-    const day=new Date(cursor);
-    if(view==="MONTH")day.setUTCMonth(day.getUTCMonth()+delta);
-    else day.setUTCDate(day.getUTCDate()+delta*(view==="WEEK"?7:1));
-    setCursor(day);
+    setCursor(value=>advanceCalendarDate(value.toISOString(),view,delta,language));
   }
   function showOnCalendar(iso:string){
-    const day=relativeKabulDay(iso);
-    if(view==="DAY")return day===dateKey;
-    // Date arithmetic is only for filtering; display remains Kabul localized.
-    const eventDay=new Date(day+"T12:00:00Z");
-    const focus=new Date(dateKey+"T12:00:00Z");
-    if(view==="WEEK"){
-      const start=focus.getTime()-focus.getUTCDay()*86400000;
-      return eventDay.getTime()>=start&&eventDay.getTime()<start+7*86400000;
-    }
-    return day.slice(0,7)===dateKey.slice(0,7);
+    return isInCalendarPeriod(iso,cursor.toISOString(),view,language);
   }
   const schedule=allActivity.filter(a=>showOnCalendar(a.startsAt));
   const scheduledMatches=matches.filter(m=>!!m.startsAt&&showOnCalendar(m.startsAt));
+  const upcomingActivities=allActivity.filter(a=>Date.parse(a.endsAt)>Date.now())
+    .sort((a,b)=>a.startsAt.localeCompare(b.startsAt));
+  const saveConflicts=findScheduleConflicts({...activity,excludeActivityId:editingActivity},
+    allActivity,matches);
+  const validActivityTimes=!!activity.startsAt&&!!activity.endsAt&&
+    Number.isFinite(Date.parse(activity.startsAt))&&Number.isFinite(Date.parse(activity.endsAt))&&
+    Date.parse(activity.startsAt)>Date.now()&&Date.parse(activity.endsAt)>Date.parse(activity.startsAt);
+  const lineupValid=starters.length===5&&
+    new Set([...starters,...substitutes]).size===starters.length+substitutes.length&&
+    (captainId===null||[...starters,...substitutes].includes(captainId));
+
   function startActivity(item?:TeamOpsActivity){
     setEditingActivity(item?.id??null);
     setActivity(item?{kind:item.kind,title:item.title,notes:item.notes,location:item.location,
       startsAt:item.startsAt,endsAt:item.endsAt}:emptyActivity);
     setShowActivity(true);
   }
+  useEffect(()=>{
+    setProgramSection("CALENDAR");setDeleteActivityId(null);
+    setShowActivity(false);setEditingActivity(null);setActivity(emptyActivity);
+    setMatchFilter("UPCOMING");
+  },[team.id]);
   const setActivityValue=<K extends keyof TeamActivityInput,>(key:K,value:TeamActivityInput[K])=>
     setActivity(old=>({...old,[key]:value}));
 
