@@ -53,8 +53,9 @@ for(const marker of ['match-filter-POSTPONED','match-filter-CANCELLED']){
 }
 for(const marker of ["competition-match-team-filters","competition-match-stage-filters",
   "competition-match-round-filters","competition-match-group-filters",
-  "competition-match-clear-filters","match-team-${team.teamId}",
-  "match-stage-${stage}","match-group-${group}","match-round-select-${round??\"ALL\"}",
+  "competition-match-clear-filters","competition-match-select-team",
+  "competition-match-select-stage","competition-match-select-group",
+  "competition-match-select-round","competition-match-select-date",
   "formatRefereeScheduleParts(","Asia/Kabul","competition.phase5.today",
   'pathname:"/teams/[teamId]"','pathname:"/venues/[venueId]"',
   'pathname:"/competitions/[competitionId]/matches/[matchId]"']){
