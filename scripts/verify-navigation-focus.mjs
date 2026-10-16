@@ -82,14 +82,19 @@ assert.ok(competition.includes('focusRegistration!=="1"')&&
 
 const player=read("apps/mobile/src/components/player/PlayerDashboard.tsx");
 assert.ok(player.includes('const [tab,setTab]=useState<Section>("overview")')&&
-  player.includes('const [moreTab,setMoreTab]=useState<MoreTab>("schedule")')&&
-  player.includes('if(id==="more"&&tab!=="more")setMoreTab(moreTabs[0]!)'),
-  "Player main tab and More subtabs must default to their first item.");
-assert.ok(player.includes('tab==="more"?<MoreNavigation selected={moreTab} onSelect={setMoreTab}/>')&&
-  player.includes('useVisibleTab<MoreTab>(selected)')&&
-  player.includes('testID="player-more-subnavigation"')&&
-  player.includes('moreNavRow:{flexGrow:1'),
-  "Player More subtabs must be visible, evenly spaced and focused horizontally.");
+  player.includes('useState<ActivityTab>("competitions")')&&
+  player.includes('useState<CareerTab>("statistics")')&&
+  player.includes('setActivityTab("competitions");setCareerTab("statistics")'),
+  "Player main, Activity and Career must default to their first tab for each account.");
+assert.ok(player.includes('tab==="activity"?<SectionNavigation kind="activity"')&&
+  player.includes('tab==="career"?<SectionNavigation kind="career"')&&
+  player.includes('useVisibleTab<T>(selected)')&&
+  player.includes('testID={"player-"+kind+"-subnavigation"}')&&
+  player.includes('moreNavRow:{alignItems:"center"'),
+  "Player nested tabs must be visible, RTL-aware and focus horizontally.");
+assert.ok(player.includes('if(id!==tab)setTab(id);')&&
+  !player.includes('if(id==="more"'),
+  "Player subtab choice must persist across main-tab switches.");
 const manager=read("apps/mobile/src/components/team-manager/TeamManagerDashboard.tsx");
 assert.ok(manager.includes('useState<Section>("overview")'));
 assert.ok(manager.includes('useState<AboutTeamSection>("players")')&&
