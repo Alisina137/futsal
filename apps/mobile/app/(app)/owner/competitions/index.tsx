@@ -92,6 +92,13 @@ export default function OwnerCompetitionListScreen(){
 
     <View testID="owner-phase5-competition-controls" style={styles.controlPanel}>
       <AppText weight="bold" variant="bodyLarge">{t("owner.phase5.title")}</AppText>
+      <View style={[styles.quickLinks,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Button style={{flex:1}} label={t("owner.phase5.newCompetition")}
+          onPress={()=>router.push("/owner/competitions/create")}/>
+        <Button style={{flex:1}} variant="secondary"
+          label={t("owner.dashboardSubnav.offlineTeams")}
+          onPress={()=>router.push("/owner/manual-teams")}/>
+      </View>
       <TextField label={t("owner.phase5.search")} placeholder={t("owner.phase5.searchHint")}
         value={query} onChangeText={setQuery} maxLength={140}/>
       <AppText variant="caption" muted>{t("owner.phase5.format")}</AppText>
@@ -108,13 +115,6 @@ export default function OwnerCompetitionListScreen(){
             </AppText>
           </Pressable>)}
       </ScrollView>
-    </View>
-    <View style={[styles.quickLinks,{flexDirection:isRTL?"row-reverse":"row"}]}>
-      <Button style={{flex:1}} label={t("owner.phase5.newCompetition")}
-        onPress={()=>router.push("/owner/competitions/create")}/>
-      <Button style={{flex:1}} variant="secondary"
-        label={t("owner.dashboardSubnav.offlineTeams")}
-        onPress={()=>router.push("/owner/manual-teams")}/>
     </View>
 
     <ScrollView
