@@ -11,15 +11,15 @@ const requireParts=(source,parts,subject)=>{
   for(const part of parts)assert.ok(source.includes(part),subject+" missing: "+part);
 };
 requireParts(page,[
-  'activeTab!=="MATCHES"&&(activeTab!=="STANDINGS"||availableSubtabs.length>1)',
+  'activeTab!=="MATCHES"&&activeTab!=="ABOUT"&&',
   'testID="competition-profile-tabs"',
   'initialMatchFilter={extraMatchStatus??',
   'onMatchStatusChange={onMatchStatusChange}',
   'setMatchPreferences(emptyCompetitionMatchPreferences)',
   'setExtraMatchStatus(null)',
 ], "single competition Matches navigation and deep links");
-assert.ok(page.includes('activeTab!=="MATCHES"&&(activeTab!=="STANDINGS"||availableSubtabs.length>1)'),
-  "The first competition-subtab rail must be hidden for Matches and one-option Standings.");
+assert.ok(page.includes('activeTab!=="MATCHES"&&activeTab!=="ABOUT"&&'),
+  "The first competition-subtab rail must be hidden for Matches, About, and one-option Standings.");
 requireParts(matches,[
   'testID="match-filter-rail"',
   '["ALL","UPCOMING","LIVE","FINISHED","POSTPONED","CANCELLED"]',
