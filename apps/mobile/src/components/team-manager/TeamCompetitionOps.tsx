@@ -10,7 +10,7 @@ import {
   type TeamOperations,type TeamAvailability,
 } from "../../lib/api";
 import { formatCompetitionDateTime } from "../../lib/date-time";
-import {advanceCalendarDate,calendarMonthKey,calendarWeekStart,findScheduleConflicts,
+import {advanceCalendarDate,findScheduleConflicts,
   isInCalendarPeriod,kabulDay,matchFilterAllows,unansweredPlayerCount} from "../../lib/team-manager-schedule";
 import { useLocale } from "../../providers/LocaleProvider";
 import { AppText } from "../ui/AppText";
@@ -22,7 +22,6 @@ import { DataLoadingState } from "../ui/DataLoadingState";
 import { TextField } from "../ui/TextField";
 
 type Tab="competitions"|"matches"|"schedule";
-const done=(status:string)=>status==="COMPLETED"||status==="CORRECTED";
 const upcoming=(match:TeamOpsMatch)=>match.status==="SCHEDULED"&&!!match.startsAt&&Date.parse(match.startsAt)>Date.now();
 const emptyActivity:TeamActivityInput={kind:"TRAINING",title:"",notes:null,location:null,startsAt:"",endsAt:""};
 function Options({options,current,set}:{options:{id:string;label:string}[];current:string;set:(id:string)=>void}){
@@ -233,7 +232,7 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   const validActivityTimes=!!activity.startsAt&&!!activity.endsAt&&
     Number.isFinite(Date.parse(activity.startsAt))&&Number.isFinite(Date.parse(activity.endsAt))&&
     Date.parse(activity.startsAt)>Date.now()&&Date.parse(activity.endsAt)>Date.parse(activity.startsAt);
-  const lineupValid=starters.length===5&&
+  const lineupReady=starters.length===5&&
     new Set([...starters,...substitutes]).size===starters.length+substitutes.length&&
     (captainId===null||[...starters,...substitutes].includes(captainId));
 
@@ -255,6 +254,37 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={t("common.retry")} variant="secondary" onPress={reloadData}/></Card>:null}
     {note?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{note}</AppText></Card>:null}
+    {tab==="matches"?<ScrollView testID="tm5-matches-subtabs" horizontal showsHorizontalScrollIndicator={false}
+      contentContainerStyle={[styles.compTabs,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {([
+        {id:"OFFICIAL",icon:"football-outline",name:t("tm5.officialMatches")},
+        {id:"FRIENDLIES",icon:"people-outline",name:t("tm5.friendlies")},
+        {id:"LINEUPS",icon:"list-outline",name:t("tm5.lineups")},
+      ] as const).map(item=><Pressable key={item.id} testID={`tm5-match-${item.id}`}
+        accessibilityRole="tab" accessibilityState={{selected:matchSection===item.id}}
+        onPress={()=>{onMatchSectionChange(item.id);setFocusedMatch(null);}}
+        style={[styles.compTab,matchSection===item.id&&styles.compTabSelected]}>
+        <Ionicons name={item.icon} size={18} color={matchSection===item.id?colors.primary:colors.textMuted}/>
+        <AppText variant="caption" weight="semibold"
+          style={matchSection===item.id?{color:colors.primary}:undefined}>{item.name}</AppText>
+      </Pressable>)}
+    </ScrollView>:null}
+    {tab==="schedule"?<ScrollView testID="tm5-program-subtabs" horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={[styles.compTabs,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      {([
+        {id:"CALENDAR",icon:"calendar-outline",name:t("tm5.calendar")},
+        {id:"ACTIVITIES",icon:"create-outline",name:t("tm5.activities")},
+        {id:"AVAILABILITY",icon:"checkbox-outline",name:t("tm5.availability")},
+      ] as const).map(item=><Pressable key={item.id} testID={`tm5-program-${item.id}`}
+        accessibilityRole="tab" accessibilityState={{selected:programSection===item.id}}
+        onPress={()=>{setProgramSection(item.id);setDeleteActivityId(null);}}
+        style={[styles.compTab,programSection===item.id&&styles.compTabSelected]}>
+        <Ionicons name={item.icon} size={18} color={programSection===item.id?colors.primary:colors.textMuted}/>
+        <AppText variant="caption" weight="semibold"
+          style={programSection===item.id?{color:colors.primary}:undefined}>{item.name}</AppText>
+      </Pressable>)}
+    </ScrollView>:null}
     {loading?<DataLoadingState variant="list" minHeight={350}/>:data?<>
       {tab==="competitions"?<>
         <View testID="tm4-competition-tabs" style={styles.compSection}>
@@ -443,11 +473,18 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
         </View>
       </>:null}
 
-      {tab==="matches"?<>
-        {requestedMatch?<Card>
+      {tab==="matches"&&matchSection!=="FRIENDLIES"?<>
+        {matchSection==="LINEUPS"&&requestedMatch?<Card testID="tm5-lineup-editor">
           <AppText variant="bodyLarge" weight="bold">{tr("lineup")}</AppText>
           <AppText weight="semibold">{requestedMatch.opponentName??tr("unknownOpponent")}</AppText>
           <AppText variant="caption" muted>{tr("lineupHint")}</AppText>
+          <View style={[styles.lineupBanner,{borderColor:lineupReady?colors.success:colors.warning}]}>
+            <Ionicons name={lineupReady?"checkmark-circle-outline":"alert-circle-outline"}
+              color={lineupReady?colors.success:colors.warning} size={20}/>
+            <AppText variant="caption" weight="semibold">
+              {lineupReady?t("tm5.lineupReady"):t("tm5.lineupDraft")}
+            </AppText>
+          </View>
           {!matchCompetition?.rosterUserIds.length?<AppText style={{color:colors.danger}}>{tr("rosterFirst")}</AppText>:null}
           {lineupEligible.map(p=><View key={p.userId} style={styles.item}>
             <AppText weight="semibold">{p.publicDisplayName}</AppText>
@@ -459,14 +496,37 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
           <AppText weight="semibold">{tr("captain")}</AppText>
           <Options current={captainId??"NONE"} set={id=>setCaptainId(id==="NONE"?null:id)}
             options={[{id:"NONE",label:tr("lineup.NONE")},...team.members.filter(x=>lineupSelected.includes(x.userId)).map(x=>({id:x.userId,label:x.publicDisplayName}))]}/>
-          <Button label={t("common.save")} loading={busy} disabled={!canWrite||busy||!matchCompetition?.rosterUserIds.length}
+          <Button label={t("common.save")} loading={busy} disabled={!canWrite||busy||!matchCompetition?.rosterUserIds.length||
+            !upcoming(requestedMatch)||!requestedMatch.startsAt}
             onPress={()=>void execute(()=>teamOperationsApi.lineup(token,team.id,requestedMatch.id,{starters,substitutes,captainUserId:captainId}),()=>setFocusedMatch(null))}/>
           <Button label={t("common.cancel")} variant="ghost" onPress={()=>setFocusedMatch(null)}/>
           <Button label={tr("goToRoster")} variant="secondary" onPress={()=>onSelectTab("competitions")}/>
         </Card>:null}
-        <Card><AppText variant="bodyLarge" weight="bold">{tr("officialMatches")}</AppText>
+        {matchSection==="LINEUPS"?<Card testID="tm5-lineup-list" style={styles.compCard}>
+          <AppText variant="bodyLarge" weight="bold">{t("tm5.lineupManagement")}</AppText>
+          <AppText variant="caption" muted>{t("tm5.lineupHint")}</AppText>
+          {!matches.some(upcoming)?<AppText muted>{t("tm5.noUpcomingLineups")}</AppText>:null}
+          {matches.filter(upcoming).sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??""))
+            .map(m=>{
+            const complete=(m.lineup?.starters.length??0)===5;
+            return <View key={m.id} style={styles.item}>
+              <AppText weight="semibold">{m.opponentName??tr("unknownOpponent")}</AppText>
+              <AppText variant="caption" muted>{m.competitionName} · {date(m.startsAt)}</AppText>
+              <View style={styles.lineupBanner}>
+                <Ionicons name={complete?"checkmark-circle":"alert-circle-outline"}
+                  size={18} color={complete?colors.success:colors.warning}/>
+                <AppText variant="caption">{complete?t("tm5.lineupReady"):t("tm5.lineupDraft")}</AppText>
+              </View>
+              <Button label={tr("lineup")} variant="secondary"
+                onPress={()=>openLineup(m)}/>
+            </View>;
+          })}
+        </Card>:null}
+        {matchSection==="OFFICIAL"?<Card testID="tm5-official-matches"><AppText variant="bodyLarge" weight="bold">{tr("officialMatches")}</AppText>
           <Options current={matchFilter} set={setMatchFilter}
-            options={["UPCOMING","TODAY","COMPLETED","CANCELLED","ALL"].map(id=>({id,label:tr("filter."+id)}))}/>
+            options={["ALL","UPCOMING","LIVE","FINISHED","POSTPONED","CANCELLED"].map(id=>({
+              id,label:t(`tm5.matchStatus.${id}` as never),
+            }))}/>
           {!sortedMatches.length?<AppText muted>{tr("noMatches")}</AppText>:null}
           {sortedMatches.map(match=>{
             const home=match.homeTeamId===team.id;
@@ -480,12 +540,12 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
                 <Button label={tr("details")} variant="secondary"
                   onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
                     params:{competitionId:match.competitionId,matchId:match.id}})}/>
-                {upcoming(match)?<Button label={tr("lineup")} variant="secondary" onPress={()=>openLineup(match)}/>:null}
+                {upcoming(match)?<Button label={tr("lineup")} variant="secondary"
+                  onPress={()=>{onMatchSectionChange("LINEUPS");openLineup(match);}}/>:null}
               </View>
             </View>;
           })}
-        </Card>
-
+        </Card>:null}
       </>:null}
 
       {tab==="schedule"?<>
