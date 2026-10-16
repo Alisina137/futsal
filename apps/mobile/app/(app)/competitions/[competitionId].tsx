@@ -650,7 +650,6 @@ export default function CompetitionDetailScreen(){
           testID={"competition-subtab-"+activeTab+"-"+key}
           accessibilityRole="tab" accessibilityState={{selected:selectedSubtab===key}}
           onPress={()=>{
-            if(activeTab==="MATCHES")setExtraMatchStatus(null);
             setNavigation(current=>chooseCompetitionSubtab(
               current,activeTab,key,availableSubtabs));
           }}
