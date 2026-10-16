@@ -85,7 +85,6 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
   const [suggestions,setSuggestions]=useState<CompetitionDiscoveryItem[]>([]);
   const [suggestionsOpen,setSuggestionsOpen]=useState(false);
   const [province,setProvince]=useState("");
-  const [city,setCity]=useState("");
   const [status,setStatus]=useState<CompetitionDiscoveryQuery["status"]| "">("");
   const [format,setFormat]=useState<CompetitionDiscoveryQuery["format"]| "">("");
   const [fee,setFee]=useState<CompetitionDiscoveryQuery["fee"]>("any");
@@ -205,7 +204,7 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
         .catch(()=>{if(active)setSuggestions([]);});
     },300);
     return()=>{active=false;clearTimeout(work);};
-  },[mode,query,suggestionsOpen,province,city,status,format,fee]);
+  },[mode,query,suggestionsOpen,province,status,format,fee]);
 
   function apply(next:CompetitionDiscoveryQuery){
     clearTimer();setSuggestionsOpen(false);setSuggestions([]);
@@ -222,11 +221,8 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
     timer.current=setTimeout(()=>{timer.current=null;submit(value);},2000);
   }
   function pickProvince(value:string){
-    setProvince(value);setCity("");
+    setProvince(value);
     apply({...applied.current,province:value,city:"",q:query.trim()});
-  }
-  function pickCity(value:string){
-    setCity(value);apply({...applied.current,city:value,q:query.trim()});
   }
   function pickStatus(value:string){
     setStatus(value as typeof status);
@@ -256,11 +252,11 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
       from:start||undefined,to:end||undefined});
   }
   function clearFilters(){
-    setQuery("");setProvince("");setCity("");setStatus("");setFormat("");setFee("any");
+    setQuery("");setProvince("");setStatus("");setFormat("");setFee("any");
     setSort("recommended");setMinFee("");setMaxFee("");setFrom("");setTo("");
     setFilterError(null);apply({...defaults});
   }
-  const filtersActive=Boolean(applied.current.q||applied.current.province||applied.current.city||
+  const filtersActive=Boolean(applied.current.q||applied.current.province||
     applied.current.status||applied.current.format||applied.current.fee!=="any"||
     applied.current.from||applied.current.to||applied.current.minFee!==undefined||
     applied.current.maxFee!==undefined||applied.current.sort!=="recommended");
@@ -383,29 +379,43 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
             <AppText variant="caption" muted numberOfLines={1}>{item.venueName} · {item.city}</AppText>
           </Pressable>)}
         </View>:null}
-        <DirectoryFilterSelect testID="competition-province-select"
-          label={t("competition.phase2.province")} value={province}
-          allLabel={t("competition.phase2.allProvinces")}
-          options={facets.provinces.map(value=>({value,label:value}))} onSelect={pickProvince}/>
-        <DirectoryFilterSelect testID="competition-city-select"
-          label={t("competition.phase2.city")} value={city}
-          allLabel={t("competition.phase2.allCities")}
-          options={facets.cities.map(value=>({value,label:value}))} onSelect={pickCity}/>
-        <DirectoryFilterSelect testID="competition-status-select"
-          label={t("competition.filterStatus")} value={status??""}
-          allLabel={t("competition.allStatuses")}
-          options={(["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS","COMPLETED","ARCHIVED"] as const)
-            .map(value=>({value,label:t(`competition.status.${value}` as never)}))} onSelect={pickStatus}/>
-        <DirectoryFilterSelect testID="competition-format-select"
-          label={t("competition.format")} value={format??""}
-          allLabel={t("competition.phase2.allFormats")}
-          options={(["LEAGUE","KNOCKOUT","GROUP_KNOCKOUT"] as const)
-            .map(value=>({value,label:t(`competition.format.${value}` as never)}))} onSelect={pickFormat}/>
-        <DirectoryFilterSelect testID="competition-fee-select"
-          label={t("competition.registrationFee")} value={fee}
-          allLabel={t("competition.phase2.anyFee")}
-          options={["free","paid"].map(value=>({value,label:t(`competition.phase2.fee.${value}` as never)}))}
-          onSelect={pickFee}/>
+        {/* Four selectors, exactly two columns and two rows on phones/tablets;
+            keep the first logical column on the reading side in RTL and LTR. */}
+        <View testID="competitions-primary-filter-grid" style={styles.filterGrid}>
+          <View testID="competitions-primary-filter-row-1"
+            style={[styles.filterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={styles.filterCell}>
+              <DirectoryFilterSelect compact testID="competition-province-select"
+                label={t("competition.phase2.province")} value={province}
+                allLabel={t("competition.phase2.allProvinces")}
+                options={facets.provinces.map(value=>({value,label:value}))} onSelect={pickProvince}/>
+            </View>
+            <View style={styles.filterCell}>
+              <DirectoryFilterSelect compact testID="competition-status-select"
+                label={t("competition.filterStatus")} value={status??""}
+                allLabel={t("competition.allStatuses")}
+                options={(["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS","COMPLETED","ARCHIVED"] as const)
+                  .map(value=>({value,label:t(`competition.status.${value}` as never)}))} onSelect={pickStatus}/>
+            </View>
+          </View>
+          <View testID="competitions-primary-filter-row-2"
+            style={[styles.filterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={styles.filterCell}>
+              <DirectoryFilterSelect compact testID="competition-format-select"
+                label={t("competition.format")} value={format??""}
+                allLabel={t("competition.phase2.allFormats")}
+                options={(["LEAGUE","KNOCKOUT","GROUP_KNOCKOUT"] as const)
+                  .map(value=>({value,label:t(`competition.format.${value}` as never)}))} onSelect={pickFormat}/>
+            </View>
+            <View style={styles.filterCell}>
+              <DirectoryFilterSelect compact testID="competition-fee-select"
+                label={t("competition.registrationFee")} value={fee}
+                allLabel={t("competition.phase2.anyFee")}
+                options={["free","paid"].map(value=>({value,label:t(`competition.phase2.fee.${value}` as never)}))}
+                onSelect={pickFee}/>
+            </View>
+          </View>
+        </View>
         <Pressable accessibilityRole="button" testID="competitions-advanced-filters"
           onPress={()=>setAdvanced(x=>!x)}
           style={[styles.advancedToggle,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -535,6 +545,9 @@ const styles=StyleSheet.create({
     padding:spacing.sm,flexDirection:"row",alignItems:"center",gap:spacing.xs},
   followedVenues:{minHeight:44,flexDirection:"row",alignItems:"center",gap:spacing.sm,paddingHorizontal:spacing.sm},
   filters:{gap:spacing.sm},
+  filterGrid:{gap:spacing.sm,width:"100%"},
+  filterRow:{gap:spacing.sm,width:"100%",alignItems:"stretch"},
+  filterCell:{flex:1,minWidth:0},
   suggestions:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,overflow:"hidden"},
   suggestion:{minHeight:48,justifyContent:"center",paddingHorizontal:spacing.md,
     borderBottomWidth:1,borderBottomColor:colors.border},

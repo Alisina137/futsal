@@ -1,3 +1,10 @@
+## Public Competitions listing — 2×2 filters and no city selector (2026-10-16)
+- **Competitions → Find competitions** now displays just four primary dropdowns in two equal columns / two rows: **Province + Status** on the first row; **Format + Registration Fee** on the second. The four controls keep the same immediate server-backed filtering, default All options, dropdown modal, and reset/paging behavior.
+- Removed the redundant **City** dropdown and its local state. Province is the only primary location selector; the request still sends `city:""` internally to satisfy the existing typed public-discovery API and clear any previously applied city when province changes. Other consumers' API city support and venue/competition address data remain unchanged.
+- Opt-in compact dropdown sizing reduces vertical space and avoids crowding on narrow phones: 46px-high triggers, smaller label gap/padding and no redundant location icon. The other team/venue directory selectors remain in their existing normal-sized style.
+- Grid preserves visual order in Dari/Pashto RTL and English LTR; keeps search suggestions, status/format/fee options, advanced fee/date inputs, sorting, followed and quick access rail, and show-more pagination unchanged.
+- Added `pnpm verify:competitions-filter-grid` structural/behavioral regression into full release verification and adapted Competition Phase 2 legacy city selector checks. No schema/API or dependency changes; real Android and RTL display QA is pending.
+
 ## Competition Detail — one Matches navigation, compact dropdown filtering (2026-10-16)
 - **Competitions → Competition Detail → Matches** now renders **only the six-status row** (**All Matches, Upcoming, Live, Finished, Postponed, Cancelled**), removing the redundant upper subnavigation (**Upcoming, Live, Results, All**) from this page. The seven main competition tabs and subtabs elsewhere remain intact; historic `tab=RESULTS` links still open Matches with Finished initially selected.
 - The retained status row uses the measured horizontal `useVisibleTab` hook to highlight and reveal the active choice on initial layout and taps in English/Dari/Pashto RTL/LTR.
