@@ -8,17 +8,16 @@ const server=get("apps/api/src/server.ts"),app=get("apps/api/src/app.ts");
 const api=get("apps/api/src/modules/team/player-dashboard-phase1.routes.ts");
 const schema=get("packages/database/src/schema.ts"),client=get("apps/mobile/src/lib/api.ts");
 const locale=get("packages/localization/src/index.ts"),header=get("apps/mobile/src/components/ui/AppHeader.tsx");
-const tabs=["overview","teams","competitions","matches","bookings","more","settings"];
+const tabs=["overview","teams","activity","career","settings"];
 for(const tab of tabs){
   requireInvariant(dash.includes('id:"'+tab+'"'),"Player navigation tab missing: "+tab);
   requireInvariant(locale.split('"pd1.tab.'+tab+'"').length-1===3,"Missing localized player tab: "+tab);
 }
-requireInvariant(dash.includes('const moreTabs:MoreTab[]=["schedule","statistics","achievements"]'),
-  "Schedule, Statistics and Achievements must be nested under More.");
-for(const name of ["schedule","statistics","achievements"]){
-  requireInvariant(!dash.includes('id:"'+name+'"'),"Nested feature remains in main menu: "+name);
+requireInvariant(dash.includes('const activityTabs:')&&dash.includes('const careerTabs:'),
+  "Activity and Career must have dedicated, typed subtabs.");
+for(const name of ["schedule","statistics","achievements","history","competitions","matches","bookings"]){
   requireInvariant(locale.split('"pd1.tab.'+name+'"').length-1===3,
-    "Missing translated More subtab: "+name);
+    "Missing translated nested player subtab: "+name);
 }
 requireInvariant(dash.includes('flexDirection:isRTL?"row-reverse":"row"')&&
   dash.includes("focusTab(tab)")&&dash.includes("navActive"),
@@ -75,4 +74,4 @@ for(const needle of [
   'discover.map(team=><Card key={team.id} style={styles.memberTeamCard}>'
 ])requireInvariant(dash.includes(needle),"Player teams list/cards regression: "+needle);
 
-console.log("Player Dashboard Phase 1 verified: nine RTL-aware tabs, overview, teams, invitations, discovery, preferences, role access and guarded writes.");
+console.log("Player Dashboard Phase 1 verified: five RTL-aware tabs, preserved nested activities/career, overview, teams, preferences, role access and guarded writes.");
