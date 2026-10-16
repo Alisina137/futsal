@@ -549,69 +549,143 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
       </>:null}
 
       {tab==="schedule"?<>
-        <Card><AppText variant="bodyLarge" weight="bold">{tr("scheduleTitle")}</AppText>
+        {programSection==="CALENDAR"?<Card testID="tm5-program-calendar" style={styles.compCard}>
+          <AppText variant="bodyLarge" weight="bold">{tr("scheduleTitle")}</AppText>
           <Options current={view} set={v=>setView(v as typeof view)}
             options={["DAY","WEEK","MONTH"].map(id=>({id,label:tr("calendar."+id)}))}/>
           <View style={[styles.flexRow,{justifyContent:"space-between",flexDirection:isRTL?"row-reverse":"row"}]}>
-            <Button label="‹" variant="secondary" onPress={()=>moveCursor(-1)}/>
+            <Button label={t("tm5.previous")} variant="secondary" onPress={()=>moveCursor(-1)}/>
             <AppText weight="semibold">{date(cursor.toISOString())}</AppText>
-            <Button label="›" variant="secondary" onPress={()=>moveCursor(1)}/>
+            <Button label={t("tm5.next")} variant="secondary" onPress={()=>moveCursor(1)}/>
           </View>
           <Button label={tr("today")} variant="ghost" onPress={()=>setCursor(new Date())}/>
-          {scheduledMatches.map(m=><View key={m.id} style={styles.item}>
-            <AppText weight="semibold">{tr("officialMatch")}: {m.opponentName??tr("unknownOpponent")}</AppText>
-            <AppText variant="caption" muted>{m.competitionName} · {date(m.startsAt)}</AppText>
-            <CompetitionLink id={m.competitionId} label={tr("details")} tab="MATCHES"/>
-          </View>)}
-          {schedule.map(activity=>{
-            const yes=activity.rsvps.filter(x=>x.availability==="AVAILABLE").length;
-            const no=activity.rsvps.filter(x=>x.availability==="UNAVAILABLE").length;
-            const unsure=activity.rsvps.filter(x=>x.availability==="UNSURE").length;
-            return <View key={activity.id} style={styles.item}>
-              <AppText weight="bold">{activity.title} · {tr("kind."+activity.kind)}</AppText>
-              <AppText variant="caption" muted>{date(activity.startsAt)} – {date(activity.endsAt)}</AppText>
-              {activity.location?<AppText variant="caption" muted>{activity.location}</AppText>:null}
-              {activity.notes?<AppText variant="caption">{activity.notes}</AppText>:null}
-              <AppText variant="caption" muted>{tr("rsvp.AVAILABLE")}: {yes} · {tr("rsvp.UNAVAILABLE")}: {no} · {tr("rsvp.UNSURE")}: {unsure}</AppText>
-              <View style={styles.controls}>
-                <Button label={tr("respond")} variant="secondary" onPress={()=>router.push({pathname:"/teams/[teamId]/activities",params:{teamId:team.id}})}/>
-                {canWrite?<><Button label={tr("edit")} variant="secondary" onPress={()=>startActivity(activity)}/>
-                  <Button label={tr("delete")} variant="ghost" loading={busy}
-                    onPress={()=>void execute(()=>teamOperationsApi.deleteActivity(token,team.id,activity.id))}/></>:null}
-              </View>
-            </View>;
-          })}
-          {schedule.length===0&&scheduledMatches.length===0?<AppText muted>{tr("calendarEmpty")}</AppText>:null}
-        </Card>
-        <Card><AppText variant="bodyLarge" weight="bold">{tr("manageActivities")}</AppText>
-          <View style={styles.controls}>
+          {[...scheduledMatches.map(m=>({type:"MATCH" as const,at:m.startsAt!,m})),
+            ...schedule.map(a=>({type:"ACTIVITY" as const,at:a.startsAt,a}))]
+            .sort((a,b)=>a.at.localeCompare(b.at)).map(entry=>entry.type==="MATCH"?
+              <View key={`match-${entry.m.id}`} style={styles.item}>
+                <AppText weight="semibold">{tr("officialMatch")}: {entry.m.opponentName??tr("unknownOpponent")}</AppText>
+                <AppText variant="caption" muted>{entry.m.competitionName} · {date(entry.at)}</AppText>
+                <CompetitionLink id={entry.m.competitionId} label={tr("details")} tab="MATCHES"/>
+              </View>:
+              <View key={`activity-${entry.a.id}`} style={styles.item}>
+                <AppText weight="semibold">{entry.a.title} · {tr("kind."+entry.a.kind)}</AppText>
+                <AppText variant="caption" muted>{date(entry.a.startsAt)} – {date(entry.a.endsAt)}</AppText>
+                {entry.a.location?<AppText variant="caption" muted>{entry.a.location}</AppText>:null}
+                <Button label={t("tm5.availability")} variant="secondary"
+                  onPress={()=>setProgramSection("AVAILABILITY")}/>
+              </View>)}
+          {schedule.length===0&&scheduledMatches.length===0?
+            <AppText muted>{tr("calendarEmpty")}</AppText>:null}
+          <AppText variant="caption" muted>{t("tm5.calendarHint")}</AppText>
+        </Card>:null}
+        {programSection==="ACTIVITIES"?<Card testID="tm5-program-activities" style={styles.compCard}>
+          <AppText variant="bodyLarge" weight="bold">{tr("manageActivities")}</AppText>
+          <View style={[styles.controls,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <Button label={tr("newActivity")} disabled={!canWrite} onPress={()=>startActivity()}/>
             <Button label={tr("bookVenue")} variant="secondary" onPress={()=>router.push("/venues")}/>
           </View>
-          {showActivity?<View style={{gap:spacing.md}}>
+          {showActivity?<View style={styles.activityForm}>
+            <AppText weight="semibold">{editingActivity?t("tm5.editActivity"):tr("newActivity")}</AppText>
             <Options current={activity.kind} set={v=>setActivityValue("kind",v as TeamActivityInput["kind"])}
               options={["TRAINING","MEETING","FRIENDLY","OTHER"].map(id=>({id,label:tr("kind."+id)}))}/>
             <TextField label={tr("activityTitle")} value={activity.title} onChangeText={v=>setActivityValue("title",v)}/>
-            <TextField label={tr("activityNotes")} value={activity.notes??""} multiline onChangeText={v=>setActivityValue("notes",v||null)}/>
-            <TextField label={tr("activityLocation")} value={activity.location??""} onChangeText={v=>setActivityValue("location",v||null)}/>
-            <DateTimePickerField label={tr("start")} value={activity.startsAt} onChange={v=>setActivityValue("startsAt",v)} minimumDate={new Date()}/>
-            <DateTimePickerField label={tr("end")} value={activity.endsAt} onChange={v=>setActivityValue("endsAt",v)}
+            <TextField label={tr("activityNotes")} value={activity.notes??""} multiline
+              onChangeText={v=>setActivityValue("notes",v||null)}/>
+            <TextField label={tr("activityLocation")} value={activity.location??""}
+              onChangeText={v=>setActivityValue("location",v||null)}/>
+            <DateTimePickerField label={tr("start")} value={activity.startsAt}
+              onChange={v=>setActivityValue("startsAt",v)} minimumDate={new Date()}/>
+            <DateTimePickerField label={tr("end")} value={activity.endsAt}
+              onChange={v=>setActivityValue("endsAt",v)}
               minimumDate={new Date(activity.startsAt||Date.now())}/>
-            <Button label={t("common.save")} disabled={!canWrite||busy||activity.title.trim().length<2||
-              !activity.startsAt||!activity.endsAt||Date.parse(activity.endsAt)<=Date.parse(activity.startsAt)} loading={busy}
+            {validActivityTimes&&saveConflicts.length?<View testID="tm5-activity-conflict" style={styles.compDanger}>
+              <Ionicons name="alert-circle-outline" color={colors.danger} size={22}/>
+              <AppText style={{color:colors.danger}}>{t("tm5.conflictWarning")}</AppText>
+              {saveConflicts.map((item,i)=><AppText key={i} variant="caption">
+                {item.kind==="MATCH"?t("tm5.conflictMatch"):t("tm5.conflictActivity")}: {item.title}
+              </AppText>)}
+            </View>:null}
+            <Button label={t("common.save")}
+              disabled={!canWrite||busy||activity.title.trim().length<2||
+                !validActivityTimes||saveConflicts.length>0} loading={busy}
               onPress={()=>void execute(async()=>{
                 if(editingActivity)await teamOperationsApi.updateActivity(token,team.id,editingActivity,activity);
                 else await teamOperationsApi.createActivity(token,team.id,activity);
               },()=>{setShowActivity(false);setEditingActivity(null);setActivity(emptyActivity);})}/>
-            <Button label={t("common.cancel")} variant="ghost" onPress={()=>setShowActivity(false)}/>
+            <Button label={t("common.cancel")} variant="secondary"
+              onPress={()=>{setShowActivity(false);setEditingActivity(null);setActivity(emptyActivity);}}/>
           </View>:null}
+          {!upcomingActivities.length?<AppText muted>{t("tm5.noActivities")}</AppText>:null}
+          {upcomingActivities.map(item=><View key={item.id} style={styles.item}>
+            <AppText weight="semibold">{item.title} · {tr("kind."+item.kind)}</AppText>
+            <AppText variant="caption" muted>{date(item.startsAt)} – {date(item.endsAt)}</AppText>
+            {item.location?<AppText variant="caption" muted>{item.location}</AppText>:null}
+            {item.notes?<AppText variant="caption" muted>{item.notes}</AppText>:null}
+            <View style={[styles.controls,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              {canWrite?<Button label={tr("edit")} variant="secondary" onPress={()=>startActivity(item)}/>:null}
+              {canWrite?<Button label={tr("delete")} variant="ghost"
+                onPress={()=>setDeleteActivityId(item.id)}/>:null}
+              <Button label={t("tm5.availability")} variant="secondary"
+                onPress={()=>setProgramSection("AVAILABILITY")}/>
+            </View>
+            {deleteActivityId===item.id?<View testID="tm5-delete-confirm" style={styles.compDanger}>
+              <AppText style={{color:colors.danger}}>{t("tm5.confirmDelete")}</AppText>
+              <View style={[styles.controls,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <Button label={tr("delete")} variant="danger" disabled={!canWrite||busy} loading={busy}
+                  onPress={()=>void execute(()=>teamOperationsApi.deleteActivity(token,team.id,item.id),
+                    ()=>setDeleteActivityId(null))}/>
+                <Button label={t("common.cancel")} variant="secondary"
+                  onPress={()=>setDeleteActivityId(null)}/>
+              </View>
+            </View>:null}
+          </View>)}
           <AppText variant="caption" muted>{tr("scheduleNote")}</AppText>
-        </Card>
+        </Card>:null}
+        {programSection==="AVAILABILITY"?<Card testID="tm5-program-availability" style={styles.compCard}>
+          <AppText variant="bodyLarge" weight="bold">{t("tm5.playerAvailability")}</AppText>
+          <AppText variant="caption" muted>{t("tm5.availabilityHint")}</AppText>
+          {!upcomingActivities.length?<AppText muted>{t("tm5.noActivities")}</AppText>:null}
+          {upcomingActivities.map(item=>{
+            const yes=item.rsvps.filter(x=>x.availability==="AVAILABLE").length;
+            const no=item.rsvps.filter(x=>x.availability==="UNAVAILABLE").length;
+            const unsure=item.rsvps.filter(x=>x.availability==="UNSURE").length;
+            const unanswered=unansweredPlayerCount(team.members.map(m=>m.userId),item.rsvps.map(x=>x.userId));
+            const missingNames=team.members.filter(p=>!item.rsvps.some(x=>x.userId===p.userId))
+              .map(p=>p.publicDisplayName);
+            return <View key={item.id} style={styles.item}>
+              <AppText weight="semibold">{item.title} · {tr("kind."+item.kind)}</AppText>
+              <AppText variant="caption" muted>{date(item.startsAt)}</AppText>
+              <View style={[styles.compSummary,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                {([
+                  {title:tr("rsvp.AVAILABLE"),value:yes},
+                  {title:tr("rsvp.UNAVAILABLE"),value:no},
+                  {title:tr("rsvp.UNSURE"),value:unsure},
+                  {title:t("tm5.noResponse"),value:unanswered},
+                ] as const).map(tile=><View key={tile.title} style={styles.availabilityTile}>
+                  <AppText weight="bold" style={{color:colors.primary}}>{tile.value}</AppText>
+                  <AppText variant="caption" muted style={{textAlign:"center"}}>{tile.title}</AppText>
+                </View>)}
+              </View>
+              {missingNames.length?<AppText variant="caption" muted>
+                {t("tm5.awaitingResponse")}: {missingNames.join("، ")}
+              </AppText>:null}
+              <Button label={tr("respond")} variant="secondary"
+                onPress={()=>router.push({pathname:"/teams/[teamId]/activities",params:{teamId:team.id}})}/>
+            </View>;
+          })}
+        </Card>:null}
       </>:null}
+
     </>:null}
   </View>;
 }
 const styles=StyleSheet.create({
+  lineupBanner:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.sm,
+    borderRadius:radius.md,backgroundColor:colors.surfaceMuted,borderWidth:1,borderColor:colors.border},
+  activityForm:{gap:spacing.md,padding:spacing.md,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.border,backgroundColor:colors.surfaceMuted},
+  availabilityTile:{flex:1,minWidth:62,gap:spacing.xs,alignItems:"center",justifyContent:"center",
+    borderWidth:1,borderColor:colors.border,borderRadius:radius.md,padding:spacing.xs},
   compSection:{gap:spacing.md},
   compTabs:{gap:spacing.sm,paddingHorizontal:spacing.xs,paddingVertical:spacing.xs},
   compTab:{minHeight:49,flexDirection:"row",alignItems:"center",gap:spacing.xs,
