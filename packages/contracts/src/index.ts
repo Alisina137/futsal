@@ -1217,7 +1217,7 @@ export type BookingDto = z.infer<typeof bookingDtoSchema>;
 /** An authenticated owner's paged venue booking directory. All filters run
  * on the server before pagination; never fetch all customer records to search. */
 export const ownerBookingListQuerySchema=z.object({
-  scope:z.enum(["UPCOMING","ALL","HISTORY"]).default("UPCOMING"),
+  scope:z.enum(["UPCOMING","ALL","ACTIVE","HISTORY"]).default("UPCOMING"),
   status:bookingStatusSchema.optional(),
   source:bookingSourceSchema.optional(),
   q:z.string().trim().max(100).default(""),
