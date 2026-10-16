@@ -86,7 +86,7 @@ export type CreateBookingRecordInput = {
 export type VenueDiscoveryRecord = Pick<BookingVenueRecord, "id"|"name"|"province"|"city"|"address"|"status"|"subscription">;
 
 export type OwnerBookingDirectoryFilters={
-  scope:"UPCOMING"|"ALL"|"HISTORY";
+  scope:"UPCOMING"|"ALL"|"ACTIVE"|"HISTORY";
   status?:BookingStatus;source?:BookingSource;q:string;
   from?:Date;toExclusive?:Date;now:Date;page:number;pageSize:number;
 };
