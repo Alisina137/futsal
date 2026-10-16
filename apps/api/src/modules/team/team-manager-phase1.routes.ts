@@ -46,7 +46,7 @@ const profileInput=z.object({
 });
 // Team logos use only images uploaded by this manager. Arbitrary remote URLs
 // remain supported by the separate, existing team profile update endpoint.
-const teamLogoInput=z.object({imageUrl:z.string()
+export const teamLogoInput=z.object({imageUrl:z.string()
   .regex(/^\/api\/v1\/social\/post-images\/[0-9a-f-]{36}\/[A-Za-z0-9_-]{32,64}$/).nullable()});
 const guestInput=z.object({
   name:z.string().trim().min(2).max(100),
