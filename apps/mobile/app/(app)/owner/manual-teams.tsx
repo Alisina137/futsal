@@ -47,6 +47,7 @@ export default function OwnerManualTeamsScreen(){
   const [competitions,setCompetitions]=useState<CompetitionListItemDto[]>([]);
   const [registrationLoadedToken,setRegistrationLoadedToken]=useState<string|null>(null);
   const [competitionId,setCompetitionId]=useState<string|null>(null);
+  const [competitionQuery,setCompetitionQuery]=useState("");
   const [registrationLoading,setRegistrationLoading]=useState(false);
   const [registrationBusyToken,setRegistrationBusyToken]=useState<string|null>(null);
   const [registrationError,setRegistrationError]=useState<string|null>(null);
@@ -83,7 +84,7 @@ export default function OwnerManualTeamsScreen(){
     registrationSerial.current++;
     setFormOpen(false);setEditingId(null);setName("");setCity("");
     setQuery("");setCityFilter("");setMessage(null);setError(null);
-    setRegisterTeam(null);setCompetitions([]);setCompetitionId(null);
+    setRegisterTeam(null);setCompetitions([]);setCompetitionId(null);setCompetitionQuery("");
     setRegistrationLoadedToken(null);setRegistrationError(null);
     setRegistrationLoading(false);
   },[userId,token]);
@@ -102,6 +103,10 @@ export default function OwnerManualTeamsScreen(){
   const eligibleCompetitions=useMemo(
     ()=>registerableOwnerCompetitions(competitions),[competitions],
   );
+  const matchingCompetitions=useMemo(()=>eligibleCompetitions.filter(item=>
+    normalizeOfflineText(item.name).includes(normalizeOfflineText(competitionQuery))
+    ||normalizeOfflineText(item.venueName).includes(normalizeOfflineText(competitionQuery))
+  ),[eligibleCompetitions,competitionQuery]);
 
   function resetForm(){
     setFormOpen(false);setEditingId(null);setName("");setCity("");
@@ -144,14 +149,14 @@ export default function OwnerManualTeamsScreen(){
   function closeRegistration(){
     if(registering)return;
     registrationSerial.current++;
-    setRegisterTeam(null);setCompetitionId(null);setRegistrationError(null);
+    setRegisterTeam(null);setCompetitionId(null);setCompetitionQuery("");setRegistrationError(null);
     setRegistrationLoadedToken(null);setCompetitions([]);setRegistrationLoading(false);
   }
   async function openRegistration(team:ManualTeamDto){
     if(!token||loading||busy||registering)return;
     const request=++registrationSerial.current;
     const actorToken=token;
-    setRegisterTeam(team);setCompetitions([]);setCompetitionId(null);
+    setRegisterTeam(team);setCompetitions([]);setCompetitionId(null);setCompetitionQuery("");
     setRegistrationLoadedToken(null);setRegistrationError(null);
     setRegistrationLoading(true);setError(null);setMessage(null);
     try{
@@ -207,6 +212,18 @@ export default function OwnerManualTeamsScreen(){
         <View style={styles.countBadge}>
           <Ionicons name="shield-checkmark-outline" size={19} color={colors.primary}/>
           <AppText weight="bold" style={{color:colors.primary}}>{visibleTeams.length}</AppText>
+        </View>
+      </View>
+      <View style={[styles.summaryStrip,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.summaryTile}>
+          <Ionicons name="people-outline" size={20} color={colors.primary}/>
+          <AppText weight="bold" variant="bodyLarge">{visibleTeams.length}</AppText>
+          <AppText variant="caption" muted>{t("manualTeams.savedTeams")}</AppText>
+        </View>
+        <View style={styles.summaryTile}>
+          <Ionicons name="location-outline" size={20} color={colors.primary}/>
+          <AppText weight="bold" variant="bodyLarge">{cities.length}</AppText>
+          <AppText variant="caption" muted>{t("manualTeams.cityFilter")}</AppText>
         </View>
       </View>
       <Button testID="offline-team-create-action" label={t("manualTeams.create")}
@@ -359,6 +376,14 @@ export default function OwnerManualTeamsScreen(){
           {registrationLoading?<DataLoadingState variant="list" minHeight={170}/>:null}
           {registrationError?<AppText accessibilityLiveRegion="polite"
             style={{color:colors.danger}}>{registrationError}</AppText>:null}
+          {!registrationLoading&&registrationLoadedToken===token&&eligibleCompetitions.length>0?
+            <TextField testID="offline-team-competition-search"
+              label={t("manualTeams.search")} placeholder={t("manualTeams.searchHint")}
+              value={competitionQuery} onChangeText={setCompetitionQuery} maxLength={100}/>:null}
+          {!registrationLoading&&registrationLoadedToken===token&&eligibleCompetitions.length>0?
+            <AppText variant="caption" muted>
+              {t("manualTeams.results",{count:matchingCompetitions.length})}
+            </AppText>:null}
           {!registrationLoading&&registrationLoadedToken===token&&eligibleCompetitions.length===0?
             <View style={styles.emptyCompetitions}>
               <Ionicons name="calendar-outline" color={colors.textMuted} size={26}/>
@@ -367,7 +392,7 @@ export default function OwnerManualTeamsScreen(){
           {!registrationLoading&&registrationLoadedToken===token?
             <ScrollView style={styles.competitionList} contentContainerStyle={{gap:spacing.sm}}
               keyboardShouldPersistTaps="handled">
-              {eligibleCompetitions.map(item=>{
+              {matchingCompetitions.map(item=>{
                 const selected=competitionId===item.id;
                 return <Pressable key={item.id}
                   testID={`offline-team-comp-${item.id}`} accessibilityRole="button"
@@ -387,6 +412,13 @@ export default function OwnerManualTeamsScreen(){
                 </Pressable>;
               })}
             </ScrollView>:null}
+          {!registrationLoading&&registrationLoadedToken===token&&eligibleCompetitions.length>0
+            &&matchingCompetitions.length===0?<View style={styles.emptyCompetitions}>
+              <Ionicons name="search-outline" color={colors.textMuted} size={25}/>
+              <AppText variant="caption" muted>{t("manualTeams.noMatches")}</AppText>
+              <Button variant="ghost" label={t("manualTeams.clearFilters")}
+                onPress={()=>setCompetitionQuery("")}/>
+            </View>:null}
           <View style={[styles.actionRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <Button style={styles.actionCell} variant="secondary"
               label={t("common.cancel")} disabled={registering} onPress={closeRegistration}/>
@@ -406,17 +438,22 @@ export default function OwnerManualTeamsScreen(){
 
 const styles=StyleSheet.create({
   intro:{gap:spacing.md},
+  summaryStrip:{gap:spacing.sm},
+  summaryTile:{flex:1,minWidth:0,alignItems:"center",justifyContent:"center",gap:spacing.xs,
+    backgroundColor:colors.surfaceMuted,padding:spacing.md,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.border},
   heading:{alignItems:"center",gap:spacing.sm},
   titleBlock:{flex:1,minWidth:0,gap:spacing.xs},
   countBadge:{alignItems:"center",flexDirection:"row",gap:spacing.xs,
     borderRadius:radius.pill,paddingHorizontal:spacing.md,minHeight:42,
     backgroundColor:colors.primarySoft},
   formCard:{gap:spacing.md,borderColor:colors.primary,borderWidth:1},
-  directoryCard:{gap:spacing.md},
+  directoryCard:{gap:spacing.md,borderWidth:1,borderColor:colors.border},
   filterRow:{alignItems:"center",gap:spacing.md},
   filterCell:{flex:1,minWidth:0},
   resultsCell:{flex:1,alignItems:"flex-end",gap:spacing.xs,minWidth:0},
-  teamCard:{gap:spacing.md,padding:spacing.md,borderWidth:1,borderColor:colors.border},
+  teamCard:{gap:spacing.md,padding:spacing.md,borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.lg},
   teamIcon:{width:51,height:51,borderRadius:radius.md,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
   teamText:{flex:1,minWidth:0,gap:5},
