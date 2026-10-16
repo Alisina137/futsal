@@ -936,6 +936,7 @@ const en = {
   "tm1.players": "Players",
   "tm1.settings": "Settings",
   "tm1.loadError": "Unable to load your team workspace.",
+  "tm1.partialData": "Some team information could not be loaded. Available sections still work."
   "tm1.saved": "Saved successfully.",
   "tm1.actionFailed": "This action could not be completed.",
   "tm1.notScheduled": "Not scheduled",
@@ -4467,6 +4468,7 @@ const fa = {
   "tm1.players": "بازیکنان",
   "tm1.settings": "تنظیمات",
   "tm1.loadError": "بخش مدیریت تیم بارگذاری نشد.",
+  "tm1.partialData": "بخشی از اطلاعات تیم بارگذاری نشد. بخش‌های موجود هنوز قابل استفاده‌اند."
   "tm1.saved": "با موفقیت ذخیره شد.",
   "tm1.actionFailed": "این عملیات انجام نشد.",
   "tm1.notScheduled": "برنامه‌ریزی نشده",
@@ -7996,6 +7998,7 @@ const ps = {
   "tm1.players": "لوبغاړي",
   "tm1.settings": "تنظیمات",
   "tm1.loadError": "د ټیم مدیریت برخه نه بارېږي.",
+  "tm1.partialData": "د ټیم ځینې معلومات پورته نه شول. شته برخې لا هم کارولی شئ."
   "tm1.saved": "په بریالیتوب خوندي شو.",
   "tm1.actionFailed": "دا کار ترسره نه شو.",
   "tm1.notScheduled": "مهالوېش نه لري",
