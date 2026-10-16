@@ -331,8 +331,10 @@ export class FakeBookingRepository implements BookingRepository {
       if(booking.venueId!==venueId)return false;
       if(f.scope==="UPCOMING"&&!(booking.status==="CONFIRMED"&&
         Date.parse(booking.startsAt)>=f.now.getTime()))return false;
-      if(f.scope==="HISTORY"&&!(booking.status==="CANCELLED"||
-        (booking.status==="CONFIRMED"&&Date.parse(booking.endsAt)<f.now.getTime())))return false;
+      if(f.scope==="ACTIVE"&&!(booking.status==="CONFIRMED"&&
+        Date.parse(booking.endsAt)>f.now.getTime()))return false;
+      if(f.scope==="HISTORY"&&!(booking.status==="CONFIRMED"&&
+        Date.parse(booking.endsAt)<=f.now.getTime()))return false;
       if(f.status&&booking.status!==f.status)return false;
       if(f.source&&booking.source!==f.source)return false;
       if(f.from&&Date.parse(booking.startsAt)<f.from.getTime())return false;
