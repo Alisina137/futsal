@@ -15,10 +15,10 @@ check(dash,[
  'setMatchSection("LINEUPS");chooseTab("matches");',
 ],"Team Manager dashboard");
 check(ops,[
- 'testID="tm5-matches-subtabs"','testID="tm5-match-OFFICIAL"',
- 'testID="tm5-match-FRIENDLIES"','testID="tm5-match-LINEUPS"',
- 'testID="tm5-program-subtabs"','testID="tm5-program-CALENDAR"',
- 'testID="tm5-program-ACTIVITIES"','testID="tm5-program-AVAILABILITY"',
+ 'testID="tm5-matches-subtabs"','testID={`tm5-match-${item.id}`}',
+ '{id:"OFFICIAL"','{id:"FRIENDLIES"','{id:"LINEUPS"',
+ 'testID="tm5-program-subtabs"','testID={`tm5-program-${item.id}`}',
+ '{id:"CALENDAR"','{id:"ACTIVITIES"','{id:"AVAILABILITY"',
  'testID="tm5-official-matches"','testID="tm5-lineup-editor"',
  'testID="tm5-lineup-list"','upcoming(requestedMatch)',
  'tm5.lineupReady','tm5.lineupDraft',
