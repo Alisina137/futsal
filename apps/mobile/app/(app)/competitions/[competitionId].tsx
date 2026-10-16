@@ -640,7 +640,9 @@ export default function CompetitionDetailScreen(){
       </ScrollView>
     </View>
 
-    <View testID="competition-profile-subtabs">
+    {/* Matches already has the definitive six-state navigation inside the
+        match list. Avoid showing a duplicate Upcoming/Live/Results/All strip. */}
+    {activeTab!=="MATCHES"?<View testID="competition-profile-subtabs">
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         style={{flexGrow:0}} contentContainerStyle={[styles.tabList,
           {flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -659,7 +661,7 @@ export default function CompetitionDetailScreen(){
           </AppText>
         </Pressable>)}
       </ScrollView>
-    </View>
+    </View>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/></Card>:null}
     {activeTab==="STANDINGS"||activeTab==="STATS"?
