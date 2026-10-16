@@ -117,6 +117,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   async function selectPhoto(){
     if(!canWrite||uploading)return;
     const selectedTeam=team.id;
+    const draftAtStart=draftKeyRef.current;
     try{
       const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
       if(!permission.granted){
@@ -124,18 +125,40 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
         return;
       }
       const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:0.8});
-      if(result.canceled||!result.assets[0]||currentTeam.current!==selectedTeam)return;
+      if(result.canceled||!result.assets[0]||currentTeam.current!==selectedTeam||draftKeyRef.current!==draftAtStart)return;
       setUploading(true);setError(null);
       const asset=result.assets[0];
       const image=await marketingApi.uploadUserPostImage(token,{
         uri:asset.uri,mimeType:asset.mimeType??"image/jpeg",
         ...(asset.fileSize!==undefined?{size:asset.fileSize}:{}),
       });
-      if(currentTeam.current===selectedTeam)setImageUrl(image.imageUrl);
+      if(currentTeam.current===selectedTeam&&draftKeyRef.current===draftAtStart)setImageUrl(image.imageUrl);
     }catch(e){
-      if(currentTeam.current===selectedTeam)
+      if(currentTeam.current===selectedTeam&&draftKeyRef.current===draftAtStart)
         setError(e instanceof ApiRequestError?e.message:t("tm3.uploadError"));
-    }finally{if(currentTeam.current===selectedTeam)setUploading(false);}
+    }finally{if(currentTeam.current===selectedTeam&&draftKeyRef.current===draftAtStart)setUploading(false);}
+  }
+  async function selectFilePhoto(){
+    if(!canWrite||uploading)return;
+    const teamAtStart=team.id,keyAtStart=draftKeyRef.current;
+    try{
+      const file=await DocumentPicker.getDocumentAsync({type:"image/*",multiple:false,copyToCacheDirectory:true});
+      if(file.canceled||!file.assets[0]||currentTeam.current!==teamAtStart||
+        draftKeyRef.current!==keyAtStart)return;
+      const asset=file.assets[0];
+      setUploading(true);setError(null);
+      const image=await marketingApi.uploadUserPostImage(token,{
+        uri:asset.uri,mimeType:asset.mimeType??"image/jpeg",
+        ...(asset.size!==undefined?{size:asset.size}:{}),
+      });
+      if(currentTeam.current===teamAtStart&&draftKeyRef.current===keyAtStart)
+        setImageUrl(image.imageUrl);
+    }catch(e){
+      if(currentTeam.current===teamAtStart&&draftKeyRef.current===keyAtStart)
+        setError(e instanceof ApiRequestError?e.message:t("tm3.uploadError"));
+    }finally{
+      if(currentTeam.current===teamAtStart&&draftKeyRef.current===keyAtStart)setUploading(false);
+    }
   }
   function editPost(post:TeamGrowthPost){
     setPostEditing(post.id);setPostBody(post.body);setImageUrl(post.imageUrl);
