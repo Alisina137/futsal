@@ -64,8 +64,10 @@ function dayFromTimetable(item:VenueTimetableDto,preferredAreaId:string|null):Da
 
 
 export default function TimetableEditorScreen(){
-  const params=useLocalSearchParams<{timetableId?:string}>();
+  const params=useLocalSearchParams<{timetableId?:string;sourceTimetableId?:string}>();
   const initialId=typeof params.timetableId==="string"?params.timetableId:null;
+  const sourceId=!initialId&&typeof params.sourceTimetableId==="string"
+    ?params.sourceTimetableId:null;
   const {session}=useAuth();
   const {t,isRTL,language}=useLocale();
   const token=session?.accessToken;
@@ -115,23 +117,37 @@ export default function TimetableEditorScreen(){
       const court=venueAreas[0]??null;
       const courtPrice=String(court?.basePriceAfn??0);
       setDefaultPrice(courtPrice);
-      const item=initialId
-        ?[versions.current,...versions.drafts,...versions.future,...versions.archived].find((candidate)=>candidate?.id===initialId)??null
+      const requestedId=initialId??sourceId;
+      const item=requestedId
+        ?[versions.current,...versions.drafts,...versions.future,...versions.archived]
+          .find((candidate)=>candidate?.id===requestedId)??null
         :null;
+      if(requestedId&&!item){
+        setError(t("schedule.loadTimetableError"));
+        return;
+      }
       if(item){
-        if(item.status!=="DRAFT"){
+        if(initialId&&item.status!=="DRAFT"){
           setError(t("schedule.saveTimetableError"));
           return;
         }
-        setTimetableId(item.id);
+        // sourceTimetableId is read-only seed data. It is never duplicated by
+        // the API during navigation: exiting without Save draft does not write.
+        setTimetableId(initialId?item.id:null);
         setName(item.name);
-        setEffectiveFrom(calendarInputDate(item.effectiveFrom,language));
-        setEffectiveUntil(item.effectiveUntil?calendarInputDate(item.effectiveUntil,language):"");
+        const today=todayKabul();
+        const from=initialId||item.status==="DRAFT"?item.effectiveFrom:
+          item.effectiveFrom>today?item.effectiveFrom:today;
+        const until=item.effectiveUntil&&item.effectiveUntil>=from
+          ?item.effectiveUntil:"";
+        setEffectiveFrom(calendarInputDate(from,language));
+        setEffectiveUntil(until?calendarInputDate(until,language):"");
         setDuration(String(item.defaultSlotDurationMinutes));
         setBuffer(String(item.bufferMinutes));
         const shared=item.periods.some((period)=>period.areaId===null);
         setDays(dayFromTimetable(item,shared?null:court?.id??null));
       }else{
+        setTimetableId(null);
         setDays(defaultDays(status.venue?.openingHours,courtPrice));
       }
     }catch{
@@ -139,7 +155,7 @@ export default function TimetableEditorScreen(){
     }finally{
       setLoading(false);
     }
-  },[initialId,language,t,token]);
+  },[initialId,sourceId,language,t,token]);
 
   useEffect(()=>{void load();},[load]);
 
@@ -274,7 +290,9 @@ export default function TimetableEditorScreen(){
         <Ionicons name={isRTL?"chevron-forward":"chevron-back"} size={22} color={colors.primary}/>
       </Pressable>
       <View style={{flex:1}}>
-        <AppText variant="title" weight="bold">{t("schedule.editWeekly")}</AppText>
+        <AppText variant="title" weight="bold">
+          {t(initialId?"schedule.editWeekly":sourceId?"schedule.updateTimetable":"schedule.createWeekly")}
+        </AppText>
         <AppText muted>{t("schedule.venueTimetable")}</AppText>
       </View>
     </View>
