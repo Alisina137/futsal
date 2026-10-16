@@ -865,6 +865,9 @@ export const teamManagerApi={
   overview:(token:string,teamId:string)=>
     request<TeamManagerOverview>(`/api/v1/teams/${teamId}/manager/overview`,{},token),
   publicDetails:(teamId:string)=>request<{profile:Omit<TeamManagerProfileDetails,"allowJoinRequests"|"whatsappGroupUrl">}>(`/api/v1/teams/${teamId}/profile-details`),
+  updateLogo:(token:string,teamId:string,imageUrl:string|null)=>
+    request<{logoUrl:string|null}>(`/api/v1/teams/${teamId}/manager/logo`,
+      {method:"PUT",body:JSON.stringify({imageUrl})},token),
   updateProfile:(token:string,teamId:string,input:TeamManagerProfileDetails)=>
     request<{profile:TeamManagerProfileDetails}>(`/api/v1/teams/${teamId}/manager/profile`,
       {method:"PUT",body:JSON.stringify(input)},token),
