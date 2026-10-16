@@ -59,6 +59,15 @@ export function createOwnerTimetableRouter(timetable: TimetableService, tokens: 
     } catch (error) { next(error); }
   });
 
+  router.delete("/timetables/:timetableId/history", writeLimiter, async (request, response, next) => {
+    try {
+      response.json(await timetable.deleteHistoricalTimetable(
+        request.auth!.userId,
+        idSchema.parse(request.params.timetableId),
+      ));
+    } catch (error) { next(error); }
+  });
+
   router.post("/timetables/:timetableId/publish", writeLimiter, async (request, response, next) => {
     try {
       response.json(await timetable.publish(
