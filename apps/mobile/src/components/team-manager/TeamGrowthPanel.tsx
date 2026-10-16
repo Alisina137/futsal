@@ -25,7 +25,8 @@ function Counter({label,value}:{label:string;value:number|string}){
     <AppText variant="caption" muted style={{textAlign:"center"}}>{label}</AppText></View>;
 }
 function Options({items,current,onChange}:{items:{id:string;name:string}[];current:string;onChange:(id:string)=>void}){
-  return <ScrollView horizontal contentContainerStyle={{gap:spacing.sm,alignItems:"center"}} showsHorizontalScrollIndicator={false}>
+  const {isRTL}=useLocale();
+  return <ScrollView horizontal contentContainerStyle={{gap:spacing.sm,alignItems:"center",flexDirection:isRTL?"row-reverse":"row"}} showsHorizontalScrollIndicator={false}>
     {items.map(item=><Pressable key={item.id} onPress={()=>onChange(item.id)}
       accessibilityRole="button" accessibilityState={{selected:current===item.id}}
       style={[styles.chip,item.id===current&&styles.active]}>
@@ -319,8 +320,8 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
           <Card>
             <AppText variant="bodyLarge" weight="bold">{tr("phase5Photos")}</AppText>
             <AppText variant="caption" muted>{tr("phase5PhotoHint")}</AppText>
-            <Button label={tr("addPhoto")} variant="secondary" disabled={!canWrite}
-              onPress={newPost}/>
+            <Button label={tr("addPhoto")} variant="secondary" disabled={!canWrite||busy}
+              onPress={()=>{newPost();void selectPhoto();}}/>
             {data.posts.filter(post=>!!post.imageUrl).length===0?
               <AppText muted>{tr("phase5NoPhotos")}</AppText>:
               <View style={styles.photoGrid}>{data.posts.filter(post=>!!post.imageUrl).map(post=>
