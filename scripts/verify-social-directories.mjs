@@ -64,4 +64,4 @@ for(const key of ["teams.followedTeams","teams.mostFollowed","teams.myTeams",
   "competition.searchName","competition.noOngoingFollowed"]){
   ensure(l10n.split(`"${key}"`).length-1===3,`Missing localized key ${key}`);
 }
-console.log("Teams and Competitions discovery verified: venue-style followed rail, city/status select filters, typed live social rankings, scoped ongoing follow-venue competitions, localized responsive actions.");
+console.log("Teams and Competitions discovery verified: venue-style followed rail, province/status/format/fee compact grid filters, typed live social rankings, scoped ongoing follow-venue competitions, localized responsive actions.");
