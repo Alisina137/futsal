@@ -56,7 +56,9 @@ const displayTime=(value:string|null,language:ReturnType<typeof useLocale>["lang
   ?formatLocalDateTimeParts(value,language):null;
 const openTeam=(teamId:string)=>router.push({pathname:"/teams/[teamId]",params:{teamId}});
 
-function SectionHeading({title,icon,count}:{title:string;icon:keyof typeof Ionicons.glyphMap;count?:number}){
+function SectionHeading({title,icon,count,action}:{
+  title:string;icon:keyof typeof Ionicons.glyphMap;count?:number;action?:ReactNode;
+}){
   const {isRTL}=useLocale();
   return <View style={[styles.sectionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
     <View style={styles.headingIcon}><Ionicons name={icon} size={20} color={colors.primary}/></View>
@@ -64,6 +66,7 @@ function SectionHeading({title,icon,count}:{title:string;icon:keyof typeof Ionic
     {count!==undefined?<View style={styles.countPill}>
       <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>{count}</AppText>
     </View>:null}
+    {action}
   </View>;
 }
 
@@ -140,9 +143,10 @@ function MatchCard({match,offlineIds}:{match:CompetitionMatchDto;offlineIds:Set<
   </Card>;
 }
 
-function CompetitionStandings({competition,initialStage,onStageChange}:{
+function CompetitionStandings({competition,initialStage,onStageChange,onRefresh,refreshing=false}:{
   competition:CompetitionDto;initialStage?:Stage|undefined;
   onStageChange?:((stage:Stage)=>void)|undefined;
+  onRefresh?:(()=>void)|undefined;refreshing?:boolean|undefined;
 }){
   const {t,isRTL}=useLocale();
   const mixed=competition.format==="GROUP_KNOCKOUT";
@@ -164,7 +168,20 @@ function CompetitionStandings({competition,initialStage,onStageChange}:{
     grouped.filter(group=>group.key===currentGroup);
 
   return <View style={styles.stack} testID="competition-phase5-standings">
-    <SectionHeading title={t(mixed?"competition.profile.stages":"competition.standings")} icon="podium-outline"/>
+    <SectionHeading title={t(mixed?"competition.profile.stages":"competition.standings")}
+      icon="podium-outline"
+      action={<Pressable testID="competition-table-refresh" accessibilityRole="button"
+        accessibilityLabel={t("competition.detail.refreshMatches")}
+        accessibilityState={{disabled:refreshing}}
+        disabled={refreshing||!onRefresh} onPress={onRefresh}
+        style={[styles.standingsRefresh,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <Ionicons name="refresh-outline" size={17}
+          color={refreshing?colors.textMuted:colors.primary}/>
+        <AppText variant="caption" weight="semibold" numberOfLines={1}
+          style={{color:refreshing?colors.textMuted:colors.primary}}>
+          {refreshing?t("competition.detail.refreshing"):t("competition.detail.refresh")}
+        </AppText>
+      </Pressable>}/>
     {mixed?<View style={[styles.stageSwitch,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {(["GROUPS","KNOCKOUT"] as const).map(option=>
         <Pressable key={option} testID={`competition-stage-${option}`} accessibilityRole="tab"
@@ -832,7 +849,8 @@ export function CompetitionProfileSections({competition,posts,activeTab,subtab,r
     refreshing={matchRefreshing} myAcceptedTeamId={myAcceptedTeamId}/>;
   if(activeTab==="STANDINGS")return <CompetitionStandings
     competition={competition} initialStage={subtab==="KNOCKOUT"?"KNOCKOUT":
-      initialStage??"GROUPS"} onStageChange={onStandingsStageChange}/>;
+      initialStage??"GROUPS"} onStageChange={onStandingsStageChange}
+    onRefresh={onMatchRefresh} refreshing={matchRefreshing}/>;
   if(activeTab==="STATS")return subtab==="TEAMS"||subtab==="FAIR_PLAY"?
     <CompetitionTeamMetrics competition={competition} subtab={subtab}/>:
     <CompetitionStats competition={competition}/>;
@@ -847,7 +865,10 @@ export function CompetitionProfileSections({competition,posts,activeTab,subtab,r
 
 const styles=StyleSheet.create({
   stack:{gap:spacing.md},
-  sectionHeading:{alignItems:"center",gap:spacing.sm,minHeight:36},
+  sectionHeading:{alignItems:"center",gap:spacing.sm,minHeight:44},
+  standingsRefresh:{minHeight:44,alignItems:"center",justifyContent:"center",
+    borderRadius:radius.md,paddingHorizontal:spacing.sm,gap:spacing.xs,
+    backgroundColor:colors.primarySoft,flexShrink:0},
   headingIcon:{width:36,height:36,borderRadius:12,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
   countPill:{minWidth:26,height:26,borderRadius:13,backgroundColor:colors.primarySoft,
