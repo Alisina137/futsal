@@ -803,12 +803,26 @@ export type TeamGrowthChallenge={id:string;fromTeamId:string;toTeamId:string;opp
 export type TeamGrowthPlayer={userId:string;displayName:string;matches:number;goals:number;assists:number;
   yellowCards:number;redCards:number;cleanSheets:number;playerOfMatch:number};
 export type TeamGrowthHistory={id:string;name:string;status:string;format:string;registrationStatus:string;
+  startsAt?:string|null;endsAt?:string|null;
   champion:boolean;rewards:{category:string;title:string;prize:string;description:string|null}[]};
+export type TeamAnalyticsMatch={
+  id:string;competitionId:string;startsAt:string|null;status:string;
+  homeTeamId:string|null;awayTeamId:string|null;homeScore:number;awayScore:number;
+};
+export type TeamAnalyticsPlayerRow={
+  matchId:string;competitionId:string;startsAt:string|null;
+  userId:string;displayName:string;appeared:boolean;goals:number;assists:number;
+  yellowCards:number;redCards:number;cleanSheet:boolean;playerOfMatch:boolean;
+};
+export type TeamAnalyticsDetails={matches:TeamAnalyticsMatch[];players:TeamAnalyticsPlayerRow[]};
 export type TeamGrowthData={
   posts:TeamGrowthPost[];announcements:TeamGrowthAnnouncement[];challenges:TeamGrowthChallenge[];
   stats:{played:number;wins:number;draws:number;losses:number;goalsFor:number;goalsAgainst:number;
     goalDifference:number;winRate:number;championships:number;
-    players:TeamGrowthPlayer[];competitionHistory:TeamGrowthHistory[]};
+    players:TeamGrowthPlayer[];competitionHistory:TeamGrowthHistory[];
+    /** Optional while older servers are still deployed: never pretend partial
+     * analytics or scoped metrics exist until this verified detail is supplied. */
+    analytics?:TeamAnalyticsDetails};
 };
 export const teamGrowthApi={
   list:(token:string,teamId:string)=>request<TeamGrowthData>(`/api/v1/teams/${teamId}/manager/growth`,{},token),
