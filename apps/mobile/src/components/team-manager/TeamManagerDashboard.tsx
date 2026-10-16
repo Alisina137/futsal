@@ -88,6 +88,7 @@ export function TeamManagerDashboard(){
   const [listError,setListError]=useState<string|null>(null);
   const [detailsError,setDetailsError]=useState<{key:string;message:string}|null>(null);
   const [metadataError,setMetadataError]=useState(false);
+  const [attentionKey,setAttentionKey]=useState<string|null>(null);
   const [attentionError,setAttentionError]=useState(false);
   const [attentionLoaded,setAttentionLoaded]=useState({
     requests:false,invitations:false,notifications:false,
@@ -202,7 +203,7 @@ export function TeamManagerDashboard(){
     setRequests([]);setInvitations([]);setUnread(0);
     setOffer(null);setCapacity(null);
     setListError(null);setDetailsError(null);
-    setMetadataError(false);setAttentionError(false);
+    setMetadataError(false);setAttentionError(false);setAttentionKey(null);
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
   },[token,userId]);
@@ -212,7 +213,7 @@ export function TeamManagerDashboard(){
     setTeam(null);setOverview(null);setLoadedTeamKey(null);
     setRequests([]);setInvitations([]);setUnread(0);
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
-    setAttentionError(false);setDetailsError(null);
+    setAttentionError(false);setAttentionKey(null);setDetailsError(null);
     setJoinAction(null);setJoinActionError(null);
     setInviteIdentifier("");setInviteRole("PLAYER");
     setCoverPreview(null);setShowVenues(false);setVenueSearch("");setVenues([]);
@@ -250,7 +251,7 @@ export function TeamManagerDashboard(){
 
     // Notifications, requests and invitations do not gate team management.
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
-    setAttentionError(false);
+    setAttentionError(false);setAttentionKey(null);
     void Promise.allSettled([
       teamApi.joinRequests(token,selectedId),
       teamApi.teamInvitations(token,selectedId),
@@ -266,6 +267,7 @@ export function TeamManagerDashboard(){
         notifications:notifications.status==="fulfilled",
       });
       setAttentionError([joined,invited,notifications].some(item=>item.status==="rejected"));
+      setAttentionKey(key);
     });
     return()=>{active=false;};
   },[token,selectedId,refresh,t]);
@@ -328,6 +330,7 @@ export function TeamManagerDashboard(){
   const teamKey=token&&selectedId?token+":"+selectedId:null;
   const canWrite=loadedTeamKey===teamKey&&overview?.canWrite===true;
   const visibleTeams=teamsActor===token?teams:[];
+  const attentionReady=attentionKey===teamKey;
   const pending=requests.filter(item=>item.status==="PENDING");
   const outstanding=invitations.filter(item=>item.status==="PENDING");
   const updateProfile=(key:keyof TeamManagerProfileDetails,value:string|boolean|null)=>
@@ -409,11 +412,20 @@ export function TeamManagerDashboard(){
       </Pressable>)}
     </ScrollView>:null}
 
+    {listError?<Card style={styles.problemCard}>
+      <AppText style={{color:colors.danger}}>{listError}</AppText>
+      <Button variant="secondary" label={t("common.retry")} onPress={()=>setTeamListRefresh(x=>x+1)}/>
+    </Card>:null}
+    {(metadataError||attentionError)&&!listError?<Card style={styles.noticeCard}>
+      <AppText variant="caption" muted>{t("tm1.loadError")}</AppText>
+      <Button variant="secondary" label={t("common.retry")}
+        onPress={()=>{setTeamListRefresh(x=>x+1);setRefresh(x=>x+1);}}/>
+    </Card>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button variant="secondary" label={t("common.retry")} onPress={()=>{setTeamListRefresh(x=>x+1);setRefresh(x=>x+1);}}/></Card>:null}
     {message?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{message}</AppText></Card>:null}
 
-    {visibleTeams.length===0&&!error?<Card style={{paddingVertical:spacing.xxl,alignItems:"center",gap:spacing.md}}>
+    {visibleTeams.length===0&&!error&&!listError&&teamsActor===token?<Card style={{paddingVertical:spacing.xxl,alignItems:"center",gap:spacing.md}}>
       <Ionicons name="shield-checkmark-outline" size={54} color={colors.primary}/>
       <AppText variant="title" weight="bold" style={{textAlign:"center"}}>{t("tm1.welcome")}</AppText>
       <AppText muted style={{textAlign:"center"}}>{t("tm1.noTeam")}</AppText>
@@ -440,7 +452,10 @@ export function TeamManagerDashboard(){
       </Card>:null}
     </View>:null}
 
-    {(loading||team?.id!==selectedId||!overview)&&visibleTeams.length>0?
+    {detailsError?.key===teamKey&&visibleTeams.length>0?<Card style={styles.problemCard}>
+      <AppText style={{color:colors.danger}}>{detailsError.message}</AppText>
+      <Button variant="secondary" label={t("common.retry")} onPress={()=>setRefresh(x=>x+1)}/>
+    </Card>:(loading||team?.id!==selectedId||loadedTeamKey!==teamKey||!overview)&&visibleTeams.length>0?
       <DataLoadingState variant="dashboard" minHeight={400}/>:team&&overview?<>
       {tab==="overview"?<>
         <Card><View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -477,8 +492,8 @@ export function TeamManagerDashboard(){
           </View>
         </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.attention")}</AppText>
-          <AppText muted>{t("tm1.pendingRequests")}: {pending.length} · {t("tm1.pendingInvites")}: {outstanding.length}</AppText>
-          <AppText muted>{t("tm1.notifications")}: {unread}</AppText>
+          <AppText muted>{t("tm1.pendingRequests")}: {attentionReady&&attentionLoaded.requests?pending.length:"—"} · {t("tm1.pendingInvites")}: {attentionReady&&attentionLoaded.invitations?outstanding.length:"—"}</AppText>
+          <AppText muted>{t("tm1.notifications")}: {attentionReady&&attentionLoaded.notifications?unread:"—"}</AppText>
           <Button variant="ghost" label={t("tm1.notifications")} onPress={()=>router.push("/notifications")}/>
         </Card>
       </>:null}
@@ -508,9 +523,9 @@ export function TeamManagerDashboard(){
               ()=>setInviteIdentifier(""))}/>
           <AppText variant="caption" muted>{t("tm1.consentHint")}</AppText>
         </Card>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.pendingRequests")} ({pending.length})</AppText>
+        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.pendingRequests")} ({attentionReady&&attentionLoaded.requests?pending.length:"—"})</AppText>
           <AppText variant="caption" muted>{t("teams.phase4.managerReviewHint")}</AppText>
-          {pending.length===0?<AppText muted>{t("tm1.noRequests")}</AppText>:null}
+          {attentionReady&&attentionLoaded.requests&&pending.length===0?<AppText muted>{t("tm1.noRequests")}</AppText>:null}
           {pending.map(request=><View key={request.id} style={styles.divider}>
             <AppText weight="semibold">{request.requesterDisplayName}</AppText>
             <AppText variant="caption" muted>{formatCompetitionDateTime(request.createdAt,language)}</AppText>
@@ -547,8 +562,8 @@ export function TeamManagerDashboard(){
             </View>
           </View>)}
         </Card>
-        <Card><AppText weight="bold">{t("tm1.pendingInvites")} ({outstanding.length})</AppText>
-          {outstanding.length===0?<AppText muted>{t("tm1.noInvites")}</AppText>:null}
+        <Card><AppText weight="bold">{t("tm1.pendingInvites")} ({attentionReady&&attentionLoaded.invitations?outstanding.length:"—"})</AppText>
+          {attentionReady&&attentionLoaded.invitations&&outstanding.length===0?<AppText muted>{t("tm1.noInvites")}</AppText>:null}
           {outstanding.map(inv=><View key={inv.id} style={styles.divider}>
             <AppText>{inv.invitedPublicDisplayName} · {t(`teams.role.${inv.role}` as never)}</AppText>
             <Button label={t("tm1.revoke")} variant="ghost" disabled={!canWrite||busy}
@@ -697,20 +712,25 @@ export function TeamManagerDashboard(){
   </Screen>;
 }
 const styles=StyleSheet.create({
+  problemCard:{gap:spacing.sm,borderColor:colors.danger},
+  noticeCard:{gap:spacing.sm,borderColor:colors.warning},
   coverSettings:{gap:spacing.sm,paddingVertical:spacing.sm},
   coverPreview:{height:150,borderRadius:radius.md,overflow:"hidden",backgroundColor:colors.surfaceMuted},
   coverEmpty:{flex:1,alignItems:"center",justifyContent:"center",gap:spacing.sm},
   nav:{flexGrow:0,flexShrink:0,borderTopWidth:1,borderBottomWidth:1,
     borderTopColor:colors.border,borderBottomColor:colors.border,backgroundColor:colors.background,marginHorizontal:-spacing.xs},
-  navItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs,height:48,
-    paddingHorizontal:spacing.md,borderBottomWidth:3,borderBottomColor:"transparent",
-    backgroundColor:colors.background},
-  navActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft},
+  navItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs,minHeight:48,
+    paddingHorizontal:spacing.md,paddingVertical:spacing.xs,marginVertical:spacing.xs,
+    borderWidth:1,borderColor:"transparent",borderBottomWidth:3,borderBottomColor:"transparent",
+    borderRadius:radius.md,backgroundColor:colors.background},
+  navActive:{borderBottomColor:colors.primary,borderColor:colors.primary,backgroundColor:colors.primarySoft},
   subNav:{flexGrow:0,flexShrink:0,borderBottomWidth:1,borderBottomColor:colors.border,
     backgroundColor:colors.surface,marginHorizontal:-spacing.xs},
-  subItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs,height:43,
-    paddingHorizontal:spacing.md,borderBottomWidth:2,borderBottomColor:"transparent"},
-  subActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft},
+  subItem:{flexDirection:"row",alignItems:"center",gap:spacing.xs,minHeight:44,
+    paddingHorizontal:spacing.md,paddingVertical:spacing.xs,marginVertical:spacing.xs,
+    borderWidth:1,borderColor:"transparent",borderBottomWidth:2,borderBottomColor:"transparent",
+    borderRadius:radius.md},
+  subActive:{borderBottomColor:colors.primary,borderColor:colors.primary,backgroundColor:colors.primarySoft},
   option:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
     padding:spacing.md,backgroundColor:colors.surface,minHeight:40,justifyContent:"center"},
   optionActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
