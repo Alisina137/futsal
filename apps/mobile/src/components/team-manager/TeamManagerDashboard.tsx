@@ -129,6 +129,12 @@ export function TeamManagerDashboard(){
   const [guestPosition,setGuestPosition]=useState<Position>("UNSPECIFIED");
   const [guestJersey,setGuestJersey]=useState("");
   const [editingGuest,setEditingGuest]=useState<string|null>(null);
+  const [playerSection,setPlayerSection]=useState<"ROSTER"|"REQUESTS"|"INVITATIONS"|"GUESTS">("ROSTER");
+  const [playerSearch,setPlayerSearch]=useState("");
+  const [playerPosition,setPlayerPosition]=useState<Position|"ALL">("ALL");
+  const [requestHistory,setRequestHistory]=useState(false);
+  const [inviteHistory,setInviteHistory]=useState(false);
+  const [guestToRemove,setGuestToRemove]=useState<string|null>(null);
   const navRef=useRef<ScrollView|null>(null);
   const navViewport=useRef(0);
   const navWidth=useRef(0);
@@ -211,6 +217,8 @@ export function TeamManagerDashboard(){
     setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
     setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
     setLineupFocus(null);
+    setPlayerSection("ROSTER");setPlayerSearch("");setPlayerPosition("ALL");
+    setRequestHistory(false);setInviteHistory(false);setGuestToRemove(null);
   },[userId]);
 
   // Reset per-team drafts while preserving the chosen dashboard destination.
@@ -226,6 +234,8 @@ export function TeamManagerDashboard(){
     setCoverPreview(null);setShowVenues(false);setVenueSearch("");setVenues([]);
     setName("");setCity("");setLogoUrl("");setPrivacy("PUBLIC");setProfile(initialProfile);
     setError(null);setMessage(null);resetGuest();
+    setPlayerSection("ROSTER");setPlayerSearch("");setPlayerPosition("ALL");
+    setRequestHistory(false);setInviteHistory(false);setGuestToRemove(null);
   },[selectedId]);
 
   useEffect(()=>{
@@ -356,6 +366,17 @@ export function TeamManagerDashboard(){
   const attentionReady=attentionKey===teamKey;
   const pending=requests.filter(item=>item.status==="PENDING");
   const outstanding=invitations.filter(item=>item.status==="PENDING");
+  const playersMatching=team?.members.filter(member=>
+    (playerPosition==="ALL"||member.position===playerPosition)&&
+    (member.publicDisplayName.toLocaleLowerCase().includes(playerSearch.trim().toLocaleLowerCase())||
+      (member.shirtNumber!==null&&String(member.shirtNumber).includes(playerSearch.trim())))
+  )??[];
+  const requestRows=requestHistory?requests.filter(item=>item.status!=="PENDING"):pending;
+  const invitationRows=inviteHistory?invitations.filter(item=>item.status!=="PENDING"):outstanding;
+  const openPlayerSection=(section:typeof playerSection)=>{
+    setPlayerSection(section);
+    chooseTab("players");
+  };
   const updateProfile=(key:keyof TeamManagerProfileDetails,value:string|boolean|null)=>
     setProfile(previous=>({...previous,[key]:value}));
   const resetGuest=()=>{setGuestName("");setGuestPosition("UNSPECIFIED");setGuestJersey("");setEditingGuest(null);};
@@ -495,79 +516,185 @@ export function TeamManagerDashboard(){
         onLineup={id=>{setLineupFocus(id);chooseTab("matches");}}
       />:null}
 
-      {tab==="players"?<>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.registeredPlayers")} ({team.rosterCount})</AppText>
-          {team.members.map(member=><View key={member.userId} style={styles.divider}>
+      {tab==="players"?<View testID="tm-players-workspace" style={styles.playersWorkspace}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          testID="tm-players-subtabs" accessibilityLabel={t("tmPlayers.navigation")}
+          contentContainerStyle={[styles.playersTabs,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          {([
+            {id:"ROSTER",icon:"people-outline",label:t("tmPlayers.roster"),count:team.rosterCount},
+            {id:"REQUESTS",icon:"person-add-outline",label:t("tmPlayers.requests"),
+              count:attentionReady&&attentionLoaded.requests?pending.length:null},
+            {id:"INVITATIONS",icon:"mail-outline",label:t("tmPlayers.invitations"),
+              count:attentionReady&&attentionLoaded.invitations?outstanding.length:null},
+            {id:"GUESTS",icon:"people-circle-outline",label:t("tmPlayers.guests"),count:overview.guests.length},
+          ] as const).map(item=><Pressable key={item.id}
+            testID={`tm-players-tab-${item.id}`} accessibilityRole="tab"
+            accessibilityState={{selected:playerSection===item.id}}
+            onPress={()=>setPlayerSection(item.id)}
+            style={[styles.playersTab,playerSection===item.id&&styles.playersTabActive]}>
+            <Ionicons name={item.icon} size={18} color={playerSection===item.id?colors.primary:colors.textMuted}/>
+            <AppText weight="semibold" variant="caption"
+              style={playerSection===item.id?{color:colors.primary}:undefined}>{item.label}</AppText>
+            <View style={styles.playersCount}><AppText variant="caption" weight="bold"
+              style={{color:colors.primary}}>{item.count??"—"}</AppText></View>
+          </Pressable>)}
+        </ScrollView>
+
+        {playerSection==="ROSTER"?<Card testID="tm-players-roster" style={styles.playersCard}>
+          <AppText variant="bodyLarge" weight="bold">{t("tmPlayers.roster")} ({team.rosterCount})</AppText>
+          <TextField testID="tm-players-search" label={t("tmPlayers.search")}
+            placeholder={t("tmPlayers.searchHint")} value={playerSearch}
+            onChangeText={setPlayerSearch} maxLength={100}/>
+          <AppText variant="caption" muted>{t("tmPlayers.positionFilter")}</AppText>
+          <Options selected={playerPosition} onSelect={v=>setPlayerPosition(v as Position|"ALL")}
+            items={[{id:"ALL",label:t("tmPlayers.allPositions")},...positions.map(id=>({
+              id,label:t(`teams.position.${id}` as never),
+            }))]}/>
+          <AppText variant="caption" muted>{t("tmPlayers.results",{count:playersMatching.length})}</AppText>
+          {!playersMatching.length?<View style={styles.playersEmpty}>
+            <Ionicons name="search-outline" color={colors.textMuted} size={28}/>
+            <AppText muted>{t("tmPlayers.noMatches")}</AppText>
+            <Button label={t("tmPlayers.clearFilters")} variant="secondary"
+              onPress={()=>{setPlayerSearch("");setPlayerPosition("ALL");}}/>
+          </View>:null}
+          {playersMatching.map(member=><View key={member.userId} style={styles.divider}>
             <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
-              {member.imageUrl?<Image style={styles.avatar} source={{uri:resolveMediaImageUrl(member.imageUrl)??member.imageUrl}}/>:
+              {member.imageUrl?<Image style={styles.avatar}
+                source={{uri:resolveMediaImageUrl(member.imageUrl)??member.imageUrl}}/>:
                 <View style={styles.avatar}><Ionicons name="person-outline" size={20} color={colors.primary}/></View>}
-              <View style={{flex:1}}>
-                <AppText weight="semibold">{member.publicDisplayName}{member.shirtNumber?` · #${member.shirtNumber}`:""}</AppText>
-                <AppText muted variant="caption">{t(`teams.role.${member.role}` as never)} · {t(`teams.position.${member.position}` as never)}</AppText>
+              <View style={{flex:1,gap:spacing.xs}}>
+                <AppText weight="semibold">{member.publicDisplayName}{member.shirtNumber!==null?` · #${member.shirtNumber}`:""}</AppText>
+                <AppText variant="caption" muted>
+                  {t(`teams.position.${member.position}` as never)} · {t(`teams.role.${member.role}` as never)}
+                </AppText>
               </View>
+              {team.captainUserId===member.userId?<Ionicons name="star" size={20} color={colors.primary}/>:null}
             </View>
           </View>)}
           <Button label={t("tm1.manageMembers")} variant="secondary" onPress={()=>router.push({
             pathname:"/teams/[teamId]/manage",params:{teamId:team.id},
           })}/>
-        </Card>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.invitePlayer")}</AppText>
-          <TextField label={t("tm1.usernamePhone")} value={inviteIdentifier} onChangeText={setInviteIdentifier} autoCapitalize="none"/>
-          <Options selected={inviteRole} onSelect={v=>setInviteRole(v as "PLAYER"|"CAPTAIN")}
-            items={["PLAYER","CAPTAIN"].map(id=>({id,label:t(`teams.role.${id}` as never)}))}/>
-          <Button label={t("teams.invite")} loading={busy} disabled={!canWrite||inviteIdentifier.trim().length<3}
-            onPress={()=>void perform(()=>teamApi.invite(token!,team.id,{identifier:inviteIdentifier.trim(),role:inviteRole}),
-              ()=>setInviteIdentifier(""))}/>
-          <AppText variant="caption" muted>{t("tm1.consentHint")}</AppText>
-        </Card>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.pendingRequests")} ({attentionReady&&attentionLoaded.requests?pending.length:"—"})</AppText>
+        </Card>:null}
+
+        {playerSection==="REQUESTS"?<Card testID="tm-players-requests" style={styles.playersCard}>
+          <AppText variant="bodyLarge" weight="bold">{t("tmPlayers.requests")}</AppText>
           <AppText variant="caption" muted>{t("teams.phase4.managerReviewHint")}</AppText>
-          {attentionReady&&attentionLoaded.requests&&pending.length===0?<AppText muted>{t("tm1.noRequests")}</AppText>:null}
-          {pending.map(request=><View key={request.id} style={styles.divider}>
+          <View style={[styles.playersSegment,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button label={t("tmPlayers.pending")} variant={!requestHistory?"primary":"secondary"}
+              style={styles.playersSegmentButton} onPress={()=>setRequestHistory(false)}/>
+            <Button label={t("tmPlayers.history")} variant={requestHistory?"primary":"secondary"}
+              style={styles.playersSegmentButton} onPress={()=>setRequestHistory(true)}/>
+          </View>
+          {!(attentionReady&&attentionLoaded.requests)?<AppText muted>{t("tm1.partialData")}</AppText>:null}
+          {attentionReady&&attentionLoaded.requests&&requestRows.length===0?
+            <AppText muted>{requestHistory?t("tmPlayers.noHistory"):t("tm1.noRequests")}</AppText>:null}
+          {requestRows.map(request=><View key={request.id} style={styles.divider}>
             <AppText weight="semibold">{request.requesterDisplayName}</AppText>
             <AppText variant="caption" muted>{formatCompetitionDateTime(request.createdAt,language)}</AppText>
-            <View style={styles.actions}>
+            {request.status!=="PENDING"?<AppText variant="caption"
+              style={{color:colors.primary}}>{t(`tmPlayers.requestStatus.${request.status}` as never)}</AppText>:null}
+            {request.status==="PENDING"?<View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <Button label={t("teams.accept")} style={styles.action} disabled={!canWrite||busy}
                 loading={joinAction?.requestId===request.id&&joinAction.accept}
                 onPress={()=>void respondToPlayerRequest(request.id,true)}/>
               <Button label={t("teams.decline")} style={styles.action} variant="secondary" disabled={!canWrite||busy}
                 loading={joinAction?.requestId===request.id&&!joinAction.accept}
                 onPress={()=>void respondToPlayerRequest(request.id,false)}/>
-            </View>
+            </View>:null}
             {joinActionError?.requestId===request.id?
               <AppText style={{color:colors.danger}}>{joinActionError.message}</AppText>:null}
           </View>)}
-        </Card>
-        <Card><AppText variant="bodyLarge" weight="bold">{t("tm1.temporaryPlayers")} ({overview.guests.length})</AppText>
-          <AppText variant="caption" muted>{t("tm1.guestHint")}</AppText>
-          <TextField label={t("tm1.playerName")} value={guestName} onChangeText={setGuestName}/>
-          <AppText weight="semibold">{t("tm1.position")}</AppText>
-          <Options selected={guestPosition} onSelect={v=>setGuestPosition(v as Position)}
-            items={positions.map(id=>({id,label:t(`teams.position.${id}` as never)}))}/>
-          <TextField label={t("teams.shirtNumber")} value={guestJersey} onChangeText={setGuestJersey} keyboardType="number-pad" forceLtr/>
-          <Button label={editingGuest?t("common.save"):t("tm1.addGuest")} loading={busy}
-            disabled={!canWrite||guestName.trim().length<2||!validJersey} onPress={()=>void saveGuest()}/>
-          {editingGuest?<Button label={t("common.cancel")} variant="ghost" onPress={resetGuest}/>:null}
+        </Card>:null}
+
+        {playerSection==="INVITATIONS"?<Card testID="tm-players-invitations" style={styles.playersCard}>
+          <AppText variant="bodyLarge" weight="bold">{t("tmPlayers.invitations")}</AppText>
+          <AppText variant="caption" muted>{t("tm1.consentHint")}</AppText>
+          <View style={styles.playersInviteForm}>
+            <TextField label={t("tm1.usernamePhone")} value={inviteIdentifier}
+              onChangeText={setInviteIdentifier} autoCapitalize="none" maxLength={320}/>
+            <AppText variant="caption" muted>{t("tmPlayers.inviteRole")}</AppText>
+            <Options selected={inviteRole} onSelect={v=>setInviteRole(v as "PLAYER"|"CAPTAIN")}
+              items={["PLAYER","CAPTAIN"].map(id=>({id,label:t(`teams.role.${id}` as never)}))}/>
+            <Button testID="tm-players-send-invite" label={t("teams.invite")} loading={busy}
+              disabled={!canWrite||busy||inviteIdentifier.trim().length<3}
+              onPress={()=>void perform(()=>teamApi.invite(token!,team.id,{
+                identifier:inviteIdentifier.trim(),role:inviteRole,
+              }),()=>setInviteIdentifier(""))}/>
+          </View>
+          <View style={[styles.playersSegment,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button label={t("tmPlayers.pending")} variant={!inviteHistory?"primary":"secondary"}
+              style={styles.playersSegmentButton} onPress={()=>setInviteHistory(false)}/>
+            <Button label={t("tmPlayers.history")} variant={inviteHistory?"primary":"secondary"}
+              style={styles.playersSegmentButton} onPress={()=>setInviteHistory(true)}/>
+          </View>
+          {!(attentionReady&&attentionLoaded.invitations)?<AppText muted>{t("tm1.partialData")}</AppText>:null}
+          {attentionReady&&attentionLoaded.invitations&&invitationRows.length===0?
+            <AppText muted>{inviteHistory?t("tmPlayers.noHistory"):t("tm1.noInvites")}</AppText>:null}
+          {invitationRows.map(inv=><View key={inv.id} style={styles.divider}>
+            <AppText weight="semibold">{inv.invitedPublicDisplayName}</AppText>
+            <AppText variant="caption" muted>
+              {t(`teams.role.${inv.role}` as never)} · {formatCompetitionDateTime(inv.createdAt,language)}
+            </AppText>
+            <AppText variant="caption" style={{color:colors.primary}}>
+              {t(`tmPlayers.invitationStatus.${inv.status}` as never)}
+            </AppText>
+            {inv.status==="PENDING"?<>
+              <AppText variant="caption" muted>{t("tmPlayers.expires")}: {formatCompetitionDateTime(inv.expiresAt,language)}</AppText>
+              <Button label={t("tm1.revoke")} variant="secondary" disabled={!canWrite||busy}
+                onPress={()=>void perform(()=>teamApi.revokeInvitation(token!,team.id,inv.id))}/>
+            </>:null}
+          </View>)}
+        </Card>:null}
+
+        {playerSection==="GUESTS"?<Card testID="tm-players-guests" style={styles.playersCard}>
+          <AppText variant="bodyLarge" weight="bold">{t("tm1.temporaryPlayers")} ({overview.guests.length})</AppText>
+          <View style={styles.playersGuestNotice}>
+            <Ionicons name="information-circle-outline" size={22} color={colors.primary}/>
+            <AppText style={{flex:1}} variant="caption" muted>{t("tm1.guestHint")}</AppText>
+          </View>
+          <View style={styles.playersGuestForm}>
+            <AppText variant="bodyLarge" weight="semibold">
+              {editingGuest?t("tmPlayers.editGuest"):t("tm1.addGuest")}
+            </AppText>
+            <TextField label={t("tm1.playerName")} value={guestName}
+              onChangeText={setGuestName} maxLength={100}/>
+            <AppText variant="caption" muted>{t("tm1.position")}</AppText>
+            <Options selected={guestPosition} onSelect={v=>setGuestPosition(v as Position)}
+              items={positions.map(id=>({id,label:t(`teams.position.${id}` as never)}))}/>
+            <TextField label={t("teams.shirtNumber")} value={guestJersey}
+              onChangeText={setGuestJersey} keyboardType="number-pad" forceLtr maxLength={2}/>
+            {!validJersey?<AppText variant="caption" style={{color:colors.danger}}>
+              {t("teams.shirtNumberInvalid")}
+            </AppText>:null}
+            <Button label={editingGuest?t("common.save"):t("tm1.addGuest")} loading={busy}
+              disabled={!canWrite||busy||guestName.trim().length<2||!validJersey}
+              onPress={()=>void saveGuest()}/>
+            {editingGuest?<Button label={t("common.cancel")} variant="ghost" onPress={resetGuest}/>:null}
+          </View>
+          {overview.guests.length===0?<AppText muted>{t("tmPlayers.noGuests")}</AppText>:null}
           {overview.guests.map(guest=><View key={guest.id} style={styles.divider}>
-            <AppText weight="semibold">{guest.name}{guest.shirtNumber?` · #${guest.shirtNumber}`:""}</AppText>
+            <AppText weight="semibold">{guest.name}{guest.shirtNumber!==null?` · #${guest.shirtNumber}`:""}</AppText>
             <AppText variant="caption" muted>{t(`teams.position.${guest.position}` as never)}</AppText>
-            <View style={styles.actions}>
+            <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <Button label={t("tm1.edit")} variant="secondary" style={styles.action}
-                disabled={!canWrite} onPress={()=>editGuest(guest)}/>
+                disabled={!canWrite||busy} onPress={()=>editGuest(guest)}/>
               <Button label={t("tm1.remove")} variant="ghost" style={styles.action}
-                disabled={!canWrite||busy} onPress={()=>void perform(()=>teamManagerApi.deleteGuest(token!,team.id,guest.id))}/>
+                disabled={!canWrite||busy} onPress={()=>setGuestToRemove(guest.id)}/>
             </View>
+            {guestToRemove===guest.id?<View testID="tm-guest-delete-confirm" style={styles.playersConfirmation}>
+              <AppText weight="semibold">{t("tmPlayers.confirmRemoveGuest")}</AppText>
+              <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <Button label={t("tm1.remove")} variant="danger" style={styles.action}
+                  loading={busy} disabled={!canWrite||busy}
+                  onPress={()=>void perform(()=>teamManagerApi.deleteGuest(token!,team.id,guest.id),
+                    ()=>{setGuestToRemove(null);if(editingGuest===guest.id)resetGuest();})}/>
+                <Button label={t("common.cancel")} variant="secondary" style={styles.action}
+                  onPress={()=>setGuestToRemove(null)}/>
+              </View>
+            </View>:null}
           </View>)}
-        </Card>
-        <Card><AppText weight="bold">{t("tm1.pendingInvites")} ({attentionReady&&attentionLoaded.invitations?outstanding.length:"—"})</AppText>
-          {attentionReady&&attentionLoaded.invitations&&outstanding.length===0?<AppText muted>{t("tm1.noInvites")}</AppText>:null}
-          {outstanding.map(inv=><View key={inv.id} style={styles.divider}>
-            <AppText>{inv.invitedPublicDisplayName} · {t(`teams.role.${inv.role}` as never)}</AppText>
-            <Button label={t("tm1.revoke")} variant="ghost" disabled={!canWrite||busy}
-              onPress={()=>void perform(()=>teamApi.revokeInvitation(token!,team.id,inv.id))}/>
-          </View>)}
-        </Card>
-      </>:null}
+        </Card>:null}
+      </View>:null}
 
       {(tab==="competitions"||tab==="matches"||tab==="schedule")&&token?<TeamCompetitionOps
         tab={tab} team={team} token={token} canWrite={canWrite} onSelectTab={chooseTab}
@@ -711,6 +838,26 @@ export function TeamManagerDashboard(){
   </Screen>;
 }
 const styles=StyleSheet.create({
+  playersWorkspace:{gap:spacing.md},
+  playersTabs:{gap:spacing.sm,paddingVertical:spacing.xs,paddingHorizontal:spacing.xs,alignItems:"center"},
+  playersTab:{flexDirection:"row",alignItems:"center",gap:spacing.xs,minHeight:46,
+    paddingHorizontal:spacing.sm,borderRadius:radius.md,borderWidth:1,
+    borderColor:colors.border,backgroundColor:colors.surface},
+  playersTabActive:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
+  playersCount:{minWidth:25,paddingHorizontal:spacing.xs,paddingVertical:spacing.xs,
+    borderRadius:radius.pill,alignItems:"center",backgroundColor:colors.primarySoft},
+  playersCard:{gap:spacing.md},
+  playersEmpty:{alignItems:"center",gap:spacing.md,paddingVertical:spacing.lg},
+  playersSegment:{gap:spacing.sm},
+  playersSegmentButton:{flex:1,minWidth:0,paddingHorizontal:spacing.xs},
+  playersInviteForm:{gap:spacing.sm,padding:spacing.md,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.border,backgroundColor:colors.surfaceMuted},
+  playersGuestForm:{gap:spacing.sm},
+  playersGuestNotice:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
+    padding:spacing.md,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+    backgroundColor:colors.primarySoft},
+  playersConfirmation:{gap:spacing.sm,borderWidth:1,borderColor:colors.danger,
+    borderRadius:radius.md,padding:spacing.md},
   problemCard:{gap:spacing.sm,borderColor:colors.danger},
   noticeCard:{gap:spacing.sm,borderColor:colors.warning},
   coverSettings:{gap:spacing.sm,paddingVertical:spacing.sm},
