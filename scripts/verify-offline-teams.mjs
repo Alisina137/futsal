@@ -37,4 +37,31 @@ assert(competitionOwner.includes("manualTeamApi.register(")&&
 for(const key of ["manualTeams.title","manualTeams.registerDirect","manualTeams.adminTitle","manualTeams.claimRules","competition.manualTeamBadge"]){
  assert(strings.split(`"${key}"`).length-1===3,`Missing language label: ${key}`);
 }
+const ownerHelper=read("apps/mobile/src/lib/owner-manual-teams.ts");
+for(const marker of [
+  'testID="offline-team-search"','testID="offline-team-city-filter"',
+  'testID="offline-team-create-action"','testID="offline-team-save"',
+  'testID="offline-team-confirm-registration"',
+  'manualTeamApi.register(actorToken,competitionId,registerTeam.id)',
+  'competitionApi.ownerList(actorToken)', 'duplicateOfflineTeam(visibleTeams,name,city,editingId)',
+  'searchOfflineTeams(visibleTeams,query,cityFilter)',
+  'registerableOwnerCompetitions(competitions)',
+  'actorToken!==currentActor.current',
+]){
+  assert(ownerPage.includes(marker),"Offline owner roster control or authorization guard missing: "+marker);
+}
+for(const marker of [
+  'normalizeOfflineText','duplicateOfflineTeam','searchOfflineTeams',
+  'registerableOwnerCompetitions','item.acceptedTeams<item.maxTeams',
+]){
+  assert(ownerHelper.includes(marker),"Offline roster helper missing "+marker);
+}
+for(const key of [
+  "search","searchHint","cityFilter","allCities","results","clearFilters","duplicate",
+  "emptyHint","noMatches","offlineLabel","created","competitionsLoadError",
+  "noEligibleCompetitions","alreadyRegistered","competitionFull","competitionLocked",
+]){
+  assert(strings.split(`"manualTeams.${key}"`).length-1===3,
+    "Offline team UI missing English, Dari or Pashto translation: "+key);
+}
 console.log("Offline team workflow verified: organizer creation and direct enrollment, public/social isolation, admin handover and localization.");
