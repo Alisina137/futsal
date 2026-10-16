@@ -19,6 +19,7 @@ type Props={
   pendingRequests:number|null;pendingInvites:number|null;unreadNotifications:number|null;
   canWrite:boolean;subscriptionStatus:string|null;subscriptionUntil:string|null;
   onOpen:(tab:Destination)=>void;onLineup:(id:string)=>void;
+  onPlayersSection:(section:"REQUESTS"|"INVITATIONS")=>void;
 };
 type Attention={key:string;icon:keyof typeof Ionicons.glyphMap;count:number;
   label:string;destination:Destination|"notifications"|"subscription";matchId?:string};
@@ -36,7 +37,7 @@ function Metric({icon,value,label}:{icon:keyof typeof Ionicons.glyphMap;value:nu
 export function TeamManagerOverviewPanel({
   team,overview,operations,operationsReady,operationsFailed,onRetryOperations,
   pendingRequests,pendingInvites,unreadNotifications,canWrite,
-  subscriptionStatus,subscriptionUntil,onOpen,onLineup,
+  subscriptionStatus,subscriptionUntil,onOpen,onLineup,onPlayersSection,
 }:Props){
   const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(`tmOverview.${key}` as never);
@@ -79,6 +80,8 @@ export function TeamManagerOverviewPanel({
   const opponentImage=resolveMediaImageUrl(next?.opponentLogoUrl??null);
   const go=(item:Attention)=>{
     if(item.matchId){onLineup(item.matchId);return;}
+    if(item.key==="requests"){onPlayersSection("REQUESTS");return;}
+    if(item.key==="invitations"){onPlayersSection("INVITATIONS");return;}
     if(item.destination==="notifications"){router.push("/notifications");return;}
     if(item.destination==="subscription"){router.push("/role-subscriptions/team-owner");return;}
     onOpen(item.destination);
