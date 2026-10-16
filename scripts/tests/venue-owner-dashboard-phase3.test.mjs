@@ -1,14 +1,31 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {
- ownerBookingScope,ownerBookingTabs,validBookingDay,ownerBookingDateFilter,
+ ownerBookingStatusOptions,ownerBookingStatusScope,ownerBookingStatusThemes,
+ ownerBookingDisplayStatus,validBookingDay,ownerBookingDateFilter,
 } from "../../apps/mobile/src/lib/owner-bookings.ts";
-test("four stable Booking tabs preserve pending approval workflow",()=>{
- assert.deepEqual(ownerBookingTabs,["PENDING","UPCOMING","ALL","HISTORY"]);
- assert.equal(ownerBookingScope("PENDING"),null);
- assert.equal(ownerBookingScope("UPCOMING"),"UPCOMING");
- assert.equal(ownerBookingScope("ALL"),"ALL");
- assert.equal(ownerBookingScope("HISTORY"),"HISTORY");
+test("one search bar exposes five booking statuses without redundant navigations",()=>{
+ assert.deepEqual(ownerBookingStatusOptions,["ALL","PENDING","CONFIRMED","HISTORY","CANCELLED"]);
+ assert.equal(ownerBookingStatusScope("ALL"),"ALL");
+ assert.equal(ownerBookingStatusScope("PENDING"),"ALL");
+ assert.equal(ownerBookingStatusScope("CONFIRMED"),"ACTIVE");
+ assert.equal(ownerBookingStatusScope("HISTORY"),"HISTORY");
+ assert.equal(ownerBookingStatusScope("CANCELLED"),"ALL");
+});
+test("statuses have consistent semantic colors and expired confirmed bookings appear as History",()=>{
+ assert.equal(ownerBookingStatusThemes.PENDING.text,"#92400E");
+ assert.equal(ownerBookingStatusThemes.CANCELLED.text,"#B91C1C");
+ for(const status of ownerBookingStatusOptions){
+   assert.ok(ownerBookingStatusThemes[status].background.startsWith("#"));
+   assert.ok(ownerBookingStatusThemes[status].border.startsWith("#"));
+ }
+ const now=Date.parse("2026-10-16T12:00:00Z");
+ const row=(status,endsAt)=>({status,endsAt});
+ assert.equal(ownerBookingDisplayStatus(row("CONFIRMED","2026-10-16T11:00:00Z"),now),"HISTORY");
+ assert.equal(ownerBookingDisplayStatus(row("CONFIRMED","2026-10-16T12:00:00Z"),now),"HISTORY");
+ assert.equal(ownerBookingDisplayStatus(row("CONFIRMED","2026-10-16T13:00:00Z"),now),"CONFIRMED");
+ assert.equal(ownerBookingDisplayStatus(row("PENDING","2026-10-16T11:00:00Z"),now),"PENDING");
+ assert.equal(ownerBookingDisplayStatus(row("CANCELLED","2026-10-16T11:00:00Z"),now),"CANCELLED");
 });
 test("strict YYYY-MM-DD validation rejects impossible, ambiguous and invalid dates",()=>{
  for(const day of ["2026-10-15","2028-02-29","2026-12-31"]){
