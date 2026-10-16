@@ -80,10 +80,11 @@ export default function WeeklyTimetableScreen(){
           setBusy(`delete-history-${item.id}`);setError(null);
           try{
             await ownerApi.deleteArchivedTimetable(token,item.id);
+            // Remove from the archived list immediately without flashing
+            // the full-page loading skeleton after a successful deletion.
             setData(previous=>previous?{
               ...previous,archived:previous.archived.filter(version=>version.id!==item.id),
             }:null);
-            await load();
           }catch{setError(t("schedule.deleteArchivedError"));}
           finally{setBusy(null);}
         })()},
