@@ -6,8 +6,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { AppState,Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { competitionApi,resolveMediaImageUrl } from "../../../../src/lib/api";
 import {OwnerCompetitionOperations} from "../../../../src/components/owner/OwnerCompetitionOperations";
-import {ownerCompetitionGroups,ownerCompetitionOrders,selectOwnerCompetitions,ownerCompetitionOverviewCounts,
-  type OwnerCompetitionGroup,type OwnerCompetitionOrder} from "../../../../src/lib/owner-competition-management";
+import {selectOwnerCompetitions,ownerCompetitionOverviewCounts} from "../../../../src/lib/owner-competition-management";
 import { TextField } from "../../../../src/components/ui/TextField";
 import { formatLocalDateTimeParts } from "../../../../src/lib/date-time";
 import { AppText } from "../../../../src/components/ui/AppText";
@@ -32,9 +31,7 @@ export default function OwnerCompetitionListScreen(){
   const [items,setItems]=useState<CompetitionListItemDto[]>([]);
   const [loadedToken,setLoadedToken]=useState<string|null>(null);
   const [filter,setFilter]=useState<Filter>("ALL");
-  const [group,setGroup]=useState<OwnerCompetitionGroup>("ALL");
   const [format,setFormat]=useState<"ALL"|"LEAGUE"|"KNOCKOUT"|"GROUP_KNOCKOUT">("ALL");
-  const [order,setOrder]=useState<OwnerCompetitionOrder>("NEXT");
   const [query,setQuery]=useState("");
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
@@ -68,8 +65,8 @@ export default function OwnerCompetitionListScreen(){
 
   const safeItems=loadedToken===token?items:[];
   const visible=useMemo(()=>selectOwnerCompetitions(safeItems,{
-    group,status:filter,format,query,order,
-  },Date.now()),[safeItems,group,filter,format,query,order]);
+    group:"ALL",status:filter,format,query,order:"NEXT",
+  },Date.now()),[safeItems,filter,format,query]);
   const counts=ownerCompetitionOverviewCounts(safeItems);
   const activeCount=counts.active;
   const renderReady=loadedToken===token;
@@ -97,31 +94,6 @@ export default function OwnerCompetitionListScreen(){
       <AppText weight="bold" variant="bodyLarge">{t("owner.phase5.title")}</AppText>
       <TextField label={t("owner.phase5.search")} placeholder={t("owner.phase5.searchHint")}
         value={query} onChangeText={setQuery} maxLength={140}/>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {ownerCompetitionGroups.map(value=><Pressable key={value}
-          testID={`owner-phase5-group-${value}`}
-          accessibilityRole="tab" accessibilityState={{selected:group===value}}
-          onPress={()=>{setGroup(value);setSelectedId(null);}}
-          style={[styles.filter,group===value&&styles.filterActive]}>
-          <AppText variant="caption" weight="semibold"
-            style={group===value?{color:colors.primary}:undefined}>
-            {t(`owner.phase5.group.${value}` as never)}
-          </AppText>
-        </Pressable>)}
-      </ScrollView>
-      <AppText variant="caption" muted>{t("owner.phase5.sortBy")}</AppText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {ownerCompetitionOrders.map(value=><Pressable key={value}
-          accessibilityRole="button" accessibilityState={{selected:order===value}}
-          onPress={()=>setOrder(value)} style={[styles.filter,order===value&&styles.filterActive]}>
-          <AppText variant="caption" weight="semibold"
-            style={order===value?{color:colors.primary}:undefined}>
-            {t(`owner.phase5.order.${value}` as never)}
-          </AppText>
-        </Pressable>)}
-      </ScrollView>
       <AppText variant="caption" muted>{t("owner.phase5.format")}</AppText>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
