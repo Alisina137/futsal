@@ -13,7 +13,7 @@ test("Kabul calendar respects midnight rollover and Solar Hijri year",()=>{
   assert.equal(solar.year,"1404");
   assert.equal(careerPeriod("2025-03-21T12:00:00Z","ps-AF").year,"1404");
   assert.match(careerDateTime(edge,"en"),/2026/);
-  assert.match(careerDateTime(edge,"fa-AF"),/1404|1405/);
+  assert.match(careerDateTime(edge,"fa-AF"),/۱۴۰۴|۱۴۰۵|1404|1405/);
 });
 test("history sorting, outcome filtering, and match deduplication",()=>{
   const rows=[
