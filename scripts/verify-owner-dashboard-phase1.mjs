@@ -60,9 +60,11 @@ must(overview,['<Screen embedded>','useFocusEffect','const generation=useRef(0)'
 assert.ok(!overview.includes("<OwnerTopNav")&&!overview.includes("showHeader"),
   "Overview must not remount shared owner navigation or header.");
 must(bookings,['testID="owner-phase1-bookings"','<Screen embedded>',
-  '<OwnerPendingBookings token={session?.accessToken}/>',
+  'testID="owner-booking-status-filters"',
+  'ownerApi.confirmBooking(token,target.booking.id)',
+  'ownerApi.cancelBooking(token,target.booking.id',
   'router.push("/owner/schedule")'],
-  "dedicated booking inbox");
+  "unified bookings search and pending decision actions");
 must(pending,['ownerApi.pendingBookings(token)','ownerApi.confirmBooking(token,booking.id)',
   'ownerApi.cancelBooking(token,booking.id',
   'sequence.current++','loadedToken===token?bookings:[]'],
