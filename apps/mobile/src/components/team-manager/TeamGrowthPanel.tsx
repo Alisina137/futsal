@@ -214,29 +214,62 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
     {message?<Card style={{backgroundColor:colors.primarySoft}}><AppText style={{color:colors.primary}}>{message}</AppText></Card>:null}
     {loading?<DataLoadingState variant="list" minHeight={300}/>:data?<>
       {tab==="media"?<>
+        <Card testID="tm6-media-header" style={styles.mediaHeader}>
+          <View style={[styles.mediaHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="megaphone-outline" color={colors.primary} size={24}/>
+            <View style={{flex:1,gap:spacing.xs}}>
+              <AppText variant="bodyLarge" weight="bold">{t("tm6.mediaTitle")}</AppText>
+              <AppText variant="caption" muted>{t("tm6.mediaHelp")}</AppText>
+            </View>
+          </View>
+          <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Button testID="tm6-new-post" label={tr("createPost")}
+              disabled={!canWrite} onPress={newPost}/>
+            {draftAvailable?<Button testID="tm6-restore-draft" variant="secondary"
+              label={t("tm6.resumeDraft")} loading={draftBusy} onPress={()=>void restoreDraft()}/>:null}
+          </View>
+          {draftAvailable?<Button variant="ghost" label={t("tm6.discardDraft")}
+            disabled={draftBusy} onPress={()=>void discardDraft()}/>:null}
+          <AppText variant="caption" muted>{t("tm6.draftDeviceHint")}</AppText>
+        </Card>
         <Options items={[{id:"POSTS",name:tr("publicPosts")},{id:"PHOTOS",name:tr("phase5Photos")},
           {id:"ANNOUNCEMENTS",name:tr("privateAnnouncements")}]}
           current={mediaSection} onChange={id=>setMediaSection(id as typeof mediaSection)}/>
         {mediaSection==="POSTS"?<>
-          <Card>
+          {composerOpen?<Card testID="tm6-post-composer">
             <AppText variant="bodyLarge" weight="bold">{postEditing?tr("editPost"):tr("createPost")}</AppText>
             <AppText variant="caption" muted>{tr("postHelp")}</AppText>
-            <TextField label={tr("postBody")} value={postBody} multiline onChangeText={setPostBody}/>
+            <TextField label={tr("postBody")} value={postBody} multiline onChangeText={setPostBody} maxLength={2000}/>
+            <AppText variant="caption" muted>{t("tm6.publicOnly")}</AppText>
             {imageUrl?<Image source={{uri:resolveMediaImageUrl(imageUrl)??imageUrl}} resizeMode="cover" style={styles.mediaImage}/>:null}
             <View style={styles.actions}>
-              <Button label={tr("addPhoto")} variant="secondary" loading={uploading} disabled={!canWrite}
+              <Button label={tr("addPhoto")} variant="secondary" loading={uploading} disabled={!canWrite||busy}
                 onPress={()=>void selectPhoto()}/>
+              <Button label={t("tm6.chooseFiles")} variant="secondary" loading={uploading}
+                disabled={!canWrite||busy} onPress={()=>void selectFilePhoto()}/>
               {imageUrl?<Button label={tr("removePhoto")} variant="ghost" onPress={()=>setImageUrl(null)}/>:null}
             </View>
-            <Button label={postEditing?tr("savePost"):tr("publish")} loading={busy}
-              disabled={!canWrite||uploading||(!postBody.trim()&&!imageUrl)}
+            <Button testID="tm6-publish-now" label={postEditing?tr("savePost"):t("tm6.publishNow")} loading={busy}
+              disabled={!canWrite||busy||uploading||(!postBody.trim()&&!imageUrl)}
               onPress={()=>void execute(async()=>{
                 const input={body:postBody.trim(),imageUrl};
                 if(postEditing)await teamGrowthApi.updatePost(token,team.id,postEditing,input);
                 else await teamGrowthApi.createPost(token,team.id,input);
-              },resetPost)}/>
-            {postEditing?<Button variant="ghost" label={t("common.cancel")} onPress={resetPost}/>:null}
-          </Card>
+              },()=>{
+                resetPost();setComposerOpen(false);
+                if(!postEditing&&draftKey){
+                  void AsyncStorage.removeItem(draftKey).then(()=>{
+                    if(draftKeyRef.current===draftKey)setDraftAvailable(false);
+                  }).catch(()=>{});
+                }
+              })}/>
+            {!postEditing?<Button testID="tm6-save-draft" variant="secondary"
+              label={t("tm6.saveDraft")} loading={draftBusy}
+              disabled={!canWrite||draftBusy||busy||(!postBody.trim()&&!imageUrl)}
+              onPress={()=>void saveDraft()}/>:null}
+            <Button variant="ghost" label={t("common.cancel")}
+              onPress={()=>{resetPost();setComposerOpen(false);}}/>
+          </Card>:null>
           <Card><AppText variant="bodyLarge" weight="bold">{tr("publishedPosts")}</AppText>
             {!data.posts.length?<AppText muted>{tr("noPosts")}</AppText>:null}
             {data.posts.map(post=><View style={styles.item} key={post.id}>
