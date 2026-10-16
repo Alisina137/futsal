@@ -10,8 +10,8 @@ const client=read("apps/mobile/src/lib/api.ts");
 const translations=read("packages/localization/src/index.ts");
 const rules=read("apps/api/test/player-dashboard-phase2.test.ts");
 for(const tab of ["competitions","matches","schedule","bookings"]){
-  assert(dash.includes('"'+tab+'"')&&ops.includes('tab==="'+tab+'"'),
-    "Phase 2 player tab is not implemented: "+tab);
+  assert(dash.includes('id:"'+tab+'"')&&ops.includes('tab==="'+tab+'"'),
+    "Phase 2 activity subtab is not implemented: "+tab);
 }
 for(const required of [
  'const mine=await this.teamService.listMyTeams(userId)',
