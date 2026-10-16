@@ -1,8 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { VenueTimetableConflict, VenueTimetableDto, VenueTimetableListResponse } from "@leaguekick/contracts";
-import { router } from "expo-router";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState, type ReactNode } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { ownerApi } from "../../../../src/lib/api";
 import { formatCalendarDate } from "../../../../src/lib/timetable-calendar";
@@ -33,16 +33,13 @@ export default function WeeklyTimetableScreen(){
     finally{setLoading(false);}
   },[t,token]);
 
-  useEffect(()=>{void load();},[load]);
+  useFocusEffect(useCallback(()=>{void load();},[load]));
 
-  async function duplicate(item:VenueTimetableDto){
-    if(!token)return;
-    setBusy(`duplicate-${item.id}`);setError(null);
-    try{
-      const result=await ownerApi.duplicateTimetable(token,item.id);
-      router.push({pathname:"/owner/timetable/edit",params:{timetableId:result.timetable.id}});
-    }catch{setError(t("schedule.saveTimetableError"));}
-    finally{setBusy(null);}
+  // Navigate with a source identifier only. A draft must not be created until
+  // the owner deliberately taps Save draft (or Publish) in the editor.
+  function openUnsavedVersion(item:VenueTimetableDto){
+    router.push({pathname:"/owner/timetable/edit",
+      params:{sourceTimetableId:item.id}});
   }
 
   async function publish(item:VenueTimetableDto){
@@ -146,7 +143,7 @@ export default function WeeklyTimetableScreen(){
         language={language}
         t={t}
         actions={[
-          {label:t("schedule.newVersion"),onPress:()=>void duplicate(data.current!),loading:busy===`duplicate-${data.current.id}`},
+          {label:t("schedule.updateTimetable"),onPress:()=>openUnsavedVersion(data.current!)},
         ]}
       />:<AppText muted>{t("schedule.noTimetable")}</AppText>}
     </Section>
@@ -160,7 +157,7 @@ export default function WeeklyTimetableScreen(){
         actions={[
           {label:t("schedule.editWeekly"),onPress:()=>router.push({pathname:"/owner/timetable/edit",params:{timetableId:item.id}})},
           {label:t("schedule.publish"),onPress:()=>void publish(item),loading:busy===`publish-${item.id}`},
-          {label:t("schedule.duplicate"),onPress:()=>void duplicate(item),loading:busy===`duplicate-${item.id}`},
+          {label:t("schedule.duplicate"),onPress:()=>openUnsavedVersion(item)},
           {label:t("schedule.deleteDraft"),onPress:()=>deleteDraft(item),danger:true,loading:busy===`delete-${item.id}`},
         ]}
       />):<AppText muted>{t("schedule.noEvents")}</AppText>}
@@ -173,7 +170,7 @@ export default function WeeklyTimetableScreen(){
         language={language}
         t={t}
         actions={[
-          {label:t("schedule.newVersion"),onPress:()=>void duplicate(item),loading:busy===`duplicate-${item.id}`},
+          {label:t("schedule.newVersion"),onPress:()=>openUnsavedVersion(item)},
           {label:t("schedule.archiveTimetable"),onPress:()=>void archive(item),loading:busy===`archive-${item.id}`},
         ]}
       />)}
@@ -186,7 +183,7 @@ export default function WeeklyTimetableScreen(){
         language={language}
         t={t}
         actions={[
-          {label:t("schedule.newVersion"),onPress:()=>void duplicate(item),loading:busy===`duplicate-${item.id}`},
+          {label:t("schedule.newVersion"),onPress:()=>openUnsavedVersion(item)},
           {label:t("schedule.deleteArchived"),onPress:()=>deleteHistory(item),danger:true,
             loading:busy===`delete-history-${item.id}`},
         ]}
