@@ -57,7 +57,7 @@ export function TeamManagerOverviewPanel({
   if(operationsReady&&competitionInvites.length)attention.push({key:"competitions",icon:"trophy-outline",
     count:competitionInvites.length,label:tr("competitionInvitations"),destination:"competitions"});
   if(operationsReady&&missingLineups.length)attention.push({key:"lineups",icon:"clipboard-outline",
-    count:missingLineups.length,label:tr("missingLineups"),destination:"matches",matchId:missingLineups[0]?.id});
+    count:missingLineups.length,label:tr("missingLineups"),destination:"matches",matchId:missingLineups[0]!.id});
   if(operationsReady&&missingRosters.length)attention.push({key:"rosters",icon:"people-outline",
     count:missingRosters.length,label:tr("missingRosters"),destination:"competitions"});
   if(pendingInvites!==null&&pendingInvites>0)attention.push({key:"invitations",icon:"mail-unread-outline",
