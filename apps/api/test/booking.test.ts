@@ -902,8 +902,15 @@ describe("Phase 3 availability and booking API", () => {
     const upcoming=await get({scope:"UPCOMING"});
     expect(upcoming.status).toBe(200);
     expect(upcoming.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Ada"]);
+    const active=await get({scope:"ACTIVE"});
+    expect(active.status).toBe(200);
+    expect(active.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Ada"]);
     const history=await get({scope:"HISTORY"});
-    expect(history.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Darya","Bashir"]);
+    expect(history.status).toBe(200);
+    // Expired confirmed slots are history; a future cancelled booking belongs in Cancelled.
+    expect(history.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Bashir"]);
+    const cancelled=await get({scope:"ALL",status:"CANCELLED"});
+    expect(cancelled.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Darya"]);
     const all=await get({scope:"ALL",source:"MANUAL",status:"CONFIRMED"});
     expect(all.body.bookings.map((item:{customerName:string})=>item.customerName)).toEqual(["Bashir"]);
     const search=await get({scope:"ALL",q:"ada"});
