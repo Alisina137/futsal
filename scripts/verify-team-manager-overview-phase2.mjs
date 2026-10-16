@@ -22,7 +22,7 @@ must(dashboard,[
   'pendingRequests={attentionReady&&attentionLoaded.requests?pending.length:null}',
   'pendingInvites={attentionReady&&attentionLoaded.invitations?outstanding.length:null}',
   'unreadNotifications={attentionReady&&attentionLoaded.notifications?unread:null}',
-  'onLineup={id=>{setLineupFocus(id);chooseTab("matches");}}',
+  'onLineup={id=>{setLineupFocus(id);setMatchSection("LINEUPS");chooseTab("matches");}}',
   'focusMatchId={lineupFocus}',
 ],"Team Manager dashboard");
 must(panel,[
