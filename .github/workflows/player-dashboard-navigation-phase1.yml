@@ -11,6 +11,9 @@ on:
       - 'scripts/verify-player-dashboard-navigation-phase1.mjs'
       - 'scripts/verify-player-teams-phase2.mjs'
       - 'scripts/verify-player-activity-phase3.mjs'
+      - 'apps/mobile/src/lib/player-career-view.ts'
+      - 'scripts/verify-player-career-phase4.mjs'
+      - 'scripts/tests/player-career-phase4.test.mjs'
       - 'scripts/verify-player-dashboard-phase1.mjs'
       - 'scripts/verify-player-dashboard-phase2.mjs'
       - 'scripts/verify-player-dashboard-phase3.mjs'
@@ -37,6 +40,7 @@ jobs:
       - run: pnpm verify:player-dashboard-navigation-phase1
       - run: pnpm verify:player-teams-phase2
       - run: pnpm verify:player-activity-phase3
+      - run: pnpm verify:player-career-phase4
       - run: pnpm verify:player-overview-more
       - run: pnpm verify:player-dashboard-phase1
       - run: pnpm verify:player-dashboard-phase2

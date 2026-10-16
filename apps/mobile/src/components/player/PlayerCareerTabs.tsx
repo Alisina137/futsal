@@ -1,11 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import {router,useFocusEffect} from "expo-router";
-import {useCallback,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useState} from "react";
 import {Pressable,ScrollView,Share,StyleSheet,View} from "react-native";
 import {ApiRequestError,playerCareerApi,type PlayerCareerData,type PlayerCareerMatch,
   type PlayerCareerTotals,type PlayerCareerAward} from "../../lib/api";
-import {formatCompetitionDateTime} from "../../lib/date-time";
+import {careerDateTime,careerPeriod,careerMonthlyTrend,careerResults,careerPersonalBest,
+  type CareerResult} from "../../lib/player-career-view";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
@@ -37,18 +38,15 @@ function ownTotals(rows:PlayerCareerMatch[]):PlayerCareerTotals{
   result.winRate=decided?Math.round(result.wins*100/decided):0;
   return result;
 }
-function kabulYear(value:string){
-  return Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric"}).format(new Date(value)));
-}
-function kabulMonth(value:string){
-  const items=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit"}).formatToParts(new Date(value));
-  return items.find(v=>v.type==="year")?.value+"-"+items.find(v=>v.type==="month")?.value;
-}
 function Picker({selected,onChange,options}:{selected:string;onChange:(next:string)=>void;
   options:Array<{id:string;label:string}>}){
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
-    contentContainerStyle={{gap:spacing.sm,flexDirection:"row",paddingVertical:spacing.xs}}>
-    {options.map(item=><Pressable key={item.id} accessibilityRole="button"
+  const {isRTL}=useLocale();
+  return <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}
+    style={styles.pickerScroll}
+    contentContainerStyle={{gap:spacing.sm,flexDirection:isRTL?"row-reverse":"row",
+      paddingVertical:spacing.xs}}>
+    {options.map(item=><Pressable key={item.id} accessibilityRole="tab"
+      accessibilityLabel={item.label}
       accessibilityState={{selected:selected===item.id}} onPress={()=>onChange(item.id)}
       style={[styles.pill,selected===item.id&&styles.pillActive]}>
       <AppText variant="caption" weight="semibold" style={selected===item.id?{color:colors.primary}:undefined}>
@@ -65,57 +63,80 @@ function Score({label,value}:{label:string;value:string|number}){
 }
 
 export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
-  const {t,language}=useLocale();
+  const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(`pd3.${key}` as never);
-  const date=(value:string)=>formatCompetitionDateTime(value,language);
-  const [data,setData]=useState<PlayerCareerData|null>(null);
+  const date=(value:string)=>careerDateTime(value,language);
+  const [storedData,setData]=useState<PlayerCareerData|null>(null);
+  const [loadedToken,setLoadedToken]=useState<string|null>(null);
+  // Never show another signed-in player's career while a new token is loading.
+  const data=loadedToken===token?storedData:null;
   const [loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null),[refresh,setRefresh]=useState(0);
   const [teamId,setTeamId]=useState("ALL");
   const [competitionId,setCompetitionId]=useState("ALL");
   const [season,setSeason]=useState("ALL");
   const [metric,setMetric]=useState<Metric>("goals");
   const [achievementType,setAchievementType]=useState("ALL");
+  const [historyResult,setHistoryResult]=useState<CareerResult|"ALL">("ALL");
+  const [historyLimit,setHistoryLimit]=useState(20);
+  useEffect(()=>{setHistoryLimit(20);},
+    [teamId,competitionId,season,historyResult,token]);
   useFocusEffect(useCallback(()=>{
     let mounted=true;setLoading(true);setError(null);
-    void playerCareerApi.mine(token).then(response=>{if(mounted)setData(response);})
-      .catch(e=>{if(mounted){setError(e instanceof ApiRequestError?e.message:t("pd3.loadError"));setData(null);}})
+    void playerCareerApi.mine(token).then(response=>{
+      if(mounted){setData(response);setLoadedToken(token);}
+    }).catch(e=>{if(mounted){
+      setError(e instanceof ApiRequestError?e.message:t("pd3.loadError"));
+      setData(null);setLoadedToken(null);
+    }})
       .finally(()=>{if(mounted)setLoading(false);});
     return()=>{mounted=false;};
   },[token,refresh,t]));
-  const years=useMemo(()=>[...new Set((data?.records??[]).map(r=>kabulYear(r.recordedAt)))].sort((a,b)=>b-a),[data]);
+  const years=useMemo(()=>[...new Set((data?.records??[]).map(r=>
+    careerPeriod(r.recordedAt,language).year))].sort((a,b)=>b.localeCompare(a)),
+    [data,language]);
   // Scope all statistics and matching awards to the selected team/competition/season;
   // historical team choices remain visible even after the player leaves the team.
   const visible=useMemo(()=>(data?.records??[]).filter(r=>
     (teamId==="ALL"||r.teamId===teamId)&&
     (competitionId==="ALL"||r.competitionId===competitionId)&&
-    (season==="ALL"||String(kabulYear(r.recordedAt))===season)),
-    [data,teamId,competitionId,season]);
+    (season==="ALL"||careerPeriod(r.recordedAt,language).year===season)),
+    [data,teamId,competitionId,season,language]);
   const totals=useMemo(()=>ownTotals(visible),[visible]);
   const awards=useMemo(()=>(data?.achievements??[]).filter(a=>
     (achievementType==="ALL"||a.kind===achievementType)&&
     (teamId==="ALL"||a.teamId===teamId)&&
     (competitionId==="ALL"||a.competitionId===competitionId)&&
-    (season==="ALL"||String(kabulYear(a.achievedAt))===season)),
-    [data,achievementType,teamId,competitionId,season,visible]);
-  const trend=useMemo(()=>{
-    const months=new Map<string,{matches:number;goals:number;assists:number}>();
-    for(const row of visible){
-      const key=kabulMonth(row.recordedAt);
-      const period=months.get(key)??{matches:0,goals:0,assists:0};
-      period.matches++;period.goals+=row.goals;period.assists+=row.assists;
-      months.set(key,period);
-    }
-    return [...months.entries()].sort((a,b)=>a[0].localeCompare(b[0])).slice(-12).map(([key,value])=>({key,value:value[metric]}));
-  },[visible,metric]);
+    (season==="ALL"||careerPeriod(a.achievedAt,language).year===season))
+    .sort((a,b)=>b.achievedAt.localeCompare(a.achievedAt)),
+    [data,achievementType,teamId,competitionId,season,language]);
+  const trend=useMemo(()=>careerMonthlyTrend(visible,metric,language),[visible,metric,language]);
   const max=Math.max(1,...trend.map(item=>item.value));
+  const personalBest=useMemo(()=>careerPersonalBest(visible),[visible]);
+  const filteredHistory=useMemo(()=>careerResults(visible,historyResult),[visible,historyResult]);
+  const displayedHistory=filteredHistory.slice(0,historyLimit);
+  const filteredScope=teamId!=="ALL"||competitionId!=="ALL"||season!=="ALL";
+  const competitionOptions=(data?.competitions??[]).filter(c=>
+    teamId==="ALL"||(data?.records??[]).some(r=>r.teamId===teamId&&r.competitionId===c.id));
+  const changeTeam=(id:string)=>{
+    setTeamId(id);
+    if(id!=="ALL"&&competitionId!=="ALL"&&
+      !(data?.records??[]).some(r=>r.teamId===id&&r.competitionId===competitionId))
+      setCompetitionId("ALL");
+  };
+  const resetFilters=()=>{
+    setTeamId("ALL");setCompetitionId("ALL");setSeason("ALL");
+    setHistoryResult("ALL");setAchievementType("ALL");
+  };
   const filters=<View style={{gap:spacing.sm}}>
+    {filteredScope?<Button label={tr("clearFilters")} variant="secondary"
+      onPress={resetFilters}/>:null}
     <AppText weight="semibold">{tr("teamFilter")}</AppText>
-    <Picker selected={teamId} onChange={setTeamId} options={[
+    <Picker selected={teamId} onChange={changeTeam} options={[
       {id:"ALL",label:tr("allTeams")},...(data?.teams??[]).map(x=>({id:x.id,label:x.name})),
     ]}/>
     <AppText weight="semibold">{tr("competitionFilter")}</AppText>
     <Picker selected={competitionId} onChange={setCompetitionId} options={[
-      {id:"ALL",label:tr("allCompetitions")},...(data?.competitions??[]).map(x=>({id:x.id,label:x.name})),
+      {id:"ALL",label:tr("allCompetitions")},...competitionOptions.map(x=>({id:x.id,label:x.name})),
     ]}/>
     <AppText weight="semibold">{tr("seasonFilter")}</AppText>
     <Picker selected={season} onChange={setSeason} options={[
@@ -150,6 +171,7 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
       </Card>
       {filters}
       {tab==="statistics"?<>
+        {!visible.length?<Card><AppText muted>{tr("noRecordedStats")}</AppText></Card>:null}
         <View style={styles.grid}>
           {([
             ["matches",totals.matches],["goals",totals.goals],["assists",totals.assists],
@@ -161,13 +183,23 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
         </View>
         {totals.unknownResults>0?<Card><AppText variant="caption" muted>
           {tr("unknownScores")}: {totals.unknownResults}</AppText></Card>:null}
+        {visible.length>0?<Card>
+          <AppText variant="bodyLarge" weight="bold">{tr("personalBest")}</AppText>
+          <View style={styles.grid}>
+            <Score label={tr("bestGoalsMatch")} value={personalBest.goals}/>
+            <Score label={tr("bestAssistsMatch")} value={personalBest.assists}/>
+          </View>
+        </Card>:null}
         <Card>
           <AppText variant="bodyLarge" weight="bold">{tr("performanceTrend")}</AppText>
           <AppText variant="caption" muted>{tr("trendHint")}</AppText>
           <Picker selected={metric} onChange={v=>setMetric(v as Metric)}
             options={["goals","assists","matches"].map(k=>({id:k,label:tr("stat."+k)}))}/>
           {!trend.length?<AppText muted>{tr("noRecordedStats")}</AppText>:null}
-          {trend.length?<View style={styles.chart}>
+          {trend.length?<ScrollView horizontal nestedScrollEnabled
+            showsHorizontalScrollIndicator={false} style={styles.chartViewport}
+            contentContainerStyle={styles.chartScrollContent}>
+            <View style={[styles.chart,{flexDirection:isRTL?"row-reverse":"row"}]}>
             {trend.map(row=><View key={row.key} style={styles.chartCell}>
               <AppText variant="caption" style={{color:colors.primary}}>{row.value}</AppText>
               <View style={styles.barTrack}>
@@ -176,14 +208,19 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
               <AppText variant="caption" muted style={styles.chartLabel}>{row.key.slice(5)}</AppText>
               <AppText variant="caption" muted style={styles.chartLabel}>{row.key.slice(0,4)}</AppText>
             </View>)}
-          </View>:null}
+            </View>
+          </ScrollView>:null}
         </Card>
       </>:null}
       {tab==="history"?<>
         <Card testID="player-career-history">
           <AppText variant="bodyLarge" weight="bold">{tr("matchHistory")}</AppText>
-          {!visible.length?<AppText muted>{tr("noRecordedStats")}</AppText>:null}
-          {visible.slice(0,40).map(row=><View key={row.matchId} style={styles.history}>
+          <Picker selected={historyResult} onChange={v=>setHistoryResult(v as CareerResult|"ALL")}
+            options={["ALL","WIN","DRAW","LOSS","UNKNOWN"].map(id=>({
+              id,label:tr("resultFilter."+id),
+            }))}/>
+          {!filteredHistory.length?<AppText muted>{tr("noHistoryResults")}</AppText>:null}
+          {displayedHistory.map(row=><View key={row.matchId} style={styles.history}>
             <AppText weight="semibold">{row.teamName} · {row.competitionName}</AppText>
             <AppText variant="caption" muted>{date(row.recordedAt)} · {tr("result."+row.result)}</AppText>
             <AppText variant="caption" muted>{tr("stat.goals")}: {row.goals} · {tr("stat.assists")}: {row.assists}
@@ -192,7 +229,14 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
               onPress={()=>router.push({pathname:"/competitions/[competitionId]/matches/[matchId]",
                 params:{competitionId:row.competitionId,matchId:row.matchId}})}/>
           </View>)}
-          {visible.length>40?<AppText variant="caption" muted>{tr("recentForty")}</AppText>:null}
+          {filteredHistory.length>0?<AppText variant="caption" muted>
+            {t("pd3.historyCount" as never,{
+              shown:displayedHistory.length,total:filteredHistory.length,
+            })}
+          </AppText>:null}
+          {filteredHistory.length>historyLimit?<Button testID="player-career-more-history"
+            label={tr("loadMoreHistory")} variant="secondary"
+            onPress={()=>setHistoryLimit(previous=>previous+20)}/>:null}
         </Card>
 
       </>:null}
@@ -204,6 +248,9 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
             options={["ALL","CHAMPION","PLAYER_OF_MATCH","MILESTONE"].map(k=>({
               id:k,label:tr("kind."+k),
             }))}/>
+          <AppText variant="caption" muted>
+            {t("pd3.awardCount" as never,{count:awards.length})}
+          </AppText>
           {!awards.length?<AppText muted>{tr("noAchievements")}</AppText>:null}
           {awards.map(award=><View style={styles.award} key={award.id}>
             <View style={styles.row}>
@@ -238,17 +285,20 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
 }
 const styles=StyleSheet.create({
   row:{flexDirection:"row",gap:spacing.sm,alignItems:"center",flexWrap:"wrap"},
-  pill:{borderWidth:1,borderColor:colors.border,borderRadius:radius.pill,
-    backgroundColor:colors.surface,paddingHorizontal:spacing.md,paddingVertical:spacing.sm},
+  pickerScroll:{flexGrow:0,flexShrink:0},
+  pill:{minHeight:44,justifyContent:"center",borderWidth:1,borderColor:colors.border,
+    borderRadius:radius.pill,backgroundColor:colors.surface,
+    paddingHorizontal:spacing.md,paddingVertical:spacing.sm},
   pillActive:{backgroundColor:colors.primarySoft,borderColor:colors.primary},
   grid:{flexDirection:"row",gap:spacing.sm,flexWrap:"wrap"},
   stat:{flexGrow:1,flexBasis:"27%",minWidth:90,padding:spacing.md,
     alignItems:"center",gap:spacing.xs,backgroundColor:colors.surface,
     borderRadius:radius.lg,borderWidth:1,borderColor:colors.border},
-  chart:{flexDirection:"row",gap:spacing.xs,alignItems:"flex-end",minHeight:178,
-    justifyContent:"space-between"},
-  chartCell:{flex:1,gap:spacing.xs,alignItems:"center",minWidth:17,maxWidth:55},
-  barTrack:{height:118,width:"85%",backgroundColor:colors.primarySoft,
+  chartViewport:{flexGrow:0},
+  chartScrollContent:{flexGrow:1},
+  chart:{gap:spacing.sm,alignItems:"flex-end",minHeight:178,paddingVertical:spacing.sm},
+  chartCell:{gap:spacing.xs,alignItems:"center",minWidth:44,maxWidth:54},
+  barTrack:{height:118,width:28,backgroundColor:colors.primarySoft,
     borderRadius:radius.sm,justifyContent:"flex-end",overflow:"hidden"},
   bar:{width:"100%",backgroundColor:colors.primary,borderRadius:radius.sm},
   chartLabel:{fontSize:10,textAlign:"center"},
