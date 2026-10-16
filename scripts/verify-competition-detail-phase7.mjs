@@ -55,8 +55,8 @@ for(const marker of [
   'competition.venueId','competition.registrationClosesAt',
 ])assert.ok(sections.includes(marker),"Phase 7 About UI invariant missing: "+marker);
 assert.ok(nav.includes('MEDIA:["UPDATES","PHOTOS"]')&&
-  nav.includes('ABOUT:["INFORMATION","RULES","PRIZES","VENUE"]'),
-  "Competition must keep all seven main tabs and Media/About subtabs");
+  nav.includes('ABOUT:["OVERVIEW"]'),
+  "Competition must keep seven tabs, Media subtabs and one unified About page");
 for(const key of [
   "publicOnly","newest","oldest","loadMore","loading","pageError",
   "shareFailed","sharePost","previous","next","rulesScope","prizesScope","venueScope",
