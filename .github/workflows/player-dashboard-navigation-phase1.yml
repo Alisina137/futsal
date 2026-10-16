@@ -9,6 +9,7 @@ on:
       - 'apps/mobile/app/(app)/dashboard/player.tsx'
       - 'packages/localization/src/index.ts'
       - 'scripts/verify-player-dashboard-navigation-phase1.mjs'
+      - 'scripts/verify-player-teams-phase2.mjs'
       - 'scripts/verify-player-dashboard-phase1.mjs'
       - 'scripts/verify-player-dashboard-phase2.mjs'
       - 'scripts/verify-player-dashboard-phase3.mjs'
@@ -33,6 +34,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify:player-dashboard-navigation-phase1
+      - run: pnpm verify:player-teams-phase2
       - run: pnpm verify:player-overview-more
       - run: pnpm verify:player-dashboard-phase1
       - run: pnpm verify:player-dashboard-phase2

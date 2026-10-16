@@ -122,11 +122,17 @@ export function PlayerDashboard(){
   const [preferences,setPreferences]=useState<PlayerDashboardPreferences>(emptyPreferences);
   const [directory,setDirectory]=useState<TeamDirectoryItemDto[]>([]);
   const [teamQuery,setTeamQuery]=useState("");
+  const [memberQuery,setMemberQuery]=useState("");
+  const [requestFilter,setRequestFilter]=useState<"ALL"|"PENDING"|"RESOLVED">("ALL");
+  const [directoryLoading,setDirectoryLoading]=useState(false);
+  const [directoryError,setDirectoryError]=useState<string|null>(null);
   const [provinceFilter,setProvinceFilter]=useState("");
   const [teamPanel,setTeamPanel]=useState<"MINE"|"INVITES"|"REQUESTS"|"FIND">("MINE");
   const [busy,setBusy]=useState<string|null>(null),[loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
   const [confirmLeave,setConfirmLeave]=useState<string|null>(null);
+  const [confirmDecline,setConfirmDecline]=useState<string|null>(null);
+  const [confirmCancelRequest,setConfirmCancelRequest]=useState<string|null>(null);
   const [refresh,setRefresh]=useState(0);
   const navRef=useRef<ScrollView|null>(null),navViewport=useRef(0),navWidth=useRef(0);
   const cells=useRef<Partial<Record<Section,{x:number;width:number}>>>({});
@@ -145,7 +151,9 @@ export function PlayerDashboard(){
   useEffect(()=>{
     setLoadedActor(null);setData(null);setDirectory([]);
     setPreferences(emptyPreferences);setTeamPanel("MINE");
-    setTeamQuery("");setProvinceFilter("");setConfirmLeave(null);
+    setTeamQuery("");setMemberQuery("");setRequestFilter("ALL");
+    setProvinceFilter("");setConfirmLeave(null);setConfirmDecline(null);
+    setConfirmCancelRequest(null);setDirectoryError(null);setDirectoryLoading(false);
     setActivityTab("competitions");setCareerTab("statistics");
     setError(null);setMessage(null);
   },[session?.user.id]);
@@ -163,9 +171,11 @@ export function PlayerDashboard(){
 
   useEffect(()=>{
     if(tab!=="teams"||teamPanel!=="FIND"||!token)return;
-    let mounted=true;
+    let mounted=true;setDirectoryLoading(true);setDirectoryError(null);
     void teamApi.directory(token).then(v=>{if(mounted)setDirectory(v.teams);})
-      .catch(e=>{if(mounted)setError(e instanceof ApiRequestError?e.message:t("pd1.teamLoadError"));});
+      .catch(e=>{if(mounted){setDirectory([]);setDirectoryError(
+        e instanceof ApiRequestError?e.message:t("pd1.teamLoadError"));}})
+      .finally(()=>{if(mounted)setDirectoryLoading(false);});
     return()=>{mounted=false;};
   },[tab,teamPanel,token,refresh,t]);
 
@@ -179,8 +189,17 @@ export function PlayerDashboard(){
   const teams=data?.teams??[];
   const selected=teams.find(x=>x.id===data?.selectedTeamId)??teams[0]??null;
   const selectedRole=data?.profile.teams.find(x=>x.id===selected?.id)?.role??null;
-  const pendingInvites=data?.invitations.filter(x=>x.status==="PENDING"&&Date.parse(x.expiresAt)>Date.now())??[];
+  const pendingInvites=(data?.invitations??[])
+    .filter(x=>x.status==="PENDING"&&Date.parse(x.expiresAt)>Date.now())
+    .sort((a,b)=>Date.parse(a.expiresAt)-Date.parse(b.expiresAt));
   const pendingRequests=data?.requests.filter(x=>x.status==="PENDING")??[];
+  const memberTeams=teams.filter(x=>[x.name,x.city].some(v=>
+    (v??"").toLocaleLowerCase().includes(memberQuery.trim().toLocaleLowerCase())))
+    .sort((a,b)=>Number(b.id===selected?.id)-Number(a.id===selected?.id));
+  const visibleRequests=(data?.requests??[]).filter(x=>
+    requestFilter==="ALL"||(requestFilter==="PENDING"?x.status==="PENDING":x.status!=="PENDING"));
+  // The API permits a new join request only for verified basic accounts without a role.
+  const canRequestJoin=session?.user.emailVerified===true&&(session?.user.roles.length??0)===0;
   const matches=data?.recentMatches??[];
   const discover=directory.filter(x=>x.status==="ACTIVE"&&
     (!provinceFilter||x.city===provinceFilter)&&
@@ -376,17 +395,42 @@ export function PlayerDashboard(){
       </View>:null}
 
       {tab==="teams"?<>
-        <Choice selected={teamPanel} onSelect={v=>setTeamPanel(v as typeof teamPanel)}
+        <Choice selected={teamPanel} onSelect={v=>{
+            setTeamPanel(v as typeof teamPanel);setConfirmDecline(null);setConfirmCancelRequest(null);
+          }}
           items={["MINE","INVITES","REQUESTS","FIND"].map(id=>({id,label:tr("teamPanel."+id)}))}/>
+        <View testID="player-team-summary" style={[styles.teamSummary,
+          {flexDirection:isRTL?"row-reverse":"row"}]}>
+          {([
+            {id:"MINE",count:teams.length,icon:"shield-outline"},
+            {id:"INVITES",count:pendingInvites.length,icon:"mail-unread-outline"},
+            {id:"REQUESTS",count:pendingRequests.length,icon:"hourglass-outline"},
+          ] as const).map(item=><Pressable key={item.id} accessibilityRole="button"
+            accessibilityLabel={tr("teamPanel."+item.id)+": "+item.count}
+            accessibilityState={{selected:teamPanel===item.id}}
+            onPress={()=>setTeamPanel(item.id)}
+            style={[styles.teamSummaryCard,teamPanel===item.id&&styles.teamSummaryActive]}>
+            <Ionicons name={item.icon} size={20} color={colors.primary}/>
+            <AppText forceLtr variant="bodyLarge" weight="bold"
+              style={styles.teamSummaryNumber}>{item.count}</AppText>
+            <AppText variant="caption" numberOfLines={2}
+              style={styles.teamSummaryLabel}>{tr("teamPanel."+item.id)}</AppText>
+          </Pressable>)}
+        </View>
         {teamPanel==="MINE"?<>
           <View style={[styles.teamListHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <AppText variant="bodyLarge" weight="bold">{tr("myTeams")}</AppText>
             <View style={styles.teamCountBadge}><AppText forceLtr weight="bold"
               style={styles.teamCountText}>{teams.length}</AppText></View>
           </View>
+          {teams.length>1?<TextField label={tr("filterMyTeams")}
+            value={memberQuery} onChangeText={setMemberQuery}/>:null}
+          {teams.length>0&&memberTeams.length===0?<Card>
+            <AppText muted>{tr("noFilteredTeams")}</AppText>
+          </Card>:null}
           {!teams.length?<Card><AppText muted>{tr("noTeams")}</AppText>
             <Button label={tr("findTeam")} onPress={()=>setTeamPanel("FIND")}/></Card>:null}
-          {teams.map(team=>{
+          {memberTeams.map(team=>{
             const member=data.profile.teams.find(x=>x.id===team.id);
             const isDefault=team.id===selected?.id;
             return <Card key={team.id} testID={"player-team-card-"+team.id}
@@ -480,22 +524,65 @@ export function PlayerDashboard(){
               <Button label={t("teams.accept")} loading={busy===invite.id}
                 disabled={busy!==null} onPress={()=>void perform(invite.id,
                   ()=>teamApi.acceptInvitation(token!,invite.id),()=>setTeamPanel("MINE"))}/>
-              <Button label={t("teams.decline")} variant="secondary" disabled={busy!==null}
-                onPress={()=>void perform(invite.id,()=>teamApi.declineInvitation(token!,invite.id))}/>
+              {confirmDecline===invite.id?<View style={styles.teamConfirmBox}>
+                <AppText>{tr("confirmDecline")}</AppText>
+                <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  <Button label={t("teams.decline")} variant="danger"
+                    disabled={busy!==null} loading={busy===invite.id}
+                    onPress={()=>void perform(invite.id,
+                      ()=>teamApi.declineInvitation(token!,invite.id),()=>setConfirmDecline(null))}/>
+                  <Button label={t("common.cancel")} variant="secondary"
+                    disabled={busy!==null} onPress={()=>setConfirmDecline(null)}/>
+                </View>
+              </View>:<Button label={t("teams.decline")} variant="secondary"
+                disabled={busy!==null} onPress={()=>setConfirmDecline(invite.id)}/>}
+
             </View>
           </Card>)}
         </>:null}
         {teamPanel==="REQUESTS"?<>
+          <Choice selected={requestFilter} onSelect={v=>{
+            setRequestFilter(v as typeof requestFilter);setConfirmCancelRequest(null);
+          }} items={[
+            {id:"ALL",label:tr("filterAll")},
+            {id:"PENDING",label:tr("filterPending")},
+            {id:"RESOLVED",label:tr("filterHistory")},
+          ]}/>
           {!data.requests.length?<Card><AppText muted>{tr("noRequests")}</AppText></Card>:null}
-          {data.requests.map(req=><Card key={req.id}>
+          {data.requests.length>0&&visibleRequests.length===0?<Card>
+            <AppText muted>{tr("noFilteredRequests")}</AppText>
+          </Card>:null}
+          {visibleRequests.map(req=><Card key={req.id}>
             <AppText weight="bold">{req.teamName}</AppText>
-            <AppText variant="caption" muted>{date(req.createdAt)} · {tr("requestStatus."+req.status)}</AppText>
+            <View style={[styles.requestStatusRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <View style={[styles.requestStatusBadge,
+                req.status==="PENDING"&&styles.requestStatusPending]}>
+                <AppText variant="caption" weight="semibold"
+                  style={{color:req.status==="PENDING"?colors.primary:colors.textMuted}}>
+                  {tr("requestStatus."+req.status)}</AppText>
+              </View>
+              <AppText variant="caption" muted>{date(req.createdAt)}</AppText>
+            </View>
+            {req.respondedAt?<AppText variant="caption" muted>
+              {tr("respondedAt")}: {date(req.respondedAt)}</AppText>:null}
             <View style={styles.actions}>
               <Button label={tr("viewTeam")} variant="secondary" onPress={()=>router.push({
                 pathname:"/teams/[teamId]",params:{teamId:req.teamId}})}/>
-              {req.status==="PENDING"?<Button label={tr("cancelRequest")} variant="ghost"
-                disabled={busy!==null} loading={busy===req.id}
-                onPress={()=>void perform(req.id,()=>playerDashboardApi.cancelRequest(token!,req.id))}/>:null}
+              {req.status==="PENDING"?(confirmCancelRequest===req.id?
+                <View style={styles.teamConfirmBox}>
+                  <AppText>{tr("confirmCancelRequest")}</AppText>
+                  <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                    <Button label={tr("cancelRequest")} variant="danger"
+                      disabled={busy!==null} loading={busy===req.id}
+                      onPress={()=>void perform(req.id,
+                        ()=>playerDashboardApi.cancelRequest(token!,req.id),
+                        ()=>setConfirmCancelRequest(null))}/>
+                    <Button label={t("common.cancel")} variant="secondary"
+                      disabled={busy!==null} onPress={()=>setConfirmCancelRequest(null)}/>
+                  </View>
+                </View>:
+                <Button label={tr("cancelRequest")} variant="ghost"
+                  disabled={busy!==null} onPress={()=>setConfirmCancelRequest(req.id)}/>):null}
             </View>
           </Card>)}
         </>:null}
@@ -505,9 +592,20 @@ export function PlayerDashboard(){
             <Choice selected={provinceFilter} onSelect={setProvinceFilter}
               items={[{id:"",label:tr("allProvinces")},...cities.map(city=>({id:city,label:city}))]}/>
             <AppText variant="caption" muted>{tr("findHint")}</AppText>
+            {!canRequestJoin?<View style={styles.teamNotice}>
+              <Ionicons name="information-circle-outline" color={colors.primary} size={20}/>
+              <AppText variant="caption" style={{flex:1}}>{tr("findPlayerNotice")}</AppText>
+            </View>:null}
           </Card>
-          {!discover.length?<Card><AppText muted>{tr("noResults")}</AppText></Card>:null}
-          {discover.map(team=><Card key={team.id} style={styles.memberTeamCard}>
+          {directoryError?<Card>
+            <AppText style={{color:colors.danger}}>{directoryError}</AppText>
+            <Button variant="secondary" label={t("common.retry")}
+              onPress={()=>setRefresh(x=>x+1)}/>
+          </Card>:null}
+          {directoryLoading?<DataLoadingState variant="list" minHeight={180}/>:null}
+          {!directoryLoading&&!directoryError&&!discover.length?
+            <Card><AppText muted>{tr("noResults")}</AppText></Card>:null}
+          {!directoryLoading&&!directoryError?discover.map(team=><Card key={team.id} style={styles.memberTeamCard}>
             <View style={[styles.memberTeamHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <View style={styles.directoryTeamLogo}>
                 <Ionicons name="shield-outline" size={25} color={colors.primary}/>
@@ -528,14 +626,16 @@ export function PlayerDashboard(){
               <Button style={styles.teamActionButton} label={tr("viewTeam")}
                 variant="secondary"
                 onPress={()=>router.push({pathname:"/teams/[teamId]",params:{teamId:team.id}})}/>
-              <Button style={styles.teamActionButton}
+              {canRequestJoin?<Button style={styles.teamActionButton}
                 label={team.myMembershipRole?tr("alreadyMember"):
-                  team.joinRequestStatus==="PENDING"?tr("requested"):tr("requestJoin")}
-                disabled={busy!==null||Boolean(team.myMembershipRole)||team.joinRequestStatus==="PENDING"}
+                  team.joinRequestStatus==="PENDING"?tr("requested"):
+                  !team.allowJoinRequests?tr("requestClosed"):tr("requestJoin")}
+                disabled={busy!==null||Boolean(team.myMembershipRole)||
+                  team.joinRequestStatus==="PENDING"||!team.allowJoinRequests}
                 loading={busy===team.id} onPress={()=>void perform(team.id,
-                  ()=>teamApi.requestJoin(token!,team.id))}/>
+                  ()=>teamApi.requestJoin(token!,team.id))}/>:null}
             </View>
-          </Card>)}
+          </Card>):null}
         </>:null}
       </>:null}
 
@@ -641,6 +741,22 @@ const styles=StyleSheet.create({
   leaveText:{color:colors.danger},
   leaveConfirm:{gap:spacing.sm,paddingTop:spacing.sm},
   actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
+  teamSummary:{gap:spacing.sm,flexWrap:"wrap"},
+  teamSummaryCard:{flex:1,flexBasis:"28%",minWidth:92,alignItems:"center",
+    justifyContent:"center",gap:spacing.xs,minHeight:94,padding:spacing.sm,
+    borderRadius:radius.md,backgroundColor:colors.surface,
+    borderWidth:1,borderColor:colors.border},
+  teamSummaryActive:{backgroundColor:colors.primarySoft,borderColor:colors.primary},
+  teamSummaryNumber:{color:colors.primary,textAlign:"center"},
+  teamSummaryLabel:{textAlign:"center"},
+  teamConfirmBox:{flex:1,gap:spacing.sm,width:"100%",padding:spacing.sm,
+    borderRadius:radius.md,backgroundColor:colors.surfaceMuted},
+  requestStatusRow:{gap:spacing.sm,alignItems:"center",flexWrap:"wrap"},
+  requestStatusBadge:{borderRadius:radius.pill,paddingVertical:spacing.xs,
+    paddingHorizontal:spacing.md,backgroundColor:colors.surfaceMuted},
+  requestStatusPending:{backgroundColor:colors.primarySoft},
+  teamNotice:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
+    padding:spacing.sm,backgroundColor:colors.primarySoft,borderRadius:radius.md},
   moreNavFrame:{backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,
     borderRadius:radius.md,overflow:"hidden"},
   moreNavScroll:{flexGrow:0,minHeight:56},
