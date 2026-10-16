@@ -145,21 +145,25 @@ export class TeamManagerPhase3Service{
       this.db.select().from(teamFriendlyChallenges)
         .where(or(eq(teamFriendlyChallenges.fromTeamId,teamId),eq(teamFriendlyChallenges.toTeamId,teamId)))
         .orderBy(desc(teamFriendlyChallenges.createdAt)).limit(75),
-      this.db.select({competitionId:competitionMatches.competitionId,homeTeamId:competitionMatches.homeTeamId,
-        awayTeamId:competitionMatches.awayTeamId,status:competitionMatches.status,
+      this.db.select({id:competitionMatches.id,competitionId:competitionMatches.competitionId,
+        homeTeamId:competitionMatches.homeTeamId,awayTeamId:competitionMatches.awayTeamId,
+        status:competitionMatches.status,startsAt:competitionMatches.startsAt,
         homeScore:competitionMatches.homeScore,awayScore:competitionMatches.awayScore,
         stage:competitionMatches.stage,roundNumber:competitionMatches.roundNumber,winnerTeamId:competitionMatches.winnerTeamId})
         .from(competitionMatches).where(or(eq(competitionMatches.homeTeamId,teamId),eq(competitionMatches.awayTeamId,teamId))),
-      this.db.select({userId:playerMatchStats.playerUserId,goals:playerMatchStats.goals,
-        assists:playerMatchStats.assists,yellowCards:playerMatchStats.yellowCards,
-        redCards:playerMatchStats.redCards,appeared:playerMatchStats.appeared,
-        cleanSheet:playerMatchStats.cleanSheet,playerOfMatch:playerMatchStats.playerOfMatch,
-        matchStatus:competitionMatches.status,displayName:playerProfiles.publicDisplayName})
+      this.db.select({matchId:competitionMatches.id,competitionId:competitionMatches.competitionId,
+        startsAt:competitionMatches.startsAt,userId:playerMatchStats.playerUserId,
+        goals:playerMatchStats.goals,assists:playerMatchStats.assists,
+        yellowCards:playerMatchStats.yellowCards,redCards:playerMatchStats.redCards,
+        appeared:playerMatchStats.appeared,cleanSheet:playerMatchStats.cleanSheet,
+        playerOfMatch:playerMatchStats.playerOfMatch,matchStatus:competitionMatches.status,
+        displayName:playerProfiles.publicDisplayName})
         .from(playerMatchStats).innerJoin(competitionMatches,eq(playerMatchStats.matchId,competitionMatches.id))
         .leftJoin(playerProfiles,eq(playerMatchStats.playerUserId,playerProfiles.userId))
         .where(eq(playerMatchStats.teamId,teamId)),
       this.db.select({id:competitions.id,name:competitions.name,status:competitions.status,
-        format:competitions.format,rewards:competitions.rewards,registrationStatus:competitionTeams.status})
+        format:competitions.format,startsAt:competitions.startsAt,endsAt:competitions.endsAt,
+        rewards:competitions.rewards,registrationStatus:competitionTeams.status})
         .from(competitionTeams).innerJoin(competitions,eq(competitionTeams.competitionId,competitions.id))
         .where(eq(competitionTeams.teamId,teamId)).orderBy(desc(competitions.createdAt)),
     ]);
@@ -184,7 +188,8 @@ export class TeamManagerPhase3Service{
       const finals=lastRound===null?[]:knockout.filter(m=>m.roundNumber===lastRound);
       const champion=!!(c.status==="COMPLETED"&&finals.length===1&&
         ["COMPLETED","CORRECTED"].includes(finals[0]!.status)&&finals[0]?.winnerTeamId===teamId);
-      return {...c,champion};
+      return {...c,startsAt:c.startsAt?.toISOString()??null,
+        endsAt:c.endsAt?.toISOString()??null,champion};
     });
     // Actual aggregate counts; hidden comments must not contribute.
     const postIds=posts.map(p=>p.id);
@@ -207,7 +212,24 @@ export class TeamManagerPhase3Service{
         createdAt:c.createdAt.toISOString()})),
       stats:{...aggregateCompletedMatches(matches,teamId),
         players:[...players.values()].sort((a,b)=>b.goals-a.goals||b.assists-a.assists),
-        competitionHistory:titles,championships:titles.filter(x=>x.champion).length},
+        competitionHistory:titles,championships:titles.filter(x=>x.champion).length,
+        // Manager-only verified fixture and scoring rows for accurate filters.
+        analytics:{
+          matches:matches.filter(m=>["COMPLETED","CORRECTED"].includes(m.status)&&
+            m.homeScore!==null&&m.awayScore!==null).map(m=>({
+              id:m.id,competitionId:m.competitionId,
+              startsAt:m.startsAt?.toISOString()??null,status:m.status,
+              homeTeamId:m.homeTeamId,awayTeamId:m.awayTeamId,
+              homeScore:m.homeScore!,awayScore:m.awayScore!,
+            })),
+          players:playerStats.filter(p=>["COMPLETED","CORRECTED"].includes(p.matchStatus))
+            .map(p=>({matchId:p.matchId,competitionId:p.competitionId,
+              startsAt:p.startsAt?.toISOString()??null,
+              userId:p.userId,displayName:p.displayName??"Player",
+              appeared:p.appeared,goals:p.goals,assists:p.assists,
+              yellowCards:p.yellowCards,redCards:p.redCards,
+              cleanSheet:p.cleanSheet,playerOfMatch:p.playerOfMatch})),
+        }},
     };
   }
 
