@@ -11,6 +11,7 @@ on:
       - 'packages/localization/src/index.ts'
       - 'scripts/verify-team-manager-overview-phase2.mjs'
       - 'scripts/verify-team-manager-players-phase3.mjs'
+      - 'scripts/verify-team-manager-competitions-phase4.mjs'
       - 'scripts/verify-team-manager-navigation.mjs'
       - 'scripts/verify-team-manager-phase1.mjs'
       - '.github/workflows/team-manager-phase2.yml'
@@ -38,6 +39,7 @@ jobs:
       - run: pnpm verify:team-manager-phase3
       - run: pnpm verify:team-manager-overview-phase2
       - run: pnpm verify:team-manager-players-phase3
+      - run: pnpm verify:team-manager-competitions-phase4
       - run: pnpm --filter @leaguekick/api typecheck
       - run: pnpm --filter @leaguekick/mobile typecheck
       - run: pnpm --filter @leaguekick/api exec vitest run test/team-manager-overview-phase2.test.ts
