@@ -47,7 +47,10 @@ function SmallStatus({status}:{status:string}){
   return <View style={styles.status}><AppText variant="caption" weight="semibold" style={{color:colors.primary}}>{status.replaceAll("_"," ")}</AppText></View>;
 }
 
-export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab}:{tab:Tab;team:TeamDto;token:string;canWrite:boolean;onSelectTab:(tab:Tab)=>void}){
+export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMatchId,onConsumedFocus}:{
+  tab:Tab;team:TeamDto;token:string;canWrite:boolean;onSelectTab:(tab:Tab)=>void;
+  focusMatchId?:string|null;onConsumedFocus?:()=>void;
+}){
   const {t,language,isRTL}=useLocale();
   const [data,setData]=useState<TeamOperations|null>(null);
   const [available,setAvailable]=useState<CompetitionListItemDto[]>([]);
@@ -127,6 +130,15 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab}:{tab:Ta
   function openRoster(c:TeamOpsCompetition){setFocusedCompetition(c.id);setRosterIds(c.rosterUserIds);}
   function openLineup(m:TeamOpsMatch){setFocusedMatch(m.id);setStarters(m.lineup?.starters??[]);
     setSubstitutes(m.lineup?.substitutes??[]);setCaptainId(m.lineup?.captainUserId??null);}
+  // The Overview action center opens the intended fixture's lineup directly,
+  // rather than landing on an unrelated date or competition.
+  useEffect(()=>{
+    if(tab!=="matches"||!focusMatchId||!data||loading)return;
+    const match=data.matches.find(value=>value.id===focusMatchId);
+    if(!match)return;
+    openLineup(match);
+    onConsumedFocus?.();
+  },[tab,focusMatchId,data,loading,onConsumedFocus]);
   function setLineupMember(id:string,role:"START"|"SUB"|"NONE"){
     const isStart=starters.includes(id),isSub=substitutes.includes(id);
     if(role==="START"&&!isStart&&starters.length>=5){setError(t("tm2.fiveLimit"));return;}
