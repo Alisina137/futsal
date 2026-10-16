@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, radius } from "@leaguekick/design-tokens";
 import type { CompetitionDiscoveryItem, CompetitionParticipationDto, TeamDto } from "@leaguekick/contracts";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import {
   ApiRequestError, competitionApi, teamOperationsApi,
@@ -61,6 +61,7 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   const [discoveryTotal,setDiscoveryTotal]=useState(0);
   const [discoveryLoading,setDiscoveryLoading]=useState(false);
   const [discoveryError,setDiscoveryError]=useState(false);
+  const [discoveryRetry,setDiscoveryRetry]=useState(0);
   const [appliedSearch,setAppliedSearch]=useState("");
   const [participations,setParticipations]=useState<CompetitionParticipationDto[]>([]);
   const [participationReady,setParticipationReady]=useState(false);
@@ -73,6 +74,8 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   const [reload,setReload]=useState(0);
   const [filter,setFilter]=useState("ALL");
   const [search,setSearch]=useState("");
+  const searchRef=useRef("");
+  searchRef.current=search.trim();
   const [province,setProvince]=useState("ALL");
   const [matchFilter,setMatchFilter]=useState("UPCOMING");
   const [focusedCompetition,setFocusedCompetition]=useState<string|null>(null);
@@ -113,7 +116,7 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
       fee:"any",sort:"starting",scope:"registration",phase:"all",
       page:discoveryPage,limit:12,
     }).then(result=>{
-      if(!active)return;
+      if(!active||searchRef.current!==appliedSearch)return;
       setAvailable(previous=>discoveryPage===1?result.competitions:[
         ...previous.filter(item=>!result.competitions.some(next=>next.id===item.id)),
         ...result.competitions,
@@ -121,10 +124,10 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
       setDiscoveryProvinces(result.facets.provinces);
       setDiscoveryTotal(result.total);setDiscoveryHasMore(result.hasMore);
     }).catch(()=>{
-      if(active)setDiscoveryError(true);
-    }).finally(()=>{if(active)setDiscoveryLoading(false);});
+      if(active&&searchRef.current===appliedSearch)setDiscoveryError(true);
+    }).finally(()=>{if(active&&searchRef.current===appliedSearch)setDiscoveryLoading(false);});
     return()=>{active=false;};
-  },[tab,competitionSection,appliedSearch,province,discoveryPage,reload]);
+  },[tab,competitionSection,appliedSearch,province,discoveryPage,reload,discoveryRetry]);
 
   // Withdraw controls must only be shown when the server grants permission;
   // if participation data is unavailable, no speculative withdrawal is shown.
@@ -246,7 +249,7 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
             contentContainerStyle={[styles.compTabs,{flexDirection:isRTL?"row-reverse":"row"}]}>
             {([
               {id:"MINE",icon:"shield-checkmark-outline",title:t("tm4.myCompetitions"),
-                count:registrationsShown.length},
+                count:registrations.filter(c=>c.registrationStatus!=="INVITED").length},
               {id:"INVITATIONS",icon:"mail-unread-outline",title:t("tm4.invitations"),
                 count:invitations.length},
               {id:"DISCOVER",icon:"search-outline",title:t("tm4.discover"),count:null},
@@ -376,15 +379,21 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
           {competitionSection==="DISCOVER"?<Card testID="tm4-discover" style={styles.compCard}>
             <AppText variant="bodyLarge" weight="bold">{tr("findTitle")}</AppText>
             <TextField testID="tm4-search" label={tr("search")} value={search}
-              onChangeText={setSearch} maxLength={120}/>
+              onChangeText={value=>{
+                setSearch(value);setDiscoveryPage(1);setAvailable([]);
+                setDiscoveryTotal(0);setDiscoveryHasMore(false);setDiscoveryLoading(true);
+              }} maxLength={120}/>
             <DirectoryFilterSelect compact testID="tm4-province-select"
               label={tr("province")} allLabel={tr("filter.ALL")}
               value={province==="ALL"?"":province}
               options={discoveryProvinces.map(value=>({value,label:value}))}
-              onSelect={value=>{setProvince(value||"ALL");setDiscoveryPage(1);}}/>
+              onSelect={value=>{
+                setProvince(value||"ALL");setDiscoveryPage(1);setAvailable([]);
+                setDiscoveryTotal(0);setDiscoveryHasMore(false);
+              }}/>
             {discoveryError?<View style={styles.compDanger}>
               <AppText style={{color:colors.danger}}>{tr("discoveryFailed")}</AppText>
-              <Button label={t("common.retry")} variant="secondary" onPress={reloadData}/>
+              <Button label={t("common.retry")} variant="secondary" onPress={()=>setDiscoveryRetry(x=>x+1)}/>
             </View>:null}
             <AppText variant="caption" muted>{t("tm4.results",{count:discoveryTotal})}</AppText>
             {discoveryLoading&&discoveryPage===1?<DataLoadingState variant="list" minHeight={180}/>:null}
