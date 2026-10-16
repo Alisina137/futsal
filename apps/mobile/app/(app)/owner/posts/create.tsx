@@ -57,39 +57,54 @@ export default function CreatePostScreen(){
   const [scheduleBusy,setScheduleBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
 
+  const accessToken=session?.accessToken;
+
+  // A regular post only needs its text and optional image. An unrelated
+  // promotions/competitions request must never block the post composer.
   useEffect(()=>{
-    if(!session){setLoading(false);return;}
+    if(!accessToken){setLoading(false);return;}
+    if(!postId){setLoading(false);return;}
     let active=true;
-    void (async()=>{
-      try{
-        const [promotionResult,competitionResult,postResult]=await Promise.all([
-          ownerApi.promotions(session.accessToken),
-          competitionApi.ownerList(session.accessToken),
-          postId?ownerApi.posts(session.accessToken):Promise.resolve(null),
-        ]);
-        if(!active)return;
-        setPromotions(promotionResult.promotions.filter((item)=>item.status==="ACTIVE"));
-        setCompetitions(competitionResult.competitions);
-        if(postId&&postResult){
-          const post=postResult.posts.find((item)=>item.id===postId)??null;
-          if(!post){setError(t("media.postNotFound"));return;}
-          setExisting(post);
-          setBody(post.body);
-          setImageUrl(post.imageUrl??"");
-          setPostType(post.postType);
-          setVisibility(post.visibility);
-          setNotifyFollowers(post.notifyFollowers);
-          if(post.ctaType==="PROMOTION")setPromotionId(post.ctaTargetId);
-          if(post.ctaType==="COMPETITION")setCompetitionId(post.ctaTargetId);
-        }
-      }catch{
-        if(active)setError(t("media.composerLoadError"));
-      }finally{
-        if(active)setLoading(false);
-      }
-    })();
+    setLoading(true);
+    setError(null);
+    setExisting(null);
+    void ownerApi.posts(accessToken).then(result=>{
+      if(!active)return;
+      const post=result.posts.find(item=>item.id===postId)??null;
+      if(!post){setError(t("media.postNotFound"));return;}
+      setExisting(post);
+      setBody(post.body);
+      setImageUrl(post.imageUrl??"");
+      setPostType(post.postType);
+      setVisibility(post.visibility);
+      setNotifyFollowers(post.notifyFollowers);
+      if(post.ctaType==="PROMOTION")setPromotionId(post.ctaTargetId);
+      if(post.ctaType==="COMPETITION")setCompetitionId(post.ctaTargetId);
+    }).catch(()=>{
+      if(active)setError(t("media.composerLoadError"));
+    }).finally(()=>{
+      if(active)setLoading(false);
+    });
     return()=>{active=false;};
-  },[postId,session,t]);
+  },[postId,accessToken,t]);
+
+  // These lists power specialized post types, but aren't required for
+  // publishing a general announcement or a photo update.
+  useEffect(()=>{
+    if(!accessToken){setPromotions([]);setCompetitions([]);return;}
+    let active=true;
+    void Promise.allSettled([
+      ownerApi.promotions(accessToken),
+      competitionApi.ownerList(accessToken),
+    ]).then(([promotionResult,competitionResult])=>{
+      if(!active)return;
+      setPromotions(promotionResult.status==="fulfilled"
+        ?promotionResult.value.promotions.filter(item=>item.status==="ACTIVE"):[]);
+      setCompetitions(competitionResult.status==="fulfilled"
+        ?competitionResult.value.competitions:[]);
+    });
+    return()=>{active=false;};
+  },[accessToken]);
 
   useEffect(()=>{
     if(!session||!competitionId||postType!=="RESULT"){setCompetitionDetail(null);return;}
