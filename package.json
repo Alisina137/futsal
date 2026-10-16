@@ -31,7 +31,7 @@
     "verify:competition-detail-phase8": "node --experimental-strip-types --test scripts/tests/competition-detail-phase8.test.mjs && node scripts/verify-competition-detail-phase8.mjs",
     "verify:competition-profile": "node scripts/verify-competition-public-profile.mjs",
     "verify:competition-organizer-invite": "node scripts/verify-competition-organizer-invite.mjs",
-    "verify:offline-teams": "node scripts/verify-offline-teams.mjs",
+    "verify:offline-teams": "node --experimental-strip-types --test scripts/tests/owner-offline-teams.test.mjs && node scripts/verify-offline-teams.mjs",
     "verify:competition-rewards": "node scripts/verify-competition-rewards.mjs",
     "verify:match-details": "node scripts/verify-match-details.mjs",
     "verify:league-standings": "node scripts/verify-league-standings.mjs",
