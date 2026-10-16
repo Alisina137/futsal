@@ -263,6 +263,19 @@ export class TimetableService {
     return { deleted: true };
   }
 
+  /** Owner opt-in, irreversible cleanup of archived or fully expired versions.
+   * Never delete an active or future timetable. Historical bookings survive:
+   * they store their own timestamps, prices and cancellation snapshots. */
+  async deleteHistoricalTimetable(ownerUserId: string, timetableId: string) {
+    const venue = await this.ownerVenue(ownerUserId);
+    const today = localDateForInstant(this.now(),venue.timezone);
+    if (!(await this.repository.deleteHistoricalTimetable(timetableId,venue.id,today))) {
+      throw errors.badRequest("TIMETABLE_HISTORY_DELETE_DENIED",
+        "Only archived or fully expired timetable versions can be deleted.");
+    }
+    return { deleted: true };
+  }
+
   private intervalAllowedBy(
     timetable: TimetableRecord,
     exceptions: TimetableExceptionRecord[],
