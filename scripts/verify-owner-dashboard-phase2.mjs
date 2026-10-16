@@ -48,8 +48,10 @@ check(projections,[
   'items.push({key:"paused"','items.push({key:"registrations"',
   'grossBookingValueAfn', 'cancellations:analytics.cancellationRate',
 ],"authoritative projections");
-check(bookings,['<OwnerPendingBookings token={session?.accessToken}/>'],
-  "existing booking action integration");
+check(bookings,['ownerApi.confirmBooking(token,target.booking.id)',
+  'ownerApi.cancelBooking(token,target.booking.id',
+  'testID="owner-booking-status-filters"'],
+  "pending approvals and booking search integration");
 check(dates,['timeZone: KABUL_TIME_ZONE','export function todayKabul()','export function addDays('],
   "Kabul dates");
 check(routes,['key:"overview",href:"/owner/overview"'],
