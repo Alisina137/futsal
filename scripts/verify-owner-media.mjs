@@ -132,6 +132,16 @@ assert(server.includes("mediaLifecycleTimer")&&server.includes("60_000")&&server
 assert(bookingRoutes.includes("request.query.q"),"Venue directory API must accept a name-search query.");
 assert(bookingRepository.includes("ilike(venues.name"),"Venue directory must search venue page names server-side.");
 
+assert(ownerMedia.includes('testID="owner-media-create-post"')
+  &&ownerMedia.indexOf('testID="owner-media-create-post"')<ownerMedia.indexOf('{page?<View style={styles.pageCard}>')
+  &&ownerMedia.includes('onPress={()=>router.push("/owner/posts/create")}')
+  &&ownerMedia.includes('isInitialLoading?<DataLoadingState'),
+  "Create Post action must be prominent and usable before page assets finish loading.");
+assert(composer.includes('if(!postId){setLoading(false);return;}')
+  &&composer.includes('void ownerApi.posts(accessToken).then')
+  &&composer.includes('Promise.allSettled(['),
+  "Creating a general post must not wait for optional promotion/competition lookups.");
+
 for(const marker of [
   "page.pageCoverImageUrl",
   "page.pageProfileImageUrl",
