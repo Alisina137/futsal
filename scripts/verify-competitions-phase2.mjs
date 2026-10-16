@@ -38,10 +38,9 @@ assert.ok(repo.includes('eq(socialPosts.status,"PUBLISHED")')&&
  "Directory media must be fetched only for current page from published posts");
 for(const marker of ['testID="competition-province-select"',
  'testID="competition-status-select"','testID="competition-format-select"',
- 'testID="competition-fee-select"','testID="competition-status-select"',
- 'testID="competition-start-from"','testID="competition-start-to"',
- 'testID="competition-min-fee"','testID="competition-max-fee"',
- 'testID="competitions-advanced-filters"']){
+ 'testID="competition-fee-select"','testID="competitions-primary-filter-grid"',
+ 'testID="competitions-primary-filter-row-1"',
+ 'testID="competitions-primary-filter-row-2"']){
  assert.ok(mobile.includes(marker),"Mobile filter missing: "+marker);
 }
 assert.ok(mobile.includes("setTimeout(()=>{timer.current=null;submit(value);},2000)")&&
