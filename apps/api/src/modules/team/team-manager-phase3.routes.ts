@@ -1,11 +1,11 @@
 import { Router,type Request,type Response,type NextFunction } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
-import { and,desc,eq,inArray,or } from "drizzle-orm";
+import { and,count,desc,eq,inArray,isNull,or } from "drizzle-orm";
 import type { Database } from "@leaguekick/database";
 import {
   competitions,competitionMatches,competitionTeams,playerMatchStats,playerProfiles,roleSubscriptions,
-  socialPosts,socialUserPostImages,teamAnnouncements,teamFriendlyChallenges,
+  socialPosts,socialPostLikes,socialPostComments,socialUserPostImages,teamAnnouncements,teamFriendlyChallenges,
   teamMemberships,teams,users,
 } from "@leaguekick/database";
 import { errors } from "../../lib/errors.js";
@@ -186,8 +186,21 @@ export class TeamManagerPhase3Service{
         ["COMPLETED","CORRECTED"].includes(finals[0]!.status)&&finals[0]?.winnerTeamId===teamId);
       return {...c,champion};
     });
+    // Actual aggregate counts; hidden comments must not contribute.
+    const postIds=posts.map(p=>p.id);
+    const [likes,comments]=postIds.length?await Promise.all([
+      this.db.select({postId:socialPostLikes.postId,total:count()})
+        .from(socialPostLikes).where(inArray(socialPostLikes.postId,postIds))
+        .groupBy(socialPostLikes.postId),
+      this.db.select({postId:socialPostComments.postId,total:count()})
+        .from(socialPostComments).where(and(inArray(socialPostComments.postId,postIds),
+          isNull(socialPostComments.hiddenAt))).groupBy(socialPostComments.postId),
+    ]):[[],[]];
+    const likeCounts=new Map(likes.map(v=>[v.postId,v.total]));
+    const commentCounts=new Map(comments.map(v=>[v.postId,v.total]));
     return {
-      posts:posts.map(p=>({...p,publishedAt:p.publishedAt.toISOString()})),
+      posts:posts.map(p=>({...p,publishedAt:p.publishedAt.toISOString(),
+        likeCount:likeCounts.get(p.id)??0,commentCount:commentCounts.get(p.id)??0})),
       announcements:announcements.map(a=>({...a,createdAt:a.createdAt.toISOString(),updatedAt:a.updatedAt.toISOString()})),
       challenges:challenges.map(c=>({...c,opponentName:byId.get(c.fromTeamId===teamId?c.toTeamId:c.fromTeamId)??"",
         proposedAt:c.proposedAt.toISOString(),respondedAt:c.respondedAt?.toISOString()??null,
