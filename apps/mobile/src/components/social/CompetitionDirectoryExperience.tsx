@@ -385,13 +385,13 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
           <View testID="competitions-primary-filter-row-1"
             style={[styles.filterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <View style={styles.filterCell}>
-              <DirectoryFilterSelect testID="competition-province-select"
+              <DirectoryFilterSelect compact testID="competition-province-select"
                 label={t("competition.phase2.province")} value={province}
                 allLabel={t("competition.phase2.allProvinces")}
                 options={facets.provinces.map(value=>({value,label:value}))} onSelect={pickProvince}/>
             </View>
             <View style={styles.filterCell}>
-              <DirectoryFilterSelect testID="competition-status-select"
+              <DirectoryFilterSelect compact testID="competition-status-select"
                 label={t("competition.filterStatus")} value={status??""}
                 allLabel={t("competition.allStatuses")}
                 options={(["REGISTRATION_OPEN","REGISTRATION_CLOSED","SCHEDULED","IN_PROGRESS","COMPLETED","ARCHIVED"] as const)
@@ -401,14 +401,14 @@ export function CompetitionDirectoryExperience({mode}:{mode:Mode}){
           <View testID="competitions-primary-filter-row-2"
             style={[styles.filterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
             <View style={styles.filterCell}>
-              <DirectoryFilterSelect testID="competition-format-select"
+              <DirectoryFilterSelect compact testID="competition-format-select"
                 label={t("competition.format")} value={format??""}
                 allLabel={t("competition.phase2.allFormats")}
                 options={(["LEAGUE","KNOCKOUT","GROUP_KNOCKOUT"] as const)
                   .map(value=>({value,label:t(`competition.format.${value}` as never)}))} onSelect={pickFormat}/>
             </View>
             <View style={styles.filterCell}>
-              <DirectoryFilterSelect testID="competition-fee-select"
+              <DirectoryFilterSelect compact testID="competition-fee-select"
                 label={t("competition.registrationFee")} value={fee}
                 allLabel={t("competition.phase2.anyFee")}
                 options={["free","paid"].map(value=>({value,label:t(`competition.phase2.fee.${value}` as never)}))}
