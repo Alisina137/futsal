@@ -5,11 +5,12 @@ import {Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 
-type Props={label:string;value:string;allLabel:string;options:Array<{value:string;label:string}>;onSelect:(next:string)=>void;testID:string;compact?:boolean;};
-export function DirectoryFilterSelect({label,value,allLabel,options,onSelect,testID,compact=false}:Props){
+type Props={label:string;value:string;allLabel:string;options:Array<{value:string;label:string}>;onSelect:(next:string)=>void;testID:string;compact?:boolean;includeAll?:boolean;};
+export function DirectoryFilterSelect({label,value,allLabel,options,onSelect,testID,compact=false,includeAll=true}:Props){
   const {isRTL,t}=useLocale();
   const [open,setOpen]=useState(false);
   const selected=options.find(option=>option.value===value)?.label??allLabel;
+  const choices=includeAll?[{value:"",label:allLabel},...options.filter(x=>x.value!=="")]:options;
   return <View style={[styles.field,compact&&styles.fieldCompact]}>
     <AppText variant={compact?"caption":"body"} weight="medium"
       numberOfLines={1}>{label}</AppText>
@@ -36,8 +37,8 @@ export function DirectoryFilterSelect({label,value,allLabel,options,onSelect,tes
             </Pressable>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled">
-            {[{value:"",label:allLabel},...options.filter(x=>x.value!=="")].map(option=>
-              <Pressable key={option.value||"all"} accessibilityRole="button"
+            {choices.map(option=>
+              <Pressable key={option.value||"all"} testID={`${testID}-option-${option.value||"all"}`} accessibilityRole="button"
                 accessibilityState={{selected:value===option.value}}
                 onPress={()=>{onSelect(option.value);setOpen(false);}}
                 style={[styles.option,{flexDirection:isRTL?"row-reverse":"row"}]}>
