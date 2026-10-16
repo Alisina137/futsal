@@ -29,7 +29,7 @@ for(const guard of [
   'setAttentionKey(key)',
   'attentionReady&&attentionLoaded.requests?pending.length:"—"',
   'attentionReady&&attentionLoaded.invitations?outstanding.length:"—"',
-  'attentionReady&&attentionLoaded.notifications?unread:"—"',
+  'unreadNotifications={attentionReady&&attentionLoaded.notifications?unread:null}',
   'setDetailsError({key,message:',
   'detailsError?.key===teamKey',
   'loadedTeamKey!==teamKey',
