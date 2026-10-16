@@ -316,6 +316,7 @@ export default function CompetitionDetailScreen(){
     eligibleCompetitionTeams(myTeams,competition,participations,session.user.id):[];
   const myParticipation=visibleCompetitionParticipations(participations);
   const accepted=competition?.teams.filter(team=>team.status==="ACCEPTED")??[];
+  const participantLogos=Object.fromEntries(accepted.map(team=>[team.teamId,team.logoUrl]));
   const home=competition?competitionHomeSnapshot(competition):null;
   const played=competition?.matches.filter(match=>match.status==="COMPLETED"||match.status==="CORRECTED").length??0;
   const inProgress=competition?.matches.filter(match=>match.status==="IN_PROGRESS").length??0;
@@ -409,15 +410,29 @@ export default function CompetitionDetailScreen(){
         onPress={()=>router.push("/login")}/>:null}
     </Card>:null}
     {selectedSubtab==="MY_PARTICIPATION"&&session?<>
-      {participationError?<Card style={styles.registration}>
-        <AppText style={{color:colors.danger}}>{t("competition.phase3.reloadError")}</AppText>
+      {participationError?<Card testID="competition-participation-error" style={styles.participationEmpty}>
+        <View style={styles.participationEmptyIcon}>
+          <Ionicons name="alert-circle-outline" size={25} color={colors.danger}/>
+        </View>
+        <AppText weight="semibold" style={{color:colors.danger,textAlign:"center"}}>
+          {t("competition.phase3.reloadError")}
+        </AppText>
         <Button variant="secondary" label={t("common.retry")} onPress={()=>void load()}/>
       </Card>:null}
-      {!participationError&&myParticipation.length===0?<Card>
-        <AppText muted>{t("competition.detail.noParticipation")}</AppText>
+      {!participationError&&myParticipation.length===0?<Card
+        testID="competition-participation-empty" style={styles.participationEmpty}>
+        <View style={styles.participationEmptyIcon}>
+          <Ionicons name="clipboard-outline" size={25} color={colors.primary}/>
+        </View>
+        <AppText variant="bodyLarge" weight="bold" style={{textAlign:"center"}}>
+          {t("competition.detail.noParticipation")}
+        </AppText>
+        <AppText variant="caption" muted style={{textAlign:"center"}}>
+          {t("competition.detail.noParticipationHelp")}
+        </AppText>
       </Card>:null}
       {!participationError?<CompetitionParticipationPanel
-        participations={myParticipation} busy={busy}
+        participations={myParticipation} teamLogos={participantLogos} busy={busy}
         onAccept={teamId=>setIntent({kind:"accept",teamId})}
         onDecline={teamId=>setIntent({kind:"decline",teamId})}
         onWithdraw={teamId=>setIntent({kind:"withdraw",teamId})}/>:null}
@@ -765,6 +780,10 @@ const styles=StyleSheet.create({
   tabActive:{borderBottomColor:colors.primary,backgroundColor:colors.primarySoft},
   tabPressed:{opacity:.76},
   registration:{gap:spacing.md},
+  participationEmpty:{alignItems:"center",justifyContent:"center",
+    paddingVertical:spacing.lg,gap:spacing.sm},
+  participationEmptyIcon:{width:52,height:52,borderRadius:17,
+    backgroundColor:colors.primarySoft,alignItems:"center",justifyContent:"center"},
   registerTitle:{alignItems:"center",gap:spacing.sm},
   registerIcon:{width:39,height:39,borderRadius:12,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center"},
