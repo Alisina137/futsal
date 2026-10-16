@@ -97,7 +97,7 @@ for (const [name, source] of [
   ["Analysis", ownerAnalyticsPage],
   ["Venue Settings", ownerSettingsPage],
 ]) {
-  assert(source.includes("<Screen embedded>"), `Venue Owner ${name} page must render only embedded content.`);
+  assert(/<Screen\s+embedded(?:\s|>)/.test(source), `Venue Owner ${name} page must render only embedded content.`);
   assert(!source.includes("OwnerTopNav"), `Venue Owner ${name} page must not remount the shared owner navigation.`);
   assert(!source.includes("showHeader"), `Venue Owner ${name} page must not remount the global app header.`);
 }
