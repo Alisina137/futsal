@@ -7,9 +7,9 @@ const contract=read("packages/contracts/src/index.ts");
 const pkg=JSON.parse(read("package.json"));
 
 const gridStart=page.indexOf('<View testID="competitions-primary-filter-grid"');
-const advancedStart=page.indexOf('testID="competitions-advanced-filters"',gridStart);
-assert.ok(gridStart>=0&&advancedStart>gridStart,"The primary 2x2 filter grid must precede advanced options.");
-const grid=page.slice(gridStart,advancedStart);
+const resultsStart=page.indexOf('testID="competitions-results-section"',gridStart);
+assert.ok(gridStart>=0&&resultsStart>gridStart,"The primary 2x2 filter grid must precede competition results.");
+const grid=page.slice(gridStart,resultsStart);
 const first=grid.indexOf('testID="competitions-primary-filter-row-1"');
 const second=grid.indexOf('testID="competitions-primary-filter-row-2"');
 assert.ok(first>=0&&second>first,"Exactly two primary filter rows must be rendered.");
@@ -54,4 +54,4 @@ for(const marker of [
 }
 assert.ok(pkg.scripts["verify:competitions-filter-grid"]?.includes("verify-competitions-filter-grid.mjs"));
 assert.ok(pkg.scripts.verify.includes("pnpm verify:competitions-filter-grid"));
-console.log("Competition discovery: province/status/format/fee in 2x2 RTL-aware compact selects; city filter removed, required empty city query preserved; advanced, sort, search and server paging retained.");
+console.log("Competition discovery: province/status/format/fee in 2x2 RTL-aware compact selects; city filter removed, required empty city query preserved; search and server paging retained.");
