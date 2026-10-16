@@ -11,6 +11,8 @@ import {emptyCompetitionMatchPreferences,matchFitsPreferences,
 import {formatFixtureSchedule,groupMatchesByRound} from "../../lib/competition-match-schedule";
 import {formatRefereeScheduleParts} from "../../lib/date-time";
 import {useLocale} from "../../providers/LocaleProvider";
+import {useVisibleTab} from "../../hooks/useVisibleTab";
+import {VenueMatchSelect} from "../venues/VenueMatchSelect";
 import {AppText} from "../ui/AppText";
 import {Card} from "../ui/Card";
 
@@ -53,6 +55,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL",
 }){
   const {t,language,isRTL}=useLocale();
   const [filter,setFilter]=useState<MatchFilter>(initialFilter);
+  const statusNav=useVisibleTab<MatchFilter>(filter);
   const [localPreferences,setLocalPreferences]=useState<CompetitionMatchPreferences>(
     emptyCompetitionMatchPreferences);
   const currentPreferences=normalizedCompetitionMatchPreferences(
@@ -67,6 +70,7 @@ export function CompetitionMatchList({competition,initialFilter="ALL",
   const setDateFilter=(date:CompetitionMatchDatePreset)=>changePreferences({date});
   const chooseFilter=(next:MatchFilter)=>{
     setFilter(next);
+    statusNav.focus(next,true);
     onPrimaryFilterChange?.(next);
   };
   const teams=useMemo(()=>new Map(competition.teams.map(team=>[team.teamId,team])),[competition.teams]);
@@ -131,9 +135,12 @@ export function CompetitionMatchList({competition,initialFilter="ALL",
       </Pressable>:null}
     </View>
     <ScrollView testID="match-filter-rail" horizontal showsHorizontalScrollIndicator={false}
+      ref={statusNav.scrollRef} onLayout={statusNav.onViewport}
+      onContentSizeChange={statusNav.onContentSize}
       style={styles.filterViewport}
       contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
       {FILTERS.map(value=><Pressable key={value} testID={`match-filter-${value}`}
+        onLayout={event=>statusNav.cellLayout(value,event)}
         accessibilityRole="tab" accessibilityState={{selected:value===filter}}
         onPress={()=>chooseFilter(value)}
         style={[styles.chip,filter===value&&styles.selected]}>
@@ -162,83 +169,58 @@ export function CompetitionMatchList({competition,initialFilter="ALL",
         <Ionicons name={isRTL?"chevron-back":"chevron-forward"} size={17}
           color={teamFilter===myAcceptedTeamId?"#FFFFFF":colors.primary}/>
       </Pressable>:null}
-    {acceptedTeams.length>0?<View style={styles.refineSection} testID="competition-match-team-filters">
-      <AppText variant="caption" weight="semibold">{t("competition.phase5.filter.team")}</AppText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {[{teamId:"ALL",teamName:t("competition.phase5.allTeams")},...acceptedTeams].map(team=>
-          <Pressable key={team.teamId} testID={`match-team-${team.teamId}`}
-            accessibilityRole="tab" accessibilityState={{selected:teamFilter===team.teamId}}
-            onPress={()=>changePreferences({teamId:team.teamId})} style={[styles.refineChip,teamFilter===team.teamId&&styles.selected]}>
-            <AppText variant="caption" weight="semibold" numberOfLines={1}
-              style={{color:teamFilter===team.teamId?"#FFFFFF":colors.primary}}>{team.teamName}</AppText>
-          </Pressable>)}
-      </ScrollView>
-    </View>:null}
-    {stages.length>1?<View style={styles.refineSection} testID="competition-match-stage-filters">
-      <AppText variant="caption" weight="semibold">{t("competition.phase5.filter.stage")}</AppText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {(["ALL",...stages] as Array<"ALL"|CompetitionMatchDto["stage"]>).map(stage=>
-          <Pressable key={stage} testID={`match-stage-${stage}`}
-            accessibilityRole="tab" accessibilityState={{selected:stageFilter===stage}}
-            onPress={()=>changePreferences({stage,round:null,group:"ALL"})}
-            style={[styles.refineChip,stageFilter===stage&&styles.selected]}>
-            <AppText variant="caption" weight="semibold"
-              style={{color:stageFilter===stage?"#FFFFFF":colors.primary}}>
-              {stage==="ALL"?t("competition.phase5.filter.allStages"):
-                t(`competition.phase5.stage.${stage}` as never)}
-            </AppText>
-          </Pressable>)}
-      </ScrollView>
-    </View>:null}
-    {rounds.length>1?<View style={styles.refineSection} testID="competition-match-round-filters">
-      <AppText variant="caption" weight="semibold">{t("competition.phase5.filter.round")}</AppText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {[null,...rounds].map(round=><Pressable key={round??"ALL"}
-          testID={`match-round-select-${round??"ALL"}`}
-          accessibilityRole="tab" accessibilityState={{selected:roundFilter===round}}
-          onPress={()=>changePreferences({round})} style={[styles.refineChip,roundFilter===round&&styles.selected]}>
-          <AppText variant="caption" weight="semibold"
-            style={{color:roundFilter===round?"#FFFFFF":colors.primary}}>
-            {round===null?t("competition.phase5.filter.allRounds"):t("competition.round",{number:round})}
-          </AppText>
-        </Pressable>)}
-      </ScrollView>
-    </View>:null}
-    {groupNames.length>1&&(stageFilter==="ALL"||stageFilter==="GROUP")?<View style={styles.refineSection}
-      testID="competition-match-group-filters">
-      <AppText variant="caption" weight="semibold">{t("competition.phase5.filter.group")}</AppText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {["ALL",...groupNames].map(group=><Pressable key={group}
-          testID={`match-group-${group}`} accessibilityRole="tab"
-          accessibilityState={{selected:groupFilter===group}} onPress={()=>changePreferences({group})}
-          style={[styles.refineChip,groupFilter===group&&styles.selected]}>
-          <AppText variant="caption" weight="semibold"
-            style={{color:groupFilter===group?"#FFFFFF":colors.primary}}>
-            {group==="ALL"?t("competition.phase5.filter.allGroups"):t("competition.group",{name:group})}
-          </AppText>
-        </Pressable>)}
-      </ScrollView>
-    </View>:null}
-    <View testID="competition-match-date-filters" style={styles.refineSection}>
-      <AppText variant="caption" weight="semibold">{t("competition.detail.dateFilter")}</AppText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.filters,{flexDirection:isRTL?"row-reverse":"row"}]}>
-        {(["ALL","TODAY","TOMORROW","NEXT_7_DAYS"] as const).map(preset=>
-          <Pressable key={preset} testID={`competition-match-date-${preset}`}
-            accessibilityRole="tab" accessibilityState={{selected:dateFilter===preset}}
-            onPress={()=>setDateFilter(preset)}
-            style={[styles.refineChip,dateFilter===preset&&styles.selected]}>
-            <AppText variant="caption" weight="semibold"
-              style={{color:dateFilter===preset?"#FFFFFF":colors.primary}}>
-              {t(`competition.detail.date.${preset}` as never)}
-            </AppText>
-          </Pressable>)}
-      </ScrollView>
-    </View>
+    {/* Compact selects replace the five long pill-navigation strips.
+        Keep each active preference, including stage/round and group dependencies. */}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}
+      testID="competition-match-select-rail" style={{flexGrow:0}}
+      contentContainerStyle={[styles.selectFilters,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <View testID="competition-match-team-filters">
+        <VenueMatchSelect testID="competition-match-select-team" icon="shirt-outline"
+          label={t("competition.phase5.filter.team")} value={teamFilter==="ALL"?"":teamFilter}
+          allLabel={t("competition.phase5.allTeams")}
+          options={acceptedTeams.map(team=>({value:team.teamId,label:team.teamName}))}
+          onSelect={value=>changePreferences({teamId:value||"ALL"})}/>
+      </View>
+      {stages.length>1?<View testID="competition-match-stage-filters">
+        <VenueMatchSelect testID="competition-match-select-stage" icon="layers-outline"
+          label={t("competition.phase5.filter.stage")} value={stageFilter==="ALL"?"":stageFilter}
+          allLabel={t("competition.phase5.filter.allStages")}
+          options={stages.map(stage=>({value:stage,
+            label:t(`competition.phase5.stage.${stage}` as never)}))}
+          onSelect={value=>changePreferences({
+            stage:(value||"ALL") as CompetitionMatchPreferences["stage"],
+            round:null,group:"ALL",
+          })}/>
+      </View>:null}
+      <View testID="competition-match-round-filters">
+        <VenueMatchSelect testID="competition-match-select-round" icon="calendar-number-outline"
+          label={t("competition.phase5.filter.round")}
+          value={roundFilter===null?"":String(roundFilter)}
+          allLabel={t("competition.phase5.filter.allRounds")}
+          options={rounds.map(round=>({value:String(round),label:t("competition.round",{number:round})}))}
+          onSelect={value=>changePreferences({round:value?Number(value):null})}/>
+      </View>
+      {groupNames.length>1&&(stageFilter==="ALL"||stageFilter==="GROUP")?
+        <View testID="competition-match-group-filters">
+          <VenueMatchSelect testID="competition-match-select-group" icon="people-outline"
+            label={t("competition.phase5.filter.group")}
+            value={groupFilter==="ALL"?"":groupFilter}
+            allLabel={t("competition.phase5.filter.allGroups")}
+            options={groupNames.map(group=>({value:group,
+              label:t("competition.group",{name:group})}))}
+            onSelect={value=>changePreferences({group:value||"ALL"})}/>
+        </View>:null}
+      <View testID="competition-match-date-filters">
+        <VenueMatchSelect testID="competition-match-select-date" icon="calendar-outline"
+          label={t("competition.detail.dateFilter")}
+          value={dateFilter==="ALL"?"":dateFilter}
+          allLabel={t("competition.detail.date.ALL")}
+          options={(["TODAY","TOMORROW","NEXT_7_DAYS"] as const).map(preset=>({
+            value:preset,label:t(`competition.detail.date.${preset}` as never),
+          }))}
+          onSelect={value=>setDateFilter((value||"ALL") as CompetitionMatchDatePreset)}/>
+      </View>
+    </ScrollView>
     {extraFiltersActive?<Pressable testID="competition-match-clear-filters" accessibilityRole="button"
       style={styles.clearFilters} onPress={clearExtraFilters}>
       <Ionicons name="close-circle-outline" size={18} color={colors.primary}/>
@@ -382,9 +364,7 @@ const styles=StyleSheet.create({
     backgroundColor:colors.primarySoft},
   filterViewport:{height:50,minHeight:50,maxHeight:50,flexGrow:0,flexShrink:0},
   filters:{gap:spacing.sm,alignItems:"center",paddingVertical:3},
-  refineSection:{gap:3},
-  refineChip:{minHeight:40,maxWidth:200,justifyContent:"center",paddingHorizontal:spacing.md,
-    borderWidth:1,borderColor:colors.border,borderRadius:radius.pill,backgroundColor:colors.surface},
+  selectFilters:{gap:spacing.sm,alignItems:"flex-start",paddingVertical:spacing.xs},
   clearFilters:{minHeight:42,flexDirection:"row",gap:6,alignItems:"center",alignSelf:"flex-start"},
   todayPill:{paddingHorizontal:7,paddingVertical:3,borderRadius:radius.pill,backgroundColor:"#D9F5E6"},
   teamButton:{flex:1,alignItems:"center",gap:spacing.sm,minHeight:40,minWidth:0},
