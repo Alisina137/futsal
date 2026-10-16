@@ -651,10 +651,10 @@ export class DrizzleBookingRepository implements BookingRepository {
       ...(filters.toExclusive?[lt(bookings.startsAt,filters.toExclusive)]:[]),
       ...(filters.scope==="UPCOMING"?[
         eq(bookings.status,"CONFIRMED" as const),gte(bookings.startsAt,filters.now),
+      ]:filters.scope==="ACTIVE"?[
+        eq(bookings.status,"CONFIRMED" as const),gt(bookings.endsAt,filters.now),
       ]:filters.scope==="HISTORY"?[
-        or(eq(bookings.status,"CANCELLED" as const),and(
-          eq(bookings.status,"CONFIRMED" as const),lt(bookings.endsAt,filters.now),
-        ))!,
+        eq(bookings.status,"CONFIRMED" as const),lte(bookings.endsAt,filters.now),
       ]:[]),
       ...(q?[or(
         ilike(bookings.customerName,`%${q}%`),
