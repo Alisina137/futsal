@@ -270,12 +270,24 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
             <Button variant="ghost" label={t("common.cancel")}
               onPress={()=>{resetPost();setComposerOpen(false);}}/>
           </Card>:null>
-          <Card><AppText variant="bodyLarge" weight="bold">{tr("publishedPosts")}</AppText>
-            {!data.posts.length?<AppText muted>{tr("noPosts")}</AppText>:null}
-            {data.posts.map(post=><View style={styles.item} key={post.id}>
+          <Card testID="tm6-published-posts" style={styles.mediaList}>
+            <AppText variant="bodyLarge" weight="bold">{tr("publishedPosts")} ({data.posts.length})</AppText>
+            <TextField testID="tm6-post-search" label={t("tm6.searchPosts")}
+              value={postQuery} onChangeText={setPostQuery} maxLength={100}/>
+            <Options current={postFilter} onChange={next=>setPostFilter(next as typeof postFilter)}
+              items={["ALL","PHOTOS","TEXT"].map(id=>({id,name:t(`tm6.filter.${id}` as never)}))}/>
+            <AppText variant="caption" muted>{t("tm6.results",{count:shownPosts.length})}</AppText>
+            {!shownPosts.length?<AppText muted>{data.posts.length?t("tm6.noMatches"):tr("noPosts")}</AppText>:null}
+            {shownPosts.map(post=><View style={styles.item} key={post.id}>
               <AppText variant="caption" muted>{date(post.publishedAt)}</AppText>
               {post.body?<AppText>{post.body}</AppText>:null}
               {post.imageUrl?<Image source={{uri:resolveMediaImageUrl(post.imageUrl)??post.imageUrl}} resizeMode="cover" style={styles.mediaImage}/>:null}
+              <View style={[styles.engagement,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                <Ionicons name="heart-outline" color={colors.primary} size={16}/>
+                <AppText variant="caption" muted>{t("tm6.likes",{count:post.likeCount??0})}</AppText>
+                <Ionicons name="chatbubble-outline" color={colors.primary} size={16}/>
+                <AppText variant="caption" muted>{t("tm6.comments",{count:post.commentCount??0})}</AppText>
+              </View>
               <View style={styles.actions}>
                 <Button label={tr("edit")} variant="secondary" disabled={!canWrite} onPress={()=>editPost(post)}/>
                 <Button label={tr("delete")} variant="ghost" disabled={!canWrite||busy}
@@ -301,7 +313,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
             <AppText variant="bodyLarge" weight="bold">{tr("phase5Photos")}</AppText>
             <AppText variant="caption" muted>{tr("phase5PhotoHint")}</AppText>
             <Button label={tr("addPhoto")} variant="secondary" disabled={!canWrite}
-              onPress={()=>{resetPost();setMediaSection("POSTS");}}/>
+              onPress={newPost}/>
             {data.posts.filter(post=>!!post.imageUrl).length===0?
               <AppText muted>{tr("phase5NoPhotos")}</AppText>:
               <View style={styles.photoGrid}>{data.posts.filter(post=>!!post.imageUrl).map(post=>
@@ -443,6 +455,13 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   </View>;
 }
 const styles=StyleSheet.create({
+  mediaHeader:{gap:spacing.md,borderWidth:1,borderColor:colors.border},
+  mediaHeading:{alignItems:"center",gap:spacing.sm},
+  mediaList:{gap:spacing.sm},
+  engagement:{alignItems:"center",gap:spacing.xs,flexWrap:"wrap"},
+  announcementForm:{gap:spacing.sm},
+  confirmBox:{gap:spacing.sm,padding:spacing.md,borderRadius:radius.md,
+    borderWidth:1,borderColor:colors.danger},
   challengeConfirm:{gap:spacing.sm,borderRadius:radius.md,borderWidth:1,
     borderColor:colors.danger,padding:spacing.md},
   item:{borderTopWidth:1,borderColor:colors.border,paddingTop:spacing.md,marginTop:spacing.md,gap:spacing.sm},
