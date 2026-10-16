@@ -32,7 +32,7 @@ function FormBadges({results}:{results:LeagueFormResult[]}){
       results.map((result,index)=><View key={index} style={[styles.formBadge,
         {backgroundColor:formAppearance[result].background}]}
         accessible accessibilityLabel={t(`competition.standingsForm.${result}` as never)}>
-        <Ionicons name={formAppearance[result].icon} color="#FFFFFF" size={14}/>
+        <Ionicons name={formAppearance[result].icon} color="#FFFFFF" size={13}/>
       </View>)}
   </View>;
 }
@@ -224,7 +224,7 @@ const styles=StyleSheet.create({
   logo:{width:28,height:28,borderRadius:14,backgroundColor:colors.primarySoft,
     alignItems:"center",justifyContent:"center",overflow:"hidden"},
   logoImage:{width:"100%",height:"100%"},
-  teamName:{flex:1,minWidth:0},
+  teamName:{flex:1,minWidth:0,fontSize:13},
   namePress:{flex:1,minWidth:0,gap:5,alignItems:"center",minHeight:52},
   tooltipOverlay:{flex:1},
   tooltip:{position:"absolute",width:300,maxWidth:"92%",padding:spacing.md,gap:spacing.md,
