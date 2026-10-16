@@ -22,7 +22,12 @@ must(api,['pendingBookings: (accessToken:string)','"/api/v1/owner/bookings/pendi
 must(cache,['pathname==="/api/v1/owner/bookings/pending"','pathname==="/api/v1/owner/timetable-calendar"']);
 must(calendar,['<OwnerPendingBookings token={token} onChanged={()=>void refresh()}/>','useFocusEffect(useCallback(()=>','slotPaletteFor(event)','pending={event.bookingStatus==="PENDING"}']);
 must(dashboard,['ownerApi.pendingBookings(token)','summary?.pendingCount','router.push("/owner/bookings")']);
-must(bookingsPage,['<OwnerPendingBookings token={session?.accessToken}/>']);
+must(bookingsPage,['ownerApi.listBookings(token,','ownerApi.confirmBooking(token,target.booking.id)',
+  'ownerApi.cancelBooking(token,target.booking.id,',
+  'const isPending=booking.status==="PENDING"',
+  'testID={`owner-booking-approve-${booking.id}`}',
+  'testID={`owner-booking-reject-${booking.id}`}']);
+
 must(inbox,['ownerApi.pendingBookings(token)','useFocusEffect(useCallback(()=>','AppState.currentState==="active"','setInterval(()=>','onChanged?.()','ownerApi.confirmBooking(token,booking.id)','ownerApi.cancelBooking(token,booking.id,','Modal transparent visible={decision!==null}','Date.parse(booking.startsAt)<=Date.now()']);
 must(tests,['shows all pending online reservations in the correct owner','withoutAuth.status).toBe(401)','cannotRead.status).toBe(403)','inboxB.body.bookings','rejected.body.booking.status).toBe("CANCELLED")']);
 for(const key of ["requestsTitle","requestsSubtitle","requestsLoading","requestsLoadError","requestsEmpty","requestsRefresh","requestsManage","requestsReject","requestsApproveTitle","requestsApproveConfirm","requestsRejectTitle","requestsRejectConfirm","requestsRejectedReason","requestsActionError","requestsExpired"])
