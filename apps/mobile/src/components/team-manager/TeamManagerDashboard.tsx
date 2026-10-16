@@ -150,6 +150,7 @@ export function TeamManagerDashboard(){
   const [savedTeamDetails,setSavedTeamDetails]=useState<TeamDetailsDraft|null>(null);
   const [savedProfile,setSavedProfile]=useState<TeamManagerProfileDetails|null>(null);
   const [settingsSection,setSettingsSection]=useState<SettingsSection|null>("PROFILE");
+  const [pendingTeamSwitch,setPendingTeamSwitch]=useState<string|null>(null);
   const [coverPreview,setCoverPreview]=useState<{url:string;uri:string}|null>(null);
   const selectedTeamRef=useRef(selectedId);
   selectedTeamRef.current=selectedId;
@@ -250,7 +251,7 @@ export function TeamManagerDashboard(){
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
     setSettingsSection("PROFILE");setSavedTeamDetails(null);setSavedProfile(null);
-    setRemoveLogoConfirm(false);setLogoBusy(false);
+    setRemoveLogoConfirm(false);setLogoBusy(false);setPendingTeamSwitch(null);
     setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
     setLineupFocus(null);setMatchSection("OFFICIAL");setCompetitionFocus(null);
     setPlayerSection("ROSTER");setPlayerSearch("");setPlayerPosition("ALL");
@@ -269,6 +270,7 @@ export function TeamManagerDashboard(){
     setInviteIdentifier("");setInviteRole("PLAYER");
     setCoverPreview(null);setShowVenues(false);setVenueSearch("");setVenues([]);
     setLogoBusy(false);setRemoveLogoConfirm(false);setSettingsSection("PROFILE");
+    setPendingTeamSwitch(null);
     setSavedTeamDetails(null);setSavedProfile(null);
     setName("");setCity("");setLogoUrl("");setPrivacy("PUBLIC");setProfile(initialProfile);
     setError(null);setMessage(null);resetGuest();
@@ -440,6 +442,13 @@ export function TeamManagerDashboard(){
   const selectedLicense=capacity?.slots.find(slot=>slot.teamId===team?.id);
   const toggleSettings=(section:SettingsSection)=>
     setSettingsSection(value=>value===section?null:section);
+  const switchTeam=(nextId:string)=>{
+    if(nextId===selectedId)return;
+    if((teamDirty||profileDirty)&&tab==="settings"){
+      setPendingTeamSwitch(nextId);return;
+    }
+    setSelectedId(nextId);
+  };
   async function chooseCover(){
     if(!token||!selectedId||!canWrite||coverBusy)return;
     const teamIdAtStart=selectedId;
@@ -629,7 +638,7 @@ export function TeamManagerDashboard(){
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={{gap:spacing.sm,alignItems:"center",flexDirection:isRTL?"row-reverse":"row"}}>
         {visibleTeams.map(item=><Pressable key={item.id} accessibilityRole="button"
-          onPress={()=>{if(item.id!==selectedId)setSelectedId(item.id);}}
+          onPress={()=>switchTeam(item.id)}
           disabled={busy||slotBusy||coverBusy}
           accessibilityState={{selected:item.id===selectedId,disabled:busy||slotBusy||coverBusy}}
           style={[styles.teamItem,item.id===selectedId&&styles.teamSelected]}>
@@ -638,6 +647,16 @@ export function TeamManagerDashboard(){
           <AppText weight="semibold" style={item.id===selectedId?{color:colors.primary}:undefined}>{item.name}</AppText>
         </Pressable>)}
       </ScrollView>
+      {pendingTeamSwitch?<Card testID="tm8-switch-confirm" style={styles.settingsDanger}>
+        <AppText weight="semibold">{t("tm8.switchWarning")}</AppText>
+        <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+          <Button variant="danger" label={t("tm8.discardAndSwitch")}
+            disabled={busy||logoBusy||coverBusy}
+            onPress={()=>{const next=pendingTeamSwitch;setPendingTeamSwitch(null);setSelectedId(next);}}/>
+          <Button variant="secondary" label={t("common.cancel")}
+            onPress={()=>setPendingTeamSwitch(null)}/>
+        </View>
+      </Card>:null}
       {!canWrite&&!loading?<Card style={{borderColor:colors.warning}}>
         <AppText weight="bold" style={{color:colors.warning}}>{t("tm1.readOnly")}</AppText>
         <Button variant="secondary" label={t("tm1.manageSubscription")} onPress={()=>router.push("/role-subscriptions/team-owner")}/>
