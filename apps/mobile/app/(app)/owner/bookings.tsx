@@ -1,9 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
-import type {BookingDto,OwnerBookingListResponse,BookingSource,BookingStatus} from "@leaguekick/contracts";
+import type {BookingDto,OwnerBookingListResponse,BookingSource} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {AppState,Modal,Pressable,ScrollView,StyleSheet,View} from "react-native";
+import {AppState,Modal,Pressable,StyleSheet,View} from "react-native";
 import {OwnerBookingDatePicker} from "../../../src/components/owner/OwnerBookingDatePicker";
 import {AppText} from "../../../src/components/ui/AppText";
 import {Button} from "../../../src/components/ui/Button";
@@ -254,19 +254,36 @@ export default function OwnerBookingsScreen(){
   </Screen>;
 }
 
-function Chip({text,active,onPress}:{text:string;active:boolean;onPress:()=>void}){
-  return <Pressable onPress={onPress} accessibilityRole="button"
+function Chip({text,active,onPress,testID,colorsForStatus}:{
+  text:string;active:boolean;onPress:()=>void;testID?:string;
+  colorsForStatus?:{background:string;border:string;text:string};
+}){
+  return <Pressable testID={testID} onPress={onPress} accessibilityRole="button"
     accessibilityState={{selected:active}}
-    style={[styles.chip,active&&styles.selected]}>
+    style={[styles.chip,active&&styles.selected,
+      colorsForStatus&&{backgroundColor:colorsForStatus.background,
+        borderColor:colorsForStatus.border},
+      active&&colorsForStatus&&{borderWidth:2}]}>
     <AppText variant="caption" weight="semibold"
-      style={active?styles.selectedText:undefined}>{text}</AppText>
+      style={colorsForStatus?{color:colorsForStatus.text}:active?styles.selectedText:undefined}>
+      {text}
+    </AppText>
+    {active?<Ionicons name="checkmark" size={13}
+      color={colorsForStatus?.text??colors.primary}/>:null}
   </Pressable>;
 }
 
-function BookingCard({booking,onCancel,nowMs}:{booking:BookingDto;onCancel:()=>void;nowMs:number}){
+function BookingCard({booking,onApprove,onReject,onCancel,nowMs}:{
+  booking:BookingDto;onApprove:()=>void;onReject:()=>void;
+  onCancel:()=>void;nowMs:number;
+}){
   const {t,isRTL,language}=useLocale();
   const start=formatLocalDateTimeParts(booking.startsAt,language);
   const end=formatLocalDateTimeParts(booking.endsAt,language);
+  const shownStatus=ownerBookingDisplayStatus(booking,nowMs);
+  const theme=ownerBookingStatusThemes[shownStatus];
+  const isPending=booking.status==="PENDING";
+  const canApprove=isPending&&Date.parse(booking.startsAt)>nowMs;
   const canCancel=booking.status==="CONFIRMED"&&Date.parse(booking.startsAt)>nowMs;
   return <Card testID={`owner-phase3-booking-${booking.id}`} style={styles.bookingCard}>
     <View style={[styles.heading,{flexDirection:isRTL?"row-reverse":"row"}]}>
@@ -276,9 +293,10 @@ function BookingCard({booking,onCancel,nowMs}:{booking:BookingDto;onCancel:()=>v
         </AppText>
         <AppText variant="caption" muted>{booking.areaName}</AppText>
       </View>
-      <View style={styles.statusBadge}>
-        <AppText variant="caption" weight="semibold" style={{color:colors.primary}}>
-          {t(`owner.phase3.status.${booking.status}` as never)}
+      <View testID={`owner-booking-badge-${shownStatus}`}
+        style={[styles.statusBadge,{backgroundColor:theme.background,borderColor:theme.border}]}>
+        <AppText variant="caption" weight="semibold" style={{color:theme.text}}>
+          {t(`owner.phase3.status.${shownStatus}` as never)}
         </AppText>
       </View>
     </View>
@@ -302,6 +320,17 @@ function BookingCard({booking,onCancel,nowMs}:{booking:BookingDto;onCancel:()=>v
     {booking.note?<AppText variant="caption" muted>{booking.note}</AppText>:null}
     {booking.status==="CANCELLED"&&booking.cancellationReason?<AppText
       variant="caption" muted>{booking.cancellationReason}</AppText>:null}
+    {isPending?<View style={[styles.actionRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+      <Button testID={`owner-booking-approve-${booking.id}`}
+        label={t("schedule.approveBooking")} disabled={!canApprove}
+        onPress={onApprove} style={{flex:1}}/>
+      <Button testID={`owner-booking-reject-${booking.id}`}
+        label={t("schedule.requestsReject")} variant="secondary"
+        onPress={onReject} style={{flex:1}}/>
+    </View>:null}
+    {isPending&&!canApprove?<AppText variant="caption" style={{color:colors.danger}}>
+      {t("schedule.requestsExpired")}
+    </AppText>:null}
     {canCancel?<Button variant="secondary" label={t("owner.phase3.cancelBooking")}
       onPress={onCancel}/>:null}
   </Card>;
@@ -312,19 +341,18 @@ const styles=StyleSheet.create({
   heading:{alignItems:"center",gap:spacing.sm},
   headingIcon:{width:42,height:42,borderRadius:radius.md,
     backgroundColor:colors.primarySoft,justifyContent:"center",alignItems:"center"},
-  tabs:{flexGrow:1,alignItems:"center",gap:spacing.sm,paddingVertical:spacing.sm},
-  tab:{minHeight:44,minWidth:112,borderWidth:1,borderColor:colors.border,
-    borderRadius:radius.pill,alignItems:"center",justifyContent:"center",
-    paddingHorizontal:spacing.md,backgroundColor:colors.surface},
   selected:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
   selectedText:{color:colors.primary},
   filters:{gap:spacing.sm},
   filterRow:{gap:spacing.xs,flexWrap:"wrap"},
-  chip:{minHeight:42,paddingHorizontal:spacing.md,justifyContent:"center",
+  chip:{minHeight:44,paddingHorizontal:spacing.md,justifyContent:"center",
+    alignItems:"center",flexDirection:"row",gap:spacing.xs,
     borderWidth:1,borderColor:colors.border,borderRadius:radius.pill,
     backgroundColor:colors.surface},
-  dateRow:{gap:spacing.sm,alignItems:"center"},
+  dateRow:{gap:spacing.sm,alignItems:"flex-start"},
+  actionRow:{gap:spacing.sm,alignItems:"stretch"},
   statusBadge:{backgroundColor:colors.primarySoft,paddingHorizontal:spacing.sm,
+    borderWidth:1,borderColor:colors.border,
     paddingVertical:spacing.xs,borderRadius:radius.pill},
   bookingCard:{gap:spacing.md},
   pager:{gap:spacing.md,marginTop:spacing.sm},
