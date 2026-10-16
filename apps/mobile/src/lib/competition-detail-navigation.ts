@@ -10,7 +10,7 @@ export const competitionProfileSubtabs={
   STATS:["TEAMS","PLAYERS","FAIR_PLAY"],
   TEAMS:["PARTICIPANTS","REGISTRATION","MY_PARTICIPATION"],
   MEDIA:["UPDATES","PHOTOS"],
-  ABOUT:["INFORMATION","RULES","PRIZES","VENUE"],
+  ABOUT:["OVERVIEW"],
 } as const;
 export type CompetitionDetailSubtab<T extends CompetitionDetailTab=CompetitionDetailTab>=
   (typeof competitionProfileSubtabs)[T][number];
@@ -20,7 +20,7 @@ export type CompetitionDetailNavigation={
 };
 const defaults:Record<CompetitionDetailTab,string>={
   HOME:"OVERVIEW",MATCHES:"ALL",STANDINGS:"LEAGUE",STATS:"PLAYERS",
-  TEAMS:"PARTICIPANTS",MEDIA:"UPDATES",ABOUT:"INFORMATION",
+  TEAMS:"PARTICIPANTS",MEDIA:"UPDATES",ABOUT:"OVERVIEW",
 };
 
 export function allowedCompetitionSubtabs(
