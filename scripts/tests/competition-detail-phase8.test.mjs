@@ -35,8 +35,7 @@ test("seven main tabs, their subtabs and format-specific standings remain stable
   assert.deepEqual([...competitionProfileMainTabs],
     ["HOME","MATCHES","STANDINGS","STATS","TEAMS","MEDIA","ABOUT"]);
   assert.deepEqual([...competitionProfileSubtabs.MEDIA],["UPDATES","PHOTOS"]);
-  assert.deepEqual([...competitionProfileSubtabs.ABOUT],
-    ["INFORMATION","RULES","PRIZES","VENUE"]);
+  assert.deepEqual([...competitionProfileSubtabs.ABOUT],["OVERVIEW"]);
   assert.deepEqual([...competitionProfileSubtabs.STATS],["TEAMS","PLAYERS","FAIR_PLAY"]);
   for(const format of ["LEAGUE","KNOCKOUT","GROUP_KNOCKOUT"]){
     const expected=format==="LEAGUE"?["LEAGUE"]:
@@ -70,14 +69,14 @@ test("switching tabs preserves valid subtab memory and rejects unavailable selec
   let nav=requestedCompetitionNavigation("MEDIA","PHOTOS");
   nav=chooseCompetitionMain(nav,"ABOUT");
   nav=chooseCompetitionSubtab(nav,"ABOUT","RULES",competitionProfileSubtabs.ABOUT);
-  assert.equal(nav.sub.ABOUT,"RULES");
+  assert.equal(nav.sub.ABOUT,"OVERVIEW");
   nav=chooseCompetitionMain(nav,"MEDIA");
   assert.equal(resolvedCompetitionSubtab(nav,"MEDIA",competitionProfileSubtabs.MEDIA),"PHOTOS");
   const old=nav;
   nav=chooseCompetitionSubtab(nav,"MEDIA","MY_PARTICIPATION",competitionProfileSubtabs.MEDIA);
   assert.equal(nav,old);
   nav=chooseCompetitionMain(nav,"ABOUT");
-  assert.equal(resolvedCompetitionSubtab(nav,"ABOUT",competitionProfileSubtabs.ABOUT),"RULES");
+  assert.equal(resolvedCompetitionSubtab(nav,"ABOUT",competitionProfileSubtabs.ABOUT),"OVERVIEW");
 });
 
 test("registration deadline, capacity and state match both Home and Teams",()=>{
