@@ -20,7 +20,7 @@ const has=(key,parts)=>{
  for(const part of parts)assert.ok(source[key].includes(part),key+" missing "+part);
 };
 has("contract",["ownerBookingListQuerySchema","ownerBookingListResponseSchema",
-  'scope:z.enum(["UPCOMING","ALL","HISTORY"])',"pageSize:z.coerce.number().int().min(5).max(50)",
+  'scope:z.enum(["UPCOMING","ALL","ACTIVE","HISTORY"])',"pageSize:z.coerce.number().int().min(5).max(50)",
   "from:dateOnlySchema.optional()","to:dateOnlySchema.optional()"]);
 has("types",["listOwnerBookingDirectory(venueId:string,filters:OwnerBookingDirectoryFilters)"]);
 has("route",['router.use(requireAuth(tokens), requireRole("VENUE_OWNER"))',
@@ -39,17 +39,29 @@ has("fake",["async listOwnerBookingDirectory(venueId:string,f:OwnerBookingDirect
   "booking.venueId!==venueId","items.slice(start,start+f.pageSize)"]);
 has("api",["listBookings: (accessToken:string,filters:Partial<OwnerBookingListQuery>",
   '"/api/v1/owner/bookings"','{cache:"no-store"},accessToken']);
-has("ui",['testID="owner-phase1-bookings"','testID="owner-phase3-subnavigation"',
-  "ownerBookingTabs.map(id=>","accessibilityState={{selected:tab===id}}",
-  "useVisibleTab<OwnerBookingTab>(tab)","<OwnerPendingBookings token={session?.accessToken}/>",
-  "ownerApi.listBookings(token","query,setQuery","ownerBookingDateFilter(from,to)",
-  "statusOptions.map","sourceOptions.map","setPage(current=>current+1)",
-  "setPage(current=>Math.max(1,current-1))","AppState.currentState",
-  "generation.current++","const safeData=loadedToken===token?data:null",
-  "ownerApi.cancelBooking(token,target.id",
-  "cancelLock.current","Modal transparent visible={cancelTarget!==null}",
-  "formatLocalDateTimeParts(booking.startsAt,language)",
+has("ui",['testID="owner-phase1-bookings"','testID="owner-booking-search-filters"',
+  'testID="owner-booking-status-filters"','ownerBookingStatusOptions.map',
+  'ownerBookingStatusScope(status)','ownerBookingDateFilter(from,to)',
+  'owner-booking-from-date-picker','owner-booking-to-date-picker',
+  'ownerApi.listBookings(token','query,setQuery',
+  'sourceOptions.map','setPage(current=>current+1)',
+  'setPage(current=>Math.max(1,current-1))','AppState.currentState',
+  'generation.current++','const safeData=loadedToken===token?data:null',
+  'ownerApi.confirmBooking(token,target.booking.id)',
+  'ownerApi.cancelBooking(token,target.booking.id',
+  'actionLock.current','Modal transparent visible={decision!==null}',
+  'owner-booking-approve-','owner-booking-reject-',
+  'ownerBookingDisplayStatus(booking,nowMs)','formatLocalDateTimeParts(booking.startsAt,language)',
   'router.push("/owner/schedule")']);
+assert.ok(!source.ui.includes('owner-phase3-subnavigation')&&
+  !source.ui.includes('ownerBookingTabs.map('),
+  "Booking page must not show a duplicate four-tab navigation.");
+const picker=read("apps/mobile/src/components/owner/OwnerBookingDatePicker.tsx");
+for(const marker of ['monthGridRange(anchor,language)','moveView("MONTH"',
+  'isSameDisplayMonth(day,anchor,language)','formatCalendarDate(day,language',
+  'onChange(day);setOpen(false);','onChange("");setOpen(false);']){
+  assert.ok(picker.includes(marker),"Localized date-picker missing: "+marker);
+}
 has("pending",["ownerApi.pendingBookings(token)","ownerApi.confirmBooking(token,booking.id)",
   "ownerApi.cancelBooking(token,booking.id"]);
 has("navigation",['key:"bookings",href:"/owner/bookings"']);
@@ -60,7 +72,8 @@ has("tests",[
   "expect(unauth.status).toBe(401)","toBe(403)"]);
 for(const key of ["subtitle","tab.PENDING","tab.UPCOMING","tab.ALL","tab.HISTORY",
   "search","source.ALL","source.ONLINE","source.MANUAL","status.CONFIRMED",
-  "status.CANCELLED","invalidDates","cancelBooking","cancelError","loadError",
+  "status.HISTORY","status.CANCELLED","results","anyDate","chooseSearchDate",
+  "previousMonth","nextMonth","invalidDates","cancelBooking","cancelError","loadError",
   "page","previous","next"]){
   const label='"owner.phase3.'+key+'"';
   assert.equal(source.localization.split(label).length-1,3,
@@ -69,4 +82,4 @@ for(const key of ["subtitle","tab.PENDING","tab.UPCOMING","tab.ALL","tab.HISTORY
 const pkg=JSON.parse(read("package.json"));
 assert.ok(pkg.scripts["verify:owner-dashboard-phase3"]?.includes("venue-owner-dashboard-phase3.test.mjs"));
 assert.ok(pkg.scripts.verify.includes("pnpm verify:owner-dashboard-phase3"));
-console.log("Venue Owner Dashboard Phase 3 verified: role-scoped paginated directory, four real tabs, search/date/status/source, confirmed-only cancellation and 3 languages.");
+console.log("Venue Owner Dashboard Phase 3 verified: role-scoped unified search, colored status filters, expired booking history, accessible date pickers, pending decisions and 3 languages.");
