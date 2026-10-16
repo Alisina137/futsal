@@ -43,12 +43,13 @@ check(sections.includes('competition.format==="GROUP_KNOCKOUT"')
 check(sections.includes('competition.format==="LEAGUE"')&&sections.includes("<LeagueStandingsTable")
   &&leagueBoard.includes('testID="league-scrollable-stats"'),
   "League standings must keep teams fixed and make statistics horizontally swipeable.");
-check(sections.includes('testID={`competition-stats-${value}`}')
+check(sections.includes('testID="competition-stat-metrics"')
+  &&sections.includes('testID="competition-stat-team-filter"')
   &&sections.includes('"goals","assists","appearances"')&&stats.includes('b[metric]-a[metric]')
   &&stats.includes('accepted.has(stat.teamId)')
-  &&sections.includes('competitionPlayerLeaders(competition,metric,teamId)')
+  &&sections.includes('competitionPlayerLeaders(competition,metric,activeTeamId)')
   &&sections.includes('pathname:"/players/[playerId]"'),
-  "Goal and assist leaderboards must be separately sortable and link to player profiles.");
+  "Goal and assist leaderboards must support compact metric/team selectors and player links.");
 check(sections.includes('team.status==="ACCEPTED"')&&sections.includes("resolveMediaImageUrl(team.logoUrl)")
   &&sections.includes('pathname:"/teams/[teamId]"'),
   "Teams tab must list accepted teams with real logos and accessible details.");
@@ -56,7 +57,12 @@ check(page.includes("competitionApi.register")&&page.includes('focusRegistration
   &&page.includes('activeTab!=="TEAMS"')&&page.includes("contentY.current+y")
   &&page.includes("toggleFollow")&&page.includes('marketingApi.socialFollowState'),
   "Registration deep links must go to Teams and retain authentic follow and manager validation.");
-check(page.includes('pathname:"/competitions/[competitionId]/about"')
+check(page.includes('activeTab!=="ABOUT"')
+  &&sections.includes('testID="competition-about-overview"')
+  &&sections.includes('testID="competition-phase7-information"')
+  &&sections.includes('testID="competition-phase7-rules"')
+  &&sections.includes('testID="competition-phase7-prizes"')
+  &&sections.includes('testID="competition-phase7-venue"')
   &&about.includes('competitionApi.get(competitionId)')
   &&about.includes("data.rewards.filter(")
   &&about.includes("formatCompetitionDateTime(")
@@ -67,7 +73,7 @@ check(page.includes('pathname:"/competitions/[competitionId]/about"')
   &&about.includes("data.qualifiersPerGroup")
   &&about.includes("data.winPoints")&&about.includes("data.drawPoints")&&about.includes("data.lossPoints")
   &&about.includes("tieBreakOrder.map(")&&about.includes("data.championTeamId"),
-  "The separate About page must show all publicly available competition information, not a shortened Home summary.");
+  "About must show all four sections together without a sub-navigation, while older full-About links remain usable.");
 check(sections.includes('testID="competition-home-feed"')
   &&sections.includes('match.status==="IN_PROGRESS"')
   &&sections.includes('live.length>0?<View testID="competition-live-scoreboard"')
@@ -107,4 +113,4 @@ for(const [name,tab] of [["standings","STANDINGS"],["bracket","STANDINGS"],["sta
   if(name==="bracket")check(legacy.includes('stage:"KNOCKOUT"'),
     "Legacy bracket must open the knockout stage directly.");
 }
-console.log("Public competition profile verified: venue-style identity, five functional tabs, dedicated About page, all-posts Home with live-only scores, Teams-only registration, format-aware stages, follower state and localization.");
+console.log("Public competition profile verified: venue-style identity, consolidated in-profile About, legacy full-About links, all-posts Home, Teams-only registration, format-aware stages, follower state and localization.");
