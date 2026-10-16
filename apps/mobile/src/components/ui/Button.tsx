@@ -12,6 +12,7 @@ type Props = {
   icon?: ReactNode;
   style?: ViewStyle;
   accessibilityHint?: string;
+  testID?: string;
 };
 
 export function Button({
@@ -23,10 +24,12 @@ export function Button({
   icon,
   style,
   accessibilityHint,
+  testID,
 }: Props) {
   const blocked = disabled || loading;
 
   return <Pressable
+    testID={testID}
     accessibilityRole="button"
     accessibilityLabel={label}
     accessibilityHint={accessibilityHint}
