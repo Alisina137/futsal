@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import { colors, radius, spacing } from "@leaguekick/design-tokens";
 import type { RoleSubscriptionOfferDto, TeamDto, TeamInvitationDto, TeamJoinRequestDto, TeamListItemDto, TeamPrivacy, PublicVenueDto } from "@leaguekick/contracts";
 import { router, useFocusEffect } from "expo-router";
@@ -25,6 +26,8 @@ import {WhatsAppGroupButton,isWhatsAppGroupInviteLink} from "../ui/WhatsAppGroup
 type Section="overview"|"players"|"competitions"|"matches"|"schedule"|"media"|"statistics"|"settings";
 type MainSection="overview"|"aboutTeam"|"media"|"statistics"|"settings";
 type AboutTeamSection="players"|"competitions"|"matches"|"schedule";
+type SettingsSection="PROFILE"|"MEMBERSHIP"|"CONTACT"|"SUBSCRIPTION"|"PERMISSIONS";
+type TeamDetailsDraft={name:string;city:string;logoUrl:string;privacy:TeamPrivacy};
 const mainTabs=[
   {id:"overview",icon:"grid-outline",key:"tmnav.overall"},
   {id:"aboutTeam",icon:"shield-checkmark-outline",key:"tmnav.aboutTeam"},
@@ -64,6 +67,26 @@ function Options({items,selected,onSelect}:{items:{id:string;label:string}[];sel
       <AppText variant="caption" weight="semibold" style={item.id===selected?{color:colors.primary}:undefined}>{item.label}</AppText>
     </Pressable>)}
   </ScrollView>;
+}
+
+function SettingsHeader({id,expanded,label,summary,icon,onPress,dirty=false}:{
+  id:SettingsSection;expanded:boolean;label:string;summary:string;
+  icon:keyof typeof Ionicons.glyphMap;onPress:()=>void;dirty?:boolean;
+}){
+  const {isRTL,t}=useLocale();
+  return <Pressable testID={`tm8-section-${id}`} accessibilityRole="button"
+    accessibilityState={{expanded}} onPress={onPress}
+    style={[styles.settingsHeader,expanded&&styles.settingsHeaderActive,
+      {flexDirection:isRTL?"row-reverse":"row"}]}>
+    <View style={styles.settingsIcon}>
+      <Ionicons name={icon} size={21} color={colors.primary}/>
+    </View>
+    <View style={{flex:1,gap:spacing.xs}}>
+      <AppText weight="bold">{label}{dirty?` · ${t("tm8.unsaved")}`:""}</AppText>
+      <AppText variant="caption" muted>{summary}</AppText>
+    </View>
+    <Ionicons name={expanded?"chevron-up":"chevron-down"} size={19} color={colors.textMuted}/>
+  </Pressable>;
 }
 
 export function TeamManagerDashboard(){
@@ -122,6 +145,11 @@ export function TeamManagerDashboard(){
   const [privacy,setPrivacy]=useState<TeamPrivacy>("PUBLIC");
   const [profile,setProfile]=useState<TeamManagerProfileDetails>(initialProfile);
   const [coverBusy,setCoverBusy]=useState(false);
+  const [logoBusy,setLogoBusy]=useState(false);
+  const [removeLogoConfirm,setRemoveLogoConfirm]=useState(false);
+  const [savedTeamDetails,setSavedTeamDetails]=useState<TeamDetailsDraft|null>(null);
+  const [savedProfile,setSavedProfile]=useState<TeamManagerProfileDetails|null>(null);
+  const [settingsSection,setSettingsSection]=useState<SettingsSection|null>("PROFILE");
   const [coverPreview,setCoverPreview]=useState<{url:string;uri:string}|null>(null);
   const selectedTeamRef=useRef(selectedId);
   selectedTeamRef.current=selectedId;
@@ -221,6 +249,8 @@ export function TeamManagerDashboard(){
     setMetadataError(false);setAttentionError(false);setAttentionKey(null);
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
+    setSettingsSection("PROFILE");setSavedTeamDetails(null);setSavedProfile(null);
+    setRemoveLogoConfirm(false);setLogoBusy(false);
     setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
     setLineupFocus(null);setMatchSection("OFFICIAL");setCompetitionFocus(null);
     setPlayerSection("ROSTER");setPlayerSearch("");setPlayerPosition("ALL");
@@ -238,6 +268,8 @@ export function TeamManagerDashboard(){
     setJoinAction(null);setJoinActionError(null);
     setInviteIdentifier("");setInviteRole("PLAYER");
     setCoverPreview(null);setShowVenues(false);setVenueSearch("");setVenues([]);
+    setLogoBusy(false);setRemoveLogoConfirm(false);setSettingsSection("PROFILE");
+    setSavedTeamDetails(null);setSavedProfile(null);
     setName("");setCity("");setLogoUrl("");setPrivacy("PUBLIC");setProfile(initialProfile);
     setError(null);setMessage(null);resetGuest();
     setPlayerSection("ROSTER");setPlayerSearch("");setPlayerPosition("ALL");
@@ -267,6 +299,9 @@ export function TeamManagerDashboard(){
         return;
       }
       setTeam(roster.value.team);setOverview(summary.value);setProfile(summary.value.profile);
+      setSavedProfile(summary.value.profile);
+      setSavedTeamDetails({name:roster.value.team.name,city:roster.value.team.city,
+        logoUrl:roster.value.team.logoUrl??"",privacy:roster.value.team.privacy});
       setName(roster.value.team.name);setCity(roster.value.team.city);
       setLogoUrl(roster.value.team.logoUrl??"");setPrivacy(roster.value.team.privacy);
       setLoadedTeamKey(key);
@@ -395,6 +430,16 @@ export function TeamManagerDashboard(){
     new Date(profile.foundedOn+"T00:00:00Z").toISOString().slice(0,10)===profile.foundedOn;
   const colorOk=(value:string|null)=>!value||/^#[0-9a-fA-F]{6}$/.test(value);
   const whatsappOk=!profile.whatsappGroupUrl||isWhatsAppGroupInviteLink(profile.whatsappGroupUrl);
+  const profileDirty=!!savedProfile&&JSON.stringify(profile)!==JSON.stringify(savedProfile);
+  const teamDirty=!!savedTeamDetails&&JSON.stringify({
+    name:name.trim(),city:city.trim(),logoUrl:logoUrl.trim(),privacy,
+  })!==JSON.stringify(savedTeamDetails);
+  const isManagedImage=(value:string)=>value.startsWith("/api/v1/social/post-images/");
+  const logoUrlOk=!logoUrl.trim()||logoUrl.trim()===savedTeamDetails?.logoUrl||
+    /^https:\/\/[^\s]+$/i.test(logoUrl.trim());
+  const selectedLicense=capacity?.slots.find(slot=>slot.teamId===team?.id);
+  const toggleSettings=(section:SettingsSection)=>
+    setSettingsSection(value=>value===section?null:section);
   async function chooseCover(){
     if(!token||!selectedId||!canWrite||coverBusy)return;
     const teamIdAtStart=selectedId;
@@ -421,11 +466,106 @@ export function TeamManagerDashboard(){
         cause.message:t("teams.phase3.coverError"));
     }finally{setCoverBusy(false);}
   }
-  const saveTeam=()=>perform(async()=>{
-    await teamApi.update(token!,selectedId!,{name:name.trim(),city:city.trim(),logoUrl:logoUrl.trim(),privacy});
-    await teamManagerApi.updateProfile(token!,selectedId!,profile);
-    setTeamListRefresh(v=>v+1);
-  });
+  // Identity and profile are independent API writes. Never report a combined
+  // success when only one persisted, or refetch away unrelated unsaved edits.
+  async function saveTeamDetails(){
+    if(!token||!selectedId||!canWrite||busy||!logoUrlOk)return;
+    const target=selectedId;
+    setBusy(true);setError(null);setMessage(null);
+    try{
+      const {team:updated}=await teamApi.update(token,target,{
+        name:name.trim(),city:city.trim(),privacy,
+        // Locally uploaded logos are saved via the licensed logo endpoint.
+        ...(isManagedImage(logoUrl)?{}:{logoUrl:logoUrl.trim()}),
+      });
+      if(selectedTeamRef.current!==target)return;
+      setTeam(updated);
+      setTeams(list=>list.map(item=>item.id===target?
+        {...item,name:updated.name,logoUrl:updated.logoUrl,city:updated.city}:item));
+      setSavedTeamDetails({name:updated.name,city:updated.city,logoUrl:updated.logoUrl??"",
+        privacy:updated.privacy});
+      setMessage(t("tm8.teamSaved"));
+    }catch(e){if(selectedTeamRef.current===target)
+      setError(e instanceof ApiRequestError?e.message:t("tm1.actionFailed"));}
+    finally{if(selectedTeamRef.current===target)setBusy(false);}
+  }
+  async function saveProfileSettings(){
+    if(!token||!selectedId||!canWrite||busy||!foundedOk||
+      !colorOk(profile.primaryColor)||!colorOk(profile.secondaryColor)||!whatsappOk)return;
+    const target=selectedId,draft=profile;
+    setBusy(true);setError(null);setMessage(null);
+    try{
+      const {profile:updated}=await teamManagerApi.updateProfile(token,target,draft);
+      if(selectedTeamRef.current!==target)return;
+      setSavedProfile(updated);
+      setProfile(previous=>JSON.stringify(previous)===JSON.stringify(draft)?updated:previous);
+      setOverview(previous=>previous?{...previous,profile:updated}:previous);
+      setMessage(t("tm8.profileSaved"));
+    }catch(e){if(selectedTeamRef.current===target)
+      setError(e instanceof ApiRequestError?e.message:t("tm1.actionFailed"));}
+    finally{if(selectedTeamRef.current===target)setBusy(false);}
+  }
+  async function persistLogo(imageUrl:string|null,uri?:string){
+    if(!token||!selectedId||!canWrite||logoBusy||busy)return;
+    const target=selectedId;
+    setLogoBusy(true);setError(null);setMessage(null);
+    try{
+      const result=await teamManagerApi.updateLogo(token,target,imageUrl);
+      if(selectedTeamRef.current!==target)return;
+      setLogoUrl(result.logoUrl??"");
+      setSavedTeamDetails(previous=>previous?{...previous,logoUrl:result.logoUrl??""}:previous);
+      setTeam(previous=>previous?{...previous,logoUrl:result.logoUrl}:previous);
+      setTeams(previous=>previous.map(item=>item.id===target?
+        {...item,logoUrl:result.logoUrl}:item));
+      setRemoveLogoConfirm(false);
+      setMessage(t("tm8.logoSaved"));
+    }catch(e){if(selectedTeamRef.current===target)
+      setError(e instanceof ApiRequestError?e.message:t("tm8.logoError"));}
+    finally{if(selectedTeamRef.current===target)setLogoBusy(false);}
+  }
+  async function chooseLogo(source:"GALLERY"|"FILES"){
+    if(!token||!selectedId||!canWrite||logoBusy||busy)return;
+    const target=selectedId;
+    try{
+      let asset:{uri:string;mimeType?:string|null;size?:number}|null=null;
+      if(source==="GALLERY"){
+        const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if(!permission.granted){if(selectedTeamRef.current===target)
+          setError(t("teams.phase3.coverPermission"));return;}
+        const picked=await ImagePicker.launchImageLibraryAsync({
+          mediaTypes:["images"],allowsEditing:true,aspect:[1,1],quality:.8,selectionLimit:1,
+        });
+        if(!picked.canceled&&picked.assets[0])
+          asset={uri:picked.assets[0].uri,mimeType:picked.assets[0].mimeType,
+            size:picked.assets[0].fileSize};
+      }else{
+        const picked=await DocumentPicker.getDocumentAsync({
+          type:"image/*",multiple:false,copyToCacheDirectory:true,
+        });
+        if(!picked.canceled&&picked.assets[0])
+          asset={uri:picked.assets[0].uri,mimeType:picked.assets[0].mimeType,
+            size:picked.assets[0].size};
+      }
+      if(!asset||selectedTeamRef.current!==target)return;
+      setLogoBusy(true);setError(null);
+      const image=await marketingApi.uploadUserPostImage(token,{
+        uri:asset.uri,mimeType:asset.mimeType??"image/jpeg",
+        ...(asset.size!==undefined?{size:asset.size}:{}),
+      });
+      if(selectedTeamRef.current!==target)return;
+      const result=await teamManagerApi.updateLogo(token,target,image.imageUrl);
+      if(selectedTeamRef.current!==target)return;
+      setLogoUrl(result.logoUrl??"");
+      setSavedTeamDetails(previous=>previous?{...previous,logoUrl:result.logoUrl??""}:previous);
+      setTeam(previous=>previous?{...previous,logoUrl:result.logoUrl}:previous);
+      setTeams(previous=>previous.map(item=>item.id===target?
+        {...item,logoUrl:result.logoUrl}:item));
+      setRemoveLogoConfirm(false);
+      setMessage(t("tm8.logoSaved"));
+    }catch(e){if(selectedTeamRef.current===target)setError(
+      e instanceof ApiRequestError?e.message:t("tm8.logoError"));}
+    finally{if(selectedTeamRef.current===target)setLogoBusy(false);}
+  }
   const saveGuest=()=>perform(async()=>{
     const input={name:guestName.trim(),position:guestPosition,shirtNumber:parsedJersey};
     if(editingGuest)await teamManagerApi.updateGuest(token!,selectedId!,editingGuest,input);
