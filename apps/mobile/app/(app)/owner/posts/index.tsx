@@ -208,6 +208,21 @@ export default function OwnerPostsScreen(){
   const initials=page?.name.trim().slice(0,2).toUpperCase()||"FT";
 
   return <Screen embedded style={styles.screen}>
+    <Card testID="owner-media-create-entry" style={styles.createEntry}>
+      <View style={[styles.sectionTitle,{flexDirection:isRTL?"row-reverse":"row"}]}>
+        <View style={styles.sectionIcon}>
+          <Ionicons name="create-outline" size={21} color={colors.primary}/>
+        </View>
+        <View style={styles.createCopy}>
+          <AppText variant="bodyLarge" weight="bold">{t("media.title")}</AppText>
+          <AppText variant="caption" muted>{t("media.composerSubtitle")}</AppText>
+        </View>
+      </View>
+      <Button testID="owner-media-create-post" label={t("media.createPost")}
+        onPress={()=>router.push("/owner/posts/create")}
+        icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF"/>}/>
+    </Card>
+
     {page?<View style={styles.pageCard}>
       <View style={styles.cover}>
         {coverImage?<Image source={{uri:coverImage}} style={StyleSheet.absoluteFill} resizeMode="cover"/>
@@ -516,6 +531,8 @@ function PostAction({
 
 const styles=StyleSheet.create({
   screen:{gap:spacing.md,paddingHorizontal:0},
+  createEntry:{gap:spacing.md,padding:spacing.md,borderWidth:1,borderColor:colors.border},
+  createCopy:{flex:1,minWidth:0,gap:spacing.xs},
   pageCard:{backgroundColor:colors.surface,borderRadius:radius.lg,overflow:"hidden",borderWidth:1,borderColor:colors.border},
   cover:{height:190,backgroundColor:"#1D4ED8",position:"relative"},
   coverFallback:{flex:1,alignItems:"center",justifyContent:"center",gap:spacing.xs,backgroundColor:"#1E40AF"},
