@@ -1,4 +1,4 @@
-name: Team Manager Dashboard Phases 1–7
+name: Team Manager Dashboard Phases 1–8
 
 on:
   push:
@@ -15,6 +15,9 @@ on:
       - 'scripts/verify-team-manager-competitions-phase4.mjs'
       - 'scripts/verify-team-manager-phase5.mjs'
       - 'scripts/verify-team-manager-phase6.mjs'
+      - 'scripts/verify-team-manager-phase8.mjs'
+      - 'apps/api/test/team-manager-settings-phase8.test.ts'
+      - 'apps/api/src/modules/team/team-manager-phase1.routes.ts'
       - 'scripts/test-team-manager-schedule-phase5.mjs'
       - 'apps/mobile/src/lib/team-manager-schedule.ts'
       - 'apps/mobile/src/lib/team-manager-analytics.ts'
@@ -51,6 +54,7 @@ jobs:
       - run: pnpm verify:team-manager-phase5
       - run: pnpm verify:team-manager-phase6
       - run: pnpm verify:team-manager-phase7
+      - run: pnpm verify:team-manager-phase8
       - run: pnpm --filter @leaguekick/api typecheck
       - run: pnpm --filter @leaguekick/mobile typecheck
-      - run: pnpm --filter @leaguekick/api exec vitest run test/team-manager-overview-phase2.test.ts
+      - run: pnpm --filter @leaguekick/api exec vitest run test/team-manager-overview-phase2.test.ts test/team-manager-settings-phase8.test.ts
