@@ -106,7 +106,11 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
   // Search the server instead of downloading every competition/venue into the
   // manager dashboard. Results are paginated and scoped to open registration.
   useEffect(()=>{
-    const timer=setTimeout(()=>{setAppliedSearch(search.trim());setDiscoveryPage(1);},350);
+    const timer=setTimeout(()=>{
+      setAppliedSearch(search.trim());setDiscoveryPage(1);
+      // Re-request even when the user edits then restores the same query.
+      setDiscoveryRetry(v=>v+1);
+    },350);
     return()=>clearTimeout(timer);
   },[search]);
   useEffect(()=>{
@@ -280,7 +284,7 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
             <AppText variant="bodyLarge" weight="bold">{tr("joinedTitle")}</AppText>
             <View style={[styles.compSummary,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <View style={styles.compSummaryCell}>
-                <AppText variant="title" weight="bold" style={{color:colors.primary}}>{registrations.length}</AppText>
+                <AppText variant="title" weight="bold" style={{color:colors.primary}}>{registrations.filter(c=>c.registrationStatus!=="INVITED").length}</AppText>
                 <AppText variant="caption" muted>{t("tm4.total")}</AppText>
               </View>
               <View style={styles.compSummaryCell}>
@@ -388,8 +392,9 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
             <AppText variant="bodyLarge" weight="bold">{tr("findTitle")}</AppText>
             <TextField testID="tm4-search" label={tr("search")} value={search}
               onChangeText={value=>{
+                searchRef.current=value.trim();
                 setSearch(value);setDiscoveryPage(1);setAvailable([]);
-                setDiscoveryTotal(0);setDiscoveryHasMore(false);setDiscoveryLoading(true);
+                setDiscoveryTotal(0);setDiscoveryHasMore(false);
               }} maxLength={120}/>
             <DirectoryFilterSelect compact testID="tm4-province-select"
               label={tr("province")} allLabel={tr("filter.ALL")}
@@ -404,8 +409,9 @@ export function TeamCompetitionOps({tab,team,token,canWrite,onSelectTab,focusMat
               <Button label={t("common.retry")} variant="secondary" onPress={()=>setDiscoveryRetry(x=>x+1)}/>
             </View>:null}
             <AppText variant="caption" muted>{t("tm4.results",{count:discoveryTotal})}</AppText>
-            {discoveryLoading&&discoveryPage===1?<DataLoadingState variant="list" minHeight={180}/>:null}
-            {!discoveryLoading&&!discoveryError&&!discovery.length?<View style={styles.compEmpty}>
+            {(discoveryLoading||search.trim()!==appliedSearch)&&discoveryPage===1?
+              <DataLoadingState variant="list" minHeight={180}/>:null}
+            {!discoveryLoading&&search.trim()===appliedSearch&&!discoveryError&&!discovery.length?<View style={styles.compEmpty}>
               <Ionicons name="search-outline" size={27} color={colors.textMuted}/>
               <AppText muted>{tr("noAvailable")}</AppText>
             </View>:null}
