@@ -27,7 +27,7 @@ for(const marker of [
 for(const marker of [
   'await this.access(userId,teamId)',
   'matchId:competitionMatches.id','startsAt:competitionMatches.startsAt',
-  'id:competitionMatches.id','competitionId:competitions.id',
+  'id:competitionMatches.id','id:competitions.id',
   'analytics:{','matches:matches.filter(m=>["COMPLETED","CORRECTED"].includes(m.status)',
   'm.homeScore!==null&&m.awayScore!==null',
   'players:playerStats.filter(p=>["COMPLETED","CORRECTED"].includes(p.matchStatus))',
