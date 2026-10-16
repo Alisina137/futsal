@@ -82,7 +82,7 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
     let current=true;
     void teamApi.directory(token).then(v=>{if(current)setTeams(v.teams);}).catch(()=>{});
     return()=>{current=false;};
-  },[tab,token]);
+  },[tab,token,team.id]);
 
   async function execute(fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
