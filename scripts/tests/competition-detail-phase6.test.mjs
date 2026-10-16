@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {
-  competitionTeamStatistics,competitionFairPlayStatistics,competitionPlayerLeaders,
+  competitionTeamStatistics,competitionTeamFinishedMatches,
+  competitionFairPlayStatistics,competitionPlayerLeaders,
 } from "../../apps/mobile/src/lib/competition-detail-statistics.ts";
 
 const team=(teamId,status="ACCEPTED")=>({
@@ -119,4 +120,48 @@ test("player leaders use verified accepted team IDs, metric sorting, team filter
   assert.deepEqual(competitionPlayerLeaders(data,"assists").map(x=>x.playerUserId),["p1","p0"]);
   assert.deepEqual(competitionPlayerLeaders(data,"goals").map(x=>x.playerUserId),["p1"]);
   assert.deepEqual(competitionPlayerLeaders(data,"assists","B"),[]);
+});
+
+test("More detail lists only this team's official completed/corrected scores, newest first",()=>{
+  const data=cup({matches:[
+    {...fixture("oct-01","A","B",3,1),startsAt:"2026-10-01T10:00:00Z",
+      roundNumber:1,slotNumber:1},
+    {...fixture("oct-05","C","A",2,2,"CORRECTED","GROUP"),
+      startsAt:"2026-10-05T10:00:00Z",roundNumber:2,slotNumber:1},
+    {...fixture("oct-04","B","C",1,0),startsAt:"2026-10-04T10:00:00Z",
+      roundNumber:1,slotNumber:2},
+    {...fixture("no-date","B","A",2,0),startsAt:null,roundNumber:3,slotNumber:1},
+    {...fixture("live","A","B",9,0,"IN_PROGRESS"),startsAt:"2026-10-06T10:00:00Z"},
+    {...fixture("unscored","A","B",null,1),startsAt:"2026-10-06T11:00:00Z"},
+  ]});
+  const matches=competitionTeamFinishedMatches(data,"A");
+  assert.deepEqual(matches.map(m=>m.id),["oct-05","oct-01","no-date"]);
+  assert.equal(matches.filter(m=>m.status==="CORRECTED").length,1);
+  const ownScore=m=>m.homeTeamId==="A"?m.homeScore:m.awayScore;
+  const opponentsScore=m=>m.homeTeamId==="A"?m.awayScore:m.homeScore;
+  assert.deepEqual(matches.map(m=>[ownScore(m),opponentsScore(m)]),[[2,2],[3,1],[0,2]]);
+  assert.equal(matches.length,competitionTeamStatistics(data).teams.find(team=>team.teamId==="A").played);
+  assert.deepEqual(competitionTeamFinishedMatches(data,"removed"),[]);
+});
+test("Finished match details never reveal cancelled, unscored, invalid, removed or self fixtures",()=>{
+  const fixtures=[
+    fixture("valid","A","C",2,1),
+    fixture("cancelled","A","C",2,1,"CANCELLED"),
+    fixture("scheduled","A","C",2,1,"SCHEDULED"),
+    fixture("postponed","A","C",2,1,"POSTPONED"),
+    fixture("in-progress","A","C",2,1,"IN_PROGRESS"),
+    fixture("incomplete","A","C",null,1),
+    fixture("negative","A","C",-1,1),
+    fixture("fractional","A","C",1.5,1),
+    fixture("huge","A","C",Number.MAX_SAFE_INTEGER+1,1),
+    fixture("same-team","A","A",2,1),
+    fixture("bye","A",null,2,1),
+    fixture("rejected","A","B",2,1),
+  ];
+  const data=cup({teams:[team("A"),team("B","REJECTED"),team("C")],matches:fixtures});
+  assert.deepEqual(competitionTeamFinishedMatches(data,"A").map(match=>match.id),["valid"]);
+  assert.deepEqual(competitionTeamFinishedMatches(data,"B"),[]);
+  assert.equal(competitionTeamStatistics(data).scoredMatches,1);
+  assert.equal(competitionTeamFinishedMatches(data,"A").length,
+    competitionTeamStatistics(data).teams.find(row=>row.teamId==="A").played);
 });
