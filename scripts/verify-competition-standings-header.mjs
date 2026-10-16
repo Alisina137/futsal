@@ -9,7 +9,8 @@ function has(source,parts,scope){
   for(const part of parts)assert.ok(source.includes(part),scope+" missing "+part);
 }
 has(page,[
-  'activeTab!=="MATCHES"&&(activeTab!=="STANDINGS"||availableSubtabs.length>1)',
+  'activeTab!=="MATCHES"&&activeTab!=="ABOUT"&&',
+  '(activeTab!=="STANDINGS"||availableSubtabs.length>1)',
   'testID="competition-profile-subtabs"',
   'availableSubtabs.map(key=><Pressable',
   'activeTab==="STATS"?',
