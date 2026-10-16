@@ -795,7 +795,8 @@ export const teamPublicApi={
       }).toString()),
 };
 
-export type TeamGrowthPost={id:string;body:string;imageUrl:string|null;publishedAt:string};
+export type TeamGrowthPost={id:string;body:string;imageUrl:string|null;publishedAt:string;
+  likeCount:number;commentCount:number};
 export type TeamGrowthAnnouncement={id:string;teamId:string;authorId:string;title:string;body:string;createdAt:string;updatedAt:string};
 export type TeamGrowthChallenge={id:string;fromTeamId:string;toTeamId:string;opponentName:string;proposedAt:string;
   venueName:string|null;message:string|null;status:string;respondedAt:string|null;createdAt:string};
