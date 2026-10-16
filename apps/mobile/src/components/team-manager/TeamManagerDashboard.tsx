@@ -300,12 +300,19 @@ export function TeamManagerDashboard(){
         setDetailsError({key,message:cause instanceof ApiRequestError?cause.message:t("tm1.loadError")});
         return;
       }
-      setTeam(roster.value.team);setOverview(summary.value);setProfile(summary.value.profile);
+      // Keep unsaved form fields across a token renewal, locale switch or
+      // unrelated dashboard refresh. Changing teams still resets drafts.
+      const keepTeamDraft=team?.id===selectedId&&teamDirty;
+      const keepProfileDraft=team?.id===selectedId&&profileDirty;
+      setTeam(roster.value.team);setOverview(summary.value);
+      if(!keepProfileDraft)setProfile(summary.value.profile);
       setSavedProfile(summary.value.profile);
       setSavedTeamDetails({name:roster.value.team.name,city:roster.value.team.city,
         logoUrl:roster.value.team.logoUrl??"",privacy:roster.value.team.privacy});
-      setName(roster.value.team.name);setCity(roster.value.team.city);
-      setLogoUrl(roster.value.team.logoUrl??"");setPrivacy(roster.value.team.privacy);
+      if(!keepTeamDraft){
+        setName(roster.value.team.name);setCity(roster.value.team.city);
+        setLogoUrl(roster.value.team.logoUrl??"");setPrivacy(roster.value.team.privacy);
+      }
       setLoadedTeamKey(key);
     }).finally(()=>{if(active)setLoading(false);});
 
@@ -444,7 +451,7 @@ export function TeamManagerDashboard(){
     setSettingsSection(value=>value===section?null:section);
   const switchTeam=(nextId:string)=>{
     if(nextId===selectedId)return;
-    if((teamDirty||profileDirty)&&tab==="settings"){
+    if(teamDirty||profileDirty){
       setPendingTeamSwitch(nextId);return;
     }
     setSelectedId(nextId);
