@@ -84,6 +84,7 @@ export function TeamManagerDashboard(){
   const [overviewOpsErrorKey,setOverviewOpsErrorKey]=useState<string|null>(null);
   const [overviewOpsReload,setOverviewOpsReload]=useState(0);
   const [lineupFocus,setLineupFocus]=useState<string|null>(null);
+  const [competitionFocus,setCompetitionFocus]=useState<"MINE"|"INVITATIONS"|null>(null);
   // Loaded data is scoped to the current account and selected team.
   const [teamsActor,setTeamsActor]=useState<string|null>(null);
   const [loadedTeamKey,setLoadedTeamKey]=useState<string|null>(null);
@@ -170,6 +171,10 @@ export function TeamManagerDashboard(){
     focusTab(mainSectionFor(section),true);
     if(isAboutTeamSection(section))focusSubTab(section,true);
   };
+  const openCompetitionSection=(section:"MINE"|"INVITATIONS")=>{
+    setCompetitionFocus(section);
+    chooseTab("competitions");
+  };
   const chooseMainTab=(section:MainSection)=>{
     chooseTab(section==="aboutTeam"?lastAboutTeamTab:section);
   };
@@ -216,7 +221,7 @@ export function TeamManagerDashboard(){
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setTab("overview");setLastAboutTeamTab("players");setPaymentRef("");
     setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
-    setLineupFocus(null);
+    setLineupFocus(null);setCompetitionFocus(null);
     setPlayerSection("ROSTER");setPlayerSearch("");setPlayerPosition("ALL");
     setRequestHistory(false);setInviteHistory(false);setGuestToRemove(null);
   },[userId]);
@@ -225,7 +230,7 @@ export function TeamManagerDashboard(){
   useEffect(()=>{
     setTeam(null);setOverview(null);setLoadedTeamKey(null);
     setOverviewOps(null);setOverviewOpsKey(null);setOverviewOpsErrorKey(null);
-    setLineupFocus(null);
+    setLineupFocus(null);setCompetitionFocus(null);
     setRequests([]);setInvitations([]);setUnread(0);
     setAttentionLoaded({requests:false,invitations:false,notifications:false});
     setAttentionError(false);setAttentionKey(null);setDetailsError(null);
@@ -514,6 +519,7 @@ export function TeamManagerDashboard(){
         subscriptionUntil={capacity?.slots.find(slot=>slot.teamId===team.id)?.activeUntil??offer?.activeUntil??null}
         onOpen={chooseTab}
         onPlayersSection={openPlayerSection}
+        onCompetitionSection={openCompetitionSection}
         onLineup={id=>{setLineupFocus(id);chooseTab("matches");}}
       />:null}
 
@@ -699,7 +705,8 @@ export function TeamManagerDashboard(){
 
       {(tab==="competitions"||tab==="matches"||tab==="schedule")&&token?<TeamCompetitionOps
         tab={tab} team={team} token={token} canWrite={canWrite} onSelectTab={chooseTab}
-        focusMatchId={lineupFocus} onConsumedFocus={()=>setLineupFocus(null)}/>:null}
+        focusMatchId={lineupFocus} onConsumedFocus={()=>setLineupFocus(null)}
+        focusCompetitionSection={competitionFocus} onConsumedCompetitionFocus={()=>setCompetitionFocus(null)}/>:null}
 
       {(tab==="media"||tab==="statistics"||tab==="matches")&&token?
         <TeamGrowthPanel tab={tab} team={team} token={token} canWrite={canWrite}/>:null}
