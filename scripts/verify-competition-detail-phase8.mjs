@@ -25,6 +25,7 @@ required(nav,[
   'options.registrationOpen?["REGISTRATION"]',
   'format==="KNOCKOUT"?["KNOCKOUT"]',
   'incoming==="RESULTS"?"MATCHES"',
+  'ABOUT:["OVERVIEW"]',
   'available.includes(current.sub[main]??"")',
 ],"tab routing");
 required(screen,[
@@ -62,7 +63,8 @@ required(sections,[
   'competitionTeamStatistics(competition)',
   'competitionFairPlayStatistics(competition)',
   'competitionPlayerLeaders(competition',
-  'testID="competition-about-subtab"',
+  'testID="competition-about-overview"',
+  'testID="competition-phase7-information"',
   'testID="competition-phase7-rules"',
   'testID="competition-phase7-prizes"',
   'testID="competition-phase7-venue"',
@@ -137,4 +139,4 @@ assert.ok(pkg.scripts.verify.includes("pnpm verify:competition-detail-phase7 && 
   "Phase 8 must be included in full release verification gate");
 for(let i=1;i<=7;i++)assert.ok(pkg.scripts.verify.includes(
   "pnpm verify:competition-detail-phase"+i),"Missing earlier competition detail phase gate "+i);
-console.log("Competition Detail Phase 8: 7 tabs, all subtabs/3 locales, data privacy, stale requests, authenticated routing, media retry, SQL public scope and CI gate checked.");
+console.log("Competition Detail Phase 8: 7 tabs with unified About, remaining subtabs/3 locales, data privacy, stale requests, authenticated routing and media retry checked.");
