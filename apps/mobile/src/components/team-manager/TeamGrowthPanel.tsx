@@ -32,7 +32,7 @@ function Options({items,current,onChange}:{items:{id:string;name:string}[];curre
 }
 
 export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;token:string;canWrite:boolean}){
-  const {t,language}=useLocale();
+  const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(`tm3.${key}` as never);
   const date=(x:string)=>formatCompetitionDateTime(x,language);
   const [data,setData]=useState<TeamGrowthData|null>(null);
@@ -52,6 +52,8 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   const [challengeVenue,setChallengeVenue]=useState("");
   const [challengeMessage,setChallengeMessage]=useState("");
   const [showChallengeForm,setShowChallengeForm]=useState(false);
+  const [challengeFilter,setChallengeFilter]=useState<"PENDING"|"ACCEPTED"|"HISTORY"|"ALL">("PENDING");
+  const [cancelChallengeId,setCancelChallengeId]=useState<string|null>(null);
   const [mediaSection,setMediaSection]=useState<"POSTS"|"PHOTOS"|"ANNOUNCEMENTS">("POSTS");
   const [deleteCandidate,setDeleteCandidate]=useState<string|null>(null);
   const currentTeam=useRef(team.id);
@@ -62,6 +64,9 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   useEffect(()=>{
     setPostBody("");setImageUrl(null);setPostEditing(null);setDeleteCandidate(null);
     setAnnouncementTitle("");setAnnouncementBody("");setUploading(false);setMediaSection("POSTS");
+    setChallengeTarget("");setChallengeSearch("");setChallengeTime("");setChallengeVenue("");
+    setChallengeMessage("");setShowChallengeForm(false);setChallengeFilter("PENDING");
+    setCancelChallengeId(null);setTeams([]);
   },[team.id]);
   useEffect(()=>{
     let current=true;
@@ -113,6 +118,9 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
     setPostEditing(post.id);setPostBody(post.body);setImageUrl(post.imageUrl);setMediaSection("POSTS");
   }
   function resetPost(){setPostBody("");setImageUrl(null);setPostEditing(null);}
+  const filteredChallenges=data?.challenges.filter(c=>challengeFilter==="ALL"||
+    challengeFilter==="HISTORY"&&["DECLINED","CANCELLED"].includes(c.status)||
+    c.status===challengeFilter)??[];
   const discovery=teams.filter(item=>item.id!==team.id&&item.status==="ACTIVE"&&
     (!challengeSearch||item.name.toLowerCase().includes(challengeSearch.toLowerCase())||
       item.city.toLowerCase().includes(challengeSearch.toLowerCase()))).slice(0,30);
@@ -277,21 +285,41 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
                 venueName:challengeVenue.trim()||null,message:challengeMessage.trim()||null,
               }),()=>{setChallengeTarget("");setChallengeTime("");setChallengeVenue("");setChallengeMessage("");setShowChallengeForm(false);})}/>
           </View>:null}
-          {!data.challenges.length?<AppText muted>{tr("noChallenges")}</AppText>:null}
-          {data.challenges.map(c=><View key={c.id} style={styles.item}>
+          <Options items={[
+            {id:"PENDING",name:t("tm5.friendlyPending")},
+            {id:"ACCEPTED",name:t("tm5.friendlyAccepted")},
+            {id:"HISTORY",name:t("tm5.friendlyHistory")},
+            {id:"ALL",name:t("tm5.matchStatus.ALL")},
+          ]} current={challengeFilter} onChange={v=>setChallengeFilter(v as typeof challengeFilter)}/>
+          {!filteredChallenges.length?<AppText muted>{tr("noChallenges")}</AppText>:null}
+          {filteredChallenges.map(c=><View key={c.id} style={styles.item}>
             <AppText weight="semibold">{c.opponentName}</AppText>
             <AppText variant="caption" muted>{date(c.proposedAt)} · {tr("status."+c.status)}</AppText>
             {c.venueName?<AppText variant="caption">{c.venueName}</AppText>:null}
             {c.message?<AppText>{c.message}</AppText>:null}
-            {c.toTeamId===team.id&&c.status==="PENDING"?<View style={styles.actions}>
+            {c.status==="ACCEPTED"?<AppText variant="caption" muted>{t("tm5.friendlyAcceptedHint")}</AppText>:null}
+            {c.status==="PENDING"&&Date.parse(c.proposedAt)<=Date.now()?
+              <AppText variant="caption" style={{color:colors.warning}}>{t("tm5.friendlyExpired")}</AppText>:null}
+            {c.toTeamId===team.id&&c.status==="PENDING"&&Date.parse(c.proposedAt)>Date.now()?
+              <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <Button label={tr("accept")} disabled={!canWrite||busy} loading={busy}
                 onPress={()=>void execute(()=>teamGrowthApi.decideChallenge(token,team.id,c.id,"ACCEPTED"))}/>
               <Button label={tr("decline")} variant="secondary" disabled={!canWrite||busy}
                 onPress={()=>void execute(()=>teamGrowthApi.decideChallenge(token,team.id,c.id,"DECLINED"))}/>
             </View>:null}
-            {c.fromTeamId===team.id&&["PENDING","ACCEPTED"].includes(c.status)?
-              <Button label={tr("cancelChallenge")} variant="ghost" disabled={!canWrite||busy}
-                onPress={()=>void execute(()=>teamGrowthApi.cancelChallenge(token,team.id,c.id))}/>:null}
+            {c.fromTeamId===team.id&&["PENDING","ACCEPTED"].includes(c.status)?<>
+              <Button label={tr("cancelChallenge")} variant="secondary" disabled={!canWrite||busy}
+                onPress={()=>setCancelChallengeId(c.id)}/>
+              {cancelChallengeId===c.id?<View testID="tm5-friendly-cancel-confirm" style={styles.challengeConfirm}>
+                <AppText variant="caption" style={{color:colors.danger}}>{t("tm5.confirmFriendlyCancel")}</AppText>
+                <View style={[styles.actions,{flexDirection:isRTL?"row-reverse":"row"}]}>
+                  <Button label={tr("cancelChallenge")} variant="danger" disabled={!canWrite||busy}
+                    loading={busy} onPress={()=>void execute(()=>teamGrowthApi.cancelChallenge(token,team.id,c.id),
+                      ()=>setCancelChallengeId(null))}/>
+                  <Button label={t("common.cancel")} variant="secondary" onPress={()=>setCancelChallengeId(null)}/>
+                </View>
+              </View>:null}
+            </>:null}
           </View>)}
         </Card>
       </>:null}
@@ -299,6 +327,8 @@ export function TeamGrowthPanel({tab,team,token,canWrite}:{tab:Tab;team:TeamDto;
   </View>;
 }
 const styles=StyleSheet.create({
+  challengeConfirm:{gap:spacing.sm,borderRadius:radius.md,borderWidth:1,
+    borderColor:colors.danger,padding:spacing.md},
   item:{borderTopWidth:1,borderColor:colors.border,paddingTop:spacing.md,marginTop:spacing.md,gap:spacing.sm},
   actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm,alignItems:"center"},
   mediaImage:{width:"100%",height:190,borderRadius:radius.md,backgroundColor:colors.primarySoft},
