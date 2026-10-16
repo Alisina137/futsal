@@ -1,0 +1,42 @@
+name: Player Dashboard Navigation Phase 1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/src/components/player/**'
+      - 'apps/mobile/app/(app)/dashboard.tsx'
+      - 'apps/mobile/app/(app)/dashboard/player.tsx'
+      - 'packages/localization/src/index.ts'
+      - 'scripts/verify-player-dashboard-navigation-phase1.mjs'
+      - 'scripts/verify-player-dashboard-phase1.mjs'
+      - 'scripts/verify-player-dashboard-phase2.mjs'
+      - 'scripts/verify-player-dashboard-phase3.mjs'
+      - 'scripts/verify-player-overview-more.mjs'
+      - '.github/workflows/player-dashboard-navigation-phase1.yml'
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.5.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify:player-dashboard-navigation-phase1
+      - run: pnpm verify:player-overview-more
+      - run: pnpm verify:player-dashboard-phase1
+      - run: pnpm verify:player-dashboard-phase2
+      - run: pnpm verify:player-dashboard-phase3
+      - run: pnpm --filter @leaguekick/mobile typecheck
+      - run: pnpm --filter @leaguekick/api typecheck
+      - run: pnpm --filter @leaguekick/api exec vitest run test/player-dashboard-phase1.test.ts test/player-dashboard-phase2.test.ts test/player-dashboard-phase3.test.ts
