@@ -56,6 +56,11 @@ has("ui",['testID="owner-phase1-bookings"','testID="owner-booking-search-filters
 assert.ok(!source.ui.includes('owner-phase3-subnavigation')&&
   !source.ui.includes('ownerBookingTabs.map('),
   "Booking page must not show a duplicate four-tab navigation.");
+assert.ok(source.ui.includes('borderColor:colorsForStatus.border,')&&
+  source.ui.includes('backgroundColor:active?colorsForStatus.background:colors.surface')&&
+  source.ui.includes('colorsForStatus&&active?{color:colorsForStatus.text}')&&
+  !source.ui.includes('colorsForStatus&&{backgroundColor:colorsForStatus.background,'),
+  "Unselected booking status filters must have only themed borders; fill and text colors are active-only.");
 const picker=read("apps/mobile/src/components/owner/OwnerBookingDatePicker.tsx");
 for(const marker of ['monthGridRange(anchor,language)','moveView("MONTH"',
   'isSameDisplayMonth(day,anchor,language)','formatCalendarDate(day,language',
