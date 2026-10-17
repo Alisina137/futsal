@@ -15,8 +15,8 @@ const locale=read("packages/localization/src/index.ts");
 check(app.includes("createRefereeCareerRouter")&&server.includes("new RefereeCareerService(db)"),
   "Referee career and secure report export routes not wired.");
 for(const phrase of ["randomBytes(32)","this.tickets.delete(token)","row.report.status!==\"APPROVED\"",
-  "REFEREE_PDF_FORBIDDEN","REFEREE_PDF_NOT_APPROVED","inArray(competitionMatches.status",
-  "careerSummary(","Asia/Kabul","monthly","history:filtered"]){
+  "REFEREE_PDF_FORBIDDEN","REFEREE_PDF_NOT_APPROVED",'["COMPLETED","CORRECTED"].includes(r.matchStatus)',
+  "careerSummary(","Asia/Kabul","monthly","history:verified"]){
   check(core.includes(phrase),"Career/report security invariant missing: "+phrase);
 }
 check(pdf.includes("%PDF-1.4")&&pdf.includes("full-report.txt")&&
