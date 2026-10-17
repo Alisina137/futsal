@@ -13,7 +13,7 @@ for(const m of [
   'key={userId+":"+activeCenterMatch.id}',
   'initialTab={refereeWorkspaceInitialTab(selectedSub as "upcoming"|"live"|"reports")}',
   'refereeCenterSectionForMatch(m)',
-  'if(tab!=="center")setActiveCenterMatch(null)',
+  'if(tab!=="center"){setActiveCenterMatch(null);setCenterUnsafe(false);}',
   'if(main==="center"&&selectedSub!==id)setActiveCenterMatch(null)',
   'main!=="overview"&&!(main==="center"&&activeCenterMatch)',
 ])assert.ok(dashboard.includes(m),"Match Center list/detail navigation: "+m);
