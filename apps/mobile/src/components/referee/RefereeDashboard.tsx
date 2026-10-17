@@ -12,6 +12,7 @@ import {formatRefereeScheduleParts,formatRefereeCalendarPeriod} from "../../lib/
 import {refereeKabulDay,refereeCalendarIncludes,refereeCalendarMove,
   refereeCalendarWeekDays,refereeAvailabilityPreview} from "../../lib/referee-calendar";
 import {refereeAssignmentTimeConflict,refereeAssignmentSection} from "../../lib/referee-assignments";
+import {refereeOverviewRecovery} from "../../lib/referee-dashboard-safety";
 import {normalizeRefereeSettings,refereeSettingsChanged,refereeSettingsIssue} from "../../lib/referee-settings";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -125,15 +126,15 @@ export function RefereeDashboard(){
       savedProfile.current=value.profile;
     };
     void (async()=>{
-      let cached=false;
+      let cachedOverview:RefereeOverview|null=null;
+      const cacheKey="futsal.referee.overview.v1."+userId;
       try{
-        const json=await AsyncStorage.getItem("futsal.referee.overview.v1."+userId);
+        const json=await AsyncStorage.getItem(cacheKey);
         if(json){
           const value=JSON.parse(json) as RefereeOverview;
-          if(value.person?.id===userId){
-            cached=true;
-            if(active){syncOverview(value);setLoading(false);}
-          }
+          if(value.person?.id===userId)cachedOverview=value;
+          // Never display private cached assignments until the live server
+          // validates access, or the API explicitly reports a network outage.
         }
       }catch{/* Cache is optional; a corrupt entry never grants permissions. */}
       try{
@@ -141,8 +142,15 @@ export function RefereeDashboard(){
         if(active){syncOverview(value);setError(null);}
         await AsyncStorage.setItem("futsal.referee.overview.v1."+userId,JSON.stringify(value));
       }catch(e){if(active){
-        setError(e instanceof ApiRequestError?e.message:tr("loadError"));
-        if(!cached)setData(null);
+        if(refereeOverviewRecovery(e)==="OFFLINE"&&cachedOverview){
+          syncOverview(cachedOverview);
+          setError(tr("overviewOfflineReadOnly"));
+        }else{
+          setData(null);setDraft(null);savedProfile.current=null;currentDraft.current=null;
+          setError(e instanceof ApiRequestError?e.message:tr("loadError"));
+          if(refereeOverviewRecovery(e)==="REJECT")
+            void AsyncStorage.removeItem(cacheKey).catch(()=>undefined);
+        }
       }}finally{if(active)setLoading(false);}
     })();
     return()=>{active=false;};
