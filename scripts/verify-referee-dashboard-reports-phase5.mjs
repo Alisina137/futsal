@@ -28,7 +28,7 @@ check(ui,['testID="referee-report-workflow"',
  'syncRefereeOffline(userId,match.id,token)'],"match-center");
 check(dashboard,['testID="referee-dashboard-exit-guard"',
  'if(tab!=="center"&&activeCenterMatch&&centerUnsafe)',
- 'onRiskChange={setCenterUnsafe}'],"navigation");
+ 'onRiskChange={updateCenterRisk}'],"navigation");
 check(owner,['testID="referee-owner-report-review-confirmation"',
  'setReviewConfirmation(null)','refereePhase2Api.review('],"owner");
 check(backend,['action:"REFEREE_REPORT_SUBMITTED"',
