@@ -62,6 +62,21 @@ test("History month is Kabul local, not UTC",()=>{
   assert.equal(refereeHistoryLocalMonth("2026-09-30T18:00:00Z"),"2026-09");
   assert.equal(refereeHistoryLocalMonth("invalid"),null);
 });
+test("Dari and Pashto month filters switch at Nowruz when Solar Hijri is supported",{
+  skip:new Intl.DateTimeFormat("fa-AF",{calendar:"persian"})
+    .resolvedOptions().calendar!=="persian",
+},()=>{
+  const before="2026-03-20T07:00:00Z";
+  const after="2026-03-21T07:00:00Z";
+  assert.equal(refereeHistoryLocalMonth(before,"fa-AF"),"1404-12");
+  assert.equal(refereeHistoryLocalMonth(after,"fa-AF"),"1405-01");
+  assert.equal(refereeHistoryLocalMonth(after,"ps-AF"),"1405-01");
+  assert.equal(refereeHistoryLocalMonth(after,"en"),"2026-03");
+  const rows=[match("old",{finishedAt:before}),match("new",{finishedAt:after})];
+  assert.deepEqual(refereeHistoryFilter(rows,{
+    query:"",competitionId:"ALL",venueId:"ALL",outcome:"ALL",month:"1405-01",language:"fa-AF",
+  }).map(row=>row.matchId),["new"]);
+});
 test("History search and four filters combine without mutating source",()=>{
   const rows=Object.freeze([
     Object.freeze(match("a")),
