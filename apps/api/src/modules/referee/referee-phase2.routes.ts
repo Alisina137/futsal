@@ -123,13 +123,6 @@ export class RefereePhase2Service{
       .where(and(eq(competitions.id,competitionId),eq(venues.ownerUserId,userId))).limit(1);
     if(!record)throw errors.forbidden("COMPETITION_OWNER_REQUIRED","You do not own this competition.");
   }
-  private async initialized(matchId:string,userId:string){
-    await this.db.insert(refereeMatchReports).values({matchId,refereeUserId:userId})
-      .onConflictDoNothing({target:refereeMatchReports.matchId});
-    const [row]=await this.db.select().from(refereeMatchReports).where(eq(refereeMatchReports.matchId,matchId)).limit(1);
-    if(!row||row.refereeUserId!==userId)throw errors.forbidden("REFEREE_REPORT_OWNERSHIP","This report belongs to another referee.");
-    return row;
-  }
   async get(userId:string,matchId:string){
     const {match,competition,authorized}=await this.access(userId,matchId,false);
     const [rows,roster]=await Promise.all([
@@ -169,7 +162,31 @@ export class RefereePhase2Service{
       if(!fresh||fresh.refereeUserId!==userId||
         !["SCHEDULED","IN_PROGRESS"].includes(fresh.status))
         throw errors.conflict("REFEREE_ASSIGNMENT_CHANGED","This match assignment was changed. Refresh before editing.");
-      const row=await this.initialized(matchId,userId);
+      // Re-check the actor, acceptance and current venue grant inside the
+      // serialized mutation, not only in the earlier optimistic access check.
+      // An invitation can be withdrawn or a venue grant revoked after preflight.
+      const [[actor],[accepted],[venueGrant]]=await Promise.all([
+        tx.select({status:users.status}).from(users)
+          .where(eq(users.id,userId)).limit(1),
+        tx.select({status:refereeMatchResponses.status}).from(refereeMatchResponses)
+          .where(and(eq(refereeMatchResponses.matchId,matchId),
+            eq(refereeMatchResponses.refereeUserId,userId))).limit(1),
+        tx.select({venueId:venueReferees.venueId}).from(venueReferees)
+          .innerJoin(competitions,eq(competitions.venueId,venueReferees.venueId))
+          .where(and(eq(competitions.id,fresh.competitionId),
+            eq(venueReferees.userId,userId))).limit(1),
+      ]);
+      if(actor?.status!=="ACTIVE"||accepted?.status!=="ACCEPTED"||!venueGrant)
+        throw errors.forbidden("REFEREE_AUTHORIZATION_CHANGED",
+          "Your authorization to edit this match changed. Refresh before editing.");
+      // Do not use the pool outside tx to initialize a report while holding the
+      // match advisory lock: all reads/writes belong to this transaction.
+      await tx.insert(refereeMatchReports).values({matchId,refereeUserId:userId})
+        .onConflictDoNothing({target:refereeMatchReports.matchId});
+      const [row]=await tx.select().from(refereeMatchReports)
+        .where(eq(refereeMatchReports.matchId,matchId)).limit(1);
+      if(!row||row.refereeUserId!==userId)
+        throw errors.forbidden("REFEREE_REPORT_OWNERSHIP","This report belongs to another referee.");
       if(!canEdit(row.status))throw errors.conflict("REFEREE_REPORT_LOCKED","This report is under organizer review.");
       if(row.revision!==revision)throw errors.conflict("REFEREE_REPORT_STALE","Report changed. Refresh before editing.");
       const patch=await fn(row,fresh);
