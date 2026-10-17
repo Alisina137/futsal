@@ -41,7 +41,7 @@ export function careerSummary(rows:CareerRecord[],period:CareerWindow,now:Date,
  const withinPeriod=(finishedAt:Date|null)=>!!finishedAt&&(
    period==="all"||
    period==="year"&&careerCalendarParts(finishedAt,calendar).year===year||
-   start!==null&&finishedAt.getTime()>=start&&finishedAt<=now);
+   start!==null&&finishedAt.getTime()>=start&&finishedAt.getTime()<=now.getTime());
  const finalized=rows.filter(r=>withinPeriod(r.finishedAt));
  const verified=finalized.filter(r=>r.status==="APPROVED"&&
    ["COMPLETED","CORRECTED"].includes(r.matchStatus));
