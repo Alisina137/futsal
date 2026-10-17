@@ -1551,13 +1551,19 @@ export const refereePhase2Api={
 };
 export type RefereeCareerWindow="7d"|"30d"|"90d"|"year"|"all";
 export type RefereeCareerResponse={
-  period:RefereeCareerWindow;total:number;competitionsCount:number;submitted:number;
-  onTime:number;submissionRate:number;onTimeRate:number;
+  period:RefereeCareerWindow;total:number;finishedReports:number;
+  competitionsCount:number;submitted:number;onTime:number;
+  submissionRate:number;onTimeRate:number;
+  awaitingReview:number;correctionsRequested:number;draftReports:number;
+  averageSubmissionHours:number|null;
   events:{GOAL:number;YELLOW_CARD:number;RED_CARD:number;FOUL:number;TIMEOUT:number;INCIDENT:number};
   monthly:Array<{month:string;matches:number}>;
   competitions:Array<{id:string;name:string;matches:number}>;
-  history:Array<{matchId:string;competitionId:string;competitionName:string;venueName:string;
-    homeName:string;awayName:string;finishedAt:string|null;homeScore:number|null;awayScore:number|null}>;
+  venues:Array<{id:string;name:string;matches:number}>;
+  history:Array<{matchId:string;competitionId:string;competitionName:string;
+    venueId:string;venueName:string;
+    homeName:string;awayName:string;finishedAt:string|null;
+    homeScore:number|null;awayScore:number|null}>;
 };
 export const refereeCareerApi={
   career:(token:string,period:RefereeCareerWindow)=>
