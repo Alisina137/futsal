@@ -41,7 +41,7 @@ function clockText(seconds:number){const n=Math.max(0,Math.floor(seconds));
   return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");}
 export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRiskChange}:{
   match:RefereeMatch;onClose:()=>void;initialTab?:RefereeWorkspaceTab;
-  onRiskChange?:(unsafe:boolean)=>void;
+  onRiskChange?:(unsafe:boolean,saving:boolean)=>void;
 }){
   const {session}=useAuth(),{t,isRTL,language}=useLocale();
   const {isOnline,apiReachable,apiReconnectVersion}=useNetwork();
@@ -155,7 +155,8 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
     !syncing&&!draftPersisting&&!draftError;
   const unsafeExit=refereeReportNeedsExitWarning(
     pending.length,summaryDirty,syncing,draftPersisting);
-  useEffect(()=>{onRiskChange?.(unsafeExit);},[onRiskChange,unsafeExit]);
+  useEffect(()=>{onRiskChange?.(unsafeExit,draftPersisting||syncing);},
+    [onRiskChange,unsafeExit,draftPersisting,syncing]);
   function requestClose(){
     if(unsafeExit){setConfirmLeave(true);return;}
     onClose();
