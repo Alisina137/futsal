@@ -144,7 +144,10 @@ export function RefereeDashboard(){
     });
     return()=>{mounted=false;};
   },[userId,data?.assignments,refresh]);
-  const choose=(tab:Main)=>{setMain(tab);focusTab(tab,true);};
+  const choose=(tab:Main)=>{
+    if(tab!=="center")setActiveCenterMatch(null);
+    setMain(tab);focusTab(tab,true);
+  };
   async function act(key:string,fn:()=>Promise<unknown>){
     if(busy)return;
     const actor=userId;
@@ -297,7 +300,10 @@ export function RefereeDashboard(){
       contentContainerStyle={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.xs}}>
       {subTabs[main].map(id=><Pressable key={id} accessibilityRole="tab" accessibilityState={{selected:selectedSub===id}}
         style={[styles.subItem,selectedSub===id&&styles.subActive]}
-        onPress={()=>setSub(x=>({...x,[main]:id}))}>
+        onPress={()=>{
+          if(main==="center"&&selectedSub!==id)setActiveCenterMatch(null);
+          setSub(x=>({...x,[main]:id}));
+        }}>
         <AppText weight="semibold" variant="caption" style={selectedSub===id?{color:colors.primary}:undefined}>
           {tr(main+"."+id)}</AppText>
       </Pressable>)}
@@ -493,7 +499,8 @@ export function RefereeDashboard(){
           onPress={()=>setCalendarLimit(value=>value+20)}/>:null}
       </>:null}
       {main==="center"&&activeCenterMatch?<RefereeMatchCenter
-        key={activeCenterMatch.id} match={activeCenterMatch}
+        key={userId+":"+activeCenterMatch.id} match={activeCenterMatch}
+        initialTab={selectedSub==="reports"?"report":selectedSub==="upcoming"?"teams":"scoreboard"}
         onClose={()=>{setActiveCenterMatch(null);setRefresh(v=>v+1);}}/>:null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="upcoming"?
         (future.length?future.map(card):<Card><AppText muted>{tr("noUpcoming")}</AppText></Card>):null}
