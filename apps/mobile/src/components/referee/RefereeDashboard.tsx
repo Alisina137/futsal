@@ -597,11 +597,11 @@ export function RefereeDashboard(){
         onClose={()=>{setCenterUnsafe(false);setCenterSaving(false);setCenterExitTarget(null);
           setActiveCenterMatch(null);setRefresh(v=>v+1);}}/>:null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="upcoming"?
-        (future.length?future.map(card):<Card><AppText muted>{tr("noUpcoming")}</AppText></Card>):null}
+        (future.length?future.map(m=>card(m)):<Card><AppText muted>{tr("noUpcoming")}</AppText></Card>):null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="live"?
-        (active.length?active.map(card):<Card><AppText muted>{t("rf2.noLiveMatches")}</AppText></Card>):null}
+        (active.length?active.map(m=>card(m)):<Card><AppText muted>{t("rf2.noLiveMatches")}</AppText></Card>):null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="reports"?
-        (reports.length?reports.map(card):<Card><AppText muted>{t("rf2.noReports")}</AppText></Card>):null}
+        (reports.length?reports.map(m=>card(m)):<Card><AppText muted>{t("rf2.noReports")}</AppText></Card>):null}
       {main==="stats"&&["overview","history","performance"].includes(selectedSub)&&token?
         <RefereeCareerPanel token={token} section={selectedSub as "overview"|"history"|"performance"}/>:null}
       {main==="settings"&&draft&&settingsDirty?<Card
