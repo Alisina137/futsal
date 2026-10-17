@@ -196,7 +196,8 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
           accessibilityRole="tab"
           accessibilityState={{selected:workspaceTab===tab}}
           style={[styles.workspaceTab,workspaceTab===tab&&styles.workspaceTabActive]}
-          onPress={()=>{setWorkspaceTab(tab);setEditingKind(null);setConfirmFinish(false);}}>
+          onPress={()=>{setWorkspaceTab(tab);setEditingKind(null);setConfirmFinish(false);
+            setDeleteId(null);setDeleteReason("");}}>
           <Ionicons name={tab==="scoreboard"?"timer-outline":tab==="events"?"list-outline":
             tab==="teams"?"people-outline":"document-text-outline"} size={20}
             color={workspaceTab===tab?colors.primary:colors.textMuted}/>
@@ -364,8 +365,8 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
             <Button label={tr("confirmCorrection")} variant="danger"
               disabled={busy||deleteReason.trim().length<3}
               onPress={()=>void (async()=>{
-                await perform(()=>refereePhase2Api.removeEvent(token!,match.id,deleteId,report!.revision,deleteReason));
-                setDeleteId(null);
+                const removed=await perform(()=>refereePhase2Api.removeEvent(token!,match.id,deleteId,report!.revision,deleteReason));
+                if(removed){setDeleteId(null);setDeleteReason("");}
               })()}/>
             <Button label={tr("cancel")} variant="secondary" onPress={()=>setDeleteId(null)}/>
           </View>
