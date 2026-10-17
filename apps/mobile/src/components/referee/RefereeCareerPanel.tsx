@@ -3,7 +3,8 @@ import {colors,spacing,radius} from "@leaguekick/design-tokens";
 import {router} from "expo-router";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Linking,Pressable,ScrollView,StyleSheet,View} from "react-native";
-import {refereeCareerApi,type RefereeCareerResponse,type RefereeCareerWindow} from "../../lib/api";
+import {refereeCareerApi,type RefereeCareerResponse,type RefereeCareerWindow,
+  type RefereeCareerCalendar} from "../../lib/api";
 import {formatRefereeCalendarPeriod,formatRefereeScheduleParts} from "../../lib/date-time";
 import {refereeHistoryFilter,refereeHistoryLocalMonth,refereeHistoryOptions,refereeHistoryOutcome,
   type RefereeHistoryOutcome} from "../../lib/referee-career-view";
@@ -54,6 +55,7 @@ function FilterPicker({label,value,options,onChange,expanded,onExpand,isRTL}:{
 export function RefereeCareerPanel({token,section}:{token:string;section:Section}){
   const {t,isRTL,language}=useLocale(),tr=(k:string)=>t(("rf3."+k) as never);
   const [period,setPeriod]=useState<RefereeCareerWindow>("all");
+  const calendar:RefereeCareerCalendar=language==="en"?"gregory":"persian";
   const [result,setResult]=useState<RefereeCareerResponse|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);
   const [busy,setBusy]=useState<string|null>(null),[retry,setRetry]=useState(0);
@@ -70,18 +72,18 @@ export function RefereeCareerPanel({token,section}:{token:string;section:Section
   useEffect(()=>{
     let active=true;
     setResult(null);setLoading(true);setError(null);
-    void refereeCareerApi.career(token,period)
+    void refereeCareerApi.career(token,period,calendar)
       .then(value=>{if(active){setResult(value);setError(null);}})
       .catch(e=>{if(active){
         setError(e instanceof Error?e.message:tr("statsLoadError"));setResult(null);
       }})
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
-  },[token,period,retry,t]);
+  },[token,period,calendar,retry,t]);
   useEffect(()=>{
     setQuery("");setCompetitionId("ALL");setVenueId("ALL");
     setMonth("ALL");setOutcome("ALL");setLimit(10);setExpandedPicker(null);
-  },[token,period]);
+  },[token,period,calendar]);
   useEffect(()=>{setLimit(10);},[query,competitionId,venueId,month,outcome]);
   async function pdf(matchId:string){
     if(busy)return;
@@ -235,7 +237,7 @@ export function RefereeCareerPanel({token,section}:{token:string;section:Section
             </View>)}
           </ScrollView>
           <AppText variant="caption" muted>{tr("calendarHint")}</AppText>
-          {isRTL?<AppText variant="caption" muted>
+          {isRTL&&result.calendar==="gregory"?<AppText variant="caption" muted>
             {tr("gregorianChartHint")}</AppText>:null}
         </Card>
         <View style={styles.grid}>
