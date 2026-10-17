@@ -20,6 +20,11 @@ import {TextField} from "../ui/TextField";
 
 type Kind=RefereeMatchEvent["kind"];
 const kinds:Kind[]=["GOAL","YELLOW_CARD","RED_CARD","FOUL","TIMEOUT","SUBSTITUTION","INCIDENT"];
+const kindIcons:Record<Kind,keyof typeof Ionicons.glyphMap>={
+  GOAL:"football-outline",YELLOW_CARD:"card-outline",RED_CARD:"card-outline",
+  FOUL:"alert-circle-outline",TIMEOUT:"time-outline",
+  SUBSTITUTION:"swap-horizontal-outline",INCIDENT:"document-text-outline",
+};
 type MatchData=Awaited<ReturnType<typeof refereePhase2Api.get>>;
 function eventId(){
   // Unique correlation ID for retry-safe event insertion; not a security token.
@@ -116,8 +121,8 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
         if(userId)void cacheRefereeMatch(userId,match.id,next);
         return next;
       });
-      setSummary(result.report.summary);setMessage(tr("saved"));}
-    catch(e){setError(e instanceof Error?e.message:tr("actionFailed"));}
+      setSummary(result.report.summary);setMessage(tr("saved"));return true;}
+    catch(e){setError(e instanceof Error?e.message:tr("actionFailed"));return false;}
     finally{setBusy(false);}
   }
   async function addOfflineSafeEvent(){
@@ -253,7 +258,10 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
           <View style={styles.actions}>
             <Button label={tr("confirmFinish")} variant="danger" disabled={!canFinish}
               onPress={()=>{setConfirmFinish(false);
-                void perform(()=>refereePhase2Api.clock(token!,match.id,"FINISH",report!.revision));}}/>
+                void (async()=>{
+                  const saved=await perform(()=>refereePhase2Api.clock(token!,match.id,"FINISH",report!.revision));
+                  if(saved)setWorkspaceTab("report");
+                })();}}/>
             <Button label={tr("cancel")} variant="secondary" onPress={()=>setConfirmFinish(false)}/>
           </View>
         </Card>:null}
@@ -282,9 +290,13 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
       </Card>:null}
       {workspaceTab==="events"&&recording?<Card style={{gap:spacing.md}}>
         <AppText variant="bodyLarge" weight="bold">{tr("recordEvent")}</AppText>
-        <View style={styles.actions}>{kinds.map(kind=><Pressable key={kind}
-          accessibilityRole="button" onPress={()=>{setEditingKind(kind);setPlayer(null);setAssistingUserId(null);setDetails("");}}
+        <View style={styles.kindGrid}>{kinds.map(kind=><Pressable
+          key={kind} testID={"referee-event-"+kind}
+          accessibilityRole="button" accessibilityState={{selected:editingKind===kind}}
+          onPress={()=>{setEditingKind(kind);setPlayer(null);setAssistingUserId(null);setDetails("");}}
           style={[styles.kind,editingKind===kind&&styles.kindActive]}>
+          <Ionicons name={kindIcons[kind]} size={21} color={kind==="RED_CARD"?colors.danger:
+            kind==="YELLOW_CARD"?colors.warning:colors.primary}/>
           <AppText variant="caption" weight="semibold">{tr("kind."+kind)}</AppText>
         </Pressable>)}</View>
         {editingKind?<View style={{gap:spacing.sm}}>
@@ -399,7 +411,9 @@ const styles=StyleSheet.create({
   scoreRow:{alignItems:"center",gap:spacing.sm},
   clockRow:{flexDirection:"row",gap:spacing.md,alignItems:"center",flexWrap:"wrap"},
   actions:{flexDirection:"row",flexWrap:"wrap",alignItems:"center",gap:spacing.sm},
-  kind:{borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
+  kindGrid:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
+  kind:{width:"48%",minHeight:68,justifyContent:"center",alignItems:"center",
+    gap:spacing.xs,borderWidth:1,borderColor:colors.border,borderRadius:radius.md,
     backgroundColor:colors.surface,padding:spacing.sm},
   kindActive:{backgroundColor:colors.primarySoft,borderColor:colors.primary},
   checkRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,minHeight:48,
