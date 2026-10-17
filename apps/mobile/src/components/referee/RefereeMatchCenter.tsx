@@ -89,9 +89,9 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
       if(!alive.current||accountScope.current!==scope)return;
       setPending(local.pending);
       cachedSnapshot=local.cached;
-      cachedSummary=local.cached&&(refereeReportCanEdit(local.cached.report)&&
+      cachedSummary=local.cached?(refereeReportCanEdit(local.cached.report)&&
         local.summaryDraft!==null&&local.summaryDraft!==undefined?
-        local.summaryDraft:local.cached.report?.summary??"")||null;
+        local.summaryDraft:local.cached.report?.summary??""):null;
       // Online cache is not proof that the referee remains authorized.
       if(local.cached&&!connected){
         setData(local.cached);
