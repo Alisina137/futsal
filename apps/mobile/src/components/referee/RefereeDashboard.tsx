@@ -278,7 +278,14 @@ export function RefereeDashboard(){
         {m.responseStatus==="ACCEPTED"&&m.authorized&&
           (["SCHEDULED","IN_PROGRESS"].includes(m.matchStatus)||!!m.reportStatus)?
           <Button label={t("rf2.openMatch")} variant="secondary"
-            onPress={()=>{setActiveCenterMatch(m);choose("center");setSub(x=>({...x,center:"live"}));}}/>:null}
+            onPress={()=>{
+              const section=main==="center"&&["upcoming","live","reports"].includes(selectedSub)?
+                selectedSub:!!m.reportFinishedAt||
+                ["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"].includes(m.reportStatus??"")?
+                "reports":m.reportStartedAt?"live":"upcoming";
+              setSub(x=>({...x,center:section}));
+              setActiveCenterMatch(m);choose("center");
+            }}/>:null}
       </View>
       {!m.authorized?<AppText variant="caption" style={{color:colors.danger}}>{tr("venueRevoked")}</AppText>:null}
     </Card>;
