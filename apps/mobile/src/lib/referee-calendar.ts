@@ -1,6 +1,6 @@
 import type {LanguageCode} from "@leaguekick/localization";
 import type {RefereeMatch,RefereeProfile} from "./api";
-import {careerMonthShift,careerPeriod} from "./player-career-view";
+import {careerMonthShift,careerPeriod} from "./player-career-view.ts";
 
 export type RefereeCalendarMode="day"|"week"|"month";
 export type RefereeAvailabilityPreview="AVAILABLE"|"UNAVAILABLE"|"MISSING_SCHEDULE";
