@@ -4,8 +4,8 @@ import {router} from "expo-router";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Linking,Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {refereeCareerApi,type RefereeCareerResponse,type RefereeCareerWindow} from "../../lib/api";
-import {formatRefereeScheduleParts} from "../../lib/date-time";
-import {refereeHistoryFilter,refereeHistoryOptions,refereeHistoryOutcome,
+import {formatRefereeCalendarPeriod,formatRefereeScheduleParts} from "../../lib/date-time";
+import {refereeHistoryFilter,refereeHistoryLocalMonth,refereeHistoryOptions,refereeHistoryOutcome,
   type RefereeHistoryOutcome} from "../../lib/referee-career-view";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -97,10 +97,10 @@ export function RefereeCareerPanel({token,section}:{token:string;section:Section
   }
 
   const history=result?.history??[];
-  const options=useMemo(()=>refereeHistoryOptions(history),[result?.history]);
+  const options=useMemo(()=>refereeHistoryOptions(history,language),[result?.history,language]);
   const filteredHistory=useMemo(()=>refereeHistoryFilter(history,{
-    query,competitionId,venueId,month,outcome,
-  }),[result?.history,query,competitionId,venueId,month,outcome]);
+    query,competitionId,venueId,month,outcome,language,
+  }),[result?.history,query,competitionId,venueId,month,outcome,language]);
   const max=Math.max(1,...(result?.monthly??[]).map(m=>m.matches));
   const picker=(id:string,label:string,value:string,choices:Option[],onChange:(s:string)=>void)=>
     <FilterPicker key={id} label={label} value={value} options={choices}
@@ -170,7 +170,12 @@ export function RefereeCareerPanel({token,section}:{token:string;section:Section
             ],setVenueId)}
             {picker("month",tr("monthFilter"),month,[
               ...baseOption(tr("allMonths")),
-              ...options.months.map(id=>({id,label:id})),
+              ...options.months.map(id=>{
+                const sample=history.find(row=>
+                  refereeHistoryLocalMonth(row.finishedAt,language)===id)?.finishedAt;
+                return {id,label:sample?
+                  formatRefereeCalendarPeriod(new Date(sample),"month",language):id};
+              }),
             ],setMonth)}
             {picker("outcome",tr("resultFilter"),outcome,[
               ...outcomes.map(id=>({id,label:tr("outcome."+id)})),
