@@ -48,6 +48,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
   const [summary,setSummary]=useState("");
   const [workspaceTab,setWorkspaceTab]=useState<RefereeWorkspaceTab>(initialTab);
   const [confirmFinish,setConfirmFinish]=useState(false);
+  const [eventLimit,setEventLimit]=useState(20);
   const [editingKind,setEditingKind]=useState<Kind|null>(null);
   const [side,setSide]=useState<"HOME"|"AWAY">("HOME");
   const [player,setPlayer]=useState<string|null>(null),[details,setDetails]=useState("");
@@ -342,7 +343,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
           {" · "}{tr("kind.FOUL")}: {eventTotals.FOUL}
         </AppText>
         {!visibleEvents.length?<AppText muted>{tr("noEvents")}</AppText>:null}
-        {visibleEvents.slice().reverse().map(event=><View key={event.id} style={styles.event}>
+        {visibleEvents.slice().reverse().slice(0,eventLimit).map(event=><View key={event.id} style={styles.event}>
           <View style={{flex:1}}>
             <AppText weight="semibold">{tr("kind."+event.kind)} · {event.side?tr("side."+event.side):""}</AppText>
             <AppText variant="caption" muted>{tr("period")} {event.period} · {clockText(event.elapsedSeconds)}</AppText>
@@ -358,6 +359,9 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
           {recording&&connected&&pending.length===0?<Button label={tr("correctEvent")} variant="secondary"
             onPress={()=>{setDeleteId(event.id);setDeleteReason("");}}/>:null}
         </View>)}
+        {visibleEvents.length>eventLimit?<Button
+          variant="secondary" testID="referee-workspace-more-events"
+          label={tr("showMoreEvents")} onPress={()=>setEventLimit(value=>value+20)}/>:null}
         {deleteId?<View style={{gap:spacing.sm}}>
           <TextField label={tr("correctionReason")} value={deleteReason}
             onChangeText={setDeleteReason} maxLength={400}/>
