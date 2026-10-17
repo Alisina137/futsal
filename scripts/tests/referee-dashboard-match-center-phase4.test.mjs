@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {refereeWorkspaceInitialTab,refereeWorkspaceTabs,refereeTeamRoster,
+import {refereeWorkspaceInitialTab,refereeCenterSectionForMatch,
+  refereeWorkspaceTabs,refereeTeamRoster,
   refereeWorkspaceAllowsFinish,refereeMatchEventTotals}
   from "../../apps/mobile/src/lib/referee-match-center.ts";
 
@@ -12,6 +13,17 @@ test("Workspace has four distinct context-specific tabs",()=>{
   assert.equal(refereeWorkspaceInitialTab("upcoming"),"scoreboard");
   assert.equal(refereeWorkspaceInitialTab("live"),"scoreboard");
   assert.equal(refereeWorkspaceInitialTab("reports"),"report");
+});
+test("Opening a match defaults to the correct assignment, live or report list",()=>{
+  const item=(reportStatus=null,reportFinishedAt=null,reportStartedAt=null)=>({
+    reportStatus,reportFinishedAt,reportStartedAt,
+  });
+  assert.equal(refereeCenterSectionForMatch(item()),"upcoming");
+  assert.equal(refereeCenterSectionForMatch(item(null,null,"2026-10-17T07:00:00Z")),"live");
+  assert.equal(refereeCenterSectionForMatch(item("SUBMITTED")),"reports");
+  assert.equal(refereeCenterSectionForMatch(item("CHANGES_REQUESTED")),"reports");
+  assert.equal(refereeCenterSectionForMatch(item("APPROVED")),"reports");
+  assert.equal(refereeCenterSectionForMatch(item(null,"2026-10-17T08:00:00Z")),"reports");
 });
 test("Finish is blocked before kickoff and before the second period",()=>{
   assert.equal(refereeWorkspaceAllowsFinish(null,0,true,false),false);
