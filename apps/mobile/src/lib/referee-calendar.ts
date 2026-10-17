@@ -1,5 +1,11 @@
 import type {LanguageCode} from "@leaguekick/localization";
-import type {RefereeMatch,RefereeProfile} from "./api";
+// Structural inputs keep calendar computations independent of networking and auth types.
+type AvailabilityMatch={startsAt:string|null;endsAt:string|null};
+type AvailabilityProfile={
+  acceptingAssignments?:boolean;
+  weeklyAvailability:ReadonlyArray<{day:number;start:string;end:string}>;
+  exceptions:ReadonlyArray<{date:string;available:boolean}>;
+};
 import {careerMonthShift,careerPeriod} from "./player-career-view.ts";
 
 export type RefereeCalendarMode="day"|"week"|"month";
@@ -74,8 +80,8 @@ export function refereeCalendarWeekDays(day:string,language:LanguageCode){
  * Pause takes precedence even over date exceptions. The server remains authoritative.
  */
 export function refereeAvailabilityPreview(
-  match:Pick<RefereeMatch,"startsAt"|"endsAt">,
-  profile:Pick<RefereeProfile,"weeklyAvailability"|"exceptions">&Partial<Pick<RefereeProfile,"acceptingAssignments">>,
+  match:AvailabilityMatch,
+  profile:AvailabilityProfile,
 ):RefereeAvailabilityPreview{
   if(profile.acceptingAssignments===false)return "UNAVAILABLE";
   if(!match.startsAt||!match.endsAt)return "MISSING_SCHEDULE";

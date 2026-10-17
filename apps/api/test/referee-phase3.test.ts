@@ -3,7 +3,8 @@ import {careerSummary,type CareerRecord} from "../src/modules/referee/referee-ca
 import {createRefereeReportPdf} from "../src/modules/referee/referee-report-pdf.js";
 const now=new Date("2026-10-10T12:00:00Z");
 const record=(id:string,when:string,flags:Partial<CareerRecord>={}):CareerRecord=>({
-  matchId:id,competitionId:"c1",competitionName:"Kabul League",venueName:"Main Hall",
+  matchId:id,competitionId:"c1",competitionName:"Kabul League",venueId:"venue-1",venueName:"Main Hall",
+  matchStatus:"COMPLETED",
   homeName:"Home",awayName:"Away",startsAt:new Date(when),finishedAt:new Date(when),
   submittedAt:new Date(Date.parse(when)+300_000),reviewedAt:new Date(Date.parse(when)+900_000),
   homeScore:2,awayScore:1,status:"APPROVED",events:[
