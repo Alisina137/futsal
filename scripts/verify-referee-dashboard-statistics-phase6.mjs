@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const server=read("apps/api/src/modules/referee/referee-career.routes.ts");
 const metrics=read("apps/api/src/modules/referee/referee-career-metrics.ts");
+const calendar=read("apps/api/src/modules/referee/referee-career-calendar.ts");
 const screen=read("apps/mobile/src/components/referee/RefereeCareerPanel.tsx");
 const helper=read("apps/mobile/src/lib/referee-career-view.ts");
 const client=read("apps/mobile/src/lib/api.ts");
@@ -15,6 +16,8 @@ const must=(source,patterns,name)=>{
 must(server,[
   'export function careerSummary(',
   'const metrics=refereeReportMetrics(finalized)',
+  'const calendar=supportedCareerCalendar(requestedCalendar)',
+  'calendarSchema.parse(req.query.calendar)',
   'const verified=finalized.filter(r=>r.status==="APPROVED"',
   '["COMPLETED","CORRECTED"].includes(r.matchStatus)',
   '.where(eq(refereeMatchReports.refereeUserId,userId))',
@@ -23,6 +26,12 @@ must(server,[
   'if(row.report.status!=="APPROVED"',
   'this.tickets.delete(token)',
 ], "Verified/referee-scoped server career summary");
+must(calendar,[
+  'export function careerCalendarParts(',
+  'export function careerCalendarMonths(',
+  'supportedCareerCalendar(calendar)',
+  'timeZone:"Asia/Kabul"',
+], "Kabul-local annual/monthly calendars");
 must(metrics,[
   'const finished=rows.filter(row=>row.finishedAt!==null)',
   'submittedRows=finished.filter(row=>row.submittedAt!==null)',
@@ -42,6 +51,7 @@ must(screen,[
   'value={result.correctionsRequested}',
   'value={result.averageSubmissionHours===null?',
   'value={result.onTimeRate+"%"}',
+  'refereeCareerApi.career(token,period,calendar)',
   'result.venues.map(item=>',
   'setResult(null);setLoading(true);setError(null)',
   'return()=>{active=false;}',
@@ -58,6 +68,7 @@ must(helper,[
 ], "History filters");
 must(client,[
   'finishedReports:number',
+  'calendar:RefereeCareerCalendar',
   'averageSubmissionHours:number|null',
   'awaitingReview:number;correctionsRequested:number;draftReports:number',
   'venues:Array<{id:string;name:string;matches:number}>',
