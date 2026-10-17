@@ -6,7 +6,7 @@ import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {ApiRequestError,bookingApi,playerActivityApi,teamOperationsApi,
   type PlayerActivities,type PlayerTeamEvent,type TeamAvailability} from "../../lib/api";
-import {formatCompetitionDateTime} from "../../lib/date-time";
+import {careerCalendarDate,careerDateTime,careerMonthShift,careerPeriod} from "../../lib/player-career-view";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
@@ -30,15 +30,20 @@ function shiftDay(day:string,days:number){
 export function inCalendarPeriod(day:string,cursor:string,view:ViewMode,
   weekStartsOnSaturday=false){
   if(view==="DAY")return day===cursor;
-  if(view==="MONTH")return day.slice(0,7)===cursor.slice(0,7);
+  if(view==="MONTH")return weekStartsOnSaturday
+    ? careerPeriod(day+"T12:00:00Z","fa-AF").key===
+      careerPeriod(cursor+"T12:00:00Z","fa-AF").key
+    : day.slice(0,7)===cursor.slice(0,7);
   const week=new Date(cursor+"T12:00:00Z").getUTCDay();
   // English starts Monday, while Dari and Pashto start Saturday.
   const offset=weekStartsOnSaturday?(week+1)%7:(week+6)%7;
   const firstDay=shiftDay(cursor,-offset);
   return day>=firstDay&&day<=shiftDay(firstDay,6);
 }
-export function moveCalendarCursor(cursor:string,view:ViewMode,direction:number){
+export function moveCalendarCursor(cursor:string,view:ViewMode,direction:number,
+  useSolarCalendar=false){
   if(view!=="MONTH")return shiftDay(cursor,(view==="DAY"?1:7)*direction);
+  if(useSolarCalendar)return careerMonthShift(cursor,direction);
   // Moving from the 29th–31st must not accidentally skip short months.
   const target=new Date(cursor.slice(0,7)+"-01T12:00:00Z");
   target.setUTCMonth(target.getUTCMonth()+direction);
@@ -85,7 +90,7 @@ const isFinished=(status:string)=>status==="COMPLETED"||status==="CORRECTED";
 export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;token:string;teams:TeamListItemDto[]}){
   const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(`pd2.${key}` as never);
-  const date=(value:string|null)=>value?formatCompetitionDateTime(value,language):tr("notScheduled");
+  const date=(value:string|null)=>value?careerDateTime(value,language):tr("notScheduled");
   const [storedData,setData]=useState<PlayerActivities|null>(null);
   const [storedBookings,setBookings]=useState<BookingDto[]>([]);
   const [activityActor,setActivityActor]=useState<string|null>(null);
@@ -208,7 +213,7 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
       (scheduleFilter==="CONFLICTS"&&conflicts.has(a.key)))
     .sort((a,b)=>Date.parse(a.startsAt)-Date.parse(b.startsAt));
   const moved=(direction:number)=>
-    setCursor(previous=>moveCalendarCursor(previous,view,direction));
+    setCursor(previous=>moveCalendarCursor(previous,view,direction,isRTL));
   async function action(key:string,fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
     const requestToken=token;
@@ -328,7 +333,7 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
           }))}/>
         <View style={[styles.rowHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
           <Button label="‹" variant="secondary" onPress={()=>moved(-1)}/>
-          <AppText weight="semibold">{date(cursor+"T12:00:00Z")}</AppText>
+          <AppText weight="semibold">{careerCalendarDate(cursor,language)}</AppText>
           <Button label="›" variant="secondary" onPress={()=>moved(1)}/>
         </View>
         <Button label={tr("today")} variant="ghost"
