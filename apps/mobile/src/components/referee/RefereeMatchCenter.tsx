@@ -53,6 +53,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
   const [message,setMessage]=useState<string|null>(null);
   const [summary,setSummary]=useState("");
   const summaryRef=useRef("");
+  const editGeneration=useRef(0);
   const [draftPersisting,setDraftPersisting]=useState(false);
   const draftWrites=useRef(0);
   const [draftError,setDraftError]=useState<string|null>(null);
@@ -80,6 +81,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
     setLoading(true);
     try{
       const scope=userId+":"+match.id+":"+token;
+      const initialEditGeneration=editGeneration.current;
       const local=await readRefereeOffline(userId,match.id);
       if(!alive.current||accountScope.current!==scope)return;
       setPending(local.pending);
@@ -88,7 +90,9 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
         const localSummary=refereeReportCanEdit(local.cached.report)&&
           local.summaryDraft!==null&&local.summaryDraft!==undefined?
           local.summaryDraft:local.cached.report?.summary??"";
-        summaryRef.current=localSummary;setSummary(localSummary);
+        if(initialEditGeneration===editGeneration.current){
+          summaryRef.current=localSummary;setSummary(localSummary);
+        }
       }
       if(!connected){
         if(!local.cached)setError(tr("offlineNoCache"));
@@ -102,7 +106,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
         local.summaryDraft!==null&&local.summaryDraft!==undefined?
         local.summaryDraft:value.report?.summary??"";
       // An in-progress locally typed draft must not be overwritten by refresh.
-      if(draftWrites.current===0){
+      if(draftWrites.current===0&&initialEditGeneration===editGeneration.current){
         summaryRef.current=effectiveSummary;setSummary(effectiveSummary);
       }
       setError(null);
@@ -157,7 +161,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
     onClose();
   }
   function editSummary(value:string){
-    summaryRef.current=value;setSummary(value);setConfirmSubmit(false);
+    editGeneration.current++;summaryRef.current=value;setSummary(value);setConfirmSubmit(false);
     if(!userId)return;
     const scope=accountScope.current;
     draftWrites.current++;setDraftPersisting(true);setDraftError(null);
@@ -181,12 +185,11 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
     if(!connected||pending.length>0){setError(tr("syncBeforeChanges"));return;}
     setBusy(true);setError(null);setMessage(null);
     try{const result=await fn();
-      setData(previous=>{
-        if(!previous)return previous;
-        const next={...previous,report:result.report};
-        if(userId)void cacheRefereeMatch(userId,match.id,next);
-        return next;
-      });
+      setData(previous=>previous?{...previous,report:result.report}:previous);
+      if(userId&&data){
+        try{await cacheRefereeMatch(userId,match.id,{...data,report:result.report});}
+        catch(e){setError(tr("offlineCacheWarning"));}
+      }
       if(summaryRef.current===report?.summary){
         summaryRef.current=result.report.summary;setSummary(result.report.summary);
       }
