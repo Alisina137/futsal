@@ -27,7 +27,7 @@ test("pending and confirmed lists include actionable assignments only",()=>{
   assert.deepEqual(refereeVisibleAssignments(entries,"confirmed","","ALL","ALL",NOW)
     .map(m=>m.id),["confirmed"]);
   assert.deepEqual(refereeVisibleAssignments(entries,"history","","ALL","ALL",NOW)
-    .map(m=>m.id),["completed","past","revoked","withdrawn"]);
+    .map(m=>m.id),["completed","revoked","withdrawn","past"]);
 });
 test("historical decisions and finalized fixture statuses are distinct",()=>{
   for(const [patch,expected] of [
