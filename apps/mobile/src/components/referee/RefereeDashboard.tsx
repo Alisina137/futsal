@@ -68,6 +68,7 @@ export function RefereeDashboard(){
   const [exceptionDate,setExceptionDate]=useState("");
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
   const [calendarFilter,setCalendarFilter]=useState<"ALL"|"PENDING"|"CONFIRMED"|"HISTORY">("ALL");
+  const [calendarLimit,setCalendarLimit]=useState(20);
   const [calendarAnchor,setCalendarAnchor]=useState(new Date());
   const [refresh,setRefresh]=useState(0);
   const [offlineCounts,setOfflineCounts]=useState<Record<string,number>>({});
@@ -201,6 +202,8 @@ export function RefereeDashboard(){
   const calendarItems=calendarMatches.filter(m=>calendarFilter==="ALL"||
     calendarStatus(m)===calendarFilter);
   const calendarWeekDays=refereeCalendarWeekDays(calendarKey,language);
+  useEffect(()=>{setCalendarLimit(20);},
+    [calendarKey,calendarView,calendarFilter,userId]);
   const calendarDayLabel=(day:string)=>formatRefereeCalendarPeriod(
     new Date(day+"T12:00:00Z"),"day",language);
   function scheduledDateTime(value:string|null,durationMinutes?:number){
@@ -472,8 +475,22 @@ export function RefereeDashboard(){
             })}
           </ScrollView>
         </Card>:null}
-        {calendarItems.length?calendarItems.map(m=>card(m,true)):
-          <Card><AppText muted>{tr("calendar.empty")}</AppText></Card>}
+        {calendarItems.length?calendarItems.slice(0,calendarLimit).map((m,index,displayed)=>{
+          const day=refereeKabulDay(m.startsAt!);
+          const previous=index?refereeKabulDay(displayed[index-1]!.startsAt!):null;
+          return <View key={m.id} style={{gap:spacing.sm}}>
+            {day!==previous?<View style={styles.calendarDayHeading}>
+              <Ionicons name="calendar-outline" color={colors.primary} size={18}/>
+              <AppText weight="semibold" style={{flex:1}}>
+                {formatRefereeScheduleParts(m.startsAt!,language).date}
+              </AppText>
+            </View>:null}
+            {card(m,true)}
+          </View>;
+        }):<Card><AppText muted>{tr("calendar.empty")}</AppText></Card>}
+        {calendarItems.length>calendarLimit?<Button variant="secondary"
+          testID="referee-calendar-show-more" label={tr("calendar.showMore")}
+          onPress={()=>setCalendarLimit(value=>value+20)}/>:null}
       </>:null}
       {main==="center"&&activeCenterMatch?<RefereeMatchCenter
         key={activeCenterMatch.id} match={activeCenterMatch}
@@ -564,6 +581,8 @@ export function RefereeDashboard(){
   </Screen>;
 }
 const styles=StyleSheet.create({
+  calendarDayHeading:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
+    borderBottomWidth:1,borderColor:colors.border,paddingVertical:spacing.sm},
   calendarWarning:{flexDirection:"row",alignItems:"center",flexWrap:"wrap",
     gap:spacing.sm,padding:spacing.sm,borderWidth:1,borderColor:colors.border,
     backgroundColor:colors.surfaceMuted,borderRadius:radius.md},
