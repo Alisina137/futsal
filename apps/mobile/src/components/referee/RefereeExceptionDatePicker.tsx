@@ -22,6 +22,13 @@ export function RefereeExceptionDatePicker({value,onChange,label}:{
       timeZone:"UTC",weekday:"short",
     }).format(new Date(date+"T12:00:00Z")));
   const dayNumber=new Intl.NumberFormat(language==="en"?"en-GB":language);
+  const calendarDay=(day:string)=>{
+    const parts=new Intl.DateTimeFormat(language==="en"?"en-GB":language,{
+      timeZone:"UTC",calendar:language==="en"?"gregory":"persian",
+      numberingSystem:"latn",day:"numeric",
+    }).formatToParts(new Date(day+"T12:00:00Z"));
+    return Number(parts.find(part=>part.type==="day")?.value??0);
+  };
   const display=value?formatRefereeScheduleParts(value+"T12:00:00Z",language).date:
     t("rf1.settingsPickDate");
   const move=(direction:number)=>setCursor(day=>
@@ -65,7 +72,7 @@ export function RefereeExceptionDatePicker({value,onChange,label}:{
                   style={[styles.dayButton,value===day.date&&styles.selected]}>
                   <AppText variant="caption" weight={value===day.date?"bold":"regular"}
                     style={{textAlign:"center",color:value===day.date?"#FFFFFF":colors.text}}>
-                    {dayNumber.format(Number(day.date.slice(8,10)))}
+                    {dayNumber.format(calendarDay(day.date))}
                   </AppText>
                 </Pressable>:null}
               </View>)}

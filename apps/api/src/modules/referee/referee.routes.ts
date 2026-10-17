@@ -18,7 +18,7 @@ export const refereeProfileSchema=z.object({
   acceptingAssignments:z.boolean().default(true),
   weeklyAvailability:z.array(z.object({
     day:z.number().int().min(0).max(6),start:time,end:time,
-  }).refine(x=>x.end>x.start,{message:"End time must be after start."})).max(21),
+  }).refine(x=>x.end>x.start,{message:"End time must be after start."})).max(7),
   exceptions:z.array(z.object({
     date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),available:z.boolean(),
   })).max(100),

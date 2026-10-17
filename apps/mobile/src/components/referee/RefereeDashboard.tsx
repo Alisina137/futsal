@@ -212,6 +212,10 @@ export function RefereeDashboard(){
     setDraft(data.profile);currentDraft.current=data.profile;
     setError(null);setSettingsExitTarget(null);
   }
+  function openSettingsPage(path:"/settings"|"/notifications"|"/notifications/preferences"){
+    if(settingsDirty){setError(tr("settingsSaveFirst"));return;}
+    router.push(path);
+  }
   async function map(latitude:number|null,longitude:number|null){
     if(latitude===null||longitude===null)return;
     try{await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`);}
@@ -620,7 +624,7 @@ export function RefereeDashboard(){
           onChangeText={v=>changeProfile({biography:v||null})}/>
         <Button label={tr("save")} loading={busy==="settings"}
           disabled={busy!==null||!settingsDirty} onPress={()=>void saveSettings()}/>
-        <Button label={tr("accountProfile")} variant="secondary" onPress={()=>router.push("/settings")}/>
+        <Button label={tr("accountProfile")} variant="secondary" onPress={()=>openSettingsPage("/settings")}/>
       </Card>:null}
       {main==="settings"&&selectedSub==="availability"&&draft?<Card style={{gap:spacing.md}}>
         <AppText variant="bodyLarge" weight="bold">{tr("settings.availability")}</AppText>
@@ -696,8 +700,8 @@ export function RefereeDashboard(){
         <AppText variant="bodyLarge" weight="bold">{tr("settings.notifications")}</AppText>
         <AppText muted>{tr("notificationsHint")}</AppText>
         <Button label={tr("settingsNotificationPrefs")} variant="secondary"
-          onPress={()=>router.push("/notifications/preferences")}/>
-        <Button label={tr("openNotifications")} onPress={()=>router.push("/notifications")}/>
+          onPress={()=>openSettingsPage("/notifications/preferences")}/>
+        <Button label={tr("openNotifications")} onPress={()=>openSettingsPage("/notifications")}/>
       </Card>:null}
     </>:null}
   </Screen>;
