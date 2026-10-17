@@ -7,8 +7,13 @@ import {refereeCareerApi,refereePhase2Api,type RefereeMatch,type RefereeMatchEve
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {useNetwork} from "../../providers/NetworkProvider";
-import {cacheRefereeMatch,enqueueRefereeEvent,readRefereeOffline,
+import {cacheRefereeMatch,clearRefereeSummaryDraftIfMatches,enqueueRefereeEvent,
+  readRefereeOffline,saveRefereeSummaryDraft,
   stagedScore,syncRefereeOffline,type StagedRefereeEvent} from "../../lib/referee-offline";
+import {refereeReportCanEdit,refereeReportCanSubmit,
+  refereeReportNeedsChanges,refereeReportUnsavedSummary,
+  refereeReportNeedsExitWarning} from "../../lib/referee-report-workflow";
+import {formatRefereeScheduleParts} from "../../lib/date-time";
 import {refereeMatchEventTotals,refereeTeamRoster,
   refereeWorkspaceAllowsFinish,refereeWorkspaceTabs,type RefereeWorkspaceTab}
   from "../../lib/referee-match-center";
@@ -34,10 +39,11 @@ function eventId(){
 }
 function clockText(seconds:number){const n=Math.max(0,Math.floor(seconds));
   return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");}
-export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
+export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRiskChange}:{
   match:RefereeMatch;onClose:()=>void;initialTab?:RefereeWorkspaceTab;
+  onRiskChange?:(unsafe:boolean)=>void;
 }){
-  const {session}=useAuth(),{t,isRTL}=useLocale();
+  const {session}=useAuth(),{t,isRTL,language}=useLocale();
   const {isOnline,apiReachable,apiReconnectVersion}=useNetwork();
   const connected=isOnline&&apiReachable!==false;
   const userId=session?.user.id;
@@ -46,6 +52,13 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
   const [summary,setSummary]=useState("");
+  const summaryRef=useRef("");
+  const [draftPersisting,setDraftPersisting]=useState(false);
+  const draftWrites=useRef(0);
+  const [draftError,setDraftError]=useState<string|null>(null);
+  const [confirmSubmit,setConfirmSubmit]=useState(false);
+  const [confirmLeave,setConfirmLeave]=useState(false);
+  const [syncError,setSyncError]=useState<string|null>(null);
   const [workspaceTab,setWorkspaceTab]=useState<RefereeWorkspaceTab>(initialTab);
   const [confirmFinish,setConfirmFinish]=useState(false);
   const [eventLimit,setEventLimit]=useState(20);
@@ -58,20 +71,41 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
   const [pending,setPending]=useState<StagedRefereeEvent[]>([]);
   const [syncing,setSyncing]=useState(false);
   const syncRef=useRef(false);
+  const alive=useRef(true);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  const accountScope=useRef(userId+":"+match.id+":"+token);
+  accountScope.current=userId+":"+match.id+":"+token;
   const load=useCallback(async()=>{
     if(!token||!userId)return;
     setLoading(true);
     try{
+      const scope=userId+":"+match.id+":"+token;
       const local=await readRefereeOffline(userId,match.id);
+      if(!alive.current||accountScope.current!==scope)return;
       setPending(local.pending);
-      if(local.cached){setData(local.cached);setSummary(local.cached.report?.summary??"");}
+      if(local.cached){
+        setData(local.cached);
+        const localSummary=refereeReportCanEdit(local.cached.report)&&
+          local.summaryDraft!==null&&local.summaryDraft!==undefined?
+          local.summaryDraft:local.cached.report?.summary??"";
+        summaryRef.current=localSummary;setSummary(localSummary);
+      }
       if(!connected){
         if(!local.cached)setError(tr("offlineNoCache"));
         else setMessage(tr("offlineSnapshot"));
         return;
       }
       const value=await refereePhase2Api.get(token,match.id);
-      setData(value);setSummary(value.report?.summary??"");setError(null);
+      if(!alive.current||accountScope.current!==scope)return;
+      setData(value);
+      const effectiveSummary=refereeReportCanEdit(value.report)&&
+        local.summaryDraft!==null&&local.summaryDraft!==undefined?
+        local.summaryDraft:value.report?.summary??"";
+      // An in-progress locally typed draft must not be overwritten by refresh.
+      if(draftWrites.current===0){
+        summaryRef.current=effectiveSummary;setSummary(effectiveSummary);
+      }
+      setError(null);
       await cacheRefereeMatch(userId,match.id,value);
     }catch(e){setError(e instanceof Error?e.message:tr("loadFailed"));}
     finally{setLoading(false);}
@@ -79,13 +113,20 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
   useEffect(()=>{void load();},[load]);
   const synchronize=useCallback(async()=>{
     if(!token||!userId||!connected||syncRef.current)return;
-    syncRef.current=true;setSyncing(true);
+    syncRef.current=true;setSyncing(true);setSyncError(null);
+    const scope=userId+":"+match.id+":"+token;
     try{
       const state=await syncRefereeOffline(userId,match.id,token);
+      if(!alive.current||accountScope.current!==scope)return;
       setData(state.cached);setPending(state.pending);
-      setError(null);setMessage(tr("eventsSynced"));
-    }catch(e){setError(e instanceof Error?e.message:tr("syncFailed"));}
-    finally{syncRef.current=false;setSyncing(false);}
+      setError(null);setSyncError(null);setMessage(tr("eventsSynced"));
+    }catch(e){
+      if(alive.current&&accountScope.current===scope)
+        setSyncError(e instanceof Error?e.message:tr("syncFailed"));
+    }finally{
+      syncRef.current=false;
+      if(alive.current&&accountScope.current===scope)setSyncing(false);
+    }
   },[token,userId,match.id,connected,t]);
   useEffect(()=>{
     if(connected&&pending.length>0)void synchronize();
@@ -94,7 +135,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
   const report=data?.report??null,clock=report?.clock??{elapsedSeconds:0,period:1,runningSince:null};
   const seconds=clock.elapsedSeconds+(clock.runningSince?
     Math.max(0,Math.floor((now-Date.parse(clock.runningSince))/1000)):0);
-  const editable=!report||report.status==="DRAFT"||report.status==="CHANGES_REQUESTED";
+  const editable=!report||refereeReportCanEdit(report);
   const active=!!report?.startedAt&&!report.finishedAt;
   const recording=editable&&(active||report?.status==="CHANGES_REQUESTED");
   const canStart=editable&&!report?.startedAt;
@@ -105,6 +146,30 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
   const scores=stagedScore(visibleEvents);
   const eventTotals=refereeMatchEventTotals(visibleEvents);
   const canFinish=refereeWorkspaceAllowsFinish(report,pending.length,connected,busy);
+  const summaryDirty=refereeReportUnsavedSummary(report,summary);
+  const canSubmit=refereeReportCanSubmit(report,summary,pending.length,connected,busy)&&
+    !syncing&&!draftPersisting&&!draftError;
+  const unsafeExit=refereeReportNeedsExitWarning(
+    pending.length,summaryDirty,syncing,draftPersisting);
+  useEffect(()=>{onRiskChange?.(unsafeExit);},[onRiskChange,unsafeExit]);
+  function requestClose(){
+    if(unsafeExit){setConfirmLeave(true);return;}
+    onClose();
+  }
+  function editSummary(value:string){
+    summaryRef.current=value;setSummary(value);setConfirmSubmit(false);
+    if(!userId)return;
+    const scope=accountScope.current;
+    draftWrites.current++;setDraftPersisting(true);setDraftError(null);
+    void saveRefereeSummaryDraft(userId,match.id,value)
+      .catch(e=>{if(alive.current&&accountScope.current===scope)
+        setDraftError(e instanceof Error?e.message:tr("draftSaveFailed"));})
+      .finally(()=>{
+        draftWrites.current=Math.max(0,draftWrites.current-1);
+        if(alive.current&&accountScope.current===scope&&draftWrites.current===0)
+          setDraftPersisting(false);
+      });
+  }
   const fouls=(s:"HOME"|"AWAY")=>visibleEvents.filter(e=>
     e.kind==="FOUL"&&e.side===s&&e.period===clock.period).length;
   const repeatCautions=visibleEvents.filter(e=>e.kind==="YELLOW_CARD"&&e.playerUserId)
@@ -122,7 +187,10 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
         if(userId)void cacheRefereeMatch(userId,match.id,next);
         return next;
       });
-      setSummary(result.report.summary);setMessage(tr("saved"));return true;}
+      if(summaryRef.current===report?.summary){
+        summaryRef.current=result.report.summary;setSummary(result.report.summary);
+      }
+      setMessage(tr("saved"));return true;}
     catch(e){setError(e instanceof Error?e.message:tr("actionFailed"));return false;}
     finally{setBusy(false);}
   }
@@ -165,7 +233,17 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
     editingKind==="RED_CARD"||editingKind==="SUBSTITUTION";
   const status=report?.status??"DRAFT";
   return <View style={{gap:spacing.md}}>
-    <Button variant="secondary" label={tr("back")} onPress={onClose}/>
+    <Button variant="secondary" label={tr("back")} onPress={requestClose}/>
+    {confirmLeave?<Card testID="referee-safe-leave" style={styles.safetyCard}>
+      <AppText weight="bold">{tr("safeLeaveTitle")}</AppText>
+      <AppText variant="caption" muted>{tr("safeLeaveBody")}</AppText>
+      <View style={styles.actions}>
+        <Button label={tr("keepEditing")} onPress={()=>setConfirmLeave(false)}/>
+        <Button label={tr("leaveAnyway")} variant="secondary"
+          disabled={draftPersisting||syncing}
+          onPress={()=>{setConfirmLeave(false);onClose();}}/>
+      </View>
+    </Card>:null}
     <Card style={{gap:spacing.sm}}>
       <AppText variant="caption" muted>{match.competitionName} · {match.venueName}</AppText>
       <View style={[styles.scoreRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
