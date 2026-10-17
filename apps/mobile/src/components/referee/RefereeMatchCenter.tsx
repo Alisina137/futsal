@@ -287,12 +287,25 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
         </Pressable>)}
       </ScrollView>
     </Card>
-    {(pending.length>0||!connected)?<Card style={{gap:spacing.sm}}>
-      <AppText weight="semibold" style={{color:colors.primary}}>
-        {connected?tr("pendingCount")+": "+pending.length:tr("offlineMode")}</AppText>
+    {(pending.length>0||!connected||syncError)?<Card testID="referee-offline-recovery"
+      style={styles.safetyCard}>
+      <View style={styles.syncHeader}>
+        <Ionicons name={connected?"cloud-upload-outline":"cloud-offline-outline"}
+          size={22} color={colors.primary}/>
+        <AppText weight="semibold" style={{flex:1,color:colors.primary}}>
+          {connected?tr("pendingCount")+": "+pending.length:tr("offlineMode")}
+        </AppText>
+      </View>
       <AppText variant="caption" muted>{tr("offlineHint")}</AppText>
-      {pending.length>0?<Button label={syncing?tr("syncing"):tr("syncNow")} variant="secondary"
-        disabled={!connected||busy||syncing} onPress={()=>void synchronize()}/>:null}
+      {syncError?<AppText style={{color:colors.danger}}>{syncError}</AppText>:null}
+      {pending.length>0?<View style={styles.actions}>
+        <Button label={syncing?tr("syncing"):tr("syncNow")} variant="secondary"
+          disabled={!connected||busy||syncing} loading={syncing}
+          onPress={()=>void synchronize()}/>
+        <Button label={tr("reviewQueuedEvents")} variant="secondary"
+          onPress={()=>setWorkspaceTab("events")}/>
+      </View>:null}
+      <AppText variant="caption" muted>{tr("pendingPreserved")}</AppText>
     </Card>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={tr("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
@@ -460,24 +473,93 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
         <Button variant="secondary" label={tr("workspace.scoreboard")}
           onPress={()=>setWorkspaceTab("scoreboard")}/>
       </Card>:null}
-      {workspaceTab==="report"&&report?.finishedAt?<Card style={{gap:spacing.md}}>
+      {workspaceTab==="report"&&report?.finishedAt?<Card
+        testID="referee-report-workflow" style={{gap:spacing.md}}>
         <AppText variant="bodyLarge" weight="bold">{tr("officialReport")}</AppText>
+        <View style={styles.reportStatus}>
+          <Ionicons name={report.status==="APPROVED"?"checkmark-circle-outline":
+            report.status==="CHANGES_REQUESTED"?"alert-circle-outline":
+            "document-text-outline"} size={22} color={report.status==="CHANGES_REQUESTED"?
+            colors.danger:colors.primary}/>
+          <AppText weight="semibold" style={{flex:1}}>
+            {tr("reportStatus")}: {tr("status."+report.status)}
+          </AppText>
+        </View>
+        {report.submittedAt?<AppText variant="caption" muted>
+          {tr("reportSubmittedAt")}: {formatRefereeScheduleParts(report.submittedAt,language).date}
+          {" · "}{formatRefereeScheduleParts(report.submittedAt,language).time}</AppText>:null}
+        {report.reviewedAt?<AppText variant="caption" muted>
+          {tr("reportReviewedAt")}: {formatRefereeScheduleParts(report.reviewedAt,language).date}
+          {" · "}{formatRefereeScheduleParts(report.reviewedAt,language).time}</AppText>:null}
+        {refereeReportNeedsChanges(report)?<View style={styles.returnedReport}>
+          <AppText weight="bold" style={{color:colors.danger}}>
+            {tr("correctionsRequired")}</AppText>
+          <AppText>{report.feedback||tr("correctionsNoReason")}</AppText>
+          <AppText variant="caption" muted>{tr("correctionInstructions")}</AppText>
+          <Button variant="secondary" label={tr("workspace.events")}
+            onPress={()=>setWorkspaceTab("events")}/>
+        </View>:null}
         <AppText weight="semibold">{tr("finalScore")}: {scores.homeScore} – {scores.awayScore}</AppText>
+        <AppText variant="caption" muted>{tr("eventCount")}: {visibleEvents.length}</AppText>
         <TextField label={tr("summary")} multiline value={summary}
-          editable={editable&&connected&&pending.length===0} maxLength={2000} onChangeText={setSummary}/>
-        {editable?<Button label={tr("saveSummary")} variant="secondary" disabled={busy||!connected||pending.length>0}
-          onPress={()=>void perform(()=>refereePhase2Api.update(token!,match.id,
-            {revision:report.revision,summary}))}/>:null}
-        {editable?<Button label={tr("submitReport")} disabled={busy||!connected||pending.length>0}
-          onPress={()=>void perform(()=>refereePhase2Api.submit(token!,match.id,report.revision))}/>:null}
-        {!editable?<AppText variant="caption" muted>{tr("waitingReview")}</AppText>:null}
+          editable={editable&&!busy} maxLength={2000} onChangeText={editSummary}/>
+        {editable&&summaryDirty?<AppText variant="caption"
+          style={{color:colors.warning}}>{tr("unsavedOfficialSummary")}</AppText>:null}
+        {editable&&draftPersisting?<AppText variant="caption" muted>
+          {tr("draftSaving")}</AppText>:null}
+        {editable&&!draftPersisting&&!draftError&&summaryDirty?
+          <AppText variant="caption" muted>{tr("draftSavedLocally")}</AppText>:null}
+        {draftError?<AppText style={{color:colors.danger}}>
+          {tr("draftSaveFailed")}: {draftError}</AppText>:null}
+        {editable?<Button label={tr("saveSummary")} variant="secondary"
+          disabled={busy||!connected||pending.length>0||syncing||
+            draftPersisting||!!draftError||!summaryDirty}
+          onPress={()=>void (async()=>{
+            const saved=summary;
+            const ok=await perform(()=>refereePhase2Api.update(token!,match.id,
+              {revision:report.revision,summary:saved}));
+            if(ok&&userId){
+              try{await clearRefereeSummaryDraftIfMatches(userId,match.id,saved);}
+              catch(e){setDraftError(e instanceof Error?e.message:tr("draftSaveFailed"));}
+            }
+          })()}/>:null}
+        {editable?<Button label={tr("submitReport")} disabled={!canSubmit}
+          onPress={()=>setConfirmSubmit(true)}/>:null}
+        {editable&&summaryDirty?<AppText variant="caption" muted>
+          {tr("saveBeforeSubmit")}</AppText>:null}
+        {confirmSubmit&&editable?<Card testID="referee-submit-confirmation"
+          style={styles.confirmation}>
+          <AppText weight="bold" variant="bodyLarge">{tr("submitConfirmTitle")}</AppText>
+          <AppText variant="caption" muted>{tr("submitConfirmDescription")}</AppText>
+          <AppText weight="semibold">{match.homeTeamName} {scores.homeScore} :
+            {scores.awayScore} {match.awayTeamName}</AppText>
+          <View style={styles.actions}>
+            <Button label={tr("confirmSubmit")} disabled={!canSubmit}
+              onPress={()=>void (async()=>{
+                const ok=await perform(()=>refereePhase2Api.submit(token!,match.id,report.revision));
+                if(ok)setConfirmSubmit(false);
+              })()}/>
+            <Button variant="secondary" label={tr("cancel")}
+              onPress={()=>setConfirmSubmit(false)}/>
+          </View>
+        </Card>:null}
+        {!editable?<AppText variant="caption" muted>{report.status==="APPROVED"?
+          tr("reportApproved"):tr("waitingReview")}</AppText>:null}
         {report.status==="APPROVED"?<Button variant="secondary" label={tr("downloadPdf")}
           disabled={busy||!connected} onPress={()=>void downloadPdf()}/>:null}
+        {editable&&connected?<Button label={tr("refreshReport")} variant="ghost"
+          disabled={busy||draftPersisting} onPress={()=>void load()}/>:null}
       </Card>:null}
     </>:null}
   </View>;
 }
 const styles=StyleSheet.create({
+  safetyCard:{gap:spacing.md,borderColor:colors.warning},
+  syncHeader:{flexDirection:"row",alignItems:"center",gap:spacing.sm},
+  reportStatus:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
+    padding:spacing.md,backgroundColor:colors.primarySoft,borderRadius:radius.md},
+  returnedReport:{gap:spacing.sm,borderWidth:1,borderColor:colors.danger,
+    backgroundColor:colors.surfaceMuted,borderRadius:radius.md,padding:spacing.md},
   workspaceCard:{paddingHorizontal:spacing.xs,paddingVertical:spacing.xs},
   workspaceTabs:{gap:spacing.xs,alignItems:"center"},
   workspaceTab:{minWidth:110,minHeight:46,alignItems:"center",justifyContent:"center",
