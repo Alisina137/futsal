@@ -16,7 +16,7 @@ export function refereeReportMetrics(rows:ReadonlyArray<RefereeReportMetricRecor
     row.submittedAt.getTime()>=row.finishedAt.getTime()&&
     row.submittedAt.getTime()-row.finishedAt.getTime()<=86400000).length;
   const hours=submittedRows.filter(row=>row.finishedAt&&row.submittedAt&&
-    row.submittedAt>=row.finishedAt).map(row=>
+    row.submittedAt.getTime()>=row.finishedAt.getTime()).map(row=>
     (row.submittedAt!.getTime()-row.finishedAt!.getTime())/3600000);
   return {
     finishedReports,submitted,onTime,
