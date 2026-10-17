@@ -53,6 +53,8 @@ must(helper,[
   'export function refereeHistoryOutcome(',
   'export function refereeHistoryLocalMonth(',
   'timeZone:"Asia/Kabul"',
+  'calendar:language==="en"?"gregory":"persian"',
+  'refereeHistoryLocalMonth(item.finishedAt,options.language)',
 ], "History filters");
 must(client,[
   'finishedReports:number',
