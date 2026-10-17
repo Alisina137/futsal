@@ -68,6 +68,8 @@ export function RefereeDashboard(){
   const [refresh,setRefresh]=useState(0);
   const [offlineCounts,setOfflineCounts]=useState<Record<string,number>>({});
   const [offlineScanError,setOfflineScanError]=useState(false);
+  const [offlineChecking,setOfflineChecking]=useState(false);
+  const [attentionLimit,setAttentionLimit]=useState(5);
   const previousScope=useRef<string|null>(null);
   const activeActor=useRef(userId);
   activeActor.current=userId;
@@ -75,6 +77,7 @@ export function RefereeDashboard(){
     setMain("overview");
     setSub({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
     setActiveCenterMatch(null);setReason({});setError(null);setMessage(null);setBusy(null);
+    setAttentionLimit(5);
   },[userId]);
   const navRef=useRef<ScrollView|null>(null),navViewport=useRef(0),navWidth=useRef(0);
   const cells=useRef<Partial<Record<Main,{x:number;width:number}>>>({});
@@ -119,6 +122,7 @@ export function RefereeDashboard(){
   useEffect(()=>{
     let mounted=true;
     setOfflineCounts({});setOfflineScanError(false);
+    setOfflineChecking(Boolean(userId&&data));
     if(!userId||!data)return()=>{mounted=false;};
     void Promise.all(data.assignments.map(async match=>{
       try{
@@ -129,6 +133,9 @@ export function RefereeDashboard(){
       if(!mounted)return;
       setOfflineCounts(Object.fromEntries(entries.filter(([,count])=>count>0)));
       setOfflineScanError(entries.some(([,count])=>count<0));
+      setOfflineChecking(false);
+    }).catch(()=>{
+      if(mounted){setOfflineScanError(true);setOfflineChecking(false);}
     });
     return()=>{mounted=false;};
   },[userId,data?.assignments,refresh]);
@@ -330,11 +337,13 @@ export function RefereeDashboard(){
           </View>
           {offlineScanError?<AppText variant="caption" style={{color:colors.danger}}>
             {tr("overview.offlineScanError")}</AppText>:null}
-          {attention.length===0&&!offlineScanError?<View style={styles.attentionEmpty}>
+          {offlineChecking?<AppText variant="caption" muted>
+            {tr("overview.checkingOffline")}</AppText>:null}
+          {attention.length===0&&!offlineScanError&&!offlineChecking?<View style={styles.attentionEmpty}>
             <Ionicons name="checkmark-circle-outline" size={20} color={colors.success}/>
             <AppText muted style={{flex:1}}>{tr("overview.allClear")}</AppText>
           </View>:null}
-          {attention.slice(0,5).map(item=><View key={item.key} style={styles.attentionItem}>
+          {attention.slice(0,attentionLimit).map(item=><View key={item.key} style={styles.attentionItem}>
             <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
               <Ionicons name={item.kind==="UNSYNCED"?"cloud-offline-outline":
                 item.kind==="CORRECTION"?"document-text-outline":
@@ -354,8 +363,9 @@ export function RefereeDashboard(){
             <Button variant="secondary" label={tr("overview.review")}
               onPress={()=>openAttention(item)}/>
           </View>)}
-          {attention.length>5?<AppText variant="caption" muted>
-            {tr("overview.additionalActions")}</AppText>:null}
+          {attention.length>attentionLimit?<Button testID="referee-overview-show-more"
+            variant="secondary" label={tr("overview.showMore")}
+            onPress={()=>setAttentionLimit(value=>value+5)}/>:null}
         </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{tr("nextMatch")}</AppText>
           {data.nextMatch?<><AppText weight="bold">{data.nextMatch.homeTeamName} VS {data.nextMatch.awayTeamName}</AppText>
