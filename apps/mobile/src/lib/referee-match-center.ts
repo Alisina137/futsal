@@ -6,7 +6,7 @@ export const refereeWorkspaceTabs:ReadonlyArray<RefereeWorkspaceTab>=
 export function refereeWorkspaceInitialTab(
   section:"upcoming"|"live"|"reports",
 ):RefereeWorkspaceTab{
-  return section==="reports"?"report":section==="live"?"scoreboard":"teams";
+  return section==="reports"?"report":"scoreboard";
 }
 export function refereeWorkspaceAllowsFinish(
   report:RefereeMatchReport|null,
