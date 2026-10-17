@@ -20,7 +20,7 @@ must(server,[
   '.where(eq(refereeMatchReports.refereeUserId,userId))',
   'finishedAt:r.finishedAt?.toISOString()??null',
   'venueId:r.venueId,venueName:r.venueName',
-  'inArray(competitionMatches.status,["COMPLETED","CORRECTED"])',
+  'if(row.report.status!=="APPROVED"',
   'this.tickets.delete(token)',
 ], "Verified/referee-scoped server career summary");
 must(metrics,[
