@@ -12,6 +12,7 @@ const pkg=JSON.parse(read("package.json"));
 for(const m of [
   'key={userId+":"+activeCenterMatch.id}',
   'initialTab={refereeWorkspaceInitialTab(selectedSub as "upcoming"|"live"|"reports")}',
+  'refereeCenterSectionForMatch(m)',
   'if(tab!=="center")setActiveCenterMatch(null)',
   'if(main==="center"&&selectedSub!==id)setActiveCenterMatch(null)',
   'main!=="overview"&&!(main==="center"&&activeCenterMatch)',
@@ -48,6 +49,7 @@ for(const m of [
 for(const m of [
   'export const refereeWorkspaceTabs',
   'export function refereeWorkspaceInitialTab(',
+  'export function refereeCenterSectionForMatch(',
   'export function refereeWorkspaceAllowsFinish(',
   'report.status==="DRAFT"',
   '(report.clock?.period??0)===2',
