@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import type {BookingDto,TeamListItemDto} from "@leaguekick/contracts";
 import {router,useFocusEffect} from "expo-router";
-import {useCallback,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Pressable,ScrollView,StyleSheet,View} from "react-native";
 import {ApiRequestError,bookingApi,playerActivityApi,teamOperationsApi,
   type PlayerActivities,type PlayerTeamEvent,type TeamAvailability} from "../../lib/api";
@@ -107,6 +107,16 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
   const [view,setView]=useState<ViewMode>("WEEK");
   const [cursor,setCursor]=useState(()=>kabulDay(new Date().toISOString()));
   const [confirmCancel,setConfirmCancel]=useState<string|null>(null);
+  const activeTokenRef=useRef(token);
+  activeTokenRef.current=token;
+  // Changing accounts must clear the previous player's filters and pending actions.
+  useEffect(()=>{
+    setBusy(null);setSuccess(null);setActivityError(null);setBookingError(null);
+    setConfirmCancel(null);setTeamFilter("ALL");setCompetitionFilter("ALL");
+    setRosterFilter("ALL");setMatchFilter("UPCOMING");setScheduleFilter("ALL");
+    setBookingFilter("UPCOMING");setView("WEEK");
+    setCursor(kabulDay(new Date().toISOString()));
+  },[token]);
 
   useFocusEffect(useCallback(()=>{
     let active=true;
@@ -201,11 +211,17 @@ export function PlayerActivityTabs({tab,token,teams}:{tab:PlayerActivityTab;toke
     setCursor(previous=>moveCalendarCursor(previous,view,direction));
   async function action(key:string,fn:()=>Promise<unknown>,after?:()=>void){
     if(busy)return;
+    const requestToken=token;
+    const stillCurrent=()=>activeTokenRef.current===requestToken;
     setBusy(key);setActivityError(null);setBookingError(null);setSuccess(null);
-    try{await fn();after?.();setSuccess(t("pd2.updated"));setReload(v=>v+1);}
-    catch(e){(tab==="bookings"?setBookingError:setActivityError)(
-      e instanceof ApiRequestError?e.message:t("pd2.actionFailed"));}
-    finally{setBusy(null);}
+    try{
+      await fn();
+      if(!stillCurrent())return;
+      after?.();setSuccess(t("pd2.updated"));setReload(v=>v+1);
+    }catch(e){
+      if(stillCurrent())(tab==="bookings"?setBookingError:setActivityError)(
+        e instanceof ApiRequestError?e.message:t("pd2.actionFailed"));
+    }finally{if(stillCurrent())setBusy(null);}
   }
   const rsvp=(activity:PlayerTeamEvent,availability:TeamAvailability)=>
     action(activity.id,()=>teamOperationsApi.rsvp(token,activity.teamId,activity.id,availability));
