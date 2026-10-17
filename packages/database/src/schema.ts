@@ -1088,6 +1088,7 @@ export const refereeProfiles=pgTable("referee_profiles",{
   level:varchar("level",{length:60}),
   experienceYears:integer("experience_years").notNull().default(0),
   biography:varchar("biography",{length:500}),
+  acceptingAssignments:boolean("accepting_assignments").notNull().default(true),
   weeklyAvailability:jsonb("weekly_availability").$type<{day:number;start:string;end:string}[]>().notNull().default([]),
   exceptions:jsonb("exceptions").$type<{date:string;available:boolean}[]>().notNull().default([]),
   updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),

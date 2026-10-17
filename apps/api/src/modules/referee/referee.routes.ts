@@ -15,13 +15,30 @@ export const refereeProfileSchema=z.object({
   level:z.string().trim().max(60).nullable(),
   experienceYears:z.number().int().min(0).max(70),
   biography:z.string().trim().max(500).nullable(),
+  acceptingAssignments:z.boolean().default(true),
   weeklyAvailability:z.array(z.object({
     day:z.number().int().min(0).max(6),start:time,end:time,
   }).refine(x=>x.end>x.start,{message:"End time must be after start."})).max(21),
   exceptions:z.array(z.object({
     date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),available:z.boolean(),
   })).max(100),
-}).strict();
+}).strict().superRefine((value,ctx)=>{
+  const uniqueDays=new Set<number>();
+  for(const entry of value.weeklyAvailability){
+    if(uniqueDays.has(entry.day))ctx.addIssue({code:"custom",path:["weeklyAvailability"],
+      message:"Only one interval may be configured for each day."});
+    uniqueDays.add(entry.day);
+  }
+  const uniqueDates=new Set<string>();
+  for(const [index,entry] of value.exceptions.entries()){
+    const parsed=new Date(entry.date+"T12:00:00Z");
+    if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==entry.date)
+      ctx.addIssue({code:"custom",path:["exceptions",index,"date"],message:"Invalid calendar date."});
+    if(uniqueDates.has(entry.date))ctx.addIssue({code:"custom",path:["exceptions",index,"date"],
+      message:"Duplicate exception date."});
+    uniqueDates.add(entry.date);
+  }
+});
 const replySchema=z.object({
   action:z.enum(["ACCEPTED","DECLINED","WITHDRAW_REQUESTED"]),
   reason:z.string().trim().max(400).optional(),
@@ -39,14 +56,14 @@ export function kabulDateParts(date:Date){
     clock:`${data.hour}:${data.minute}`};
 }
 export function availabilityAllows(start:Date,end:Date,
-  slots:RefereeAvailability[],exceptions:RefereeException[]){
-  if(!(end>start))return false;
+  slots:RefereeAvailability[],exceptions:RefereeException[],acceptingAssignments=true){
+  if(!acceptingAssignments||!(end>start))return false;
   const from=kabulDateParts(start),to=kabulDateParts(end);
   if(from.date!==to.date)return false; // Overnight availability is not implicit.
   const exception=exceptions.find(e=>e.date===from.date);
   if(exception?.available===false)return false;
   if(exception?.available===true)return true;
-  if(slots.length===0)return true; // Empty schedule means no weekly restriction.
+  if(slots.length===0)return false; // No enabled weekly days means no availability.
   return slots.some(slot=>slot.day===from.day&&slot.start<=from.clock&&slot.end>=to.clock);
 }
 
@@ -139,6 +156,7 @@ export class RefereeService{
     const [row]=await this.db.select().from(refereeProfiles).where(eq(refereeProfiles.userId,userId)).limit(1);
     return {level:row?.level??null,experienceYears:row?.experienceYears??0,
       biography:row?.biography??null,
+      acceptingAssignments:row?.acceptingAssignments??true,
       weeklyAvailability:row?.weeklyAvailability??[],
       exceptions:row?.exceptions??[]};
   }
@@ -197,7 +215,7 @@ export class RefereeService{
           throw errors.conflict("MATCH_NOT_READY","This match is no longer available for acceptance.");
         const [profile]=await tx.select().from(refereeProfiles).where(eq(refereeProfiles.userId,userId)).limit(1);
         if(!availabilityAllows(match.startsAt,match.endsAt,
-          profile?.weeklyAvailability??[],profile?.exceptions??[]))
+          profile?.weeklyAvailability??[],profile?.exceptions??[],profile?.acceptingAssignments??true))
           throw errors.conflict("REFEREE_UNAVAILABLE_TIME","Your configured availability excludes this match.");
         const conflicts=await tx.select({id:competitionMatches.id}).from(competitionMatches)
           .innerJoin(refereeMatchResponses,and(

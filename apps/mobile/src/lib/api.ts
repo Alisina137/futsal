@@ -1480,6 +1480,7 @@ export type RefereeAvailabilitySlot={day:number;start:string;end:string};
 export type RefereeAvailabilityException={date:string;available:boolean};
 export type RefereeProfile={
   level:string|null;experienceYears:number;biography:string|null;
+  acceptingAssignments:boolean;
   weeklyAvailability:RefereeAvailabilitySlot[];exceptions:RefereeAvailabilityException[];
 };
 export type RefereeVenue={

@@ -309,6 +309,13 @@
       "when": 1791970000000,
       "tag": "0043_venue_public_about",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792233600000,
+      "tag": "0044_referee_settings_availability",
+      "breakpoints": true
     }
   ]
 }

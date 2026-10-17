@@ -70,14 +70,14 @@ export function refereeCalendarWeekDays(day:string,language:LanguageCode){
   const start=refereeWeekStart(day,language);
   return Array.from({length:7},(_,index)=>refereeShiftDay(start,index));
 }
-/** Informational availability preview mirrors server rules; response API remains authoritative.
- * The empty schedule currently means unrestricted availability (legacy behavior);
- * an explicit pause/unavailable toggle is a separate Settings migration.
+/** Informational preview mirrors the server; an empty weekly schedule is unavailable.
+ * Pause takes precedence even over date exceptions. The server remains authoritative.
  */
 export function refereeAvailabilityPreview(
   match:Pick<RefereeMatch,"startsAt"|"endsAt">,
-  profile:Pick<RefereeProfile,"weeklyAvailability"|"exceptions">,
+  profile:Pick<RefereeProfile,"weeklyAvailability"|"exceptions">&Partial<Pick<RefereeProfile,"acceptingAssignments">>,
 ):RefereeAvailabilityPreview{
+  if(profile.acceptingAssignments===false)return "UNAVAILABLE";
   if(!match.startsAt||!match.endsAt)return "MISSING_SCHEDULE";
   const start=new Date(match.startsAt),end=new Date(match.endsAt);
   if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||
@@ -87,7 +87,7 @@ export function refereeAvailabilityPreview(
   const exception=profile.exceptions.find(item=>item.date===day);
   if(exception?.available===false)return "UNAVAILABLE";
   if(exception?.available===true)return "AVAILABLE";
-  if(profile.weeklyAvailability.length===0)return "AVAILABLE";
+  if(profile.weeklyAvailability.length===0)return "UNAVAILABLE";
   const timeParts=(value:Date)=>{
     const p=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",
       hour:"2-digit",minute:"2-digit",hourCycle:"h23",numberingSystem:"latn"})

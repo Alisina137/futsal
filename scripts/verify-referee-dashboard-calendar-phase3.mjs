@@ -18,7 +18,7 @@ for(const marker of [
   'export function refereeCalendarWeekDays(',
   'if(language!=="en")return careerMonthShift(anchorDay,direction)',
   'export function refereeAvailabilityPreview(',
-  'if(profile.weeklyAvailability.length===0)return "AVAILABLE"',
+  'if(profile.weeklyAvailability.length===0)return "UNAVAILABLE"',
   'slot.day===weekday&&slot.start<=begin&&slot.end>=finish',
 ])assert.ok(calendar.includes(marker),"Calendar model: "+marker);
 for(const marker of [

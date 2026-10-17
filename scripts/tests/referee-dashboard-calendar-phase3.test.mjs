@@ -80,8 +80,9 @@ test("Availability preflight mirrors server exceptions and weekly hours",()=>{
     [{date:"2026-10-17",available:false}])),"UNAVAILABLE");
   assert.equal(refereeAvailabilityPreview(afternoon,profile(saturday.weeklyAvailability,
     [{date:"2026-10-17",available:true}])),"AVAILABLE");
-  // Existing API treats zero weekly slots as unrestricted, until Phase 7 explicit pause.
-  assert.equal(refereeAvailabilityPreview(morning,profile()),"AVAILABLE");
+  // Phase 7: a paused referee or an empty weekly schedule cannot accept assignments.
+  assert.equal(refereeAvailabilityPreview(morning,profile()),"UNAVAILABLE");
+  assert.equal(refereeAvailabilityPreview(morning,{...saturday,acceptingAssignments:false}),"UNAVAILABLE");
   assert.equal(refereeAvailabilityPreview({startsAt:morning.startsAt,endsAt:null},saturday),
     "MISSING_SCHEDULE");
 });
