@@ -391,7 +391,10 @@ export function RefereeDashboard(){
         ["pending","confirmed","history"].includes(selectedSub)&&token?
         <RefereeAssignmentsPanel key={userId} assignments={assignments}
           section={selectedSub as "pending"|"confirmed"|"history"}
-          token={token} onChanged={()=>setRefresh(value=>value+1)}
+          token={token} profile={data.profile}
+          onChanged={()=>setRefresh(value=>value+1)}
+          onOpenAvailability={()=>{choose("settings");
+            setSub(previous=>({...previous,settings:"availability"}));}}
           onOpenMatch={match=>{setActiveCenterMatch(match);choose("center");
             setSub(previous=>({...previous,center:"live"}));}}/>:null}
       {main==="assignments"&&selectedSub==="calendar"?<>
