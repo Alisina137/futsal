@@ -1,5 +1,5 @@
 import type { LanguageCode } from "@leaguekick/localization";
-import {refereeKabulDay,refereeWeekStart,refereeShiftDay} from "./referee-calendar";
+import {refereeKabulDay,refereeWeekStart,refereeShiftDay} from "./referee-calendar.ts";
 
 const localeByLanguage: Record<LanguageCode, string> = {
   "fa-AF": "fa-AF",
