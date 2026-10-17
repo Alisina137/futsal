@@ -81,6 +81,12 @@ export function reportPlayerStats(events:ReadonlyArray<RefereeEvent>,match:Pick<
 
 function canEdit(status:string){return status==="DRAFT"||status==="CHANGES_REQUESTED";}
 function checksComplete(checks:typeof emptyChecks){return Object.values(checks).every(Boolean);}
+/** Used after acquiring the per-match transaction lock, never as a replacement
+ * for the initial authenticated access check. */
+export function refereeMutationAuthorized(actorStatus:string|null|undefined,
+  responseStatus:string|null|undefined,hasCurrentVenueGrant:boolean){
+  return actorStatus==="ACTIVE"&&responseStatus==="ACCEPTED"&&hasCurrentVenueGrant;
+}
 
 export class RefereePhase2Service{
   constructor(private readonly db:Database,private readonly competitionsService:CompetitionService,
@@ -176,7 +182,7 @@ export class RefereePhase2Service{
           .where(and(eq(competitions.id,fresh.competitionId),
             eq(venueReferees.userId,userId))).limit(1),
       ]);
-      if(actor?.status!=="ACTIVE"||accepted?.status!=="ACCEPTED"||!venueGrant)
+      if(!refereeMutationAuthorized(actor?.status,accepted?.status,!!venueGrant))
         throw errors.forbidden("REFEREE_AUTHORIZATION_CHANGED",
           "Your authorization to edit this match changed. Refresh before editing.");
       // Do not use the pool outside tx to initialize a report while holding the
