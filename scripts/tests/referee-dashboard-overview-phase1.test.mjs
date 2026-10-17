@@ -43,7 +43,7 @@ test("Offline event warnings survive permission revocation without exposing othe
     match("mine",{responseStatus:"ACCEPTED"}),
   ],NOW,{"revoked":3,"mine":2,"other-player":99});
   assert.deepEqual(items.filter(item=>item.kind==="UNSYNCED").map(item=>[item.match.id,item.unsyncedCount]),
-    [["revoked",3],["mine",2]]);
+    [["mine",2],["revoked",3]]);
   assert.ok(!items.some(item=>item.key.includes("other-player")));
 });
 test("Critical offline and correction alerts sort before pending invitations and match reminders",()=>{
