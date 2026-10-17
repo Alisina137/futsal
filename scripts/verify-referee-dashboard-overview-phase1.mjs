@@ -18,6 +18,9 @@ for(const text of [
   'testID="referee-overview-kpis"',
   'testID="referee-overview-attention"',
   'testID="referee-overview-refresh"',
+  'testID="referee-overview-show-more"',
+  'attention.slice(0,attentionLimit)',
+  'setOfflineChecking(Boolean(userId&&data))',
   'refereeAttentionItems(assignments,Date.now(),offlineCounts)',
   'readRefereeOffline(userId,match.id)',
   'setOfflineScanError(entries.some(([,count])=>count<0))',
@@ -43,6 +46,7 @@ for(const key of [
   "rf1.overview.invitation","rf1.overview.kickoffSoon","rf1.overview.reportCorrection",
   "rf1.overview.unsynced","rf1.overview.offlineScanError",
   "rf1.overview.additionalActions","rf1.overview.review","rf1.overview.refresh",
+  "rf1.overview.showMore","rf1.overview.checkingOffline",
 ])assert.equal(locales.split('"'+key+'"').length-1,3,"Missing English/Dari/Pashto "+key);
 assert.ok(pkg.scripts["verify:referee-dashboard-overview-phase1"]
   .includes("scripts/tests/referee-dashboard-overview-phase1.test.mjs"));
