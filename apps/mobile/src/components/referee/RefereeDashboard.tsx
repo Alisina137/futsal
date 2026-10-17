@@ -66,6 +66,8 @@ export function RefereeDashboard(){
   const [busy,setBusy]=useState<string|null>(null),[loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
   const [activeCenterMatch,setActiveCenterMatch]=useState<RefereeMatch|null>(null);
+  const [centerUnsafe,setCenterUnsafe]=useState(false);
+  const [centerExitTarget,setCenterExitTarget]=useState<Main|null>(null);
   const [exceptionDate,setExceptionDate]=useState("");
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
   const [calendarFilter,setCalendarFilter]=useState<"ALL"|"PENDING"|"CONFIRMED"|"HISTORY">("ALL");
@@ -82,7 +84,8 @@ export function RefereeDashboard(){
   useEffect(()=>{
     setMain("overview");
     setSub({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
-    setActiveCenterMatch(null);setError(null);setMessage(null);setBusy(null);
+    setActiveCenterMatch(null);setCenterUnsafe(false);setCenterExitTarget(null);
+    setError(null);setMessage(null);setBusy(null);
     setAttentionLimit(5);
   },[userId]);
   const navRef=useRef<ScrollView|null>(null),navViewport=useRef(0),navWidth=useRef(0);
@@ -146,7 +149,10 @@ export function RefereeDashboard(){
     return()=>{mounted=false;};
   },[userId,data?.assignments,refresh]);
   const choose=(tab:Main)=>{
-    if(tab!=="center")setActiveCenterMatch(null);
+    if(tab!=="center"&&activeCenterMatch&&centerUnsafe){
+      setCenterExitTarget(tab);return;
+    }
+    if(tab!=="center"){setActiveCenterMatch(null);setCenterUnsafe(false);}
     setMain(tab);focusTab(tab,true);
   };
   async function act(key:string,fn:()=>Promise<unknown>){
@@ -314,6 +320,20 @@ export function RefereeDashboard(){
           {tr(main+"."+id)}</AppText>
       </Pressable>)}
     </ScrollView>:null}
+    {centerExitTarget?<Card testID="referee-dashboard-exit-guard"
+      style={{gap:spacing.sm,borderColor:colors.warning}}>
+      <AppText weight="bold">{t("rf2.safeLeaveTitle")}</AppText>
+      <AppText variant="caption" muted>{t("rf2.safeLeaveBody")}</AppText>
+      <View style={styles.actions}>
+        <Button label={t("rf2.keepEditing")} onPress={()=>setCenterExitTarget(null)}/>
+        <Button label={t("rf2.leaveAnyway")} variant="secondary"
+          onPress={()=>{
+            const destination=centerExitTarget;
+            setCenterExitTarget(null);setCenterUnsafe(false);setActiveCenterMatch(null);
+            setMain(destination);focusTab(destination,true);
+          }}/>
+      </View>
+    </Card>:null}
     {error?<Card><AppText style={{color:colors.danger}}>{error}</AppText>
       <Button label={tr("retry")} variant="secondary" onPress={()=>setRefresh(v=>v+1)}/></Card>:null}
     {message?<Card style={{backgroundColor:colors.primarySoft}}><AppText>{message}</AppText></Card>:null}
@@ -507,7 +527,9 @@ export function RefereeDashboard(){
       {main==="center"&&activeCenterMatch?<RefereeMatchCenter
         key={userId+":"+activeCenterMatch.id} match={activeCenterMatch}
         initialTab={refereeWorkspaceInitialTab(selectedSub as "upcoming"|"live"|"reports")}
-        onClose={()=>{setActiveCenterMatch(null);setRefresh(v=>v+1);}}/>:null}
+        onRiskChange={setCenterUnsafe}
+        onClose={()=>{setCenterUnsafe(false);setCenterExitTarget(null);
+          setActiveCenterMatch(null);setRefresh(v=>v+1);}}/>:null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="upcoming"?
         (future.length?future.map(card):<Card><AppText muted>{tr("noUpcoming")}</AppText></Card>):null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="live"?
