@@ -7,6 +7,7 @@ import {Image,Pressable,ScrollView,StyleSheet,View,useWindowDimensions,type Layo
 import {ApiRequestError,playerDashboardApi,teamApi,resolveMediaImageUrl,
   type PlayerDashboardOverview,type PlayerDashboardPreferences} from "../../lib/api";
 import {formatCompetitionDateTime} from "../../lib/date-time";
+import {careerDateTime} from "../../lib/player-career-view";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -114,7 +115,7 @@ export function PlayerDashboard(){
   const {height:viewportHeight}=useWindowDimensions();
   const token=session?.accessToken;
   const tr=(key:string)=>t(`pd1.${key}` as never);
-  const date=(s:string)=>formatCompetitionDateTime(s,language);
+  const date=(s:string)=>language==="en"?formatCompetitionDateTime(s,language):careerDateTime(s,language);
   const [tab,setTab]=useState<Section>("overview");
   const [activityTab,setActivityTab]=useState<ActivityTab>("competitions");
   const [careerTab,setCareerTab]=useState<CareerTab>("statistics");
