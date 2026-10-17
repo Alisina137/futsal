@@ -113,7 +113,11 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
             <Button label={tr("ownerConfirmAction")} disabled={busy!==null||
               reviewConfirmation.action==="RETURN"&&feedback.trim().length<3}
               loading={busy===report.matchId}
-              onPress={()=>void review(report.matchId,reviewConfirmation.action)}/>
+              onPress={()=>{
+                const decision=reviewConfirmation;
+                if(!decision||decision.matchId!==report.matchId)return;
+                void review(report.matchId,decision.action);
+              }}/>
             <Button label={tr("cancel")} variant="secondary"
               disabled={busy!==null} onPress={()=>setReviewConfirmation(null)}/>
           </View>
