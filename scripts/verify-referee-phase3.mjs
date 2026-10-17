@@ -2,6 +2,7 @@ import fs from "node:fs";
 const read=p=>fs.readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const check=(ok,msg)=>{if(!ok)throw new Error(msg);};
 const core=read("apps/api/src/modules/referee/referee-career.routes.ts");
+const careerCalendar=read("apps/api/src/modules/referee/referee-career-calendar.ts");
 const pdf=read("apps/api/src/modules/referee/referee-report-pdf.ts");
 const server=read("apps/api/src/server.ts"),app=read("apps/api/src/app.ts");
 const recorder=read("apps/mobile/src/components/referee/RefereeMatchCenter.tsx");
@@ -16,9 +17,11 @@ check(app.includes("createRefereeCareerRouter")&&server.includes("new RefereeCar
   "Referee career and secure report export routes not wired.");
 for(const phrase of ["randomBytes(32)","this.tickets.delete(token)","row.report.status!==\"APPROVED\"",
   "REFEREE_PDF_FORBIDDEN","REFEREE_PDF_NOT_APPROVED",'["COMPLETED","CORRECTED"].includes(r.matchStatus)',
-  "careerSummary(","Asia/Kabul","monthly","history:verified"]){
+  "careerSummary(","monthly","history:verified"]){
   check(core.includes(phrase),"Career/report security invariant missing: "+phrase);
 }
+check(careerCalendar.includes("Asia/Kabul")&&careerCalendar.includes("persian"),
+  "Career calendar must be Kabul-local and support Solar Hijri when available.");
 check(pdf.includes("%PDF-1.4")&&pdf.includes("full-report.txt")&&
   pdf.includes("EmbeddedFiles")&&pdf.includes("Buffer.from"),
   "PDF renderer must generate pages and preserve original Unicode as attachment.");
