@@ -329,6 +329,7 @@ export function RefereeDashboard(){
         <Button label={t("rf2.leaveAnyway")} variant="secondary"
           onPress={()=>{
             const destination=centerExitTarget;
+            if(!destination)return;
             setCenterExitTarget(null);setCenterUnsafe(false);setActiveCenterMatch(null);
             setMain(destination);focusTab(destination,true);
           }}/>
