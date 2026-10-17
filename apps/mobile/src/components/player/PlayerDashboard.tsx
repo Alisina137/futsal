@@ -158,6 +158,8 @@ export function PlayerDashboard(){
   // Restore the previous nested section when returning from another tab.
   useEffect(()=>{
     setBusy(null);
+    // Reset the section when another player signs in.
+    setTab("overview");
     setLoadedActor(null);setData(null);setDirectory([]);
     preferencesDirtyRef.current=false;
     setPreferences(emptyPreferences);setSavedPreferences(emptyPreferences);
@@ -196,10 +198,16 @@ export function PlayerDashboard(){
 
   async function perform(key:string,operation:()=>Promise<unknown>,after?:()=>void){
     if(busy||!token)return;
+    const actorId=session?.user.id;
+    const stillCurrent=()=>actorIdRef.current===actorId;
     setBusy(key);setError(null);setMessage(null);
-    try{await operation();after?.();setMessage(t("pd1.saved"));setRefresh(v=>v+1);}
-    catch(e){setError(e instanceof ApiRequestError?e.message:t("pd1.actionFailed"));}
-    finally{setBusy(null);}
+    try{
+      await operation();
+      if(!stillCurrent())return;
+      after?.();setMessage(t("pd1.saved"));setRefresh(v=>v+1);
+    }catch(e){
+      if(stillCurrent())setError(e instanceof ApiRequestError?e.message:t("pd1.actionFailed"));
+    }finally{if(stillCurrent())setBusy(null);}
   }
   const settingsDirty=playerPreferencesChanged(preferences,savedPreferences);
   const editPreferences=(patch:Partial<PlayerDashboardPreferences>)=>{
