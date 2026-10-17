@@ -9,6 +9,9 @@ import {useLocale} from "../../providers/LocaleProvider";
 import {useNetwork} from "../../providers/NetworkProvider";
 import {cacheRefereeMatch,enqueueRefereeEvent,readRefereeOffline,
   stagedScore,syncRefereeOffline,type StagedRefereeEvent} from "../../lib/referee-offline";
+import {refereeMatchEventTotals,refereeTeamRoster,
+  refereeWorkspaceAllowsFinish,refereeWorkspaceTabs,type RefereeWorkspaceTab}
+  from "../../lib/referee-match-center";
 import {AppText} from "../ui/AppText";
 import {Button} from "../ui/Button";
 import {Card} from "../ui/Card";
@@ -26,7 +29,9 @@ function eventId(){
 }
 function clockText(seconds:number){const n=Math.max(0,Math.floor(seconds));
   return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");}
-export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:()=>void}){
+export function RefereeMatchCenter({match,onClose,initialTab="scoreboard"}:{
+  match:RefereeMatch;onClose:()=>void;initialTab?:RefereeWorkspaceTab;
+}){
   const {session}=useAuth(),{t,isRTL}=useLocale();
   const {isOnline,apiReachable,apiReconnectVersion}=useNetwork();
   const connected=isOnline&&apiReachable!==false;
@@ -36,6 +41,8 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
   const [message,setMessage]=useState<string|null>(null);
   const [summary,setSummary]=useState("");
+  const [workspaceTab,setWorkspaceTab]=useState<RefereeWorkspaceTab>(initialTab);
+  const [confirmFinish,setConfirmFinish]=useState(false);
   const [editingKind,setEditingKind]=useState<Kind|null>(null);
   const [side,setSide]=useState<"HOME"|"AWAY">("HOME");
   const [player,setPlayer]=useState<string|null>(null),[details,setDetails]=useState("");
@@ -90,6 +97,8 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
     ...pending.filter(e=>!(report?.events??[]).some(saved=>saved.id===e.id)),
   ];
   const scores=stagedScore(visibleEvents);
+  const eventTotals=refereeMatchEventTotals(visibleEvents);
+  const canFinish=refereeWorkspaceAllowsFinish(report,pending.length,connected,busy);
   const fouls=(s:"HOME"|"AWAY")=>visibleEvents.filter(e=>
     e.kind==="FOUL"&&e.side===s&&e.period===clock.period).length;
   const repeatCautions=visibleEvents.filter(e=>e.kind==="YELLOW_CARD"&&e.playerUserId)
@@ -143,7 +152,9 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
   }
   const roster=data?.roster??[];
   const selectedTeam=side==="HOME"?data?.match.homeTeamId:data?.match.awayTeamId;
-  const players=roster.filter(p=>p.teamId===selectedTeam);
+  const players=refereeTeamRoster(roster,selectedTeam??null);
+  const homePlayers=refereeTeamRoster(roster,data?.match.homeTeamId??null);
+  const awayPlayers=refereeTeamRoster(roster,data?.match.awayTeamId??null);
   const allowsPlayer=editingKind==="GOAL"||editingKind==="YELLOW_CARD"||
     editingKind==="RED_CARD"||editingKind==="SUBSTITUTION";
   const status=report?.status??"DRAFT";
@@ -171,6 +182,26 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
       {report?.feedback?<AppText variant="caption" style={{color:colors.warning}}>
         {tr("reviewFeedback")}: {report.feedback}</AppText>:null}
     </Card>
+    <Card testID="referee-workspace-tabs" style={styles.workspaceCard}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.workspaceTabs,
+          {flexDirection:isRTL?"row-reverse":"row"}]}>
+        {refereeWorkspaceTabs.map(tab=><Pressable
+          key={tab} testID={"referee-workspace-"+tab}
+          accessibilityRole="tab"
+          accessibilityState={{selected:workspaceTab===tab}}
+          style={[styles.workspaceTab,workspaceTab===tab&&styles.workspaceTabActive]}
+          onPress={()=>{setWorkspaceTab(tab);setEditingKind(null);setConfirmFinish(false);}}>
+          <Ionicons name={tab==="scoreboard"?"timer-outline":tab==="events"?"list-outline":
+            tab==="teams"?"people-outline":"document-text-outline"} size={20}
+            color={workspaceTab===tab?colors.primary:colors.textMuted}/>
+          <AppText weight="semibold" variant="caption"
+            style={workspaceTab===tab?{color:colors.primary}:undefined}>
+            {tr("workspace."+tab)}
+          </AppText>
+        </Pressable>)}
+      </ScrollView>
+    </Card>
     {(pending.length>0||!connected)?<Card style={{gap:spacing.sm}}>
       <AppText weight="semibold" style={{color:colors.primary}}>
         {connected?tr("pendingCount")+": "+pending.length:tr("offlineMode")}</AppText>
@@ -182,7 +213,7 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
       <Button label={tr("retry")} variant="secondary" onPress={()=>void load()}/></Card>:null}
     {message?<AppText variant="caption" style={{color:colors.success}}>{message}</AppText>:null}
     {loading?<DataLoadingState variant="dashboard" minHeight={260}/>:data?<>
-      {canStart?<Card style={{gap:spacing.md}}>
+      {workspaceTab==="scoreboard"&&canStart?<Card style={{gap:spacing.md}}>
         <AppText variant="bodyLarge" weight="bold">{tr("checklist")}</AppText>
         {(["homePresent","awayPresent","rosterChecked","venueReady"] as const).map(key=>{
           const checks=report?.checks??{homePresent:false,awayPresent:false,rosterChecked:false,venueReady:false};
@@ -199,7 +230,7 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
           !Object.values(report.checks).every(Boolean)}
           onPress={()=>void perform(()=>refereePhase2Api.clock(token!,match.id,"START",report!.revision))}/>
       </Card>:null}
-      {active?<Card style={{gap:spacing.sm}}>
+      {workspaceTab==="scoreboard"&&active?<Card style={{gap:spacing.sm}}>
         <AppText variant="bodyLarge" weight="bold">{tr("clockControls")}</AppText>
         <View style={styles.actions}>
           <Button label={clock.runningSince?tr("pause"):tr("resume")} disabled={busy||!connected||pending.length>0}
@@ -208,11 +239,48 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
           {clock.period===1?<Button label={tr("secondPeriod")} variant="secondary"
             disabled={busy||!connected||pending.length>0||!!clock.runningSince} onPress={()=>void perform(()=>
               refereePhase2Api.clock(token!,match.id,"NEXT_PERIOD",report!.revision))}/>:null}
-          <Button label={tr("finishMatch")} variant="danger" disabled={busy||!connected||pending.length>0}
-            onPress={()=>void perform(()=>refereePhase2Api.clock(token!,match.id,"FINISH",report!.revision))}/>
+          <Button label={tr("finishMatch")} variant="danger" disabled={!canFinish}
+            onPress={()=>setConfirmFinish(true)}/>
         </View>
+        {clock.period===1?<AppText variant="caption" muted>
+          {tr("finishAfterSecondPeriod")}</AppText>:null}
+        {confirmFinish?<Card testID="referee-finish-confirmation" style={styles.confirmation}>
+          <AppText weight="bold" variant="bodyLarge">{tr("confirmFinishTitle")}</AppText>
+          <AppText variant="caption" muted>{tr("confirmFinishBody")}</AppText>
+          <AppText weight="bold" forceLtr>
+            {match.homeTeamName} {scores.homeScore} : {scores.awayScore} {match.awayTeamName}
+          </AppText>
+          <View style={styles.actions}>
+            <Button label={tr("confirmFinish")} variant="danger" disabled={!canFinish}
+              onPress={()=>{setConfirmFinish(false);
+                void perform(()=>refereePhase2Api.clock(token!,match.id,"FINISH",report!.revision));}}/>
+            <Button label={tr("cancel")} variant="secondary" onPress={()=>setConfirmFinish(false)}/>
+          </View>
+        </Card>:null}
       </Card>:null}
-      {recording?<Card style={{gap:spacing.md}}>
+      {workspaceTab==="teams"?<Card testID="referee-workspace-teams"
+        style={{gap:spacing.md}}>
+        <AppText variant="bodyLarge" weight="bold">{tr("teamsTitle")}</AppText>
+        <AppText variant="caption" muted>{tr("teamsHint")}</AppText>
+        {([["HOME",match.homeTeamName,homePlayers],
+            ["AWAY",match.awayTeamName,awayPlayers]] as const)
+          .map(([team,teamName,members])=><View key={team}
+          style={styles.teamGroup}>
+          <View style={[styles.teamHeader,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <AppText weight="bold" style={{flex:1}}>{teamName}</AppText>
+            <AppText variant="caption" muted>
+              {tr("rosterCount")}: {members.length}</AppText>
+          </View>
+          {!members.length?<AppText muted>{tr("rosterEmpty")}</AppText>:null}
+          {members.map(member=><View key={team+":"+member.userId}
+            style={[styles.rosterRow,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <AppText weight="semibold" style={styles.shirtLabel}>
+              {member.shirtNumber??"–"}</AppText>
+            <AppText style={{flex:1}}>{member.name}</AppText>
+          </View>)}
+        </View>)}
+      </Card>:null}
+      {workspaceTab==="events"&&recording?<Card style={{gap:spacing.md}}>
         <AppText variant="bodyLarge" weight="bold">{tr("recordEvent")}</AppText>
         <View style={styles.actions}>{kinds.map(kind=><Pressable key={kind}
           accessibilityRole="button" onPress={()=>{setEditingKind(kind);setPlayer(null);setAssistingUserId(null);setDetails("");}}
@@ -254,8 +322,12 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
           </View>
         </View>:null}
       </Card>:null}
-      <Card style={{gap:spacing.sm}}>
+      {workspaceTab==="events"?<Card testID="referee-workspace-events" style={{gap:spacing.sm}}>
         <AppText variant="bodyLarge" weight="bold">{tr("timeline")}</AppText>
+        <AppText variant="caption" muted>
+          {tr("eventCount")}: {visibleEvents.length} · {tr("kind.GOAL")}: {eventTotals.GOAL}
+          {" · "}{tr("kind.FOUL")}: {eventTotals.FOUL}
+        </AppText>
         {!visibleEvents.length?<AppText muted>{tr("noEvents")}</AppText>:null}
         {visibleEvents.slice().reverse().map(event=><View key={event.id} style={styles.event}>
           <View style={{flex:1}}>
@@ -286,8 +358,14 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
             <Button label={tr("cancel")} variant="secondary" onPress={()=>setDeleteId(null)}/>
           </View>
         </View>:null}
-      </Card>
-      {report?.finishedAt?<Card style={{gap:spacing.md}}>
+      </Card>:null}
+      {workspaceTab==="report"&&!report?.finishedAt?<Card testID="referee-report-not-ready">
+        <AppText variant="bodyLarge" weight="bold">{tr("officialReport")}</AppText>
+        <AppText muted>{tr("reportNotReady")}</AppText>
+        <Button variant="secondary" label={tr("workspace.scoreboard")}
+          onPress={()=>setWorkspaceTab("scoreboard")}/>
+      </Card>:null}
+      {workspaceTab==="report"&&report?.finishedAt?<Card style={{gap:spacing.md}}>
         <AppText variant="bodyLarge" weight="bold">{tr("officialReport")}</AppText>
         <AppText weight="semibold">{tr("finalScore")}: {scores.homeScore} – {scores.awayScore}</AppText>
         <TextField label={tr("summary")} multiline value={summary}
@@ -305,6 +383,19 @@ export function RefereeMatchCenter({match,onClose}:{match:RefereeMatch;onClose:(
   </View>;
 }
 const styles=StyleSheet.create({
+  workspaceCard:{paddingHorizontal:spacing.xs,paddingVertical:spacing.xs},
+  workspaceTabs:{gap:spacing.xs,alignItems:"center"},
+  workspaceTab:{minWidth:110,minHeight:46,alignItems:"center",justifyContent:"center",
+    gap:spacing.xs,paddingHorizontal:spacing.sm,paddingVertical:spacing.sm,
+    borderBottomWidth:3,borderBottomColor:"transparent",borderRadius:radius.sm},
+  workspaceTabActive:{backgroundColor:colors.primarySoft,borderBottomColor:colors.primary},
+  confirmation:{gap:spacing.md,backgroundColor:colors.primarySoft,borderColor:colors.danger},
+  teamGroup:{gap:spacing.sm,paddingVertical:spacing.sm},
+  teamHeader:{alignItems:"center",gap:spacing.sm,borderBottomWidth:1,
+    borderBottomColor:colors.border,paddingBottom:spacing.sm},
+  rosterRow:{alignItems:"center",gap:spacing.md,paddingVertical:spacing.xs},
+  shirtLabel:{width:42,textAlign:"center",backgroundColor:colors.primarySoft,
+    borderRadius:radius.sm,paddingVertical:spacing.sm,color:colors.primary},
   scoreRow:{alignItems:"center",gap:spacing.sm},
   clockRow:{flexDirection:"row",gap:spacing.md,alignItems:"center",flexWrap:"wrap"},
   actions:{flexDirection:"row",flexWrap:"wrap",alignItems:"center",gap:spacing.sm},
