@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {refereeReportMetrics} from "../../apps/api/src/modules/referee/referee-career-metrics.ts";
+import {careerCalendarParts,careerCalendarMonths,supportedCareerCalendar}
+  from "../../apps/api/src/modules/referee/referee-career-calendar.ts";
 import {refereeHistoryOutcome,refereeHistoryLocalMonth,refereeHistoryFilter,
   refereeHistoryOptions} from "../../apps/mobile/src/lib/referee-career-view.ts";
 
@@ -14,6 +16,25 @@ const match=(id,patch={})=>({
   homeName:"Eagles",awayName:"Falcons",
   finishedAt:"2026-10-17T19:30:00Z",
   homeScore:2,awayScore:1,...patch,
+});
+test("Kabul month boundary rolls forward after 19:30 UTC",()=>{
+  assert.equal(careerCalendarParts(date("2026-09-30T18:00:00Z")).month,"2026-09");
+  assert.equal(careerCalendarParts(date("2026-09-30T20:00:00Z")).month,"2026-10");
+});
+test("12 consecutive Gregorian performance buckets cover previous year",()=>{
+  const buckets=careerCalendarMonths(date("2026-01-17T08:00:00Z"));
+  assert.equal(buckets.length,12);
+  assert.equal(buckets[0],"2025-02");
+  assert.equal(buckets[11],"2026-01");
+});
+test("Solar Hijri annual and month buckets follow Nowruz when supported",{
+  skip:supportedCareerCalendar("persian")!=="persian",
+},()=>{
+  assert.equal(careerCalendarParts(date("2026-03-20T07:00:00Z"),"persian").month,"1404-12");
+  assert.equal(careerCalendarParts(date("2026-03-21T07:00:00Z"),"persian").month,"1405-01");
+  const buckets=careerCalendarMonths(date("2026-03-21T07:00:00Z"),"persian");
+  assert.equal(buckets[11],"1405-01");
+  assert.equal(buckets[10],"1404-12");
 });
 test("Submission ratio uses all finished reports, not only approved ones",()=>{
   const r=refereeReportMetrics([
