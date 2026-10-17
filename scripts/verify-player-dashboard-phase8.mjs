@@ -54,7 +54,7 @@ for(const marker of ['session?.user.emailVerified===true',
   has(dashboard,marker,"access control");
 for(const [source,markers] of [
   [profileApi,['requireAuth(tokens)','getOwnProfile(userId)']],
-  [activityApi,['requireAuth(tokens)','req.auth!.userId']],
+  [activityApi,['requireAuth(tokens)','request.auth!.userId']],
   [careerApi,['requireAuth(tokens)','getOwnProfile(userId)']],
 ])for(const marker of markers)has(source,marker,"authenticated APIs");
 // 8.8 — Async requests and partial data do not bleed across accounts.
