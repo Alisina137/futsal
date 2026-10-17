@@ -23,6 +23,7 @@ import {TextField} from "../ui/TextField";
 import {RefereeMatchCenter} from "./RefereeMatchCenter";
 import {RefereeCareerPanel} from "./RefereeCareerPanel";
 import {RefereeAssignmentsPanel} from "./RefereeAssignmentsPanel";
+import {refereeWorkspaceInitialTab} from "../../lib/referee-match-center";
 
 type Main="overview"|"assignments"|"center"|"stats"|"settings";
 const tabs:{id:Main;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -500,7 +501,7 @@ export function RefereeDashboard(){
       </>:null}
       {main==="center"&&activeCenterMatch?<RefereeMatchCenter
         key={userId+":"+activeCenterMatch.id} match={activeCenterMatch}
-        initialTab={selectedSub==="reports"?"report":selectedSub==="upcoming"?"teams":"scoreboard"}
+        initialTab={refereeWorkspaceInitialTab(selectedSub as "upcoming"|"live"|"reports")}
         onClose={()=>{setActiveCenterMatch(null);setRefresh(v=>v+1);}}/>:null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="upcoming"?
         (future.length?future.map(card):<Card><AppText muted>{tr("noUpcoming")}</AppText></Card>):null}
