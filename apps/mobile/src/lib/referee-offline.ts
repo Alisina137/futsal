@@ -1,4 +1,5 @@
 import {partitionRefereeReplay} from "@leaguekick/contracts";
+import {refereeScopedUuid,validOfflineEvent,validRefereeOfflineRecord} from "./referee-offline-safety";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {refereePhase2Api,type RefereeMatchEvent,type RefereeMatchReport,
   type RefereeReportMatch,type RefereeReportMember} from "./api";
@@ -15,7 +16,7 @@ const prefix="futsal.referee.offline.v1.";
 const locks=new Map<string,Promise<unknown>>();
 const maxPending=120;
 export function refereeOfflineKey(userId:string,matchId:string){
-  if(!/^[0-9a-f-]{36}$/i.test(userId)||!/^[0-9a-f-]{36}$/i.test(matchId))
+  if(!refereeScopedUuid(userId)||!refereeScopedUuid(matchId))
     throw new Error("Invalid offline record scope.");
   return prefix+userId+"."+matchId;
 }
@@ -27,11 +28,7 @@ async function load(userId:string,matchId:string):Promise<RefereeOfflineRecord>{
   if(!raw)return blank(userId,matchId);
   try{
     const decoded=JSON.parse(raw) as RefereeOfflineRecord;
-    if(decoded.version!==1||decoded.userId!==userId||decoded.matchId!==matchId||
-      !Array.isArray(decoded.pending)||decoded.pending.length>maxPending||
-      decoded.cached!==null&&typeof decoded.cached!=="object"||
-      decoded.summaryDraft!==undefined&&decoded.summaryDraft!==null&&
-      (typeof decoded.summaryDraft!=="string"||decoded.summaryDraft.length>2000))
+    if(!validRefereeOfflineRecord(decoded,userId,matchId))
       throw new Error("Invalid saved record.");
     return decoded;
   }catch{
@@ -88,8 +85,7 @@ export async function enqueueRefereeEvent(userId:string,matchId:string,event:Sta
     if(existing.pending.some(item=>item.id===event.id))return existing;
     if(existing.pending.length>=maxPending)
       throw new Error("Offline event queue is full. Reconnect before recording more.");
-    if(!Number.isInteger(event.elapsedSeconds)||event.elapsedSeconds<0||
-      event.elapsedSeconds>10800||event.details.length>400)
+    if(!validOfflineEvent(event))
       throw new Error("Offline event data is invalid.");
     const next={...existing,pending:[...existing.pending,event]};
     // Write-ahead: durable before attempting a network request. Retries keep the UUID.
