@@ -14,6 +14,7 @@ import {refereeReportCanEdit,refereeReportCanSubmit,
   refereeReportNeedsChanges,refereeReportUnsavedSummary,
   refereeReportNeedsExitWarning} from "../../lib/referee-report-workflow";
 import {formatRefereeScheduleParts} from "../../lib/date-time";
+import {refereeOverviewRecovery} from "../../lib/referee-dashboard-safety";
 import {refereeMatchEventTotals,refereeTeamRoster,
   refereeWorkspaceAllowsFinish,refereeWorkspaceTabs,type RefereeWorkspaceTab}
   from "../../lib/referee-match-center";
@@ -79,13 +80,16 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
   const load=useCallback(async()=>{
     if(!token||!userId)return;
     setLoading(true);
+    let cachedSnapshot:MatchData|null=null;
     try{
       const scope=userId+":"+match.id+":"+token;
       const initialEditGeneration=editGeneration.current;
       const local=await readRefereeOffline(userId,match.id);
       if(!alive.current||accountScope.current!==scope)return;
       setPending(local.pending);
-      if(local.cached){
+      cachedSnapshot=local.cached;
+      // Online cache is not proof that the referee remains authorized.
+      if(local.cached&&!connected){
         setData(local.cached);
         const localSummary=refereeReportCanEdit(local.cached.report)&&
           local.summaryDraft!==null&&local.summaryDraft!==undefined?
@@ -111,8 +115,17 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
       }
       setError(null);
       await cacheRefereeMatch(userId,match.id,value);
-    }catch(e){setError(e instanceof Error?e.message:tr("loadFailed"));}
-    finally{setLoading(false);}
+    }catch(e){
+      if(!alive.current)return;
+      if(refereeOverviewRecovery(e)==="OFFLINE"&&cachedSnapshot){
+        setData(cachedSnapshot);
+        setMessage(tr("offlineSnapshot"));
+      }else{
+        setData(null);
+      }
+      setError(e instanceof Error?e.message:tr("loadFailed"));
+    }
+    finally{if(alive.current)setLoading(false);}
   },[token,userId,match.id,t,connected]);
   useEffect(()=>{void load();},[load]);
   const synchronize=useCallback(async()=>{
