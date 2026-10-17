@@ -67,6 +67,7 @@ export function RefereeDashboard(){
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
   const [activeCenterMatch,setActiveCenterMatch]=useState<RefereeMatch|null>(null);
   const [centerUnsafe,setCenterUnsafe]=useState(false);
+  const [centerSaving,setCenterSaving]=useState(false);
   const [centerExitTarget,setCenterExitTarget]=useState<Main|null>(null);
   const [exceptionDate,setExceptionDate]=useState("");
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
@@ -84,7 +85,8 @@ export function RefereeDashboard(){
   useEffect(()=>{
     setMain("overview");
     setSub({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
-    setActiveCenterMatch(null);setCenterUnsafe(false);setCenterExitTarget(null);
+    setActiveCenterMatch(null);setCenterUnsafe(false);setCenterSaving(false);
+    setCenterExitTarget(null);
     setError(null);setMessage(null);setBusy(null);
     setAttentionLimit(5);
   },[userId]);
@@ -152,7 +154,7 @@ export function RefereeDashboard(){
     if(tab!=="center"&&activeCenterMatch&&centerUnsafe){
       setCenterExitTarget(tab);return;
     }
-    if(tab!=="center"){setActiveCenterMatch(null);setCenterUnsafe(false);}
+    if(tab!=="center"){setActiveCenterMatch(null);setCenterUnsafe(false);setCenterSaving(false);}
     setMain(tab);focusTab(tab,true);
   };
   async function act(key:string,fn:()=>Promise<unknown>){
@@ -327,10 +329,11 @@ export function RefereeDashboard(){
       <View style={styles.actions}>
         <Button label={t("rf2.keepEditing")} onPress={()=>setCenterExitTarget(null)}/>
         <Button label={t("rf2.leaveAnyway")} variant="secondary"
-          onPress={()=>{
+          disabled={centerSaving} onPress={()=>{
             const destination=centerExitTarget;
             if(!destination)return;
-            setCenterExitTarget(null);setCenterUnsafe(false);setActiveCenterMatch(null);
+            setCenterExitTarget(null);setCenterUnsafe(false);setCenterSaving(false);
+            setActiveCenterMatch(null);
             setMain(destination);focusTab(destination,true);
           }}/>
       </View>
@@ -528,8 +531,8 @@ export function RefereeDashboard(){
       {main==="center"&&activeCenterMatch?<RefereeMatchCenter
         key={userId+":"+activeCenterMatch.id} match={activeCenterMatch}
         initialTab={refereeWorkspaceInitialTab(selectedSub as "upcoming"|"live"|"reports")}
-        onRiskChange={setCenterUnsafe}
-        onClose={()=>{setCenterUnsafe(false);setCenterExitTarget(null);
+        onRiskChange={(unsafe,saving)=>{setCenterUnsafe(unsafe);setCenterSaving(saving);}}
+        onClose={()=>{setCenterUnsafe(false);setCenterSaving(false);setCenterExitTarget(null);
           setActiveCenterMatch(null);setRefresh(v=>v+1);}}/>:null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="upcoming"?
         (future.length?future.map(card):<Card><AppText muted>{tr("noUpcoming")}</AppText></Card>):null}
