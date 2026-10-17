@@ -34,8 +34,9 @@ export function refereeAssignmentHistoryStatus(match:RefereeMatch,nowMs:number):
   if(match.matchStatus==="POSTPONED")return "POSTPONED";
   if(["COMPLETED","CORRECTED"].includes(match.matchStatus))return "COMPLETED";
   if(!match.authorized)return "REVOKED";
+  const start=validStart(match);
   if(match.responseStatus==="PENDING"&&
-    (validStart(match)===null||validStart(match)!<=nowMs))return "EXPIRED";
+    (start===null||start<=nowMs))return "EXPIRED";
   return "OTHER";
 }
 
