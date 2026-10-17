@@ -9,6 +9,9 @@ import {ApiRequestError,refereeApi,type RefereeMatch,type RefereeOverview,type R
 import {readRefereeOffline} from "../../lib/referee-offline";
 import {refereeAttentionItems,type RefereeAttentionItem} from "../../lib/referee-overview";
 import {formatRefereeScheduleParts,formatRefereeCalendarPeriod} from "../../lib/date-time";
+import {refereeKabulDay,refereeCalendarIncludes,refereeCalendarMove,
+  refereeCalendarWeekDays,refereeAvailabilityPreview} from "../../lib/referee-calendar";
+import {refereeAssignmentTimeConflict,refereeAssignmentSection} from "../../lib/referee-assignments";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -64,6 +67,7 @@ export function RefereeDashboard(){
   const [activeCenterMatch,setActiveCenterMatch]=useState<RefereeMatch|null>(null);
   const [exceptionDate,setExceptionDate]=useState("");
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
+  const [calendarFilter,setCalendarFilter]=useState<"ALL"|"PENDING"|"CONFIRMED"|"HISTORY">("ALL");
   const [calendarAnchor,setCalendarAnchor]=useState(new Date());
   const [refresh,setRefresh]=useState(0);
   const [offlineCounts,setOfflineCounts]=useState<Record<string,number>>({});
@@ -177,35 +181,28 @@ export function RefereeDashboard(){
     ["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"].includes(a.reportStatus));
   const future=upcoming.filter(a=>!!a.startsAt&&Date.parse(a.startsAt)>Date.now());
   const selectedSub=sub[main]??"";
-  const kabulDay=(value:Date)=>{
-    const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",
-      year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(value);
-    const data=Object.fromEntries(parts.map(p=>[p.type,p.value]));
-    return `${data.year}-${data.month}-${data.day}`;
-  };
-  const calendarKey=kabulDay(calendarAnchor);
+  const calendarKey=refereeKabulDay(calendarAnchor)??refereeKabulDay(new Date())!;
   const calendarPeriod=formatRefereeCalendarPeriod(calendarAnchor,calendarView,language);
-  const getWeek=(key:string)=>{
-    const date=new Date(key+"T00:00:00Z");
-    const weekday=(date.getUTCDay()+6)%7;
-    date.setUTCDate(date.getUTCDate()-weekday);
-    return date.toISOString().slice(0,10);
-  };
   const shiftCalendar=(direction:number)=>{
     setCalendarAnchor(current=>{
-      const result=new Date(current.getTime());
-      if(calendarView==="month")result.setUTCMonth(result.getUTCMonth()+direction);
-      else result.setUTCDate(result.getUTCDate()+(calendarView==="week"?7:1)*direction);
-      return result;
+      const day=refereeKabulDay(current);
+      if(!day)return current;
+      const next=refereeCalendarMove(day,calendarView,direction,language);
+      return new Date(next+"T12:00:00Z");
     });
   };
-  const calendarItems=assignments.filter(m=>{
-    if(!m.startsAt)return false;
-    const day=kabulDay(new Date(m.startsAt));
-    if(calendarView==="day")return day===calendarKey;
-    if(calendarView==="week")return getWeek(day)===getWeek(calendarKey);
-    return day.slice(0,7)===calendarKey.slice(0,7);
-  });
+  const calendarMatches=assignments.filter(m=>
+    !!m.startsAt&&refereeCalendarIncludes(m.startsAt,calendarKey,calendarView,language))
+    .sort((a,b)=>(a.startsAt??"").localeCompare(b.startsAt??"")||a.id.localeCompare(b.id));
+  const calendarStatus=(m:RefereeMatch)=>{
+    const section=refereeAssignmentSection(m,Date.now());
+    return section==="pending"?"PENDING":section==="confirmed"?"CONFIRMED":"HISTORY";
+  };
+  const calendarItems=calendarMatches.filter(m=>calendarFilter==="ALL"||
+    calendarStatus(m)===calendarFilter);
+  const calendarWeekDays=refereeCalendarWeekDays(calendarKey,language);
+  const calendarDayLabel=(day:string)=>formatRefereeCalendarPeriod(
+    new Date(day+"T12:00:00Z"),"day",language);
   function scheduledDateTime(value:string|null,durationMinutes?:number){
     if(!value)return <AppText variant="caption" muted>{tr("notSet")}</AppText>;
     const parts=formatRefereeScheduleParts(value,language);
@@ -230,7 +227,13 @@ export function RefereeDashboard(){
     if(!current)return;
     changeProfile({weeklyAvailability:draft.weeklyAvailability.map(x=>x.day===day?{...x,[field]:value}:x)});
   };
-  function card(m:RefereeMatch){
+  function card(m:RefereeMatch,showCalendarWarnings=false){
+    const conflict=showCalendarWarnings&&m.authorized&&
+      ["PENDING","ACCEPTED"].includes(m.responseStatus)?
+      refereeAssignmentTimeConflict(m,assignments):null;
+    const availability=showCalendarWarnings&&data?.profile&&
+      m.authorized&&refereeAssignmentSection(m,Date.now())==="pending"?
+      refereeAvailabilityPreview(m,data.profile):null;
     return <Card key={m.id} style={{gap:spacing.sm}}>
       <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
         <View style={{flex:1}}>
@@ -240,6 +243,21 @@ export function RefereeDashboard(){
         <StatusBadge status={m.responseStatus}/>
       </View>
       {scheduledDateTime(m.startsAt,m.durationMinutes)}
+      {showCalendarWarnings&&conflict?<View style={styles.calendarWarning}>
+        <Ionicons name="alert-circle-outline" size={18} color={colors.danger}/>
+        <AppText style={{flex:1,color:colors.danger}}>
+          {tr("calendar.conflict")} · {conflict.homeTeamName} VS {conflict.awayTeamName}
+        </AppText>
+      </View>:null}
+      {availability==="UNAVAILABLE"?<View style={styles.calendarWarning}>
+        <Ionicons name="time-outline" size={18} color={colors.warning}/>
+        <AppText style={{flex:1}}>{tr("calendar.unavailable")}</AppText>
+        <Button label={tr("calendar.manageAvailability")} variant="secondary"
+          onPress={()=>{choose("settings");setSub(x=>({...x,settings:"availability"}));}}/>
+      </View>:null}
+      {showCalendarWarnings&&availability==="MISSING_SCHEDULE"?
+        <AppText variant="caption" style={{color:colors.danger}}>
+          {tr("calendar.missingEnd")}</AppText>:null}
       <View style={styles.actions}>
         <Button label={tr("details")} variant="secondary" onPress={()=>router.push({
           pathname:"/competitions/[competitionId]/matches/[matchId]",
@@ -247,6 +265,9 @@ export function RefereeDashboard(){
         })}/>
         {m.latitude!==null&&m.longitude!==null?<Button label={tr("location")} variant="secondary"
           onPress={()=>void map(m.latitude,m.longitude)}/>:null}
+        {showCalendarWarnings&&refereeAssignmentSection(m,Date.now())==="pending"?
+          <Button label={tr("calendar.reviewInvitation")} variant="secondary"
+            onPress={()=>{setSub(x=>({...x,assignments:"pending"}));choose("assignments");}}/>:null}
         {m.responseStatus==="ACCEPTED"&&m.authorized&&
           (["SCHEDULED","IN_PROGRESS"].includes(m.matchStatus)||!!m.reportStatus)?
           <Button label={t("rf2.openMatch")} variant="secondary"
@@ -406,8 +427,49 @@ export function RefereeDashboard(){
             <Button variant="secondary" style={styles.calendarControl}
               label={tr("calendar.next")} onPress={()=>shiftCalendar(1)}/>
           </View>
+          <View style={styles.calendarCountRow}>
+            {(["ALL","PENDING","CONFIRMED","HISTORY"] as const).map(option=>{
+              const count=option==="ALL"?calendarMatches.length:
+                calendarMatches.filter(m=>calendarStatus(m)===option).length;
+              return <Pressable key={option} accessibilityRole="button"
+                accessibilityState={{selected:calendarFilter===option}}
+                onPress={()=>setCalendarFilter(option)}
+                style={[styles.calendarFilter,
+                  calendarFilter===option&&styles.calendarFilterSelected]}>
+                <AppText variant="caption" weight="semibold"
+                  style={calendarFilter===option?{color:colors.primary}:undefined}>
+                  {tr("calendar.filter."+option)} · {count}
+                </AppText>
+              </Pressable>;
+            })}
+          </View>
         </Card>
-        {calendarItems.length?calendarItems.map(card):
+        {calendarView==="week"?<Card style={styles.weekDaysCard}>
+          <AppText weight="semibold">{tr("calendar.weekDays")}</AppText>
+          <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}
+            style={{flexGrow:0}} contentContainerStyle={[styles.weekDayRow,
+              {flexDirection:isRTL?"row-reverse":"row"}]}>
+            {calendarWeekDays.map(day=>{
+              const matchCount=assignments.filter(m=>m.startsAt&&
+                refereeKabulDay(m.startsAt)===day).length;
+              const today=day===refereeKabulDay(new Date());
+              return <Pressable key={day} accessibilityRole="button"
+                accessibilityLabel={calendarDayLabel(day)}
+                onPress={()=>{setCalendarAnchor(new Date(day+"T12:00:00Z"));
+                  setCalendarView("day");}}
+                style={[styles.weekDayButton,today&&styles.weekDayToday]}>
+                <AppText variant="caption" weight="semibold"
+                  style={today?{color:colors.primary}:undefined}>
+                  {calendarDayLabel(day)}
+                </AppText>
+                <AppText variant="caption" muted>
+                  {tr("calendar.matches")}: {matchCount}
+                </AppText>
+              </Pressable>;
+            })}
+          </ScrollView>
+        </Card>:null}
+        {calendarItems.length?calendarItems.map(m=>card(m,true)):
           <Card><AppText muted>{tr("calendar.empty")}</AppText></Card>}
       </>:null}
       {main==="center"&&activeCenterMatch?<RefereeMatchCenter
@@ -499,6 +561,20 @@ export function RefereeDashboard(){
   </Screen>;
 }
 const styles=StyleSheet.create({
+  calendarWarning:{flexDirection:"row",alignItems:"center",flexWrap:"wrap",
+    gap:spacing.sm,padding:spacing.sm,borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surfaceMuted,borderRadius:radius.md},
+  calendarCountRow:{flexDirection:"row",flexWrap:"wrap",gap:spacing.xs},
+  calendarFilter:{paddingHorizontal:spacing.sm,paddingVertical:spacing.sm,minHeight:40,
+    justifyContent:"center",borderWidth:1,borderColor:colors.border,
+    backgroundColor:colors.surface,borderRadius:radius.md},
+  calendarFilterSelected:{backgroundColor:colors.primarySoft,borderColor:colors.primary},
+  weekDaysCard:{gap:spacing.md},
+  weekDayRow:{gap:spacing.sm,alignItems:"stretch"},
+  weekDayButton:{minWidth:112,maxWidth:142,justifyContent:"center",
+    padding:spacing.sm,borderRadius:radius.md,borderWidth:1,
+    borderColor:colors.border,gap:spacing.xs,backgroundColor:colors.surfaceMuted},
+  weekDayToday:{borderColor:colors.primary,backgroundColor:colors.primarySoft},
   attentionCard:{gap:spacing.md},
   attentionHeading:{alignItems:"center",gap:spacing.sm},
   attentionEmpty:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
