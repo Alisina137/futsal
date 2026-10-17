@@ -3,7 +3,8 @@ import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import {router} from "expo-router";
 import {useEffect,useRef,useState} from "react";
 import {Linking,Pressable,ScrollView,StyleSheet,View} from "react-native";
-import {ApiRequestError,refereeApi,type RefereeMatch} from "../../lib/api";
+import {ApiRequestError,refereeApi,type RefereeMatch,type RefereeProfile} from "../../lib/api";
+import {refereeAvailabilityPreview} from "../../lib/referee-calendar";
 import {formatRefereeScheduleParts} from "../../lib/date-time";
 import {refereeAssignmentHistoryStatus,refereeAssignmentTimeConflict,
   refereeVisibleAssignments,type RefereeAssignmentSection,type RefereeHistoryStatus}
@@ -19,12 +20,14 @@ const historyOptions:RefereeHistoryStatus[]=[
   "ALL","DECLINED","WITHDRAW_REQUESTED","COMPLETED","CANCELLED",
   "POSTPONED","EXPIRED","REVOKED","OTHER",
 ];
-export function RefereeAssignmentsPanel({assignments,section,token,onChanged,onOpenMatch}:{
+export function RefereeAssignmentsPanel({assignments,section,token,profile,onChanged,onOpenMatch,onOpenAvailability}:{
   assignments:RefereeMatch[];
   section:RefereeAssignmentSection;
   token:string;
+  profile:RefereeProfile;
   onChanged:()=>void;
   onOpenMatch:(match:RefereeMatch)=>void;
+  onOpenAvailability:()=>void;
 }){
   const {t,language,isRTL}=useLocale();
   const tr=(key:string)=>t(("rf1."+key) as never);
@@ -130,10 +133,13 @@ export function RefereeAssignmentsPanel({assignments,section,token,onChanged,onO
       <AppText muted>{tr("assignments.empty")}</AppText>
     </Card>:null}
     {visible.slice(0,limit).map(match=>{
-      const conflict=section==="pending"?
+      const conflict=(section==="pending"||section==="confirmed")?
         refereeAssignmentTimeConflict(match,assignments):null;
+      const availability=section==="pending"?
+        refereeAvailabilityPreview(match,profile):null;
       const future=!!match.startsAt&&Date.parse(match.startsAt)>now;
-      const canAccept=section==="pending"&&future&&!!match.endsAt&&!conflict;
+      const canAccept=section==="pending"&&future&&!!match.endsAt&&!conflict&&
+        availability==="AVAILABLE";
       const canWithdraw=section==="confirmed"&&match.matchStatus==="SCHEDULED"&&future;
       const action=confirm?.id===match.id?confirm.decision:null;
       const permitted=action==="ACCEPTED"&&canAccept||
@@ -187,6 +193,12 @@ export function RefereeAssignmentsPanel({assignments,section,token,onChanged,onO
               {tr("assignments.kickoffSoon")}</AppText>:null}
           {!match.endsAt?<AppText variant="caption" style={{color:colors.danger}}>
             {tr("assignments.missingEndTime")}</AppText>:null}
+          {availability==="UNAVAILABLE"?<View style={styles.conflict}>
+            <AppText style={{color:colors.danger}} weight="semibold">
+              {tr("calendar.unavailable")}</AppText>
+            <Button variant="secondary" label={tr("calendar.manageAvailability")}
+              onPress={onOpenAvailability}/>
+          </View>:null}
           {conflict?<View style={styles.conflict}>
             <AppText weight="semibold" style={{color:colors.danger}}>
               {tr("assignments.conflict")}</AppText>
@@ -201,6 +213,11 @@ export function RefereeAssignmentsPanel({assignments,section,token,onChanged,onO
               onPress={()=>{setConfirm({id:match.id,decision:"DECLINED"});setReason("");}}/>
           </View>
         </>:null}
+        {section==="confirmed"&&conflict?<View style={styles.conflict}>
+          <AppText style={{color:colors.danger}}>
+            {tr("calendar.conflict")} · {conflict.homeTeamName} VS {conflict.awayTeamName}
+          </AppText>
+        </View>:null}
         {canWithdraw?<Button label={tr("withdraw")} variant="secondary"
           disabled={busy}
           onPress={()=>{setConfirm({id:match.id,decision:"WITHDRAW_REQUESTED"});
