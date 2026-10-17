@@ -1550,8 +1550,10 @@ export const refereePhase2Api={
       {method:"POST",body:JSON.stringify({action,feedback,confirmImpact})},token),
 };
 export type RefereeCareerWindow="7d"|"30d"|"90d"|"year"|"all";
+export type RefereeCareerCalendar="gregory"|"persian";
 export type RefereeCareerResponse={
-  period:RefereeCareerWindow;total:number;finishedReports:number;
+  period:RefereeCareerWindow;calendar:RefereeCareerCalendar;
+  total:number;finishedReports:number;
   competitionsCount:number;submitted:number;onTime:number;
   submissionRate:number;onTimeRate:number;
   awaitingReview:number;correctionsRequested:number;draftReports:number;
@@ -1566,8 +1568,8 @@ export type RefereeCareerResponse={
     homeScore:number|null;awayScore:number|null}>;
 };
 export const refereeCareerApi={
-  career:(token:string,period:RefereeCareerWindow)=>
-    request<RefereeCareerResponse>(`/api/v1/referee/career?period=${period}`,{},token),
+  career:(token:string,period:RefereeCareerWindow,calendar:RefereeCareerCalendar="gregory")=>
+    request<RefereeCareerResponse>(`/api/v1/referee/career?period=${period}&calendar=${calendar}`,{},token),
   pdfTicket:(token:string,matchId:string,owner=false)=>
     request<{token:string;expiresAt:string}>(owner?
       `/api/v1/owner/referee-reports/${matchId}/pdf-ticket`:
