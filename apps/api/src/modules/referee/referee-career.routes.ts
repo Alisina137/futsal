@@ -107,7 +107,7 @@ export class RefereeCareerService{
    const [person]=await this.db.select({status:users.status}).from(users).where(eq(users.id,userId)).limit(1);
    if(person?.status!=="ACTIVE")throw errors.forbidden("REFEREE_ACCOUNT_INACTIVE","Your account is unavailable.");
    const rows=await this.db.select({report:refereeMatchReports,match:competitionMatches,
-     competitionName:competitions.name,venueName:venues.name})
+     competitionName:competitions.name,competitionVenueId:competitions.venueId,venueName:venues.name})
      .from(refereeMatchReports)
      .innerJoin(competitionMatches,eq(competitionMatches.id,refereeMatchReports.matchId))
      .innerJoin(competitions,eq(competitions.id,competitionMatches.competitionId))
@@ -118,9 +118,9 @@ export class RefereeCareerService{
    const teamNames=teamIds.length?await this.db.select({id:teams.id,name:teams.name})
      .from(teams).where(inArray(teams.id,teamIds)):[];
    const names=new Map(teamNames.map(x=>[x.id,x.name]));
-   return careerSummary(rows.map(({report,match,competitionName,venueName})=>({
+   return careerSummary(rows.map(({report,match,competitionName,competitionVenueId,venueName})=>({
      matchId:match.id,competitionId:match.competitionId,competitionName,
-     venueId:match.venueId??"",venueName,
+     venueId:match.venueId??competitionVenueId,venueName,
      homeName:names.get(match.homeTeamId??"")??"Home",
      awayName:names.get(match.awayTeamId??"")??"Away",
      startsAt:match.startsAt,finishedAt:report.finishedAt,submittedAt:report.submittedAt,
