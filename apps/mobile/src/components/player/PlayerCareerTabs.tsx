@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,radius,spacing} from "@leaguekick/design-tokens";
 import {router,useFocusEffect} from "expo-router";
-import {useCallback,useEffect,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Pressable,ScrollView,Share,StyleSheet,View} from "react-native";
 import {ApiRequestError,playerCareerApi,type PlayerCareerData,type PlayerCareerMatch,
   type PlayerCareerTotals,type PlayerCareerAward} from "../../lib/api";
@@ -78,6 +78,14 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
   const [achievementType,setAchievementType]=useState("ALL");
   const [historyResult,setHistoryResult]=useState<CareerResult|"ALL">("ALL");
   const [historyLimit,setHistoryLimit]=useState(20);
+  const activeTokenRef=useRef(token);
+  activeTokenRef.current=token;
+  // Filters and native-share feedback cannot persist into a different player account.
+  useEffect(()=>{
+    setTeamId("ALL");setCompetitionId("ALL");setSeason("ALL");
+    setMetric("goals");setAchievementType("ALL");setHistoryResult("ALL");
+    setHistoryLimit(20);setError(null);
+  },[token]);
   useEffect(()=>{setHistoryLimit(20);},
     [teamId,competitionId,season,historyResult,token]);
   useFocusEffect(useCallback(()=>{
@@ -145,13 +153,14 @@ export function PlayerCareerTabs({tab,token}:{tab:Tab;token:string}){
   </View>;
   async function shareAward(award:PlayerCareerAward){
     if(data?.visibility!=="PUBLIC")return;
+    const requestToken=token;
     try{
       const label=tr("award."+award.label);
       const details=award.competitionName?` — ${award.competitionName}`:"";
       // Explicit native Share action: never include userId, private preferences, phone or location.
       await Share.share({message:`${label}${details}\n${tr("verifiedOfficial")}`});
     }catch{
-      setError(t("pd3.shareFailed"));
+      if(activeTokenRef.current===requestToken)setError(t("pd3.shareFailed"));
     }
   }
   return <View style={{gap:spacing.md}}>
