@@ -140,7 +140,8 @@ export function RefereeDashboard(){
       try{
         const value=await refereeApi.overview(token);
         if(active){syncOverview(value);setError(null);}
-        await AsyncStorage.setItem("futsal.referee.overview.v1."+userId,JSON.stringify(value));
+        await AsyncStorage.setItem("futsal.referee.overview.v1."+userId,JSON.stringify(value))
+          .catch(()=>undefined);
       }catch(e){if(active){
         if(refereeOverviewRecovery(e)==="OFFLINE"&&cachedOverview){
           syncOverview(cachedOverview);

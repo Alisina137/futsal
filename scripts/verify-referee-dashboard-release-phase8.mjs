@@ -51,6 +51,8 @@ check("apps/mobile/src/lib/referee-offline-safety.ts",[
   'if(ids.has(id))return false;',
 ],"Offline integrity");
 check("apps/mobile/src/components/referee/RefereeMatchCenter.tsx",[
+  'if(local.cached&&!connected)',
+  'refereeOverviewRecovery(e)==="OFFLINE"&&cachedSnapshot',
   'onRiskChange?.(unsafeExit,draftPersisting||syncing)',
   'saveRefereeSummaryDraft(userId,match.id,value)',
   'syncRefereeOffline(userId,match.id,token)',

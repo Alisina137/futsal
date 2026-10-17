@@ -81,6 +81,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
     if(!token||!userId)return;
     setLoading(true);
     let cachedSnapshot:MatchData|null=null;
+    let cachedSummary:string|null=null;
     try{
       const scope=userId+":"+match.id+":"+token;
       const initialEditGeneration=editGeneration.current;
@@ -88,6 +89,9 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
       if(!alive.current||accountScope.current!==scope)return;
       setPending(local.pending);
       cachedSnapshot=local.cached;
+      cachedSummary=local.cached&&(refereeReportCanEdit(local.cached.report)&&
+        local.summaryDraft!==null&&local.summaryDraft!==undefined?
+        local.summaryDraft:local.cached.report?.summary??"")||null;
       // Online cache is not proof that the referee remains authorized.
       if(local.cached&&!connected){
         setData(local.cached);
@@ -114,11 +118,15 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
         summaryRef.current=effectiveSummary;setSummary(effectiveSummary);
       }
       setError(null);
-      await cacheRefereeMatch(userId,match.id,value);
+      try{await cacheRefereeMatch(userId,match.id,value);}
+      catch{setError(tr("offlineCacheWarning"));}
     }catch(e){
       if(!alive.current)return;
       if(refereeOverviewRecovery(e)==="OFFLINE"&&cachedSnapshot){
         setData(cachedSnapshot);
+        if(cachedSummary!==null&&draftWrites.current===0){
+          summaryRef.current=cachedSummary;setSummary(cachedSummary);
+        }
         setMessage(tr("offlineSnapshot"));
       }else{
         setData(null);
