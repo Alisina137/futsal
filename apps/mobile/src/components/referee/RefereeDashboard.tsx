@@ -296,7 +296,7 @@ export function RefereeDashboard(){
           {tr("nav."+tab.id)}</AppText>
       </Pressable>)}
     </ScrollView>
-    {main!=="overview"?<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subNav}
+    {main!=="overview"&&!(main==="center"&&activeCenterMatch)?<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subNav}
       contentContainerStyle={{flexDirection:isRTL?"row-reverse":"row",gap:spacing.xs}}>
       {subTabs[main].map(id=><Pressable key={id} accessibilityRole="tab" accessibilityState={{selected:selectedSub===id}}
         style={[styles.subItem,selectedSub===id&&styles.subActive]}
