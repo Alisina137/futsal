@@ -16,10 +16,10 @@ const windowSchema=z.enum(["7d","30d","90d","year","all"]).default("all");
 export type CareerWindow=z.infer<typeof windowSchema>;
 type Event={kind:string;side:string|null;playerUserId:string|null;elapsedSeconds:number;period:number;details:string};
 export type CareerRecord={
- matchId:string;competitionId:string;competitionName:string;venueName:string;
+ matchId:string;competitionId:string;competitionName:string;venueId:string;venueName:string;
  homeName:string;awayName:string;startsAt:Date|null;finishedAt:Date|null;
  submittedAt:Date|null;reviewedAt:Date|null;homeScore:number|null;awayScore:number|null;
- status:string;events:Event[];
+ status:string;matchStatus:string;events:Event[];
 };
 function kabulParts(date:Date){
  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit"}).formatToParts(date);
@@ -30,26 +30,46 @@ function filterStart(period:CareerWindow,now:Date){
  const days:Record<string,number>={"7d":7,"30d":30,"90d":90};
  return days[period]?now.getTime()-days[period]!*86400000:null;
 }
+/** Verified results and administrative report timeliness use separate denominators.
+ * Approved match activity is the only source of official player/match statistics.
+ * Report health includes every completed referee report, including drafts/returns.
+ */
 export function careerSummary(rows:CareerRecord[],period:CareerWindow,now:Date){
  const start=filterStart(period,now),year=kabulParts(now).year;
- const filtered=rows.filter(r=>r.status==="APPROVED"&&r.finishedAt&&
-   (period==="all"||period==="year"&&kabulParts(r.finishedAt).year===year||
-     start!==null&&r.finishedAt.getTime()>=start&&r.finishedAt<=now));
- const total=filtered.length,byMonth=new Map<string,number>();
+ const withinPeriod=(finishedAt:Date|null)=>!!finishedAt&&(
+   period==="all"||
+   period==="year"&&kabulParts(finishedAt).year===year||
+   start!==null&&finishedAt.getTime()>=start&&finishedAt<=now);
+ const finalized=rows.filter(r=>withinPeriod(r.finishedAt));
+ const verified=finalized.filter(r=>r.status==="APPROVED"&&
+   ["COMPLETED","CORRECTED"].includes(r.matchStatus));
+ const finishedReports=finalized.length;
+ const submittedRows=finalized.filter(r=>r.submittedAt!==null);
+ const submitted=submittedRows.length;
+ const onTime=submittedRows.filter(r=>r.finishedAt&&r.submittedAt&&
+   r.submittedAt.getTime()>=r.finishedAt.getTime()&&
+   r.submittedAt.getTime()-r.finishedAt.getTime()<=86400000).length;
+ const hours=submittedRows.filter(r=>r.finishedAt&&r.submittedAt&&
+   r.submittedAt>=r.finishedAt).map(r=>
+   (r.submittedAt!.getTime()-r.finishedAt!.getTime())/3600000);
+ const averageSubmissionHours=hours.length?
+   Math.round(10*hours.reduce((total,value)=>total+value,0)/hours.length)/10:null;
+ const awaitingReview=finalized.filter(r=>["SUBMITTED","APPROVING"].includes(r.status)).length;
+ const correctionsRequested=finalized.filter(r=>r.status==="CHANGES_REQUESTED").length;
+ const draftReports=finalized.filter(r=>r.status==="DRAFT").length;
+ const total=verified.length,byMonth=new Map<string,number>();
  const byCompetition=new Map<string,{id:string;name:string;matches:number}>();
+ const byVenue=new Map<string,{id:string;name:string;matches:number}>();
  const eventTypes=["GOAL","YELLOW_CARD","RED_CARD","FOUL","TIMEOUT","INCIDENT"] as const;
  const events:Record<(typeof eventTypes)[number],number>={
    GOAL:0,YELLOW_CARD:0,RED_CARD:0,FOUL:0,TIMEOUT:0,INCIDENT:0};
- let onTime=0,submitted=0;
- for(const row of filtered){
+ for(const row of verified){
    for(const e of row.events)if(eventTypes.includes(e.kind as (typeof eventTypes)[number]))
      events[e.kind as (typeof eventTypes)[number]]++;
-   if(row.submittedAt){submitted++;
-     if(row.finishedAt&&row.submittedAt.getTime()>=row.finishedAt.getTime()&&
-       row.submittedAt.getTime()-row.finishedAt.getTime()<=86400000)onTime++;
-   }
    const item=byCompetition.get(row.competitionId)??{id:row.competitionId,name:row.competitionName,matches:0};
    item.matches++;byCompetition.set(row.competitionId,item);
+   const venue=byVenue.get(row.venueId)??{id:row.venueId,name:row.venueName,matches:0};
+   venue.matches++;byVenue.set(row.venueId,venue);
    const key=kabulParts(row.finishedAt!).month;byMonth.set(key,(byMonth.get(key)??0)+1);
  }
  const monthly=[];
@@ -59,13 +79,20 @@ export function careerSummary(rows:CareerRecord[],period:CareerWindow,now:Date){
    const key=d.toISOString().slice(0,7);
    monthly.push({month:key,matches:byMonth.get(key)??0});
  }
- return {period,total,competitionsCount:byCompetition.size,submitted,
-   onTime,submissionRate:total?Math.round(100*submitted/total):0,
+ const byCount=(a:{matches:number;name:string},b:{matches:number;name:string})=>
+   b.matches-a.matches||a.name.localeCompare(b.name);
+ return {period,total,finishedReports,competitionsCount:byCompetition.size,submitted,
+   onTime,submissionRate:finishedReports?Math.round(100*submitted/finishedReports):0,
    onTimeRate:submitted?Math.round(100*onTime/submitted):0,
-   events,monthly,competitions:[...byCompetition.values()].sort((a,b)=>b.matches-a.matches),
-   history:filtered.slice().sort((a,b)=>(b.finishedAt?.getTime()??0)-(a.finishedAt?.getTime()??0))
+   awaitingReview,correctionsRequested,draftReports,averageSubmissionHours,
+   events,monthly,competitions:[...byCompetition.values()].sort(byCount),
+   venues:[...byVenue.values()].sort(byCount),
+   history:verified.slice().sort((a,b)=>
+     (b.finishedAt?.getTime()??0)-(a.finishedAt?.getTime()??0)||
+     a.matchId.localeCompare(b.matchId))
      .map(r=>({matchId:r.matchId,competitionId:r.competitionId,competitionName:r.competitionName,
-       venueName:r.venueName,homeName:r.homeName,awayName:r.awayName,
+       venueId:r.venueId,venueName:r.venueName,
+       homeName:r.homeName,awayName:r.awayName,
        finishedAt:r.finishedAt?.toISOString()??null,
        homeScore:r.homeScore,awayScore:r.awayScore}))};
 }
@@ -85,20 +112,20 @@ export class RefereeCareerService{
      .innerJoin(competitionMatches,eq(competitionMatches.id,refereeMatchReports.matchId))
      .innerJoin(competitions,eq(competitions.id,competitionMatches.competitionId))
      .innerJoin(venues,eq(venues.id,competitions.venueId))
-     .where(and(eq(refereeMatchReports.refereeUserId,userId),eq(refereeMatchReports.status,"APPROVED"),
-       inArray(competitionMatches.status,["COMPLETED","CORRECTED"])));
+     .where(eq(refereeMatchReports.refereeUserId,userId));
    const teamIds=[...new Set(rows.flatMap(x=>[x.match.homeTeamId,x.match.awayTeamId])
      .filter((v):v is string=>!!v))];
    const teamNames=teamIds.length?await this.db.select({id:teams.id,name:teams.name})
      .from(teams).where(inArray(teams.id,teamIds)):[];
    const names=new Map(teamNames.map(x=>[x.id,x.name]));
    return careerSummary(rows.map(({report,match,competitionName,venueName})=>({
-     matchId:match.id,competitionId:match.competitionId,competitionName,venueName,
+     matchId:match.id,competitionId:match.competitionId,competitionName,
+     venueId:match.venueId??"",venueName,
      homeName:names.get(match.homeTeamId??"")??"Home",
      awayName:names.get(match.awayTeamId??"")??"Away",
      startsAt:match.startsAt,finishedAt:report.finishedAt,submittedAt:report.submittedAt,
      reviewedAt:report.reviewedAt,homeScore:match.homeScore,awayScore:match.awayScore,
-     events:report.events,status:report.status,
+     events:report.events,status:report.status,matchStatus:match.status,
    })),period,this.now());
  }
  async newTicket(userId:string,matchId:string,owner:boolean){
