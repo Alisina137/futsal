@@ -10,6 +10,7 @@ import {errors} from "../../lib/errors.js";
 import {requireAuth} from "../../middleware/auth.js";
 import type {TokenService} from "../auth/token.service.js";
 import {createRefereeReportPdf} from "./referee-report-pdf.js";
+import {refereeReportMetrics} from "./referee-career-metrics.js";
 
 const id=z.string().uuid();
 const windowSchema=z.enum(["7d","30d","90d","year","all"]).default("all");
@@ -43,20 +44,7 @@ export function careerSummary(rows:CareerRecord[],period:CareerWindow,now:Date){
  const finalized=rows.filter(r=>withinPeriod(r.finishedAt));
  const verified=finalized.filter(r=>r.status==="APPROVED"&&
    ["COMPLETED","CORRECTED"].includes(r.matchStatus));
- const finishedReports=finalized.length;
- const submittedRows=finalized.filter(r=>r.submittedAt!==null);
- const submitted=submittedRows.length;
- const onTime=submittedRows.filter(r=>r.finishedAt&&r.submittedAt&&
-   r.submittedAt.getTime()>=r.finishedAt.getTime()&&
-   r.submittedAt.getTime()-r.finishedAt.getTime()<=86400000).length;
- const hours=submittedRows.filter(r=>r.finishedAt&&r.submittedAt&&
-   r.submittedAt>=r.finishedAt).map(r=>
-   (r.submittedAt!.getTime()-r.finishedAt!.getTime())/3600000);
- const averageSubmissionHours=hours.length?
-   Math.round(10*hours.reduce((total,value)=>total+value,0)/hours.length)/10:null;
- const awaitingReview=finalized.filter(r=>["SUBMITTED","APPROVING"].includes(r.status)).length;
- const correctionsRequested=finalized.filter(r=>r.status==="CHANGES_REQUESTED").length;
- const draftReports=finalized.filter(r=>r.status==="DRAFT").length;
+ const metrics=refereeReportMetrics(finalized);
  const total=verified.length,byMonth=new Map<string,number>();
  const byCompetition=new Map<string,{id:string;name:string;matches:number}>();
  const byVenue=new Map<string,{id:string;name:string;matches:number}>();
@@ -81,10 +69,7 @@ export function careerSummary(rows:CareerRecord[],period:CareerWindow,now:Date){
  }
  const byCount=(a:{matches:number;name:string},b:{matches:number;name:string})=>
    b.matches-a.matches||a.name.localeCompare(b.name);
- return {period,total,finishedReports,competitionsCount:byCompetition.size,submitted,
-   onTime,submissionRate:finishedReports?Math.round(100*submitted/finishedReports):0,
-   onTimeRate:submitted?Math.round(100*onTime/submitted):0,
-   awaitingReview,correctionsRequested,draftReports,averageSubmissionHours,
+ return {period,total,...metrics,competitionsCount:byCompetition.size,
    events,monthly,competitions:[...byCompetition.values()].sort(byCount),
    venues:[...byVenue.values()].sort(byCount),
    history:verified.slice().sort((a,b)=>
