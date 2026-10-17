@@ -23,7 +23,7 @@ import {TextField} from "../ui/TextField";
 import {RefereeMatchCenter} from "./RefereeMatchCenter";
 import {RefereeCareerPanel} from "./RefereeCareerPanel";
 import {RefereeAssignmentsPanel} from "./RefereeAssignmentsPanel";
-import {refereeWorkspaceInitialTab} from "../../lib/referee-match-center";
+import {refereeWorkspaceInitialTab,refereeCenterSectionForMatch} from "../../lib/referee-match-center";
 
 type Main="overview"|"assignments"|"center"|"stats"|"settings";
 const tabs:{id:Main;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -280,9 +280,7 @@ export function RefereeDashboard(){
           <Button label={t("rf2.openMatch")} variant="secondary"
             onPress={()=>{
               const section=main==="center"&&["upcoming","live","reports"].includes(selectedSub)?
-                selectedSub:!!m.reportFinishedAt||
-                ["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"].includes(m.reportStatus??"")?
-                "reports":m.reportStartedAt?"live":"upcoming";
+                selectedSub:refereeCenterSectionForMatch(m);
               setSub(x=>({...x,center:section}));
               setActiveCenterMatch(m);choose("center");
             }}/>:null}
