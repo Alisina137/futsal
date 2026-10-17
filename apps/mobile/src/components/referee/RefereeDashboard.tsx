@@ -61,7 +61,6 @@ export function RefereeDashboard(){
   const [draft,setDraft]=useState<RefereeProfile|null>(null);
   const [busy,setBusy]=useState<string|null>(null),[loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
-  const [reason,setReason]=useState<Record<string,string>>({});
   const [activeCenterMatch,setActiveCenterMatch]=useState<RefereeMatch|null>(null);
   const [exceptionDate,setExceptionDate]=useState("");
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
@@ -77,7 +76,7 @@ export function RefereeDashboard(){
   useEffect(()=>{
     setMain("overview");
     setSub({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
-    setActiveCenterMatch(null);setReason({});setError(null);setMessage(null);setBusy(null);
+    setActiveCenterMatch(null);setError(null);setMessage(null);setBusy(null);
     setAttentionLimit(5);
   },[userId]);
   const navRef=useRef<ScrollView|null>(null),navViewport=useRef(0),navWidth=useRef(0);
@@ -176,7 +175,6 @@ export function RefereeDashboard(){
     (a.matchStatus==="SCHEDULED"||a.matchStatus==="IN_PROGRESS"));
   const reports=accepted.filter(a=>!!a.reportFinishedAt||!!a.reportStatus&&
     ["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"].includes(a.reportStatus));
-  const finished=accepted.filter(a=>["COMPLETED","CORRECTED"].includes(a.matchStatus));
   const future=upcoming.filter(a=>!!a.startsAt&&Date.parse(a.startsAt)>Date.now());
   const selectedSub=sub[main]??"";
   const kabulDay=(value:Date)=>{
