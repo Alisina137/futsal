@@ -24,7 +24,7 @@ check(ui,['testID="referee-report-workflow"',
  'testID="referee-safe-leave"','saveRefereeSummaryDraft(userId,match.id,value)',
  'clearRefereeSummaryDraftIfMatches(userId,match.id,saved)',
  'if(initialEditGeneration===editGeneration.current)',
- 'onRiskChange?.(unsafeExit)','refereePhase2Api.submit(token!,match.id,report.revision)',
+ 'onRiskChange?.(unsafeExit,draftPersisting||syncing)','refereePhase2Api.submit(token!,match.id,report.revision)',
  'syncRefereeOffline(userId,match.id,token)'],"match-center");
 check(dashboard,['testID="referee-dashboard-exit-guard"',
  'if(tab!=="center"&&activeCenterMatch&&centerUnsafe)',
