@@ -11,9 +11,12 @@ import {requireAuth} from "../../middleware/auth.js";
 import type {TokenService} from "../auth/token.service.js";
 import {createRefereeReportPdf} from "./referee-report-pdf.js";
 import {refereeReportMetrics} from "./referee-career-metrics.js";
+import {careerCalendarParts,careerCalendarMonths,supportedCareerCalendar,
+  type RefereeCareerCalendar} from "./referee-career-calendar.js";
 
 const id=z.string().uuid();
 const windowSchema=z.enum(["7d","30d","90d","year","all"]).default("all");
+const calendarSchema=z.enum(["gregory","persian"]).default("gregory");
 export type CareerWindow=z.infer<typeof windowSchema>;
 type Event={kind:string;side:string|null;playerUserId:string|null;elapsedSeconds:number;period:number;details:string};
 export type CareerRecord={
@@ -22,11 +25,6 @@ export type CareerRecord={
  submittedAt:Date|null;reviewedAt:Date|null;homeScore:number|null;awayScore:number|null;
  status:string;matchStatus:string;events:Event[];
 };
-function kabulParts(date:Date){
- const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kabul",year:"numeric",month:"2-digit"}).formatToParts(date);
- const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));
- return {year:Number(v.year),month:`${v.year}-${v.month}`};
-}
 function filterStart(period:CareerWindow,now:Date){
  const days:Record<string,number>={"7d":7,"30d":30,"90d":90};
  return days[period]?now.getTime()-days[period]!*86400000:null;
@@ -35,11 +33,14 @@ function filterStart(period:CareerWindow,now:Date){
  * Approved match activity is the only source of official player/match statistics.
  * Report health includes every completed referee report, including drafts/returns.
  */
-export function careerSummary(rows:CareerRecord[],period:CareerWindow,now:Date){
- const start=filterStart(period,now),year=kabulParts(now).year;
+export function careerSummary(rows:CareerRecord[],period:CareerWindow,now:Date,
+  requestedCalendar:RefereeCareerCalendar="gregory",
+){
+ const calendar=supportedCareerCalendar(requestedCalendar);
+ const start=filterStart(period,now),year=careerCalendarParts(now,calendar).year;
  const withinPeriod=(finishedAt:Date|null)=>!!finishedAt&&(
    period==="all"||
-   period==="year"&&kabulParts(finishedAt).year===year||
+   period==="year"&&careerCalendarParts(finishedAt,calendar).year===year||
    start!==null&&finishedAt.getTime()>=start&&finishedAt<=now);
  const finalized=rows.filter(r=>withinPeriod(r.finishedAt));
  const verified=finalized.filter(r=>r.status==="APPROVED"&&
@@ -58,18 +59,15 @@ export function careerSummary(rows:CareerRecord[],period:CareerWindow,now:Date){
    item.matches++;byCompetition.set(row.competitionId,item);
    const venue=byVenue.get(row.venueId)??{id:row.venueId,name:row.venueName,matches:0};
    venue.matches++;byVenue.set(row.venueId,venue);
-   const key=kabulParts(row.finishedAt!).month;byMonth.set(key,(byMonth.get(key)??0)+1);
+   const key=careerCalendarParts(row.finishedAt!,calendar).month;
+   byMonth.set(key,(byMonth.get(key)??0)+1);
  }
- const monthly=[];
- const today=kabulParts(now);
- for(let i=11;i>=0;i--){
-   const d=new Date(Date.UTC(today.year,Number(today.month.slice(5))-1-i,15));
-   const key=d.toISOString().slice(0,7);
-   monthly.push({month:key,matches:byMonth.get(key)??0});
- }
+ const monthly=careerCalendarMonths(now,calendar).map(key=>({
+   month:key,matches:byMonth.get(key)??0,
+ }));
  const byCount=(a:{matches:number;name:string},b:{matches:number;name:string})=>
    b.matches-a.matches||a.name.localeCompare(b.name);
- return {period,total,...metrics,competitionsCount:byCompetition.size,
+ return {period,calendar,total,...metrics,competitionsCount:byCompetition.size,
    events,monthly,competitions:[...byCompetition.values()].sort(byCount),
    venues:[...byVenue.values()].sort(byCount),
    history:verified.slice().sort((a,b)=>
@@ -88,7 +86,7 @@ const TTL=90000;
 export class RefereeCareerService{
  private tickets=new Map<string,{expires:number;report:ReportPdfData}>();
  constructor(private db:Database,private now:()=>Date=()=>new Date()){}
- async career(userId:string,period:CareerWindow){
+ async career(userId:string,period:CareerWindow,calendar:RefereeCareerCalendar="gregory"){
    const [person]=await this.db.select({status:users.status}).from(users).where(eq(users.id,userId)).limit(1);
    if(person?.status!=="ACTIVE")throw errors.forbidden("REFEREE_ACCOUNT_INACTIVE","Your account is unavailable.");
    const rows=await this.db.select({report:refereeMatchReports,match:competitionMatches,
@@ -111,7 +109,7 @@ export class RefereeCareerService{
      startsAt:match.startsAt,finishedAt:report.finishedAt,submittedAt:report.submittedAt,
      reviewedAt:report.reviewedAt,homeScore:match.homeScore,awayScore:match.awayScore,
      events:report.events,status:report.status,matchStatus:match.status,
-   })),period,this.now());
+   })),period,this.now(),calendar);
  }
  async newTicket(userId:string,matchId:string,owner:boolean){
    const [row]=await this.db.select({report:refereeMatchReports,match:competitionMatches,
@@ -160,7 +158,8 @@ export function createRefereeCareerRouter(service:RefereeCareerService,tokens:To
    standardHeaders:"draft-8",legacyHeaders:false});
  const limit=(fn:(userId:string,req:Request)=>Promise<unknown>)=>
    async(req:Request,res:Response,next:NextFunction)=>{try{res.json(await fn(req.auth!.userId,req));}catch(e){next(e);}};
- router.get("/referee/career",auth,limit((uid,req)=>service.career(uid,windowSchema.parse(req.query.period))));
+ router.get("/referee/career",auth,limit((uid,req)=>service.career(uid,
+   windowSchema.parse(req.query.period),calendarSchema.parse(req.query.calendar))));
  router.post("/referee/matches/:matchId/pdf-ticket",auth,downloadLimiter,limit((uid,req)=>
    service.newTicket(uid,id.parse(req.params.matchId),false)));
  router.post("/owner/referee-reports/:matchId/pdf-ticket",auth,downloadLimiter,limit((uid,req)=>
