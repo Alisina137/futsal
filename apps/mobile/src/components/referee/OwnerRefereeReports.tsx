@@ -17,6 +17,9 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
   const [expanded,setExpanded]=useState<string|null>(null);
   const [feedback,setFeedback]=useState("");
   const [confirmImpact,setConfirmImpact]=useState(false);
+  const [reviewConfirmation,setReviewConfirmation]=useState<{
+    matchId:string;action:"APPROVE"|"RETURN";
+  }|null>(null);
   const [busy,setBusy]=useState<string|null>(null);
   const [error,setError]=useState<string|null>(null);
   const load=useCallback(async()=>{
@@ -31,6 +34,7 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
     try{
       await refereePhase2Api.review(token,matchId,action,feedback,confirmImpact);
       setExpanded(null);setFeedback("");setConfirmImpact(false);
+      setReviewConfirmation(null);
       await load();if(action==="APPROVE")onApproved();
     }catch(e){setError(e instanceof Error?e.message:tr("actionFailed"));}
     finally{setBusy(null);}
@@ -61,7 +65,7 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
       </View>
       <Button label={expanded===report.matchId?tr("hideReport"):tr("viewReport")}
         variant="secondary" onPress={()=>{setExpanded(old=>old===report.matchId?null:report.matchId);
-          setFeedback("");setConfirmImpact(false);}}/>
+          setFeedback("");setConfirmImpact(false);setReviewConfirmation(null);}}/>
       {expanded===report.matchId?<View style={{gap:spacing.sm}}>
         <AppText weight="semibold">{tr("summary")}</AppText>
         <AppText muted>{report.summary||"—"}</AppText>
@@ -75,7 +79,8 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
           disabled={busy!==null} loading={busy===report.matchId}
           onPress={()=>void download(report.matchId)}/>:null}
         {report.status==="APPROVING"?<Button label={tr("recoverApproval")} variant="secondary"
-          disabled={busy!==null} onPress={()=>void review(report.matchId,"APPROVE")}/>:null}
+          disabled={busy!==null} onPress={()=>setReviewConfirmation({
+            matchId:report.matchId,action:"APPROVE"})}/>:null}
         {report.status==="SUBMITTED"?<>
           <TextField label={tr("reviewFeedback")} value={feedback}
             onChangeText={setFeedback} maxLength={800}/>
@@ -86,17 +91,40 @@ export function OwnerRefereeReports({token,competitionId,onApproved}:{
           <View style={styles.actions}>
             <Button label={tr("approveReport")} disabled={busy!==null}
               loading={busy===report.matchId}
-              onPress={()=>void review(report.matchId,"APPROVE")}/>
+              onPress={()=>setReviewConfirmation({
+                matchId:report.matchId,action:"APPROVE"})}/>
             <Button label={tr("returnReport")} variant="secondary"
               disabled={busy!==null||feedback.trim().length<3}
-              onPress={()=>void review(report.matchId,"RETURN")}/>
+              onPress={()=>setReviewConfirmation({
+                matchId:report.matchId,action:"RETURN"})}/>
           </View>
         </>:null}
+        {reviewConfirmation?.matchId===report.matchId?<Card
+          testID="referee-owner-report-review-confirmation" style={styles.reviewConfirmation}>
+          <AppText variant="bodyLarge" weight="bold">
+            {tr("ownerConfirmTitle")}</AppText>
+          <AppText variant="caption" muted>{tr(reviewConfirmation.action==="APPROVE"?
+            "ownerConfirmApprove":"ownerConfirmReturn")}</AppText>
+          <AppText weight="semibold">{report.homeTeamName} {report.score.homeScore} :
+            {report.score.awayScore} {report.awayTeamName}</AppText>
+          {reviewConfirmation.action==="RETURN"?<AppText variant="caption" muted>
+            {tr("reviewFeedback")}: {feedback}</AppText>:null}
+          <View style={styles.actions}>
+            <Button label={tr("ownerConfirmAction")} disabled={busy!==null||
+              reviewConfirmation.action==="RETURN"&&feedback.trim().length<3}
+              loading={busy===report.matchId}
+              onPress={()=>void review(report.matchId,reviewConfirmation.action)}/>
+            <Button label={tr("cancel")} variant="secondary"
+              disabled={busy!==null} onPress={()=>setReviewConfirmation(null)}/>
+          </View>
+        </Card>:null}
       </View>:null}
     </Card>)}
   </View>;
 }
 const styles=StyleSheet.create({
+  reviewConfirmation:{gap:spacing.md,borderColor:colors.primary,
+    backgroundColor:colors.primarySoft},
   header:{flexDirection:"row",alignItems:"center",gap:spacing.md},
   actions:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},
   line:{borderTopWidth:1,borderColor:colors.border,paddingVertical:spacing.sm,gap:spacing.xs},
