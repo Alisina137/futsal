@@ -7,6 +7,7 @@ const sql=read("packages/database/drizzle/0031_referee_dashboard.sql");
 const api=read("apps/api/src/modules/referee/referee.routes.ts");
 const booking=read("apps/api/src/modules/competition/competition.repository.ts");
 const screen=read("apps/mobile/src/components/referee/RefereeDashboard.tsx");
+const assignmentsPanel=read("apps/mobile/src/components/referee/RefereeAssignmentsPanel.tsx");
 const route=read("apps/mobile/app/(app)/dashboard.tsx");
 const client=read("apps/mobile/src/lib/api.ts");
 const loc=read("packages/localization/src/index.ts");
@@ -25,7 +26,7 @@ assert(owner.includes("createRefereeRouter")&&owner.includes("createOwnerReferee
   "Authenticated referee and owner status routes must be wired.");
 assert(screen.includes("tabs.map(")&&screen.includes("subTabs[main]")&&
   screen.includes('flexDirection:isRTL?"row-reverse":"row"')&&
-  screen.includes("refereeApi.updateProfile")&&screen.includes("refereeApi.respond"),
+  screen.includes("refereeApi.updateProfile")&&assignmentsPanel.includes("refereeApi.respond"),
   "Five-tab localized referee dashboard or real controls missing.");
 assert(route.includes("<RefereeDashboard/>")&&client.includes("export const refereeApi"),
   "Referee main dashboard must use the typed real API.");
