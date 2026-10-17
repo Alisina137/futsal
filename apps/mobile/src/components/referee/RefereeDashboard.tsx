@@ -95,7 +95,7 @@ export function RefereeDashboard(){
     setMain("overview");
     setSub({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
     setActiveCenterMatch(null);setCenterUnsafe(false);setCenterSaving(false);
-    setCenterExitTarget(null);setSettingsExitTarget(null);
+    setCenterExitTarget(null);setSettingsExitTarget(null);setExceptionDate("");
     currentDraft.current=null;savedProfile.current=null;
     setError(null);setMessage(null);setBusy(null);
     setAttentionLimit(5);
@@ -195,11 +195,12 @@ export function RefereeDashboard(){
   }
   async function saveSettings(){
     if(!draft||!token||!userId||busy!==null)return;
-    const issue=refereeSettingsIssue(draft);
+    const normalized=normalizeRefereeSettings(draft);
+    const issue=refereeSettingsIssue(normalized);
     if(issue){setError(tr("settingsValidation."+issue));return;}
     const actor=userId;
     await act("settings",async()=>{
-      const result=await refereeApi.updateProfile(token,normalizeRefereeSettings(draft));
+      const result=await refereeApi.updateProfile(token,normalized);
       if(activeActor.current!==actor)return;
       savedProfile.current=result.profile;
       currentDraft.current=result.profile;
