@@ -66,6 +66,12 @@ export class RefereeService{
   }
   private async assignments(userId:string){
     const {venues:allowed}=await this.authorization(userId);
+    // Keep historical invitations visible after the organizer changes referees.
+    // A historical response is proof of a previous assignment, not permission
+    // to accept an invitation or edit the new referee's match report.
+    const responses=await this.db.select().from(refereeMatchResponses)
+      .where(eq(refereeMatchResponses.refereeUserId,userId));
+    const previousIds=[...new Set(responses.map(r=>r.matchId))];
     const records=await this.db.select({
       match:competitionMatches,competitionName:competitions.name,format:competitions.format,
       duration:competitions.matchDurationMinutes,venueName:venues.name,
@@ -73,15 +79,13 @@ export class RefereeService{
     }).from(competitionMatches)
       .innerJoin(competitions,eq(competitions.id,competitionMatches.competitionId))
       .innerJoin(venues,eq(venues.id,competitions.venueId))
-      .where(eq(competitionMatches.refereeUserId,userId));
+      .where(previousIds.length?or(eq(competitionMatches.refereeUserId,userId),
+        inArray(competitionMatches.id,previousIds)):eq(competitionMatches.refereeUserId,userId));
     const teamIds=[...new Set(records.flatMap(r=>[r.match.homeTeamId,r.match.awayTeamId]).filter((v):v is string=>!!v))];
     const teamNames=teamIds.length?await this.db.select({id:teams.id,name:teams.name}).from(teams)
       .where(inArray(teams.id,teamIds)):[];
     const names=new Map(teamNames.map(t=>[t.id,t.name]));
     const responseIds=records.map(r=>r.match.id);
-    const responses=responseIds.length?await this.db.select().from(refereeMatchResponses)
-      .where(and(eq(refereeMatchResponses.refereeUserId,userId),
-        inArray(refereeMatchResponses.matchId,responseIds))):[];
     const byId=new Map(responses.map(r=>[r.matchId,r]));
     const reports=responseIds.length?await this.db.select({
       matchId:refereeMatchReports.matchId,refereeUserId:refereeMatchReports.refereeUserId,
@@ -94,7 +98,7 @@ export class RefereeService{
     return records.map(({match,competitionName,format,duration,venueName,venueAddress,latitude,longitude})=>{
       const reply=byId.get(match.id);
       const report=reportsById.get(match.id);
-      const authorized=allowedVenues.has(match.venueId??"");
+      const authorized=match.refereeUserId===userId&&allowedVenues.has(match.venueId??"");
       return {
         id:match.id,competitionId:match.competitionId,competitionName,format,
         homeTeamId:match.homeTeamId,awayTeamId:match.awayTeamId,
@@ -117,7 +121,7 @@ export class RefereeService{
   async overview(userId:string){
     const [identity,matches,profile]=await Promise.all([
       this.authorization(userId),this.assignments(userId),this.profile(userId)]);
-    const confirmed=matches.filter(m=>m.responseStatus==="ACCEPTED");
+    const confirmed=matches.filter(m=>m.responseStatus==="ACCEPTED"&&m.authorized);
     const completed=confirmed.filter(m=>["COMPLETED","CORRECTED"].includes(m.matchStatus));
     const pending=matches.filter(m=>m.responseStatus==="PENDING"&&m.authorized&&
       m.matchStatus==="SCHEDULED"&&!!m.startsAt&&Date.parse(m.startsAt)>this.now().getTime());
