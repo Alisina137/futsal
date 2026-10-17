@@ -1,4 +1,4 @@
-import type {RefereeMatchEvent,RefereeMatchReport,RefereeReportMember} from "./api";
+import type {RefereeMatch,RefereeMatchEvent,RefereeMatchReport,RefereeReportMember} from "./api";
 
 export type RefereeWorkspaceTab="scoreboard"|"events"|"teams"|"report";
 export const refereeWorkspaceTabs:ReadonlyArray<RefereeWorkspaceTab>=
@@ -7,6 +7,15 @@ export function refereeWorkspaceInitialTab(
   section:"upcoming"|"live"|"reports",
 ):RefereeWorkspaceTab{
   return section==="reports"?"report":"scoreboard";
+}
+export type RefereeCenterSection="upcoming"|"live"|"reports";
+export function refereeCenterSectionForMatch(
+  match:Pick<RefereeMatch,"reportFinishedAt"|"reportStatus"|"reportStartedAt">,
+):RefereeCenterSection{
+  if(match.reportFinishedAt||
+    ["SUBMITTED","CHANGES_REQUESTED","APPROVING","APPROVED"].includes(match.reportStatus??""))
+    return "reports";
+  return match.reportStartedAt?"live":"upcoming";
 }
 export function refereeWorkspaceAllowsFinish(
   report:RefereeMatchReport|null,
