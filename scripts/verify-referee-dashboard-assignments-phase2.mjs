@@ -21,7 +21,7 @@ for(const marker of [
   'refereeAssignmentTimeConflict(match,assignments)',
   'refereeAssignmentHistoryStatus(match,now)',
   'availableHistoryStatuses.has(status)',
-  'section==="pending"&&future&&!!match.endsAt&&!conflict',
+  'section==="pending"&&future&&!!match.endsAt&&!conflict&&',
   'action==="WITHDRAW_REQUESTED"&&reason.trim().length<3',
   'await refereeApi.respond(capturedToken,match.id,decision,reason.trim()||undefined)',
   'if(!mountedRef.current||tokenRef.current!==capturedToken)return',
