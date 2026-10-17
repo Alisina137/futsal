@@ -35,6 +35,9 @@ for(const m of [
   'refereeTeamRoster(roster,data?.match.homeTeamId??null)',
   'refereeTeamRoster(roster,data?.match.awayTeamId??null)',
   'eventTotals.GOAL','eventTotals.FOUL',
+  'testID="referee-workspace-more-events"',
+  'visibleEvents.slice().reverse().slice(0,eventLimit)',
+  'if(removed){setDeleteId(null);setDeleteReason("");}',
   'refereePhase2Api.submit(token!,match.id,report.revision)',
   'refereePhase2Api.removeEvent(',
   'refereePhase2Api.update(token!,match.id,',
@@ -67,7 +70,7 @@ for(const key of [
   "rf2.workspace.report","rf2.teamsTitle","rf2.teamsHint",
   "rf2.rosterCount","rf2.rosterEmpty","rf2.eventCount","rf2.reportNotReady",
   "rf2.confirmFinishTitle","rf2.confirmFinishBody","rf2.confirmFinish",
-  "rf2.finishAfterSecondPeriod",
+  "rf2.finishAfterSecondPeriod","rf2.showMoreEvents",
 ])assert.equal(locale.split('"'+key+'"').length-1,3,"Missing English/Dari/Pashto: "+key);
 assert.ok(pkg.scripts["verify:referee-dashboard-match-center-phase4"]
   .includes("scripts/tests/referee-dashboard-match-center-phase4.test.mjs"));
