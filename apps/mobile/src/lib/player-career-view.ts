@@ -73,3 +73,49 @@ export function careerPersonalBest(rows:CareerViewRow[]){
   }
   return {goals,assists};
 }
+
+// The calendar cursor represents a date, not an appointment with a clock.
+export function careerCalendarDate(day:string,language:CareerLanguage){
+  const value=new Date(day+"T12:00:00Z");
+  if(!Number.isFinite(value.getTime()))return day;
+  return calendarFormat(language,{year:"numeric",month:"long",day:"numeric"}).format(value);
+}
+
+/** Move the schedule by Solar Hijri months, retaining a Gregorian ISO cursor.
+ * When Persian ICU isn't available, careerPeriod safely uses Gregorian months.
+ */
+export function careerMonthShift(cursor:string,direction:number){
+  if(!Number.isInteger(direction)||Math.abs(direction)>24||direction===0||
+    !/^\d{4}-\d{2}-\d{2}$/.test(cursor)||
+    !Number.isFinite(Date.parse(cursor+"T12:00:00Z")))return cursor;
+  const shift=(day:string,delta:number)=>{
+    const value=new Date(day+"T12:00:00Z");
+    value.setUTCDate(value.getUTCDate()+delta);
+    return value.toISOString().slice(0,10);
+  };
+  const month=(day:string)=>careerPeriod(day+"T12:00:00Z","fa-AF").key;
+  const currentMonth=month(cursor);
+  let first=cursor;
+  for(let i=0;i<31&&month(shift(first,-1))===currentMonth;i++)
+    first=shift(first,-1);
+  const ordinal=Math.round((Date.parse(cursor+"T12:00:00Z")-
+    Date.parse(first+"T12:00:00Z"))/86_400_000);
+  let target=first;
+  for(let step=0;step<Math.abs(direction);step++){
+    if(direction>0){
+      // Shortest possible Gregorian or Persian calendar month is 28 days.
+      let next=shift(target,28);
+      while(month(next)===month(target))next=shift(next,1);
+      target=next;
+    }else{
+      let previous=shift(target,-1);
+      const previousMonth=month(previous);
+      for(let i=0;i<31&&month(shift(previous,-1))===previousMonth;i++)
+        previous=shift(previous,-1);
+      target=previous;
+    }
+  }
+  let length=1;
+  while(length<32&&month(shift(target,length))===month(target))length++;
+  return shift(target,Math.min(ordinal,length-1));
+}
