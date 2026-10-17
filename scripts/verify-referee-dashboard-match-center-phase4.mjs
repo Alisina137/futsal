@@ -23,7 +23,7 @@ for(const m of [
   'accessibilityState={{selected:workspaceTab===tab}}',
   'refereeWorkspaceAllowsFinish(report,pending.length,connected,busy)',
   'testID="referee-finish-confirmation"',
-  'void perform(()=>refereePhase2Api.clock(token!,match.id,"FINISH"',
+  'await perform(()=>refereePhase2Api.clock(token!,match.id,"FINISH"',
   'if(saved)setWorkspaceTab("report")',
   'workspaceTab==="scoreboard"&&canStart',
   'workspaceTab==="scoreboard"&&active',
