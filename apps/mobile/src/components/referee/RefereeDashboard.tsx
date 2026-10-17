@@ -4,7 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {colors,spacing,radius} from "@leaguekick/design-tokens";
 import {router,useFocusEffect} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
-import {Linking,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
+import {Linking,Pressable,ScrollView,StyleSheet,Switch,View,type LayoutChangeEvent} from "react-native";
 import {ApiRequestError,refereeApi,type RefereeMatch,type RefereeOverview,type RefereeProfile} from "../../lib/api";
 import {readRefereeOffline} from "../../lib/referee-offline";
 import {refereeAttentionItems,type RefereeAttentionItem} from "../../lib/referee-overview";
@@ -12,6 +12,7 @@ import {formatRefereeScheduleParts,formatRefereeCalendarPeriod} from "../../lib/
 import {refereeKabulDay,refereeCalendarIncludes,refereeCalendarMove,
   refereeCalendarWeekDays,refereeAvailabilityPreview} from "../../lib/referee-calendar";
 import {refereeAssignmentTimeConflict,refereeAssignmentSection} from "../../lib/referee-assignments";
+import {normalizeRefereeSettings,refereeSettingsChanged,refereeSettingsIssue} from "../../lib/referee-settings";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
 import {AppText} from "../ui/AppText";
@@ -23,6 +24,7 @@ import {TextField} from "../ui/TextField";
 import {RefereeMatchCenter} from "./RefereeMatchCenter";
 import {RefereeCareerPanel} from "./RefereeCareerPanel";
 import {RefereeAssignmentsPanel} from "./RefereeAssignmentsPanel";
+import {RefereeExceptionDatePicker} from "./RefereeExceptionDatePicker";
 import {refereeWorkspaceInitialTab,refereeCenterSectionForMatch} from "../../lib/referee-match-center";
 
 type Main="overview"|"assignments"|"center"|"stats"|"settings";
@@ -63,6 +65,10 @@ export function RefereeDashboard(){
   const [storedData,setData]=useState<RefereeOverview|null>(null);
   const data=storedData?.person.id===userId?storedData:null;
   const [draft,setDraft]=useState<RefereeProfile|null>(null);
+  const currentDraft=useRef<RefereeProfile|null>(null),savedProfile=useRef<RefereeProfile|null>(null);
+  const settingsDirty=Boolean(draft&&data&&refereeSettingsChanged(data.profile,draft));
+  currentDraft.current=draft;
+  const [settingsExitTarget,setSettingsExitTarget]=useState<Main|null>(null);
   const [busy,setBusy]=useState<string|null>(null),[loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
   const [activeCenterMatch,setActiveCenterMatch]=useState<RefereeMatch|null>(null);
@@ -89,7 +95,8 @@ export function RefereeDashboard(){
     setMain("overview");
     setSub({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
     setActiveCenterMatch(null);setCenterUnsafe(false);setCenterSaving(false);
-    setCenterExitTarget(null);
+    setCenterExitTarget(null);setSettingsExitTarget(null);
+    currentDraft.current=null;savedProfile.current=null;
     setError(null);setMessage(null);setBusy(null);
     setAttentionLimit(5);
   },[userId]);
@@ -106,8 +113,17 @@ export function RefereeDashboard(){
     if(!token||!userId){setData(null);setLoading(false);return()=>{active=false;};}
     if(previousScope.current!==userId){
       previousScope.current=userId;setData(null);setDraft(null);
+      currentDraft.current=null;savedProfile.current=null;
     }
     setLoading(true);
+    const syncOverview=(value:RefereeOverview)=>{
+      if(!active)return;
+      const hasEdits=Boolean(savedProfile.current&&currentDraft.current&&
+        refereeSettingsChanged(savedProfile.current,currentDraft.current));
+      setData(value);
+      if(!hasEdits){setDraft(value.profile);currentDraft.current=value.profile;}
+      savedProfile.current=value.profile;
+    };
     void (async()=>{
       let cached=false;
       try{
@@ -116,13 +132,13 @@ export function RefereeDashboard(){
           const value=JSON.parse(json) as RefereeOverview;
           if(value.person?.id===userId){
             cached=true;
-            if(active){setData(value);setDraft(value.profile);setLoading(false);}
+            if(active){syncOverview(value);setLoading(false);}
           }
         }
       }catch{/* Cache is optional; a corrupt entry never grants permissions. */}
       try{
         const value=await refereeApi.overview(token);
-        if(active){setData(value);setDraft(value.profile);setError(null);}
+        if(active){syncOverview(value);setError(null);}
         await AsyncStorage.setItem("futsal.referee.overview.v1."+userId,JSON.stringify(value));
       }catch(e){if(active){
         setError(e instanceof ApiRequestError?e.message:tr("loadError"));
@@ -154,6 +170,10 @@ export function RefereeDashboard(){
     return()=>{mounted=false;};
   },[userId,data?.assignments,refresh]);
   const choose=(tab:Main)=>{
+    if(main==="settings"&&tab!=="settings"&&settingsDirty){
+      setSettingsExitTarget(tab);return;
+    }
+    if(busy==="settings"&&tab!=="settings")return;
     if(tab!=="center"&&activeCenterMatch&&centerUnsafe){
       setCenterExitTarget(tab);return;
     }
@@ -172,6 +192,25 @@ export function RefereeDashboard(){
       if(activeActor.current===actor)
         setError(e instanceof ApiRequestError?e.message:tr("actionError"));
     }finally{if(activeActor.current===actor)setBusy(null);}
+  }
+  async function saveSettings(){
+    if(!draft||!token||!userId||busy!==null)return;
+    const issue=refereeSettingsIssue(draft);
+    if(issue){setError(tr("settingsValidation."+issue));return;}
+    const actor=userId;
+    await act("settings",async()=>{
+      const result=await refereeApi.updateProfile(token,normalizeRefereeSettings(draft));
+      if(activeActor.current!==actor)return;
+      savedProfile.current=result.profile;
+      currentDraft.current=result.profile;
+      setDraft(result.profile);
+      setData(previous=>previous?.person.id===actor?{...previous,profile:result.profile}:previous);
+    });
+  }
+  function discardSettings(){
+    if(!data)return;
+    setDraft(data.profile);currentDraft.current=data.profile;
+    setError(null);setSettingsExitTarget(null);
   }
   async function map(latitude:number|null,longitude:number|null){
     if(latitude===null||longitude===null)return;
@@ -325,6 +364,21 @@ export function RefereeDashboard(){
           {tr(main+"."+id)}</AppText>
       </Pressable>)}
     </ScrollView>:null}
+    {settingsExitTarget?<Card testID="referee-settings-exit-guard"
+      style={{gap:spacing.sm,borderColor:colors.warning}}>
+      <AppText weight="bold">{tr("settingsUnsaved")}</AppText>
+      <AppText variant="caption" muted>{tr("settingsLeaveWarning")}</AppText>
+      <View style={styles.actions}>
+        <Button label={tr("settingsKeepEditing")}
+          onPress={()=>setSettingsExitTarget(null)}/>
+        <Button label={tr("settingsDiscard")} variant="secondary" disabled={busy!==null}
+          onPress={()=>{
+            const destination=settingsExitTarget;
+            discardSettings();
+            if(destination){setMain(destination);focusTab(destination,true);}
+          }}/>
+      </View>
+    </Card>:null}
     {centerExitTarget?<Card testID="referee-dashboard-exit-guard"
       style={{gap:spacing.sm,borderColor:colors.warning}}>
       <AppText weight="bold">{t("rf2.safeLeaveTitle")}</AppText>
@@ -545,6 +599,17 @@ export function RefereeDashboard(){
         (reports.length?reports.map(card):<Card><AppText muted>{t("rf2.noReports")}</AppText></Card>):null}
       {main==="stats"&&["overview","history","performance"].includes(selectedSub)&&token?
         <RefereeCareerPanel token={token} section={selectedSub as "overview"|"history"|"performance"}/>:null}
+      {main==="settings"&&draft&&settingsDirty?<Card
+        testID="referee-settings-unsaved" style={{gap:spacing.sm,borderColor:colors.warning}}>
+        <AppText weight="bold">{tr("settingsUnsaved")}</AppText>
+        <View style={styles.actions}>
+          <Button testID="referee-settings-save" label={tr("save")}
+            disabled={busy!==null} loading={busy==="settings"}
+            onPress={()=>void saveSettings()}/>
+          <Button testID="referee-settings-discard" label={tr("settingsDiscard")}
+            variant="secondary" disabled={busy!==null} onPress={discardSettings}/>
+        </View>
+      </Card>:null}
       {main==="settings"&&selectedSub==="profile"&&draft?<Card>
         <AppText variant="bodyLarge" weight="bold">{tr("settings.profile")}</AppText>
         <TextField label={tr("level")} value={draft.level??""} maxLength={60}
@@ -553,13 +618,27 @@ export function RefereeDashboard(){
           onChangeText={v=>changeProfile({experienceYears:Number(v)||0})}/>
         <TextField label={tr("biography")} multiline maxLength={500} value={draft.biography??""}
           onChangeText={v=>changeProfile({biography:v||null})}/>
-        <Button label={tr("save")} loading={busy==="profile"} disabled={busy!==null}
-          onPress={()=>void act("profile",()=>refereeApi.updateProfile(token!,draft))}/>
+        <Button label={tr("save")} loading={busy==="settings"}
+          disabled={busy!==null||!settingsDirty} onPress={()=>void saveSettings()}/>
         <Button label={tr("accountProfile")} variant="secondary" onPress={()=>router.push("/settings")}/>
       </Card>:null}
-      {main==="settings"&&selectedSub==="availability"&&draft?<Card>
+      {main==="settings"&&selectedSub==="availability"&&draft?<Card style={{gap:spacing.md}}>
         <AppText variant="bodyLarge" weight="bold">{tr("settings.availability")}</AppText>
+        <View testID="referee-assignment-availability-toggle" style={styles.statusRow}>
+          <View style={{flex:1,gap:spacing.xs}}>
+            <AppText weight="bold">{tr("settingsAccepting")}</AppText>
+            <AppText variant="caption" muted>
+              {tr(draft.acceptingAssignments!==false?"settingsAcceptingOn":"settingsAcceptingPaused")}
+            </AppText>
+          </View>
+          <Switch value={draft.acceptingAssignments!==false}
+            accessibilityLabel={tr("settingsAccepting")}
+            onValueChange={enabled=>changeProfile({acceptingAssignments:enabled})}
+            trackColor={{true:colors.primary}}/>
+        </View>
         <AppText variant="caption" muted>{tr("availabilityHint")}</AppText>
+        {draft.weeklyAvailability.length===0?<AppText variant="caption"
+          style={{color:colors.danger}}>{tr("settingsNoWeeklyDays")}</AppText>:null}
         {days.map((day,index)=>{
           const slot=draft.weeklyAvailability.find(s=>s.day===index);
           return <View key={day} style={styles.day}>
@@ -581,8 +660,8 @@ export function RefereeDashboard(){
           </View>;
         })}
         <AppText weight="semibold">{tr("exceptions")}</AppText>
-        <TextField label={tr("exceptionDate")} placeholder="YYYY-MM-DD" value={exceptionDate}
-          onChangeText={setExceptionDate} forceLtr/>
+        <RefereeExceptionDatePicker label={tr("exceptionDate")}
+          value={exceptionDate} onChange={setExceptionDate}/>
         <View style={styles.actions}>
           <Button label={tr("markUnavailable")} variant="secondary"
             disabled={!/^\d{4}-\d{2}-\d{2}$/.test(exceptionDate)}
@@ -598,12 +677,12 @@ export function RefereeDashboard(){
             }}/>
         </View>
         {draft.exceptions.map(ex=><View key={ex.date} style={styles.actions}>
-          <AppText style={{flex:1}}>{ex.date} · {ex.available?tr("available"):tr("unavailable")}</AppText>
+          <AppText style={{flex:1}}>{formatRefereeScheduleParts(ex.date+"T12:00:00Z",language).date} · {ex.available?tr("available"):tr("unavailable")}</AppText>
           <Button label={tr("remove")} variant="ghost" onPress={()=>
             changeProfile({exceptions:draft.exceptions.filter(e=>e.date!==ex.date)})}/>
         </View>)}
-        <Button label={tr("save")} loading={busy==="availability"} disabled={busy!==null}
-          onPress={()=>void act("availability",()=>refereeApi.updateProfile(token!,draft))}/>
+        <Button label={tr("save")} loading={busy==="settings"}
+          disabled={busy!==null||!settingsDirty} onPress={()=>void saveSettings()}/>
       </Card>:null}
       {main==="settings"&&selectedSub==="venues"?<>
         {data.venues.length?data.venues.map(v=><Card key={v.id}>
@@ -616,13 +695,16 @@ export function RefereeDashboard(){
       {main==="settings"&&selectedSub==="notifications"?<Card>
         <AppText variant="bodyLarge" weight="bold">{tr("settings.notifications")}</AppText>
         <AppText muted>{tr("notificationsHint")}</AppText>
-        <Button label={tr("accountProfile")} variant="secondary" onPress={()=>router.push("/settings")}/>
+        <Button label={tr("settingsNotificationPrefs")} variant="secondary"
+          onPress={()=>router.push("/notifications/preferences")}/>
         <Button label={tr("openNotifications")} onPress={()=>router.push("/notifications")}/>
       </Card>:null}
     </>:null}
   </Screen>;
 }
 const styles=StyleSheet.create({
+  statusRow:{flexDirection:"row",alignItems:"center",gap:spacing.sm,padding:spacing.md,
+    borderRadius:radius.md,backgroundColor:colors.primarySoft,borderWidth:1,borderColor:colors.border},
   calendarDayHeading:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
     borderBottomWidth:1,borderColor:colors.border,paddingVertical:spacing.sm},
   calendarWarning:{flexDirection:"row",alignItems:"center",flexWrap:"wrap",
