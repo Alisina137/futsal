@@ -9,6 +9,7 @@ export type CachedRefereeMatch={
 export type StagedRefereeEvent=Omit<RefereeMatchEvent,"elapsedSeconds">&{elapsedSeconds:number};
 export type RefereeOfflineRecord={
   version:1;userId:string;matchId:string;cached:CachedRefereeMatch|null;pending:StagedRefereeEvent[];
+  summaryDraft?:string|null;
 };
 const prefix="futsal.referee.offline.v1.";
 const locks=new Map<string,Promise<unknown>>();
@@ -19,7 +20,7 @@ export function refereeOfflineKey(userId:string,matchId:string){
   return prefix+userId+"."+matchId;
 }
 function blank(userId:string,matchId:string):RefereeOfflineRecord{
-  return {version:1,userId,matchId,cached:null,pending:[]};
+  return {version:1,userId,matchId,cached:null,pending:[],summaryDraft:null};
 }
 async function load(userId:string,matchId:string):Promise<RefereeOfflineRecord>{
   const raw=await AsyncStorage.getItem(refereeOfflineKey(userId,matchId));
@@ -28,7 +29,10 @@ async function load(userId:string,matchId:string):Promise<RefereeOfflineRecord>{
     const decoded=JSON.parse(raw) as RefereeOfflineRecord;
     if(decoded.version!==1||decoded.userId!==userId||decoded.matchId!==matchId||
       !Array.isArray(decoded.pending)||decoded.pending.length>maxPending||
-      decoded.cached!==null&&typeof decoded.cached!=="object")throw new Error("Invalid saved record.");
+      decoded.cached!==null&&typeof decoded.cached!=="object"||
+      decoded.summaryDraft!==undefined&&decoded.summaryDraft!==null&&
+      (typeof decoded.summaryDraft!=="string"||decoded.summaryDraft.length>2000))
+      throw new Error("Invalid saved record.");
     return decoded;
   }catch{
     // Never erase a durable queue because its bytes are unexpected. Surface
@@ -48,6 +52,29 @@ async function store(state:RefereeOfflineRecord){
 }
 export async function readRefereeOffline(userId:string,matchId:string){
   return locked(userId,matchId,()=>load(userId,matchId));
+}
+/** Account-scoped summary drafts share the event queue's per-match lock.
+ * They persist independently of server revisions and are never submitted by sync.
+ */
+export async function saveRefereeSummaryDraft(userId:string,matchId:string,summary:string){
+  if(summary.length>2000)throw new Error("Summary exceeds the 2000-character limit.");
+  return locked(userId,matchId,async()=>{
+    const current=await load(userId,matchId);
+    const next={...current,summaryDraft:summary};
+    await store(next);return next;
+  });
+}
+export async function clearRefereeSummaryDraftIfMatches(
+  userId:string,matchId:string,savedSummary:string,
+){
+  return locked(userId,matchId,async()=>{
+    const current=await load(userId,matchId);
+    if(current.summaryDraft===savedSummary){
+      const next={...current,summaryDraft:null};
+      await store(next);return next;
+    }
+    return current;
+  });
 }
 export async function cacheRefereeMatch(userId:string,matchId:string,cached:CachedRefereeMatch){
   return locked(userId,matchId,async()=>{
