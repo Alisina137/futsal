@@ -288,6 +288,12 @@ export class RefereePhase2Service{
       .innerJoin(competitions,eq(competitions.id,competitionMatches.competitionId))
       .innerJoin(venues,eq(venues.id,competitions.venueId))
       .where(eq(competitionMatches.id,matchId)).limit(1);
+    try{await this.db.insert(auditLogs).values({actorUserId:userId,
+      action:"REFEREE_REPORT_SUBMITTED",targetType:"competition_match",targetId:matchId,
+      metadata:{revision:result.report.revision,status:result.report.status},
+      createdAt:this.now()});}
+    catch(error){console.error(JSON.stringify({event:"referee_submission_audit_failed",
+      errorType:error instanceof Error?error.name:typeof error}));}
     if(match)void this.notify(match.ownerId,match.competitionId,"Referee report submitted",
       "A referee submitted an official match report for your review.",
       "referee-report-submitted:"+matchId+":"+result.report.revision);
@@ -353,6 +359,12 @@ export class RefereePhase2Service{
         .where(and(eq(refereeMatchReports.matchId,matchId),eq(refereeMatchReports.status,"SUBMITTED"),
           eq(refereeMatchReports.revision,row.report.revision))).returning();
       if(!changed)throw errors.conflict("REPORT_REVIEW_CONFLICT","Refresh the report before reviewing.");
+      try{await this.db.insert(auditLogs).values({actorUserId:ownerId,
+        action:"REFEREE_REPORT_RETURNED",targetType:"competition_match",targetId:matchId,
+        metadata:{revision:changed.revision,feedback:input.feedback},
+        createdAt:this.now()});}
+      catch(error){console.error(JSON.stringify({event:"referee_return_audit_failed",
+        errorType:error instanceof Error?error.name:typeof error}));}
       void this.notify(changed.refereeUserId,row.match.competitionId,"Referee report correction requested",
         "The competition organizer returned your report with feedback.",
         "referee-report-returned:"+matchId+":"+changed.revision);
