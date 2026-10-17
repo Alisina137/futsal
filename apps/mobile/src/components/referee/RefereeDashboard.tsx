@@ -68,6 +68,9 @@ export function RefereeDashboard(){
   const [activeCenterMatch,setActiveCenterMatch]=useState<RefereeMatch|null>(null);
   const [centerUnsafe,setCenterUnsafe]=useState(false);
   const [centerSaving,setCenterSaving]=useState(false);
+  const updateCenterRisk=useCallback((unsafe:boolean,saving:boolean)=>{
+    setCenterUnsafe(unsafe);setCenterSaving(saving);
+  },[]);
   const [centerExitTarget,setCenterExitTarget]=useState<Main|null>(null);
   const [exceptionDate,setExceptionDate]=useState("");
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
@@ -531,7 +534,7 @@ export function RefereeDashboard(){
       {main==="center"&&activeCenterMatch?<RefereeMatchCenter
         key={userId+":"+activeCenterMatch.id} match={activeCenterMatch}
         initialTab={refereeWorkspaceInitialTab(selectedSub as "upcoming"|"live"|"reports")}
-        onRiskChange={(unsafe,saving)=>{setCenterUnsafe(unsafe);setCenterSaving(saving);}}
+        onRiskChange={updateCenterRisk}
         onClose={()=>{setCenterUnsafe(false);setCenterSaving(false);setCenterExitTarget(null);
           setActiveCenterMatch(null);setRefresh(v=>v+1);}}/>:null}
       {main==="center"&&!activeCenterMatch&&selectedSub==="upcoming"?
