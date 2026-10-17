@@ -19,6 +19,7 @@ import {Screen} from "../ui/Screen";
 import {TextField} from "../ui/TextField";
 import {RefereeMatchCenter} from "./RefereeMatchCenter";
 import {RefereeCareerPanel} from "./RefereeCareerPanel";
+import {RefereeAssignmentsPanel} from "./RefereeAssignmentsPanel";
 
 type Main="overview"|"assignments"|"center"|"stats"|"settings";
 const tabs:{id:Main;icon:keyof typeof Ionicons.glyphMap}[]=[
@@ -29,7 +30,7 @@ const tabs:{id:Main;icon:keyof typeof Ionicons.glyphMap}[]=[
   {id:"settings",icon:"settings-outline"},
 ];
 const subTabs:Record<Exclude<Main,"overview">,string[]>={
-  assignments:["pending","confirmed","calendar"],
+  assignments:["pending","confirmed","calendar","history"],
   center:["upcoming","live","reports"],
   stats:["overview","history","performance"],
   settings:["profile","availability","venues","notifications"],
@@ -169,8 +170,6 @@ export function RefereeDashboard(){
     setSub(value=>({...value,center:item.kind==="IMMINENT"?"upcoming":"reports"}));
     setActiveCenterMatch(item.match);choose("center");
   };
-  const pending=assignments.filter(a=>a.responseStatus==="PENDING"&&a.authorized&&a.matchStatus==="SCHEDULED"&&
-    !!a.startsAt&&Date.parse(a.startsAt)>Date.now());
   const accepted=assignments.filter(a=>a.responseStatus==="ACCEPTED");
   const upcoming=accepted.filter(a=>a.matchStatus==="SCHEDULED"&&!a.reportStartedAt);
   const active=accepted.filter(a=>!!a.reportStartedAt&&!a.reportFinishedAt&&
@@ -256,22 +255,6 @@ export function RefereeDashboard(){
             onPress={()=>{setActiveCenterMatch(m);choose("center");setSub(x=>({...x,center:"live"}));}}/>:null}
       </View>
       {!m.authorized?<AppText variant="caption" style={{color:colors.danger}}>{tr("venueRevoked")}</AppText>:null}
-      {m.responseStatus==="PENDING"&&m.authorized&&m.matchStatus==="SCHEDULED"?<>
-        <TextField label={tr("declineReason")} value={reason[m.id]??""}
-          onChangeText={v=>setReason(x=>({...x,[m.id]:v}))} maxLength={400}/>
-        <View style={styles.actions}>
-          <Button label={tr("accept")} disabled={busy!==null} loading={busy===m.id+":ACCEPTED"}
-            onPress={()=>void act(m.id+":ACCEPTED",()=>refereeApi.respond(token!,m.id,"ACCEPTED"))}/>
-          <Button label={tr("decline")} variant="danger" disabled={busy!==null}
-            onPress={()=>void act(m.id+":DECLINED",()=>refereeApi.respond(token!,m.id,"DECLINED",reason[m.id]))}/>
-        </View>
-      </>:null}
-      {m.responseStatus==="ACCEPTED"&&m.matchStatus==="SCHEDULED"?<>
-        <TextField label={tr("withdrawReason")} value={reason[m.id]??""}
-          onChangeText={v=>setReason(x=>({...x,[m.id]:v}))} maxLength={400}/>
-        <Button label={tr("withdraw")} variant="secondary" disabled={busy!==null||!(reason[m.id]??"").trim()}
-          onPress={()=>void act(m.id+":WITHDRAW",()=>refereeApi.respond(token!,m.id,"WITHDRAW_REQUESTED",reason[m.id]))}/>
-      </>:null}
     </Card>;
   }
   return <Screen showHeader refreshing={loading&&!!data}
@@ -385,10 +368,13 @@ export function RefereeDashboard(){
         </Card>
         
       </>:null}
-      {main==="assignments"&&selectedSub==="pending"?
-        (pending.length?pending.map(card):<Card><AppText muted>{tr("emptyPending")}</AppText></Card>):null}
-      {main==="assignments"&&selectedSub==="confirmed"?
-        (accepted.length?accepted.map(card):<Card><AppText muted>{tr("emptyConfirmed")}</AppText></Card>):null}
+      {main==="assignments"&&
+        ["pending","confirmed","history"].includes(selectedSub)&&token?
+        <RefereeAssignmentsPanel key={userId} assignments={assignments}
+          section={selectedSub as "pending"|"confirmed"|"history"}
+          token={token} onChanged={()=>setRefresh(value=>value+1)}
+          onOpenMatch={match=>{setActiveCenterMatch(match);choose("center");
+            setSub(previous=>({...previous,center:"live"}));}}/>:null}
       {main==="assignments"&&selectedSub==="calendar"?<>
         <Card style={{gap:spacing.md}}>
           <AppText variant="bodyLarge" weight="bold">{tr("calendarHint")}</AppText>
