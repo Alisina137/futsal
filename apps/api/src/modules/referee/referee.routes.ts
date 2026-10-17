@@ -125,7 +125,7 @@ export class RefereeService{
       Date.parse(m.startsAt)>this.now().getTime());
     return {person:identity.person,venues:identity.venues,profile,
       assignments:matches,
-      stats:{total:completed.length,upcoming:upcoming.length,pending:pending.length,
+      stats:{total:matches.length,upcoming:upcoming.length,pending:pending.length,
         completed:completed.length,accepted:confirmed.length,
         declined:matches.filter(m=>m.responseStatus==="DECLINED").length},
       nextMatch:upcoming[0]??null};
