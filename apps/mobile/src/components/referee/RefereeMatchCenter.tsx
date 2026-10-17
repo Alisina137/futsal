@@ -524,7 +524,7 @@ export function RefereeMatchCenter({match,onClose,initialTab="scoreboard",onRisk
               {revision:report.revision,summary:saved}));
             if(ok&&userId){
               try{await clearRefereeSummaryDraftIfMatches(userId,match.id,saved);}
-              catch(e){setDraftError(e instanceof Error?e.message:tr("draftSaveFailed"));}
+              catch(e){setError(tr("offlineCacheWarning"));}
             }
           })()}/>:null}
         {editable?<Button label={tr("submitReport")} disabled={!canSubmit}
