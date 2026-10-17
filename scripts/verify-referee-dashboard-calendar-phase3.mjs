@@ -38,7 +38,9 @@ for(const marker of [
   'refereeCalendarWeekDays(calendarKey,language)',
   'refereeAssignmentTimeConflict(m,assignments)',
   'refereeAvailabilityPreview(m,data.profile)',
-  'calendarItems.map(m=>card(m,true))',
+  'calendarItems.slice(0,calendarLimit).map((m,index,displayed)=>',
+  'testID="referee-calendar-show-more"',
+  'card(m,true)',
   'refereeCalendarDay',
 ])if(marker!=="refereeCalendarDay")
   assert.ok(dashboard.includes(marker),"Calendar UI: "+marker);
@@ -59,7 +61,7 @@ for(const key of [
   "rf1.calendar.weekDays","rf1.calendar.matches",
   "rf1.calendar.conflict","rf1.calendar.unavailable",
   "rf1.calendar.manageAvailability","rf1.calendar.missingEnd",
-  "rf1.calendar.reviewInvitation",
+  "rf1.calendar.reviewInvitation","rf1.calendar.showMore",
 ])assert.equal(locale.split('"'+key+'"').length-1,3,"Missing translations for "+key);
 assert.ok(pkg.scripts["verify:referee-dashboard-calendar-phase3"]
   .includes("scripts/tests/referee-dashboard-calendar-phase3.test.mjs"));
