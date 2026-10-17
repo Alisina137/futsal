@@ -1,4 +1,5 @@
 import type { LanguageCode } from "@leaguekick/localization";
+import {refereeKabulDay,refereeWeekStart,refereeShiftDay} from "./referee-calendar";
 
 const localeByLanguage: Record<LanguageCode, string> = {
   "fa-AF": "fa-AF",
@@ -37,36 +38,56 @@ function clock(value:Date,timeZone:string):string{
   }
 }
 
-/** Separate calendar date and clock; referee schedules include weekday. */
+/** A single calendar policy for the Referee Dashboard and appointment cards.
+ * Dari/Pashto display Solar Hijri when the device supports it. If Hermes/ICU
+ * cannot provide that calendar, all labels consistently fall back to Gregorian.
+ */
+function refereeDateFormatter(language:LanguageCode,options:Intl.DateTimeFormatOptions){
+  const solar=language!=="en";
+  const calendar=solar?"persian":"gregory";
+  const locale=localeByLanguage[language];
+  try{
+    const format=new Intl.DateTimeFormat(locale,{
+      timeZone:AFGHANISTAN_TIME_ZONE,calendar,...options,
+    });
+    if(format.resolvedOptions().calendar===calendar)return format;
+  }catch{}
+  return new Intl.DateTimeFormat("en-GB",{
+    timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory",...options,
+  });
+}
+
+/** Separate calendar date and AM/PM clock in Kabul time, for all three languages. */
 export function formatRefereeScheduleParts(value:string|Date,language:LanguageCode){
   const date=value instanceof Date?value:new Date(value);
   if(!Number.isFinite(date.getTime()))return {date:String(value),time:""};
   return {
-    date:new Intl.DateTimeFormat(localeByLanguage[language],{
-      timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory",
+    date:refereeDateFormatter(language,{
       weekday:"short",year:"numeric",month:"long",day:"numeric",
     }).format(date),
     time:clock(date,AFGHANISTAN_TIME_ZONE),
   };
 }
-/** The calendar shows its selected Kabul-local period, not an arbitrary anchor time. */
-export function formatRefereeCalendarPeriod(value:Date,mode:"day"|"week"|"month",language:LanguageCode){
- const locale=localeByLanguage[language];
- const zone={timeZone:AFGHANISTAN_TIME_ZONE,calendar:"gregory"} as const;
- const parts=new Intl.DateTimeFormat("en-GB",{...zone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(value);
- const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));
- const y=Number(v.year),m=Number(v.month),d=Number(v.day);
- const localDay=(offset:number)=>new Date(Date.UTC(y,m-1,d+offset,12));
- if(mode==="day")return new Intl.DateTimeFormat(locale,{
-   ...zone,weekday:"long",day:"numeric",month:"long",year:"numeric",
- }).format(localDay(0));
- if(mode==="month")return new Intl.DateTimeFormat(locale,{
-   ...zone,month:"long",year:"numeric",
- }).format(localDay(0));
- const monday=-((new Date(Date.UTC(y,m-1,d)).getUTCDay()+6)%7);
- const start=new Intl.DateTimeFormat(locale,{...zone,day:"numeric",month:"short"}).format(localDay(monday));
- const end=new Intl.DateTimeFormat(locale,{...zone,day:"numeric",month:"short",year:"numeric"}).format(localDay(monday+6));
- return start+" – "+end;
+/** Selected period is a Kabul-local Day, Saturday/Monday week, or Solar/Gregorian month. */
+export function formatRefereeCalendarPeriod(
+  value:Date,mode:"day"|"week"|"month",language:LanguageCode,
+){
+  const cursor=refereeKabulDay(value);
+  if(!cursor)return "";
+  const displayDay=(day:string)=>
+    new Date(day+"T12:00:00Z");
+  if(mode==="day")return refereeDateFormatter(language,{
+    weekday:"long",day:"numeric",month:"long",year:"numeric",
+  }).format(displayDay(cursor));
+  if(mode==="month")return refereeDateFormatter(language,{
+    month:"long",year:"numeric",
+  }).format(displayDay(cursor));
+  const first=refereeWeekStart(cursor,language);
+  const last=refereeShiftDay(first,6);
+  const formatter=refereeDateFormatter(language,{
+    day:"numeric",month:"short",year:"numeric",
+  });
+  return formatter.format(displayDay(first))+" – "+formatter.format(displayDay(last));
 }
 
 export function formatLocalDateTimeParts(
