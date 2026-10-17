@@ -6,6 +6,8 @@ import {router,useFocusEffect} from "expo-router";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {Linking,Pressable,ScrollView,StyleSheet,View,type LayoutChangeEvent} from "react-native";
 import {ApiRequestError,refereeApi,type RefereeMatch,type RefereeOverview,type RefereeProfile} from "../../lib/api";
+import {readRefereeOffline} from "../../lib/referee-offline";
+import {refereeAttentionItems,type RefereeAttentionItem} from "../../lib/referee-overview";
 import {formatRefereeScheduleParts,formatRefereeCalendarPeriod} from "../../lib/date-time";
 import {useAuth} from "../../providers/AuthProvider";
 import {useLocale} from "../../providers/LocaleProvider";
@@ -53,7 +55,8 @@ export function RefereeDashboard(){
   const tr=(key:string)=>t(("rf1."+key) as never);
   const [main,setMain]=useState<Main>("overview");
   const [sub,setSub]=useState<Record<string,string>>({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
-  const [data,setData]=useState<RefereeOverview|null>(null);
+  const [storedData,setData]=useState<RefereeOverview|null>(null);
+  const data=storedData?.person.id===userId?storedData:null;
   const [draft,setDraft]=useState<RefereeProfile|null>(null);
   const [busy,setBusy]=useState<string|null>(null),[loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);
@@ -63,7 +66,16 @@ export function RefereeDashboard(){
   const [calendarView,setCalendarView]=useState<"day"|"week"|"month">("week");
   const [calendarAnchor,setCalendarAnchor]=useState(new Date());
   const [refresh,setRefresh]=useState(0);
+  const [offlineCounts,setOfflineCounts]=useState<Record<string,number>>({});
+  const [offlineScanError,setOfflineScanError]=useState(false);
   const previousScope=useRef<string|null>(null);
+  const activeActor=useRef(userId);
+  activeActor.current=userId;
+  useEffect(()=>{
+    setMain("overview");
+    setSub({assignments:"pending",center:"upcoming",stats:"overview",settings:"profile"});
+    setActiveCenterMatch(null);setReason({});setError(null);setMessage(null);setBusy(null);
+  },[userId]);
   const navRef=useRef<ScrollView|null>(null),navViewport=useRef(0),navWidth=useRef(0);
   const cells=useRef<Partial<Record<Main,{x:number;width:number}>>>({});
   const focusTab=useCallback((id:Main,animated=false)=>{
@@ -102,13 +114,37 @@ export function RefereeDashboard(){
     })();
     return()=>{active=false;};
   },[token,userId,refresh,t]));
+  // Count account-scoped offline events without deleting or attempting to sync them.
+  // Invalid durable records remain intact and surface an explicit warning.
+  useEffect(()=>{
+    let mounted=true;
+    setOfflineCounts({});setOfflineScanError(false);
+    if(!userId||!data)return()=>{mounted=false;};
+    void Promise.all(data.assignments.map(async match=>{
+      try{
+        const record=await readRefereeOffline(userId,match.id);
+        return [match.id,record.pending.length] as const;
+      }catch{return [match.id,-1] as const;}
+    })).then(entries=>{
+      if(!mounted)return;
+      setOfflineCounts(Object.fromEntries(entries.filter(([,count])=>count>0)));
+      setOfflineScanError(entries.some(([,count])=>count<0));
+    });
+    return()=>{mounted=false;};
+  },[userId,data?.assignments,refresh]);
   const choose=(tab:Main)=>{setMain(tab);focusTab(tab,true);};
   async function act(key:string,fn:()=>Promise<unknown>){
     if(busy)return;
+    const actor=userId;
     setBusy(key);setError(null);setMessage(null);
-    try{await fn();setMessage(tr("saved"));setRefresh(v=>v+1);}
-    catch(e){setError(e instanceof ApiRequestError?e.message:tr("actionError"));}
-    finally{setBusy(null);}
+    try{
+      await fn();
+      if(activeActor.current!==actor)return;
+      setMessage(tr("saved"));setRefresh(v=>v+1);
+    }catch(e){
+      if(activeActor.current===actor)
+        setError(e instanceof ApiRequestError?e.message:tr("actionError"));
+    }finally{if(activeActor.current===actor)setBusy(null);}
   }
   async function map(latitude:number|null,longitude:number|null){
     if(latitude===null||longitude===null)return;
@@ -116,6 +152,16 @@ export function RefereeDashboard(){
     catch{setError(tr("mapError"));}
   }
   const assignments=data?.assignments??[];
+  const attention=refereeAttentionItems(assignments,Date.now(),offlineCounts);
+  const openAttention=(item:RefereeAttentionItem)=>{
+    if(item.kind==="PENDING"){
+      setSub(value=>({...value,assignments:"pending"}));choose("assignments");
+      return;
+    }
+    if(!item.match.authorized){setError(tr("venueRevoked"));return;}
+    setSub(value=>({...value,center:item.kind==="IMMINENT"?"upcoming":"reports"}));
+    setActiveCenterMatch(item.match);choose("center");
+  };
   const pending=assignments.filter(a=>a.responseStatus==="PENDING"&&a.authorized&&a.matchStatus==="SCHEDULED"&&
     !!a.startsAt&&Date.parse(a.startsAt)>Date.now());
   const accepted=assignments.filter(a=>a.responseStatus==="ACCEPTED");
@@ -221,7 +267,8 @@ export function RefereeDashboard(){
       </>:null}
     </Card>;
   }
-  return <Screen showHeader>
+  return <Screen showHeader refreshing={loading&&!!data}
+    onRefresh={()=>setRefresh(value=>value+1)}>
     <ScrollView ref={navRef} horizontal showsHorizontalScrollIndicator={false}
       style={styles.nav} onLayout={e=>{navViewport.current=e.nativeEvent.layout.width;focusTab(main);}}
       onContentSizeChange={w=>{navWidth.current=w;focusTab(main);}}
@@ -248,15 +295,68 @@ export function RefereeDashboard(){
     {message?<Card style={{backgroundColor:colors.primarySoft}}><AppText>{message}</AppText></Card>:null}
     {loading?<DataLoadingState variant="dashboard" minHeight={460}/>:data?<>
       {main==="overview"?<>
-        <Card><AppText variant="bodyLarge" weight="bold">{data.person.name}</AppText>
-          <AppText variant="caption" muted>{tr("profileStatus")} · {data.venues.map(v=>v.name).join(", ")||tr("noVenues")}</AppText>
+        <Card testID="referee-overview-identity">
+          <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <View style={{flex:1,gap:spacing.xs}}>
+              <AppText variant="bodyLarge" weight="bold">{data.person.name}</AppText>
+              <AppText variant="caption" muted>
+                {tr("profileStatus")} · {data.venues.map(v=>v.name).join(", ")||tr("noVenues")}
+              </AppText>
+            </View>
+            <Pressable testID="referee-overview-refresh" accessibilityRole="button"
+              accessibilityLabel={tr("overview.refresh")}
+              disabled={loading||busy!==null}
+              accessibilityState={{disabled:loading||busy!==null}}
+              onPress={()=>setRefresh(value=>value+1)} style={styles.refreshButton}>
+              <Ionicons name="refresh-outline" size={22} color={colors.primary}/>
+            </Pressable>
+          </View>
         </Card>
-        <View style={styles.stats}>
+        <View testID="referee-overview-kpis" style={styles.stats}>
           <RefStat value={data.stats.total} label={tr("stat.total")}/>
           <RefStat value={data.stats.upcoming} label={tr("stat.upcoming")}/>
           <RefStat value={data.stats.completed} label={tr("stat.completed")}/>
           <RefStat value={data.stats.pending} label={tr("stat.pending")}/>
         </View>
+        <Card testID="referee-overview-attention" style={styles.attentionCard}>
+          <View style={[styles.attentionHeading,{flexDirection:isRTL?"row-reverse":"row"}]}>
+            <Ionicons name="alert-circle-outline" size={21}
+              color={attention.length||offlineScanError?colors.warning:colors.success}/>
+            <AppText variant="bodyLarge" weight="bold" style={{flex:1}}>
+              {tr("overview.attentionTitle")}
+            </AppText>
+            {attention.length>0?<AppText weight="bold" style={{color:colors.primary}}>
+              {attention.length}</AppText>:null}
+          </View>
+          {offlineScanError?<AppText variant="caption" style={{color:colors.danger}}>
+            {tr("overview.offlineScanError")}</AppText>:null}
+          {attention.length===0&&!offlineScanError?<View style={styles.attentionEmpty}>
+            <Ionicons name="checkmark-circle-outline" size={20} color={colors.success}/>
+            <AppText muted style={{flex:1}}>{tr("overview.allClear")}</AppText>
+          </View>:null}
+          {attention.slice(0,5).map(item=><View key={item.key} style={styles.attentionItem}>
+            <View style={[styles.row,{flexDirection:isRTL?"row-reverse":"row"}]}>
+              <Ionicons name={item.kind==="UNSYNCED"?"cloud-offline-outline":
+                item.kind==="CORRECTION"?"document-text-outline":
+                item.kind==="PENDING"?"mail-unread-outline":"time-outline"}
+                size={21} color={item.kind==="UNSYNCED"?colors.danger:colors.primary}/>
+              <View style={{flex:1,gap:spacing.xs}}>
+                <AppText weight="semibold">{tr(item.kind==="UNSYNCED"?"overview.unsynced":
+                  item.kind==="CORRECTION"?"overview.reportCorrection":
+                  item.kind==="PENDING"?"overview.invitation":"overview.kickoffSoon")}
+                  {item.kind==="UNSYNCED"?" ("+item.unsyncedCount+")":""}</AppText>
+                <AppText variant="caption" muted numberOfLines={2}>
+                  {item.match.homeTeamName} VS {item.match.awayTeamName} · {item.match.venueName}
+                </AppText>
+              </View>
+            </View>
+            {item.kind==="IMMINENT"?scheduledDateTime(item.match.startsAt):null}
+            <Button variant="secondary" label={tr("overview.review")}
+              onPress={()=>openAttention(item)}/>
+          </View>)}
+          {attention.length>5?<AppText variant="caption" muted>
+            {tr("overview.additionalActions")}</AppText>:null}
+        </Card>
         <Card><AppText variant="bodyLarge" weight="bold">{tr("nextMatch")}</AppText>
           {data.nextMatch?<><AppText weight="bold">{data.nextMatch.homeTeamName} VS {data.nextMatch.awayTeamName}</AppText>
             {scheduledDateTime(data.nextMatch.startsAt)}
@@ -273,8 +373,7 @@ export function RefereeDashboard(){
             <Button label={tr("assignments.calendar")} variant="secondary" onPress={()=>{choose("assignments");setSub(x=>({...x,assignments:"calendar"}));}}/>
           </View>
         </Card>
-        {pending.length>0?<Card><AppText weight="semibold">{tr("attention")}: {pending.length}</AppText>
-          <Button label={tr("assignments.pending")} onPress={()=>{choose("assignments");setSub(x=>({...x,assignments:"pending"}));}}/></Card>:null}
+        
       </>:null}
       {main==="assignments"&&selectedSub==="pending"?
         (pending.length?pending.map(card):<Card><AppText muted>{tr("emptyPending")}</AppText></Card>):null}
@@ -406,6 +505,14 @@ export function RefereeDashboard(){
   </Screen>;
 }
 const styles=StyleSheet.create({
+  attentionCard:{gap:spacing.md},
+  attentionHeading:{alignItems:"center",gap:spacing.sm},
+  attentionEmpty:{flexDirection:"row",alignItems:"center",gap:spacing.sm,
+    padding:spacing.sm,backgroundColor:colors.surfaceMuted,borderRadius:radius.md},
+  attentionItem:{gap:spacing.sm,borderTopWidth:1,borderTopColor:colors.border,
+    paddingTop:spacing.md},
+  refreshButton:{minHeight:44,minWidth:44,alignItems:"center",justifyContent:"center",
+    backgroundColor:colors.primarySoft,borderRadius:radius.md},
   nav:{borderTopWidth:1,borderBottomWidth:1,borderColor:colors.border,flexGrow:0},
   navItem:{alignItems:"center",gap:4,minWidth:90,paddingVertical:spacing.sm,
     paddingHorizontal:spacing.sm,borderBottomWidth:3,borderBottomColor:"transparent"},
