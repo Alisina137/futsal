@@ -10,7 +10,7 @@ const nav=screen.slice(screen.indexOf("const tabs:"),screen.indexOf("const days=
 assert.deepEqual([...nav.matchAll(/\{id:"([a-z]+)",icon:/g)].map(x=>x[1]),
   ["overview","assignments","center","stats","settings"]);
 for(const text of [
-  'assignments:["pending","confirmed","calendar"]',
+  'assignments:["pending","confirmed","calendar","history"]',
   'center:["upcoming","live","reports"]',
   'stats:["overview","history","performance"]',
   'settings:["profile","availability","venues","notifications"]',
