@@ -35,7 +35,7 @@ must(screen,[
   'testID="referee-career-history-filters"',
   'testID="referee-history-more"',
   'refereeHistoryFilter(history,{',
-  'refereeHistoryOptions(history)',
+  'refereeHistoryOptions(history,language)',
   'filteredHistory.slice(0,limit).map',
   'setExpandedPicker(current=>current===id?null:id)',
   'value={result.finishedReports}',
