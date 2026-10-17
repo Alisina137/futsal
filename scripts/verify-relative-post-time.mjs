@@ -10,11 +10,16 @@ const hook=read("apps/mobile/src/hooks/usePostTimeNow.ts");
 const compiled=ts.transpileModule(source,{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}
 }).outputText;
-const scope={exports:{},Intl,Date};
+const refereeCalendarStub={refereeKabulDay:()=>null,refereeWeekStart:()=>"",refereeShiftDay:()=>""};
+const requireCalendar=(path)=>{
+  if(path==="./referee-calendar.ts")return refereeCalendarStub;
+  throw new Error("Unexpected dependency: "+path);
+};
+const scope={exports:{},Intl,Date,require:requireCalendar};
 vm.runInNewContext(compiled,scope);
 const {formatPostTimeAgo}=scope.exports;
 assert(!source.includes("new Intl.RelativeTimeFormat"),"Android Hermes does not always implement Intl.RelativeTimeFormat.");
-const safeScope={exports:{},Date,Intl:{DateTimeFormat:Intl.DateTimeFormat}};
+const safeScope={exports:{},Date,require:requireCalendar,Intl:{DateTimeFormat:Intl.DateTimeFormat}};
 vm.runInNewContext(compiled,safeScope);
 assert(safeScope.exports.formatPostTimeAgo(new Date("2026-10-08T11:16:00Z"),"en",Date.parse("2026-10-08T12:00:00Z"))==="44 minutes ago",
   "Post timestamps must work without Intl.RelativeTimeFormat and NumberFormat on Android.");
